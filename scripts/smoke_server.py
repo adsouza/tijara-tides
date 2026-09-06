@@ -24,7 +24,7 @@ def request(path, https=False):
 
 for attempt in range(60):
     try:
-        status, headers, body = request("/health")
+        status, headers, body = request("/healthz")
         if status == 200:
             break
     except (OSError, http.client.HTTPException):
@@ -33,8 +33,10 @@ for attempt in range(60):
 else:
     raise RuntimeError("Server did not become healthy")
 
-assert body == b"ok", body
-assert "set-cookie" not in headers, headers
+for path in ("/health", "/healthz"):
+    status, headers, body = request(path)
+    assert status == 200 and body == b"ok", (path, status, body)
+    assert "set-cookie" not in headers, headers
 status, headers, _ = request("/")
 assert status in (301, 308), status
 assert headers["location"] == f"https://{host}/", headers

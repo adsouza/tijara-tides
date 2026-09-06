@@ -18,6 +18,7 @@ defmodule TijaraTidesWeb.Router do
   # Health probes do not create sessions or touch the world/database.
   scope "/", TijaraTidesWeb do
     get "/health", HealthController, :show
+    get "/healthz", HealthController, :show
   end
 
   scope "/", TijaraTidesWeb do

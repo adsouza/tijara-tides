@@ -21,7 +21,7 @@ unprivileged user, and includes no desktop toolchain or local environment files.
 4. Create the Blueprint. Render builds the Dockerfile and starts its release.
    The initial creation deploys immediately; subsequent automatic deployments
    are configured to wait for passing CI checks.
-5. Open the assigned HTTPS URL and `/health`, then open the lobby in two browser
+5. Open the assigned HTTPS URL and `/healthz`, then open the lobby in two browser
    sessions. The live guest count should update in both. Enter the same HTTPS
    server URL in the native desktop client.
 
@@ -32,7 +32,7 @@ hostname (no scheme or path); it takes precedence over Render's hostname.
 `PHX_SERVER=true` is already configured. TLS terminates at Render's proxy;
 Phoenix honors `X-Forwarded-Proto` and uses secure session cookies.
 
-The `/health` endpoint returns plain `ok` without a session, redirect, database
+The `/healthz` endpoint (also available at `/health`) returns plain `ok` without a session, redirect, database
 query, or world command. It checks HTTP availability, not database readiness.
 Do not add an external keep-awake monitor: the free service may sleep while idle.
 

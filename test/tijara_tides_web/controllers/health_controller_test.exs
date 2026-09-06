@@ -2,10 +2,12 @@ defmodule TijaraTidesWeb.HealthControllerTest do
   use TijaraTidesWeb.ConnCase, async: true
 
   test "health probes succeed without creating a guest session", %{conn: conn} do
-    conn = get(conn, ~p"/health")
-    assert response(conn, 200) == "ok"
-    assert get_resp_header(conn, "set-cookie") == []
-    assert get_resp_header(conn, "cache-control") == ["no-store"]
-    refute Map.has_key?(conn.assigns, :guest_id)
+    for path <- [~p"/health", ~p"/healthz"] do
+      conn = get(conn, path)
+      assert response(conn, 200) == "ok"
+      assert get_resp_header(conn, "set-cookie") == []
+      assert get_resp_header(conn, "cache-control") == ["no-store"]
+      refute Map.has_key?(conn.assigns, :guest_id)
+    end
   end
 end

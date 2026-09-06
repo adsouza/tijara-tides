@@ -7,7 +7,7 @@ services:
     numInstances: 1
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    healthCheckPath: /health
+    healthCheckPath: /healthz
     autoDeployTrigger: checksPass
     envVars:
       - key: PHX_SERVER
