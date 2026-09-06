@@ -10,5 +10,5 @@ defmodule TijaraTides.Infrastructure do
       Ecto.Adapters.Postgres,
       Ecto.Adapters.SQL
     ],
-    exports: [WorldServer, Persistence.Repo, Persistence.DatabaseConfig]
+    exports: [WorldServer, Persistence.Repo, Persistence.DatabaseConfig, Persistence.Readiness]
 end

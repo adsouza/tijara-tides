@@ -10,4 +10,11 @@ defmodule TijaraTidesWeb.HealthControllerTest do
       refute Map.has_key?(conn.assigns, :guest_id)
     end
   end
+
+  test "readiness fails explicitly when no database is configured", %{conn: conn} do
+    conn = get(conn, ~p"/statusz")
+    assert json_response(conn, 503) == %{"database" => "not_configured"}
+    assert get_resp_header(conn, "set-cookie") == []
+    assert get_resp_header(conn, "cache-control") == ["no-store"]
+  end
 end

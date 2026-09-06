@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check a running production release through a simulated HTTPS reverse proxy."""
 import http.client
+import json
 import re
 import sys
 import time
@@ -37,6 +38,9 @@ for path in ("/health", "/healthz"):
     status, headers, body = request(path)
     assert status == 200 and body == b"ok", (path, status, body)
     assert "set-cookie" not in headers, headers
+status, headers, body = request("/statusz")
+assert status == 503 and json.loads(body) == {"database": "not_configured"}, (status, body)
+assert "set-cookie" not in headers, headers
 status, headers, _ = request("/")
 assert status in (301, 308), status
 assert headers["location"] == f"https://{host}/", headers

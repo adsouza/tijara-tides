@@ -19,6 +19,7 @@ defmodule TijaraTidesWeb.Router do
   scope "/", TijaraTidesWeb do
     get "/health", HealthController, :show
     get "/healthz", HealthController, :show
+    get "/statusz", HealthController, :ready
   end
 
   scope "/", TijaraTidesWeb do

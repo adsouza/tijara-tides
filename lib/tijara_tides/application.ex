@@ -11,6 +11,7 @@ defmodule TijaraTides.Application do
     children =
       repo_children() ++
         [
+          TijaraTides.Infrastructure.Persistence.Readiness,
           TijaraTidesWeb.Telemetry,
           {Phoenix.PubSub, name: TijaraTides.PubSub},
           {TijaraTides.Infrastructure.WorldServer, name: TijaraTides.Infrastructure.WorldServer},

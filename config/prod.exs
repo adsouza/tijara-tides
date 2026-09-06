@@ -17,7 +17,7 @@ config :tijara_tides, TijaraTidesWeb.Endpoint,
   force_ssl: [
     rewrite_on: [:x_forwarded_proto],
     exclude: [
-      paths: ["/health", "/healthz"],
+      paths: ["/health", "/healthz", "/statusz"],
       hosts: ["localhost", "127.0.0.1"]
     ]
   ]

@@ -71,3 +71,12 @@ After game state and action boundaries are designed:
 - Keep static definitions and derived presentation data out of repeated writes.
 - Add recovery and retry integration tests against a separate disposable test
   database, never the shared Neon database used for playtesting.
+
+## Startup connectivity status
+
+When `DATABASE_URL` is configured, a supervised startup check runs `SELECT 1`
+once and caches the result. `/statusz` returns 200 after success, or 503 while
+checking, after failure, or without database configuration. Status requests never
+query Neon. This proves startup connectivity only; it does not continuously
+monitor the connection or load game state. See [deployment setup](deploying.md)
+for health check configuration and restart behavior.

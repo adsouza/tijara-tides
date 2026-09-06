@@ -21,7 +21,7 @@ unprivileged user, and includes no desktop toolchain or local environment files.
 4. Create the Blueprint. Render builds the Dockerfile and starts its release.
    The initial creation deploys immediately; subsequent automatic deployments
    are configured to wait for passing CI checks.
-5. Open the assigned HTTPS URL and `/healthz`, then open the lobby in two browser
+5. Open the assigned HTTPS URL and `/statusz`, then open the lobby in two browser
    sessions. The live guest count should update in both. Enter the same HTTPS
    server URL in the native desktop client.
 
@@ -32,8 +32,22 @@ hostname (no scheme or path); it takes precedence over Render's hostname.
 `PHX_SERVER=true` is already configured. TLS terminates at Render's proxy;
 Phoenix honors `X-Forwarded-Proto` and uses secure session cookies.
 
-The `/healthz` endpoint (also available at `/health`) returns plain `ok` without a session, redirect, database
-query, or world command. It checks HTTP availability, not database readiness.
+The `/healthz` endpoint (also available at `/health`) returns plain `ok` without
+creating a session or accessing the database. `/statusz` reads a cached startup
+check: it returns 200 with `{"database":"ready"}` after a successful `SELECT 1`,
+or 503 with `checking`, `failed`, `not_configured`, or `unavailable` otherwise.
+Neither endpoint issues database queries. The Blueprint uses `/statusz` as its
+health check. For an existing manually configured service, change **Settings →
+Health Check Path** to `/statusz` yourself.
+
+The check runs once each time its supervised process starts, including after a
+Repo supervisor restart. It does not retry after failure: fix the database
+configuration/connectivity and restart or redeploy. Logs report success/failure
+without including query error details. A successful cached result is evidence of
+startup connectivity, not a guarantee that Neon is still reachable. Connection
+pool reconnections alone do not rerun the check. Future world restoration must
+also finish before the game can be considered ready.
+
 Do not add an external keep-awake monitor: the free service may sleep while idle.
 
 ## Local container check
