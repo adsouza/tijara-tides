@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.adsouza.tijara-tides</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <name>Tijara Tides</name>
+  <summary>Connect to a multiplayer marine trading world</summary>
+  <description>
+    <p>A desktop client for Tijara Tides, a multiplayer marine cargo trading game.</p>
+    <p>This foundation preview connects to a server-hosted guest lobby. Gameplay is not available yet. An accessible Tijara Tides server is required.</p>
+  </description>
+  <launchable type="desktop-id">io.github.adsouza.tijara-tides.desktop</launchable>
+  <url type="homepage">https://github.com/adsouza/tijara-tides</url>
+  <url type="bugtracker">https://github.com/adsouza/tijara-tides/issues</url>
+  <content_rating type="oars-1.1" />
+  <releases><release version="0.1.0" date="2026-09-06" /></releases>
+</component>

@@ -1,0 +1,53 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - elixir: '1.19.3'
+            otp: '28.4.2'
+          - elixir: '1.20.2'
+            otp: '29.0.4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('mix.lock') }}
+      - run: mix deps.get --check-locked
+      - run: mix precommit
+      - run: mix assets.setup
+      - run: mix release
+        env:
+          MIX_ENV: prod
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build server image
+        run: docker build --tag tijara-tides:test .
+      - name: Smoke test container without database credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker logs tijara-tides-smoke
+            docker rm -f tijara-tides-smoke
+          }
+          trap cleanup EXIT
+          docker run --detach --name tijara-tides-smoke \
+            --publish 127.0.0.1:10000:10000 \
+            --env SECRET_KEY_BASE="$(openssl rand -hex 64)" \
+            --env RENDER_EXTERNAL_HOSTNAME=smoke.onrender.com \
+            tijara-tides:test
+          python3 scripts/smoke_server.py 10000

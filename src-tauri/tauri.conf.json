@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tijara Tides",
+  "version": "0.1.0",
+  "identifier": "io.github.adsouza.tijara-tides",
+  "build": { "frontendDist": "../desktop" },
+  "app": {
+    "windows": [],
+    "security": {
+      "capabilities": [],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "deb"],
+    "category": "SimulationGame",
+    "shortDescription": "Multiplayer marine trading game client",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns"],
+    "macOS": { "minimumSystemVersion": "11.0" },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libc6 (>= 2.39)"],
+        "files": {
+          "/usr/share/icons/hicolor/scalable/apps/tijara-tides.svg": "icons/icon.svg",
+          "/usr/share/metainfo/io.github.adsouza.tijara-tides.metainfo.xml": "../packaging/flatpak/io.github.adsouza.tijara-tides.metainfo.xml"
+        }
+      }
+    }
+  }
+}

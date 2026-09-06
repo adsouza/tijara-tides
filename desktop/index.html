@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tijara Tides · Connect</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="launcher.js"></script>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">YOUR NEXT PORT OF CALL</p>
+    <h1>Tijara Tides</h1>
+    <p class="intro">Connect to a shared world.</p>
+    <form id="connection-form">
+      <label for="server-url">Server address</label>
+      <input id="server-url" name="server-url" type="url" placeholder="https://your-server.example" required autocomplete="url" spellcheck="false" aria-describedby="hint error">
+      <p id="hint">Enter the address supplied by your server host. For local development, use http://localhost:4000.</p>
+      <p id="error" role="alert" hidden></p>
+      <button type="submit">Connect to server <span aria-hidden="true">→</span></button>
+    </form>
+    <p class="footnote">To change servers or retry a failed connection, choose<br><strong>Tijara Tides → Connection Settings</strong> in the app menu.</p>
+    <p class="footnote">Foundation preview · Gameplay is not available yet.</p>
+  </main>
+</body>
+</html>

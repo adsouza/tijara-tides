@@ -1,0 +1,21 @@
+[package]
+name = "tijara-tides"
+version = "0.1.0"
+edition = "2021"
+description = "Multiplayer marine trading game client"
+license = "AGPL-3.0-only"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+strip = true

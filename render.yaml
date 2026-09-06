@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: tijara-tides
+    runtime: docker
+    plan: free
+    region: ohio
+    numInstances: 1
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PHX_SERVER
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY_BASE
+        sync: false
