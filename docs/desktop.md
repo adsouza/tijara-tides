@@ -42,7 +42,7 @@ npm run desktop:build -- --ci --bundles deb -- --locked
 
 Output lives under `src-tauri/target/release/bundle/`. macOS builds produce an
 `.app` and a `.dmg`; Linux produces a `.deb`. The CI matrix builds Apple Silicon
-Mac, Intel Mac, and Linux x86_64 on native runners. The .deb declares a glibc 2.39
+Mac and Linux x86_64 on native runners. The .deb declares a glibc 2.39
 floor and WebKitGTK 4.1; use the Flatpak on distributions with older host libraries.
 Linux ARM packaging is not part of the current CI matrix.
 

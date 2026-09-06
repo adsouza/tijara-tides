@@ -23,9 +23,6 @@ jobs:
           - name: macos-apple-silicon
             runner: macos-15
             bundles: app,dmg
-          - name: macos-intel
-            runner: macos-15-intel
-            bundles: app,dmg
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
