@@ -5,6 +5,9 @@ and Tailwind CSS. This repository currently contains the multiplayer foundation
 only: a shared world and a live guest lobby. No trading, ships, cities, resources,
 mines, factories, economy, or simulation clock has been implemented.
 
+See [the game design](docs/DESIGN.md) for agreed gameplay decisions, provisional
+balancing choices, and open questions for the persistent trading economy.
+
 ## Run locally
 
 Install Elixir and Erlang (the local versions are recorded in `.tool-versions`).
