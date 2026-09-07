@@ -2,8 +2,10 @@
 
 Status: design baseline consolidated from the product discussions on 2026-09-06
 and 2026-09-07. This describes intended gameplay, not implemented functionality.
-Decisions below are agreed unless explicitly marked provisional or open. Numbers
-without final balancing decisions are deliberately left unspecified.
+The display, disclosure and notification requirements it imposes are collected
+across sections in [the player-facing surface](ux-inventory.md). Decisions below
+are agreed unless explicitly marked provisional or open. Numbers without final
+balancing decisions are deliberately left unspecified.
 
 ## 1. Vision and player experience
 
@@ -23,6 +25,25 @@ and planning several ships. Manual ocean navigation is not required.
 
 The initial loop is buy cargo → choose a destination → sail → sell → reinvest.
 Remote trading, arrival instructions, and repeatable routes extend this loop.
+
+The interface follows progressive disclosure, and this is what protects the
+session length above. Every deep mechanic in the sections that follow is
+optional and has a stated default: earmarked purchase budgets, advance stock
+reservations, linked remote orders, markdown schedules, maximum stop waits,
+order expiry, and buyer freshness terms. A player who configures none of them
+must be able to complete the whole initial loop without meeting any of them.
+Optional configuration belongs where it applies, on a stop, an order or a lot,
+rather than on the path to a first purchase, and a default is presented as a
+choice already made rather than as a blank to fill in.
+
+Progressive disclosure governs optional configuration only. It never defers a
+disclosure the design requires before a player commits: the dispatch estimate
+before dispatch, the total storage quote before purchase, receiving coverage
+before posting a procurement request, projected freshness before committing
+cargo, and the absence of simulated buyers before consigning a lot. Those are
+obligations to inform, and deferring one to a subsequent screen breaks the rule
+that a player commits knowingly. The collected list of both kinds is in the
+player-facing surface.
 
 ## 2. Accounts, companies, and persistence
 
@@ -318,7 +339,7 @@ justify an addition. The user has final approval of any additions and the exact
 set of ports.
 
 Public information includes ship locations and routes. Selecting another ship
-may show its company and ship class, but never its cargo manifest. Owners can
+shows its company and ship class, but never its cargo manifest. Owners can
 inspect their cargo, quantities, costs, freshness, and trading instructions.
 Limit-order instructions remain private. Auction bids are sealed before closing;
 after closing, final active amounts are published anonymously as specified in
@@ -1280,37 +1301,36 @@ and purchases remains distinct; neither can fund the other.
 
 Each player has one global insufficient-funds policy for automated route
 departures, with no per-route override. Default to **Wait and notify**: pause
-departure until fuel and the full configured purchase budget can be reserved,
-or the player changes the plan or global policy. The other choices are **Sail
-with a reduced budget** (fully fund fuel, then earmark available purchase cash
-up to the configured amount) and **Skip purchases** (fully fund fuel and sail
-to deliver cargo and collect owned stock, without new arrival purchases for
-that visit). Never depart without fully funded fuel. A reduced earmarked
-budget remains a strict cap at arrival, with no automatic supplementation.
-Waiting ships automatically retry when available funds or relevant settings
-change, rechecking the current plan and all departure requirements. Under Wait
-and notify, depart once the full purchase budget and fuel can be reserved; no
-manual resume is required. Notify once when a ship becomes blocked and once
-when it resumes, without repeated alerts for an unchanged blocked state.
-Reservation and departure must not execute twice on repeated retry events.
-Requesting departure does not reserve the purchase budget independently. One
-authoritative operation checks fuel plus the budget required by the current
-policy, reserves both once, updates the visit and budget lifecycles together,
-and departs. Immediate departures and later successful retries use the same
-operation and departure identity.
-When several ships await funding, consider them in order of when they became
-blocked and fund the longest-waiting ship whose required departure amount is
-currently available. Skip unaffordable requests rather than blocking later ones.
-Reserve the selected ship's full required amount before considering the next,
-so the same cash cannot fund several departures. Failed retries do not reset
-waiting age. Skipping alone would starve an expensive departure indefinitely
-behind a stream of cheaper ones, so once a ship's wait passes a configured
-threshold it may accumulate funds for a configured, time-limited window: reserve
-incoming unreserved cash toward its requirement rather than funding newer cheaper
-departures. Overdue bills and loan installments are paid before any new
-accumulation, following section 12. At most one ship per company accumulates at a
-time, the longest-waiting eligible one. The window has a fixed deadline; partial
-funding and repeated retries do not extend it.
+departure until fuel and the full configured purchase budget can be reserved, or
+the player changes the plan or global policy. The other choices are **Sail with
+a reduced budget** (fully fund fuel, then earmark available purchase cash up to
+the configured amount) and **Skip purchases** (fully fund fuel and sail to
+deliver cargo and collect owned stock, without new arrival purchases for that
+visit). Never depart without fully funded fuel. A reduced earmarked budget
+remains a strict cap at arrival, with no automatic supplementation. Waiting
+ships automatically retry when available funds or relevant settings change,
+rechecking the current plan and all departure requirements. Under Wait and
+notify, depart once the full purchase budget and fuel can be reserved; no manual
+resume is required. Notify once when a ship becomes blocked and once when it
+resumes, without repeated alerts for an unchanged blocked state. Reservation and
+departure must not execute twice on repeated retry events. Requesting departure
+does not reserve the purchase budget independently. One authoritative operation
+checks fuel plus the budget required by the current policy, reserves both once,
+updates the visit and budget lifecycles together, and departs. Immediate
+departures and later successful retries use the same operation and departure
+identity. When several ships await funding, consider them in order of when they
+became blocked and fund the longest-waiting ship whose required departure amount
+is currently available. Skip unaffordable requests rather than blocking later
+ones. Reserve the selected ship's full required amount before considering the
+next, so the same cash cannot fund several departures. Failed retries do not
+reset waiting age. Skipping alone would starve an expensive departure
+indefinitely behind a stream of cheaper ones, so once a ship's wait passes a
+configured threshold it may accumulate funds for a configured, time-limited
+window: reserve incoming unreserved cash toward its requirement rather than
+funding newer cheaper departures. Overdue bills and loan installments are paid
+before any new accumulation, following section 12. At most one ship per company
+accumulates at a time, the longest-waiting eligible one. The window has a fixed
+deadline; partial funding and repeated retries do not extend it.
 
 If fully funded within the window, atomically convert the accumulated cash into
 the leg's distinct fuel and purchase reservations and depart under normal rules.
@@ -2036,21 +2056,13 @@ alongside the goods.
 
 ## 15. Implementation boundary and invariants
 
-The current repository implements an in-memory shared world and guest lobby,
-not this economy. Verified design entry points are:
-
-- [`Domain.World`](../lib/tijara_tides/domain/world.ex): world identity only.
-- [`WorldCommands`](../lib/tijara_tides/use_cases/world_commands.ex): all gameplay
-  commands currently rejected.
-- [`WorldServer`](../lib/tijara_tides/infrastructure/world_server.ex): one local
-  authoritative owner, connection roster, and public lobby snapshots.
-- [`GuestSession`](../lib/tijara_tides_web/plugs/guest_session.ex): browser guest
-  identity, not authenticated account ownership.
-
-See [ARCHITECTURE.md](../ARCHITECTURE.md) for implemented layers and operational
-limits. This document does not select database schemas, APIs, a tick scheduler,
-or a transaction model. Authentication, durable recovery, command deduplication,
-and economic settlement must be designed before valuable persistent assets.
+The first playable milestone implements invitation-based device accounts,
+persistent starter companies, manual immediate trades, and timed sea voyages.
+The guest lobby remains a separate temporary connection roster. See
+[IMPLEMENTATION.md](IMPLEMENTATION.md) for the precise feature boundary and
+provisional market rules, and [ARCHITECTURE.md](../ARCHITECTURE.md) for storage,
+authority, recovery, and command idempotency. This design remains the target for
+subsequent milestones, including identity linking and the full economy.
 
 Implementation must preserve these gameplay invariants:
 
@@ -2098,8 +2110,8 @@ retention policies as the persistent world grows.
 
 ## 16. Remaining decision checklist
 
-The discussion audit tracks 23 initial-game product decision groups below: **all
-23 complete**. These are grouped decisions, not a count of every
+The discussion audit tracks 24 initial-game product decision groups below: **all
+24 complete**. These are grouped decisions, not a count of every
 implementation edge case. Completed decisions remain in the main sections; this
 checklist replaces the earlier review table that mixed resolved and unresolved
 items. Track progress against these groups rather than treating each tuning
@@ -2276,6 +2288,14 @@ change the list.
     reducing it would raise every remaining tenant's renewal quote by operator
     action. Expansion is near-irreversible, so thresholds stay conservative.
     Player-funded port infrastructure is deferred with the facility rules.
+
+24. **Complete — Interface disclosure:** the interface follows progressive
+    disclosure, which is what keeps the initial loop inside the session length
+    in section 1. Every optional mechanic stays behind its stated default and
+    appears where it applies rather than on the path to a first purchase.
+    Required pre-commitment disclosures are never deferred by it. The display,
+    disclosure and notification requirements the design imposes are collected in
+    the player-facing surface, which also records the defaults this relies on.
 
 ### Tuning and implementation work
 

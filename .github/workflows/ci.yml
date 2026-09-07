@@ -18,7 +18,8 @@ jobs:
         run: |
           python3 scripts/gen-ports-roster.py
           python3 scripts/gen-ship-instructions.py
-          git diff --exit-code docs/ports.md docs/ship-instructions.md
+          python3 scripts/gen-ux-inventory.py
+          git diff --exit-code docs/ports.md docs/ship-instructions.md docs/ux-inventory.md
       - uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ matrix.elixir }}
