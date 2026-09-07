@@ -33,8 +33,11 @@ Remote trading, arrival instructions, and repeatable routes extend this loop.
 - The company owns cash, ships, cargo, leases, loans, and later facilities.
 - Accounts survive company bankruptcy and retain previous company history and a
   lifetime bankruptcy count.
-- Signing out does not erase assets or stop voyages, markets, cargo aging, or
-  ongoing obligations. Future factories also operate while owners are offline.
+- Signing out does not erase assets. While the world server remains awake,
+  voyages, markets, cargo aging, ongoing obligations, and future factories
+  continue for offline owners, including the idle interval after the last player
+  disconnects. Hosting suspension pauses the world under the shared clock
+  policy in section 3.
 - Ownership and private-data access are enforced by the server.
 
 Authentication is passwordless. Redeeming a valid invitation creates a durable
@@ -156,19 +159,33 @@ therefore about one real week apart. Wherever a player commits to one of these,
 display the game period and the corresponding real interval together, so nobody
 mistakes a twenty-year loan for a twenty-real-year obligation.
 
-Short routes of 15–30 real minutes, regional voyages of several hours, and ocean
-crossings of 12–24 hours were initial pacing suggestions. Balance navigable sea
+The shortest direct routes must take less than 15 real minutes under normal
+conditions, including with the slowest ship eligible for those routes. This lets
+a ship departing near the player's final interaction finish a short voyage
+during the host's idle interval before suspension. Loading, berth queues, and
+weather can extend the full port call beyond that interval; completion before
+suspension is a normal-condition pacing goal, not an availability guarantee.
+Regional voyages of several hours and ocean crossings of 12–24 hours remain
+pacing suggestions. Balance navigable sea
 routes and ship speeds so that even the slowest ship's longest direct
 port-to-port voyage takes no more than 24 real hours under normal conditions;
 shorter is fine. Weather delays and port queues may add time beyond that normal
 voyage ceiling. Exact shorter-route durations and operating costs remain tunable.
 
-During game-wide outages, pause all simulation clocks together: voyages, cargo
+During hosting suspension or game-wide outages, pause all simulation clocks
+together: voyages, cargo
 aging, expenses, auctions, leases, grace periods, cooldowns, contract deadlines,
 and reporting periods. Resume from the paused state without elapsed-outage
 catch-up, and update displayed deadlines and the reporting calendar accordingly.
 Real-time gameplay durations therefore count time while the world is operating.
-An individual player being offline or disconnected does not pause the world.
+Player disconnections do not immediately pause the world: simulation continues
+while the server remains awake, including the idle interval after the last player
+disconnects. Persist completed progress during this interval. After suspension,
+resume from durable state when a player reconnects and the world is ready.
+Health checks and other non-player requests alone do not resume a paused world.
+There is no offline catch-up for time spent suspended or otherwise paused.
+Published real-time estimates assume the world
+stays active; pauses extend their wall-clock completion times.
 
 There are four leaderboard rankings: quarterly profit, quarterly ROI, yearly
 profit, and yearly ROI. Rankings show the player's lifetime bankruptcy count.
@@ -2085,9 +2102,11 @@ change the list.
     progress with ownership and capacity reservations preserved.
 16. **Complete — World time and outages:** one real week per quarter and four per
     52-week game year, with a shared published reporting calendar. Normal direct
-    voyages take at most 24 real hours even for the slowest ship; weather and
-    queues may add time. Game-wide outages pause all simulation clocks and
-    deadlines together, without catch-up; individual disconnections do not. Every
+    voyages take at most 24 real hours even for the slowest ship; the shortest
+    routes take under 15 real minutes for every eligible ship. Weather and
+    queues may add time. Simulation continues through the host's awake idle
+    interval after the last player disconnects. Hosting suspension and game-wide
+    outages pause all simulation clocks and deadlines together, without catch-up. Every
     duration is real time unless marked a game period; ship useful lives,
     depreciation, and loan interest and installments are quoted in game time and
     displayed alongside their real equivalents.

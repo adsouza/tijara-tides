@@ -49,6 +49,13 @@ pool reconnections alone do not rerun the check. Future world restoration must
 also finish before the game can be considered ready.
 
 Do not add an external keep-awake monitor: the free service may sleep while idle.
+Render currently spins down a free web service after 15 minutes without inbound
+HTTP requests or WebSocket messages; see [free service limits](https://render.com/docs/free).
+Future gameplay continues while the server remains awake after the last player
+disconnects, persisting progress until spin-down. The shortest direct voyages
+take under 15 minutes in normal conditions to fit within this idle interval.
+Restore durable state and resume when a player returns, with no
+catch-up for the paused interval. Health checks alone must not resume the world.
 
 ## Local container check
 
@@ -78,7 +85,10 @@ while deploying; before adding durable gameplay writes, implement database-backe
 ownership fencing so only the current world owner can commit. Persistence must
 load state at startup and transactionally store incremental changes for each
 player's independent turn before acknowledging/broadcasting it. No global turn
-barrier or offline simulation is intended.
+barrier is intended. Companies progress while their owners are offline as long
+as the server remains awake, including the idle interval with no connected
+players. During hosting suspension or outages, pause all world clocks together and resume
+without offline catch-up, following the shared clock policy in the design.
 
 Configuration fields follow the [Render Blueprint reference](https://render.com/docs/blueprint-spec).
 See also [Render health checks](https://render.com/docs/health-checks) and

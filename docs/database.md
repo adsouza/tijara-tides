@@ -65,7 +65,12 @@ turn retries will need durable idempotency IDs before gameplay writes are added.
 After game state and action boundaries are designed:
 
 - Add migrations for the minimum durable world/player state.
-- Load the world at startup and pause its simulation when there are no clients.
+- Load the world at startup. Resume only when a player connects and world
+  restoration is complete; after the last client disconnects, continue simulation
+  while the server remains awake. Persist the shared clock and completed progress
+  throughout this idle interval. Do not advance the clock or replay elapsed
+  wall-clock time across hosting suspension or outages. Apply the
+  same pause to every economic timer, as specified in [the design](DESIGN.md#3-time-and-competition).
 - Commit only each completed action's changed records, atomically with its unique
   action ID; acknowledge and broadcast only after commit succeeds.
 - Keep static definitions and derived presentation data out of repeated writes.

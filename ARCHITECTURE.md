@@ -71,16 +71,19 @@ recovery. No shutdown checkpoint or persistence guarantee exists yet.
 - Its per-city Registry/DynamicSupervisor serves independent games. This skeleton
   has one world, started under the application supervisor; a dynamic registry is
   unnecessary until multiple worlds become a requirement.
-- Its idle shutdown and local pause behavior do not transfer to a shared world.
-  No player can pause, reset, or stop the world in this skeleton.
+- Players cannot manually pause, reset, or stop the shared world. Future
+  simulation continues while the server remains awake, including the idle
+  interval after the last player disconnects. Hosting suspension or outages
+  pause it globally; it resumes without catch-up when a player returns.
 - Its Tauri/Burrito desktop bundle embeds a local simulation. Here both the browser and
   the Tauri desktop client connect to the remote server, with no local
   authoritative simulation. The desktop client bundles only a connection screen,
   uses native Rust menus for recovery, and grants remote pages no native APIs.
   See [desktop packaging](docs/desktop.md) for macOS, .deb, and Flatpak details.
 - Its Postgres/file snapshot adapters and tick scheduler solve established game
-  requirements. Storage format, transaction boundaries, tick policy, and offline
-  progression remain open until Tijara Tides' design determines them.
+  requirements. Storage format, transaction boundaries, and scheduler
+  implementation remain to be designed; the shared clock and no-catch-up rules
+  are defined in Tijara Tides' design.
 
 ## Scope and next decisions
 
