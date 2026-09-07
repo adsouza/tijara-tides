@@ -69,6 +69,10 @@ window display, IPC for X11, and GPU rendering. It grants no home-directory or
 system-bus access. The earlier game's forced dummy proxy resolver is omitted:
 this client needs normal network/proxy behavior.
 
+The shared AppStream metadata names the Debian launcher, `Tijara Tides.desktop`.
+Flatpak renames that launcher to the application ID and updates the metadata's
+`desktop-id` to match during packaging.
+
 On Linux, install the toolchain and runtime once:
 
 ```sh

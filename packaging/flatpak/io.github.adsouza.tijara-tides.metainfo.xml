@@ -9,7 +9,7 @@
     <p>A desktop client for Tijara Tides, a multiplayer marine cargo trading game.</p>
     <p>This foundation preview connects to a server-hosted guest lobby. Gameplay is not available yet. An accessible Tijara Tides server is required.</p>
   </description>
-  <launchable type="desktop-id">io.github.adsouza.tijara-tides.desktop</launchable>
+  <launchable type="desktop-id">Tijara Tides.desktop</launchable>
   <url type="homepage">https://github.com/adsouza/tijara-tides</url>
   <url type="bugtracker">https://github.com/adsouza/tijara-tides/issues</url>
   <content_rating type="oars-1.1" />
