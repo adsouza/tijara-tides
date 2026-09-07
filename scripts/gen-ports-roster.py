@@ -21,7 +21,7 @@ Adding a good
    count sentence in section 6, the recipe sentence in section 5, and decision
    group 20. If the good needs liquid or refrigerated capacity, say so in
    section 6 and section 11 too.
-5. Regenerate. Coverage minimums are enforced below: bulk commodities need five
+5. Regenerate. Coverage minimums are enforced below: bulk commodities need four
    exporters and five importers, everything else three and four.
 
 Adding a port
@@ -49,7 +49,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 CATEGORIES = [
-    ("Bulk commodities", ["Iron ore", "Grain", "Crude oil", "Refined fuel",
+    ("Bulk commodities", ["Iron ore", "Grain", "Lumber", "Crude oil", "Refined fuel",
                          "Vegetable oil"]),
     ("Luxury items", ["Whisky", "Jewelry", "Designer clothing"]),
     ("Industrial machinery", ["Turbines", "Construction equipment",
@@ -111,7 +111,8 @@ PORTS = {
 "Jakarta": ("Tanjung Priok",
  "Indonesian resource exporter and fast-growing consumer market, importing "
  "grain and fuel while shipping ore, palm oil, the nutmeg and cloves of "
- "the original Spice Islands, apparel and seafood.",
+ "the original Spice Islands, apparel and seafood. Its regional sawmills "
+ "also supply lumber.",
  ("med","med","low","med","slow","low","any")),
 "Manila": ("Manila",
  "Philippine semiconductor assembly, nickel and iron ore mining, and "
@@ -153,7 +154,7 @@ PORTS = {
  "and agricultural equipment — plus grain, meat and scrap aluminium "
  "outbound to Asia. Europe's largest copper smelter sits here and consumes "
  "imported copper scrap. Its inland catchment also carries Central "
- "European fashion houses.",
+ "European fashion houses and sawmill lumber.",
  ("high","high","med","med","fast","high","any")),
 "Valencia": ("Valencia",
  "Spanish Mediterranean exporter of citrus, pork, appliances and apparel, "
@@ -183,7 +184,8 @@ PORTS = {
 "Houston": ("Bayport",
  "US Gulf energy and agriculture: crude, refined fuel, grain, beef, heavy "
  "machinery, Kentucky whiskey and the roster's broadest scrap and "
- "recovered-plastics export. Channel draft excludes the largest ships.",
+ "recovered-plastics export. Regional sawmills add lumber to its outbound "
+ "cargoes. Channel draft excludes the largest ships.",
  ("med","med","low","high","med","med","capped")),
 "Colón": ("Manzanillo",
  "Canal-side transshipment and the Colón Free Zone's re-export trade into "
@@ -192,38 +194,38 @@ PORTS = {
 "São Paulo": ("Santos",
  "Brazil's agricultural and mineral outlet: soy and soy oil, iron ore, "
  "crude, citrus and the roster's largest meat export, against imported "
- "fuel and manufactures.",
+ "fuel and manufactures. Regional sawmills supply lumber for export.",
  ("med","med","high","med","med","med","any")),
 }
 
 E2, E1, I1, I2, X = "++exp", "+exp", "+imp", "++imp", "—"
 
 M = {
-"Shanghai":         [I2,I1,I2,E1,I2,I2,I2,I2,E2,E2,E1,E2,E2,E1,I2,I1,I2,X ,I1,E1,I2],
-"Singapore":        [X ,I1,I2,E2,I1,E1,I1,I2,I1,I1,X ,E1,I1,I1,I1,E1,E1,X ,I2,I1,I2],
-"Shenzhen":         [X ,I1,X ,I1,I1,X ,X ,X ,X ,E1,X ,E2,E1,E1,I1,I1,I2,X ,I1,I1,I1],
-"Guangzhou":        [I1,I2,I1,I1,I1,I1,X ,X ,E1,E2,E2,E1,E2,E2,E1,I1,I1,I1,I1,E1,I1],
-"Hong Kong":        [X ,I1,X ,I1,I1,E2,E2,I2,X ,I1,X ,I1,I1,I1,I1,E1,E1,E1,I2,I2,I2],
-"Busan":            [I2,I2,I2,E2,I1,I1,I1,I1,E2,E1,X ,E2,E2,I1,I1,I2,I1,I1,I1,E2,I2],
-"Tokyo":            [I2,I2,I2,I1,I1,E2,I2,I2,E2,E2,E2,E2,E2,I2,I1,E2,E1,E1,I2,I2,I2],
-"Ho Chi Minh City": [I1,E1,E1,I2,E1,X ,X ,X ,I1,I1,I1,E2,E1,E2,E2,I1,I1,I2,E2,E2,I1],
-"Jakarta":          [E2,I2,I1,I2,E2,X ,X ,X ,I1,I2,I1,I1,I1,E2,E2,I1,I1,I2,E1,E2,I2],
-"Manila":           [E1,I2,I1,I2,E2,X ,X ,X ,I1,I2,I1,E2,I1,E1,I1,E1,E1,I1,E2,E2,I2],
-"Colombo":          [X ,I2,I1,I2,E1,X ,E1,X ,I1,I1,I1,I1,I1,E2,E2,E1,E1,X ,E1,E2,I1],
-"Mumbai":           [E2,E1,I2,E2,I2,I1,E2,I1,E1,I1,E2,I2,I1,E2,E2,I2,I2,I2,E1,E2,E1],
-"Dubai":            [X ,I2,E1,I1,I2,I1,E2,I2,I1,I2,X ,I2,I2,I2,E1,I2,I1,X ,I2,I1,I2],
-"Abu Dhabi":        [I1,I2,E2,E2,I1,X ,X ,X ,I2,I2,X ,I1,I1,I1,I1,I2,I1,X ,I2,I1,I2],
-"Rotterdam":        [I2,I2,I2,E2,I2,X ,X ,X ,E2,E1,E2,I1,I1,I2,I2,E2,E2,E2,I2,I1,E1],
-"Antwerp":          [I1,I2,I2,E1,I1,X ,E2,E1,E1,E2,E1,I1,I2,I1,I1,E1,E1,E2,I2,I1,E1],
-"Hamburg":          [I1,E2,I1,I1,I1,X ,X ,E1,E2,E2,E2,I2,E1,I1,I2,E2,I2,E2,I1,I1,E2],
-"Valencia":         [I1,I1,I1,I1,E1,X ,X ,E1,I1,E2,E2,I1,E2,E2,I1,E1,E1,E1,E2,E1,E2],
-"Athens":           [E1,I2,I2,E2,E1,X ,X ,X ,I1,I1,I1,I1,I1,I1,I1,E2,E1,E1,E2,E1,I2],
-"Tangier":          [X ,I2,I1,I2,I1,X ,X ,E1,I1,I1,I1,E1,I1,E2,E1,I1,I1,I1,E2,E2,I1],
-"New York City":    [X ,E1,X ,I2,I1,E1,I2,I2,I1,I1,X ,I2,I2,I2,I2,E2,E2,E2,I2,I1,E1],
-"Los Angeles":      [X ,E1,I1,I1,I1,I2,I2,I2,I1,I1,E1,I2,I2,I2,I2,E2,E2,E2,E2,I1,E2],
-"Houston":          [I1,E2,E2,E2,E1,E1,X ,X ,E2,E2,E2,I1,I1,I1,I1,E2,E2,E2,I1,I1,E2],
-"Colón":            [X ,I1,I1,I2,I1,X ,X ,E2,I1,I1,I1,I2,E2,E2,I1,E1,E1,X ,E2,E1,I1],
-"São Paulo":        [E2,E2,E2,I2,E2,I1,I1,I1,I1,I1,I1,I2,I2,I1,I1,I1,I1,I1,E2,I1,E2],
+"Shanghai":         [I2,I1,I2,I2,E1,I2,I2,I2,I2,E2,E2,E1,E2,E2,E1,I2,I1,I2,X ,I1,E1,I2],
+"Singapore":        [X ,I1,I1,I2,E2,I1,E1,I1,I2,I1,I1,X ,E1,I1,I1,I1,E1,E1,X ,I2,I1,I2],
+"Shenzhen":         [X ,I1,I1,X ,I1,I1,X ,X ,X ,X ,E1,X ,E2,E1,E1,I1,I1,I2,X ,I1,I1,I1],
+"Guangzhou":        [I1,I2,I2,I1,I1,I1,I1,X ,X ,E1,E2,E2,E1,E2,E2,E1,I1,I1,I1,I1,E1,I1],
+"Hong Kong":        [X ,I1,X,X ,I1,I1,E2,E2,I2,X ,I1,X ,I1,I1,I1,I1,E1,E1,E1,I2,I2,I2],
+"Busan":            [I2,I2,I1,I2,E2,I1,I1,I1,I1,E2,E1,X ,E2,E2,I1,I1,I2,I1,I1,I1,E2,I2],
+"Tokyo":            [I2,I2,I2,I2,I1,I1,E2,I2,I2,E2,E2,E2,E2,E2,I2,I1,E2,E1,E1,I2,I2,I2],
+"Ho Chi Minh City": [I1,E1,I2,E1,I2,E1,X ,X ,X ,I1,I1,I1,E2,E1,E2,E2,I1,I1,I2,E2,E2,I1],
+"Jakarta":          [E2,I2,E2,I1,I2,E2,X ,X ,X ,I1,I2,I1,I1,I1,E2,E2,I1,I1,I2,E1,E2,I2],
+"Manila":           [E1,I2,I1,I1,I2,E2,X ,X ,X ,I1,I2,I1,E2,I1,E1,I1,E1,E1,I1,E2,E2,I2],
+"Colombo":          [X ,I2,I1,I1,I2,E1,X ,E1,X ,I1,I1,I1,I1,I1,E2,E2,E1,E1,X ,E1,E2,I1],
+"Mumbai":           [E2,E1,I2,I2,E2,I2,I1,E2,I1,E1,I1,E2,I2,I1,E2,E2,I2,I2,I2,E1,E2,E1],
+"Dubai":            [X ,I2,I2,E1,I1,I2,I1,E2,I2,I1,I2,X ,I2,I2,I2,E1,I2,I1,X ,I2,I1,I2],
+"Abu Dhabi":        [I1,I2,I1,E2,E2,I1,X ,X ,X ,I2,I2,X ,I1,I1,I1,I1,I2,I1,X ,I2,I1,I2],
+"Rotterdam":        [I2,I2,I2,I2,E2,I2,X ,X ,X ,E2,E1,E2,I1,I1,I2,I2,E2,E2,E2,I2,I1,E1],
+"Antwerp":          [I1,I2,I1,I2,E1,I1,X ,E2,E1,E1,E2,E1,I1,I2,I1,I1,E1,E1,E2,I2,I1,E1],
+"Hamburg":          [I1,E2,E2,I1,I1,I1,X ,X ,E1,E2,E2,E2,I2,E1,I1,I2,E2,I2,E2,I1,I1,E2],
+"Valencia":         [I1,I1,I1,I1,I1,E1,X ,X ,E1,I1,E2,E2,I1,E2,E2,I1,E1,E1,E1,E2,E1,E2],
+"Athens":           [E1,I2,I1,I2,E2,E1,X ,X ,X ,I1,I1,I1,I1,I1,I1,I1,E2,E1,E1,E2,E1,I2],
+"Tangier":          [X ,I2,I1,I1,I2,I1,X ,X ,E1,I1,I1,I1,E1,I1,E2,E1,I1,I1,I1,E2,E2,I1],
+"New York City":    [X ,E1,X,X ,I2,I1,E1,I2,I2,I1,I1,X ,I2,I2,I2,I2,E2,E2,E2,I2,I1,E1],
+"Los Angeles":      [X ,E1,I1,I1,I1,I1,I2,I2,I2,I1,I1,E1,I2,I2,I2,I2,E2,E2,E2,E2,I1,E2],
+"Houston":          [I1,E2,E1,E2,E2,E1,E1,X ,X ,E2,E2,E2,I1,I1,I1,I1,E2,E2,E2,I1,I1,E2],
+"Colón":            [X ,I1,I1,I1,I2,I1,X ,X ,E2,I1,I1,I1,I2,E2,E2,I1,E1,E1,X ,E2,E1,I1],
+"São Paulo":        [E2,E2,E2,E2,I2,E2,I1,I1,I1,I1,I1,I1,I2,I2,I1,I1,I1,I1,I1,E2,I1,E2],
 }
 
 REGIONS = [
@@ -271,7 +273,7 @@ Economic identities and physical character for the 25 launch ports. This
 document supplies the data that the rules in [the game design](DESIGN.md) reserve
 space for: section 4 asks for city economic identities, section 5 leaves
 city-level supply and demand open and requires regional catchments to share
-price movement, and section 6 fixes the 21-good catalogue used here."""))
+price movement, and section 6 fixes the 22-good catalogue used here."""))
 o.append("")
 o.append(para("""
 Authoritative here: which ports supply and demand which goods and at what

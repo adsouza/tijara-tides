@@ -304,7 +304,7 @@ Size classes, each berth group's limit, and each waterway's limit are
 configurable.
 
 Each location should have distinct supply and demand. City economic identities,
-harbor mappings, trade roles across all 21 goods, and each port's relative
+harbor mappings, trade roles across all 22 goods, and each port's relative
 capacity and cost are recorded in [the launch port roster](ports.md). Each port
 serves its surrounding region: inland producers supply
 export goods, and imports serve inland buyers. Use this regional catchment to
@@ -420,7 +420,7 @@ do not bypass ongoing resource constraints. Raw-resource producers generate
 their goods without requiring imported inputs. Initial production recipes and
 inventory quantities remain to be defined and balanced.
 
-Production recipes use the 21 tradable goods where appropriate. Materials
+Production recipes use the 22 tradable goods where appropriate. Materials
 outside that catalogue, such as cask oak, bottling glass or textiles, are
 abstracted as local inputs included in production costs rather than added as
 tradable goods. This abstraction does not replace required inputs that are in
@@ -630,18 +630,30 @@ not attempt to steer the money stock directly.
 Market styles are defaults, not permanent prohibitions on other mechanisms.
 Units, lot sizes, grades, and detailed market eligibility remain open.
 
-The finalized launch catalogue has 21 goods: five bulk commodities, four mass
+The finalized launch catalogue has 22 goods: six bulk commodities, four mass
 consumer products, and three in each other category. Tankers and liquid storage
 are included at launch.
 
 | Category               | Launch goods                                             |
 |------------------------|----------------------------------------------------------|
-| Bulk commodities       | Iron ore, grain, crude oil, refined fuel, vegetable oil  |
+| Bulk commodities       | Iron ore, grain, lumber, crude oil, refined fuel, vegetable oil  |
 | Luxury items           | Whisky, jewelry, designer clothing                       |
 | Industrial machinery   | Turbines, construction equipment, agricultural machinery |
 | Mass consumer products | Electronics, appliances, everyday clothing, spices       |
 | Scrap                  | Scrap aluminium, copper scrap, recovered plastics        |
 | Perishables            | Fruit, seafood, meat                                     |
+
+Lumber means sawn lumber, not raw logs or finished furniture. It trades on the
+continuous limit order book against steady simulated construction and
+manufacturing demand, supporting repeatable routes. It uses ordinary dry holds
+and ordinary storage, with no refrigeration or perishable aging. Tune its cargo
+density so representative dry ships fill their holds before reaching their weight
+limit, in contrast to iron ore and grain. Its modest value per unit of volume
+makes warehouse rent and prompt onward shipment important to profitability;
+retain enough dependable demand to distinguish it from opportunistic scrap
+backhaul. Exact density, reference value, and lot sizes remain tuning parameters.
+Later player-owned sawmills can produce lumber using the shared industry rules;
+raw timber is an abstract local input until a separate tradable good is approved.
 
 Mass consumer products span a wide value density too. Everyday clothing and
 appliances fill volume at moderate margins on recurring routes. Spices sit at
@@ -1920,15 +1932,28 @@ holdings and market quotes must not create artificial profit on paper.
 
 ## 14. Later expansion
 
-Players can eventually build mines and factories at cities. Mines produce raw
-materials; factories consume inputs and produce tradable goods. Machinery serves
-industrial expansion. Local labour, productivity, infrastructure, transport, and
-buyers determine viable locations.
+Players can eventually build production facilities at cities:
+
+- **Mines** extract raw materials for trade or industrial use.
+- **Farms** produce grain, fruit, spices, and livestock/meat. Climate, land
+  availability, and perishability shape suitable locations and shipping needs.
+- **Sawmills** produce lumber for steady construction and manufacturing demand,
+  using abstract local timber inputs until a separate tradable input is approved.
+- **Refineries** consume crude oil and produce refined fuel, connecting inbound
+  and outbound tanker routes.
+- **Factories** consume inputs and produce manufactured goods. Vegetable-oil
+  processing belongs here, with agricultural inputs abstracted until its recipes
+  are designed.
+
+Machinery serves industrial expansion. Local labour, productivity,
+infrastructure, transport, and buyers determine viable locations. All facilities
+follow the shared world-clock rules: production continues while the world is
+operating and pauses during hosting suspension or outages, without catch-up.
 
 Industry extends the shipping economy rather than replacing it with disconnected
 passive income. Simulated production and end-user demand remain. Construction,
-land availability, recipes, production capacity, and facility ownership rules
-have not yet been designed.
+land availability and limits, recipes, production cycles and capacity,
+construction costs, and facility ownership rules have not yet been designed.
 
 Carriage for hire is a second later possibility. In the initial game a company
 profits only on goods it owns, by moving them to a better price. Real short-haul
@@ -1953,15 +1978,15 @@ any hold type section 9 defines. Adding vehicles therefore means adding a
 vehicle deck as a capability alongside dry, refrigerated and liquid capacity,
 and is deferred until then rather than forced into a luxury slot.
 
-Construction materials are the natural first cargo additions once facility
+Additional construction materials can follow lumber once facility
 construction exists. Cement, gypsum and architectural glass have real sources on
 the roster that barely overlap iron ore's — Abu Dhabi, Valencia, Ho Chi Minh
 City, Shanghai and Guangzhou are all ore importers that would gain a bulk export
 — so they would add route variety. They are deferred because they add no
 mechanic at launch. Unlike the liquid catalogue, where three goods and a
 hold restriction left tankers with no backhaul, dry ships may already carry any
-of the eighteen dry goods, and scrap is designed as their return cargo. A
-construction material today would trade exactly as iron ore does, into simulated
+of the nineteen dry goods, and scrap is designed as their return cargo. These
+additional materials would currently trade much like iron ore, into simulated
 demand only, and would tip the catalogue toward large tonnage. Once players
 build facilities, the same goods become inputs to a build decision with a
 player-facing sink, which is when they earn a slot. Cement additionally needs
@@ -2171,7 +2196,7 @@ change the list.
     buyer-budget replenishment, and bounded price responses to surplus and
     shortages. Factories consume inputs and start with inventories; raw-resource
     producers need no imported inputs. Recipes use catalogue goods where
-    relevant and abstract other materials as local production costs. The 21-good
+    relevant and abstract other materials as local production costs. The 22-good
     catalogue is final, and city-level supply and demand are assigned per port
     in the launch port roster, which carries a generated coverage check. Ports
     sharing a regional catchment use a shared regional operating price driven by

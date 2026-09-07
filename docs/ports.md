@@ -4,7 +4,7 @@ Economic identities and physical character for the 25 launch ports. This
 document supplies the data that the rules in [the game design](DESIGN.md)
 reserve space for: section 4 asks for city economic identities, section 5 leaves
 city-level supply and demand open and requires regional catchments to share
-price movement, and section 6 fixes the 21-good catalogue used here.
+price movement, and section 6 fixes the 22-good catalogue used here.
 
 Authoritative here: which ports supply and demand which goods and at what
 relative weight, which ports share a catchment, and each port's physical
@@ -82,7 +82,8 @@ recovered plastics for processing.
 
 **Jakarta** (Tanjung Priok) — Indonesian resource exporter and fast-growing
 consumer market, importing grain and fuel while shipping ore, palm oil, the
-nutmeg and cloves of the original Spice Islands, apparel and seafood.
+nutmeg and cloves of the original Spice Islands, apparel and seafood. Its
+regional sawmills also supply lumber.
 
 **Manila** — Philippine semiconductor assembly, nickel and iron ore mining, and
 tropical agriculture. The roster's leading fruit, tuna and coconut oil exporter,
@@ -122,7 +123,7 @@ fashion houses.
 construction and agricultural equipment — plus grain, meat and scrap aluminium
 outbound to Asia. Europe's largest copper smelter sits here and consumes
 imported copper scrap. Its inland catchment also carries Central European
-fashion houses.
+fashion houses and sawmill lumber.
 
 ### Mediterranean and North Africa
 
@@ -150,7 +151,8 @@ export. Congestion-prone and expensive.
 
 **Houston** (Bayport) — US Gulf energy and agriculture: crude, refined fuel,
 grain, beef, heavy machinery, Kentucky whiskey and the roster's broadest scrap
-and recovered-plastics export. Channel draft excludes the largest ships.
+and recovered-plastics export. Regional sawmills add lumber to its outbound
+cargoes. Channel draft excludes the largest ships.
 
 ### Latin America
 
@@ -159,7 +161,7 @@ re-export trade into Latin America, plus Central American bananas.
 
 **São Paulo** (Santos) — Brazil's agricultural and mineral outlet: soy and soy
 oil, iron ore, crude, citrus and the roster's largest meat export, against
-imported fuel and manufactures.
+imported fuel and manufactures. Regional sawmills supply lumber for export.
 
 ## Trade roles
 
@@ -189,33 +191,33 @@ still apply.
 
 ### Bulk commodities
 
-| Port | Iron ore | Grain | Crude oil | Refined fuel | Vegetable oil |
-|------|----------|-------|-----------|--------------|---------------|
-| Shanghai | `++imp` | `+imp` | `++imp` | `+exp` | `++imp` |
-| Busan | `++imp` | `++imp` | `++imp` | `++exp` | `+imp` |
-| Tokyo | `++imp` | `++imp` | `++imp` | `+imp` | `+imp` |
-| Hong Kong | `—` | `+imp` | `—` | `+imp` | `+imp` |
-| Shenzhen | `—` | `+imp` | `—` | `+imp` | `+imp` |
-| Guangzhou | `+imp` | `++imp` | `+imp` | `+imp` | `+imp` |
-| Singapore | `—` | `+imp` | `++imp` | `++exp` | `+imp` |
-| Ho Chi Minh City | `+imp` | `+exp` | `+exp` | `++imp` | `+exp` |
-| Jakarta | `++exp` | `++imp` | `+imp` | `++imp` | `++exp` |
-| Manila | `+exp` | `++imp` | `+imp` | `++imp` | `++exp` |
-| Colombo | `—` | `++imp` | `+imp` | `++imp` | `+exp` |
-| Mumbai | `++exp` | `+exp` | `++imp` | `++exp` | `++imp` |
-| Dubai | `—` | `++imp` | `+exp` | `+imp` | `++imp` |
-| Abu Dhabi | `+imp` | `++imp` | `++exp` | `++exp` | `+imp` |
-| Rotterdam | `++imp` | `++imp` | `++imp` | `++exp` | `++imp` |
-| Antwerp | `+imp` | `++imp` | `++imp` | `+exp` | `+imp` |
-| Hamburg | `+imp` | `++exp` | `+imp` | `+imp` | `+imp` |
-| Valencia | `+imp` | `+imp` | `+imp` | `+imp` | `+exp` |
-| Athens | `+exp` | `++imp` | `++imp` | `++exp` | `+exp` |
-| Tangier | `—` | `++imp` | `+imp` | `++imp` | `+imp` |
-| New York City | `—` | `+exp` | `—` | `++imp` | `+imp` |
-| Los Angeles | `—` | `+exp` | `+imp` | `+imp` | `+imp` |
-| Houston | `+imp` | `++exp` | `++exp` | `++exp` | `+exp` |
-| Colón | `—` | `+imp` | `+imp` | `++imp` | `+imp` |
-| São Paulo | `++exp` | `++exp` | `++exp` | `++imp` | `++exp` |
+| Port | Iron ore | Grain | Lumber | Crude oil | Refined fuel | Vegetable oil |
+|------|----------|-------|--------|-----------|--------------|---------------|
+| Shanghai | `++imp` | `+imp` | `++imp` | `++imp` | `+exp` | `++imp` |
+| Busan | `++imp` | `++imp` | `+imp` | `++imp` | `++exp` | `+imp` |
+| Tokyo | `++imp` | `++imp` | `++imp` | `++imp` | `+imp` | `+imp` |
+| Hong Kong | `—` | `+imp` | `—` | `—` | `+imp` | `+imp` |
+| Shenzhen | `—` | `+imp` | `+imp` | `—` | `+imp` | `+imp` |
+| Guangzhou | `+imp` | `++imp` | `++imp` | `+imp` | `+imp` | `+imp` |
+| Singapore | `—` | `+imp` | `+imp` | `++imp` | `++exp` | `+imp` |
+| Ho Chi Minh City | `+imp` | `+exp` | `++imp` | `+exp` | `++imp` | `+exp` |
+| Jakarta | `++exp` | `++imp` | `++exp` | `+imp` | `++imp` | `++exp` |
+| Manila | `+exp` | `++imp` | `+imp` | `+imp` | `++imp` | `++exp` |
+| Colombo | `—` | `++imp` | `+imp` | `+imp` | `++imp` | `+exp` |
+| Mumbai | `++exp` | `+exp` | `++imp` | `++imp` | `++exp` | `++imp` |
+| Dubai | `—` | `++imp` | `++imp` | `+exp` | `+imp` | `++imp` |
+| Abu Dhabi | `+imp` | `++imp` | `+imp` | `++exp` | `++exp` | `+imp` |
+| Rotterdam | `++imp` | `++imp` | `++imp` | `++imp` | `++exp` | `++imp` |
+| Antwerp | `+imp` | `++imp` | `+imp` | `++imp` | `+exp` | `+imp` |
+| Hamburg | `+imp` | `++exp` | `++exp` | `+imp` | `+imp` | `+imp` |
+| Valencia | `+imp` | `+imp` | `+imp` | `+imp` | `+imp` | `+exp` |
+| Athens | `+exp` | `++imp` | `+imp` | `++imp` | `++exp` | `+exp` |
+| Tangier | `—` | `++imp` | `+imp` | `+imp` | `++imp` | `+imp` |
+| New York City | `—` | `+exp` | `—` | `—` | `++imp` | `+imp` |
+| Los Angeles | `—` | `+exp` | `+imp` | `+imp` | `+imp` | `+imp` |
+| Houston | `+imp` | `++exp` | `+exp` | `++exp` | `++exp` | `+exp` |
+| Colón | `—` | `+imp` | `+imp` | `+imp` | `++imp` | `+imp` |
+| São Paulo | `++exp` | `++exp` | `++exp` | `++exp` | `++imp` | `++exp` |
 
 ### Luxury items
 
@@ -450,6 +452,7 @@ cannot masquerade as production coverage.
 |------|-----------|-----------|
 | Iron ore | 5 | 11 |
 | Grain | 7 | 18 |
+| Lumber | 4 | 19 |
 | Crude oil | 5 | 17 |
 | Refined fuel | 9 | 16 |
 | Vegetable oil | 8 | 17 |
