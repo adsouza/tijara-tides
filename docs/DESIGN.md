@@ -166,18 +166,43 @@ during the host's idle interval before suspension. Loading, berth queues, and
 weather can extend the full port call beyond that interval; completion before
 suspension is a normal-condition pacing goal, not an availability guarantee.
 Regional voyages of several hours and ocean crossings of 12–24 hours remain
-pacing suggestions. Balance navigable sea
-routes and ship speeds so that even the slowest ship's longest direct
-port-to-port voyage takes no more than 24 real hours under normal conditions;
-shorter is fine. Weather delays and port queues may add time beyond that normal
-voyage ceiling. Exact shorter-route durations and operating costs remain tunable.
+pacing suggestions. Balance navigable sea routes and ship speeds so that even
+the slowest ship's longest direct port-to-port voyage takes no more than 24 real
+hours under normal conditions; shorter is fine. Weather delays and port queues
+may add time beyond that normal voyage ceiling. Exact shorter-route durations
+and operating costs remain tunable.
 
-During hosting suspension or game-wide outages, pause all simulation clocks
-together: voyages, cargo
-aging, expenses, auctions, leases, grace periods, cooldowns, contract deadlines,
-and reporting periods. Resume from the paused state without elapsed-outage
-catch-up, and update displayed deadlines and the reporting calendar accordingly.
-Real-time gameplay durations therefore count time while the world is operating.
+Timers fall into two families, and they behave differently across a pause.
+
+**World timers** measure in-world processes or commitments the world made to a
+player: voyages, cargo aging, expenses, auctions, leases, grace periods, berth
+re-entry and other operational cooldowns, contract deadlines, invitation expiry,
+the bankruptcy restart cooldown, and reporting periods. During hosting
+suspension or game-wide outages, pause all of these together. Resume from the
+paused state without elapsed-outage catch-up, and update displayed deadlines and
+the reporting calendar accordingly. Their real-time durations therefore count
+time while the world is operating. Advancing them through an outage would
+destroy cargo, leases and contracts a player had no opportunity to defend.
+
+**Player timers** measure a person's behaviour rather than anything in the
+world: owner absence and its dormant-closure warning period in section 5, and
+the decay of a company's economic activity weight. These run on wall-clock time
+and never pause. A player's absence is a fact about the real world and does not
+stop because the server slept, so pausing these would break them in exactly the
+conditions that matter. In a sparsely populated world the server is suspended
+most of the time, so world-clock absence would accrue at a small fraction of
+wall-clock: an absence threshold of two quarters could take months to expire,
+dormant closure would rarely fire, estate cash would never leave circulation,
+and simulated demand would stay sized for players who had already left.
+
+Evaluate player timers against durable timestamps rather than accumulated
+counters, so a pause of any length needs no reconciliation. On resume, close any
+company whose absence and warning period both elapsed while the world was
+suspended; section 2 already requires telling unlinked accounts that their
+warning cannot reach them, and an unreachable warning is not a reason to defer
+closure. Recompute activity weights from the same timestamps, so demand scaling
+reflects who is actually still playing.
+
 Player disconnections do not immediately pause the world: simulation continues
 while the server remains awake, including the idle interval after the last player
 disconnects. Persist completed progress during this interval. After suspension,
@@ -499,8 +524,9 @@ since its last qualifying action, capped at 1. A qualifying action is an economi
 one with real substance, such as a settled trade, a voyage dispatch, a lease
 acquisition, or an accepted bid, above a configured minimum value. Signing in is
 not a qualifying action, and negligible trades must not sustain a weight. The
-world activity index is the sum of these weights. The decay constant is
-configurable, provisionally about one real week, so a company continuing
+world activity index is the sum of these weights, decaying on wall-clock time
+as a player timer under section 3. The decay constant is configurable,
+provisionally about one real week, so a company continuing
 substantial economic activity stays near full weight while one without qualifying
 actions falls close to zero within a month. Automated trades and dispatches count
 for this economic measure. Owner absence is tracked separately for dormancy;
@@ -534,8 +560,10 @@ dormancy test, so profitable automated routes cannot prevent closure indefinitel
 Give advance notice of the closure deadline and how to prevent closure, with a
 configured warning period before liquidation. An authenticated return before
 closure cancels the pending dormant closure and its warnings. Absence and warning
-timers follow the shared world-clock outage policy. Their durations are tuning
-parameters; closure must not occur without the advance warning period.
+timers are player timers under section 3: they run on wall-clock time and do
+not pause with the world, because absence is a fact about the real world rather
+than an in-world process. Their durations are tuning parameters; closure must
+not occur without the advance warning period having elapsed.
 
 Warnings reach a linked identity out of band. An unlinked account can be warned
 only in app, where an authenticated visit would reset absence anyway, so its
@@ -850,18 +878,17 @@ Players choose their lot and minimum sale price; the system controls the
 schedule, bidding, and settlement. Simulated buyers and other players may bid.
 Where the roster specifies buying demand for that good at that port, including
 re-export merchant demand, simulated bidders must provide auction competition.
-Sealed
-second-price bidding pays the reserve whenever only one eligible bidder appears,
-so at launch population, with one auction per port per day, a player's consignment
-would otherwise realize exactly its minimum and the competition for scarce lots
-that distinguishes luxury goods in section 6 would never occur. Give simulated
-buyers private valuations drawn around the good's configured reference value and
-adjusted for local demand, and have a configured expected number participate per
-lot, so a consignment faces real competition without a guaranteed clearing price.
-Simulated bidders obey the same budget, capacity, and eligibility rules as
-players. Valuation spread and expected participation are tuning parameters;
-participation where buying demand exists remains subject to those resource
-constraints and does not guarantee a bid or sale.
+Sealed second-price bidding pays the reserve whenever only one eligible bidder
+appears, so at launch population, with one auction per port per day, a player's
+consignment would otherwise realize exactly its minimum and the competition for
+scarce lots that distinguishes luxury goods in section 6 would never occur. Give
+simulated buyers private valuations drawn around the good's configured reference
+value and adjusted for local demand, and have a configured expected number
+participate per lot, so a consignment faces real competition without a
+guaranteed clearing price. Simulated bidders obey the same budget, capacity, and
+eligibility rules as players. Valuation spread and expected participation are
+tuning parameters; participation where buying demand exists remains subject to
+those resource constraints and does not guarantee a bid or sale.
 
 Where the roster specifies no buying demand, including export-only and not-traded
 roles, luxury consignments are still permitted but auctions rely entirely on
@@ -2100,16 +2127,18 @@ change the list.
     Storage-type transfers take time and require compatible receiving capacity;
     refrigeration never restores freshness. Interrupted handling resumes saved
     progress with ownership and capacity reservations preserved.
-16. **Complete — World time and outages:** one real week per quarter and four per
-    52-week game year, with a shared published reporting calendar. Normal direct
-    voyages take at most 24 real hours even for the slowest ship; the shortest
-    routes take under 15 real minutes for every eligible ship. Weather and
-    queues may add time. Simulation continues through the host's awake idle
-    interval after the last player disconnects. Hosting suspension and game-wide
-    outages pause all simulation clocks and deadlines together, without catch-up. Every
-    duration is real time unless marked a game period; ship useful lives,
-    depreciation, and loan interest and installments are quoted in game time and
-    displayed alongside their real equivalents.
+16. **Complete — World time and outages:** one real week per quarter and
+    four per 52-week game year, with a shared published reporting calendar.
+    Normal direct voyages take at most 24 real hours even for the slowest ship;
+    the shortest routes take under 15 real minutes for every eligible ship.
+    Weather and queues may add time. Simulation continues through the host's
+    awake idle interval after the last player disconnects. Hosting suspension
+    and game-wide outages pause every world timer together, without catch-up;
+    player timers, meaning owner absence, its closure warning, and activity
+    weight decay, run on wall-clock time and never pause. Every duration is real
+    time unless marked a game period; ship useful lives, depreciation, and loan
+    interest and installments are quoted in game time and displayed alongside
+    their real equivalents.
 17. **Complete — Authentication experience:** no passwords; invite redemption
     creates an account and device session without email or Google. Optional
     verified linking at any time supports email magic links on web and native
