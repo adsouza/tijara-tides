@@ -261,9 +261,10 @@ the ceiling to accommodate it.
 Size classes, each berth group's limit, and each waterway's limit are
 configurable.
 
-Each location should have distinct supply and demand. Confirm the exact coastal
-port or gateway represented by each city where needed, and propose city economic
-identities. Each port serves its surrounding region: inland producers supply
+Each location should have distinct supply and demand. City economic identities,
+harbor mappings, trade roles across all 20 goods, and each port's relative
+capacity and cost are recorded in [the launch port roster](ports.md). Each port
+serves its surrounding region: inland producers supply
 export goods, and imports serve inland buyers. Use this regional catchment to
 balance the approved roster while keeping economic identities geographically
 plausible. Inland flows are part of the simulated economy; the player-facing
@@ -348,10 +349,11 @@ do not bypass ongoing resource constraints. Raw-resource producers generate
 their goods without requiring imported inputs. Initial production recipes and
 inventory quantities remain to be defined and balanced.
 
-Production recipes use the 19 tradable goods where appropriate. Materials outside
-that catalogue, such as watch components or textiles, are abstracted as local
-inputs included in production costs rather than added as tradable goods. This
-abstraction does not replace required inputs that are in the trade catalogue.
+Production recipes use the 20 tradable goods where appropriate. Materials
+outside that catalogue, such as cask oak, bottling glass or textiles, are
+abstracted as local inputs included in production costs rather than added as
+tradable goods. This abstraction does not replace required inputs that are in
+the trade catalogue.
 
 Production and consumption progress gradually, allowing trade opportunities to
 recover over time while heavy trading can saturate a route. Simulated buyers'
@@ -363,8 +365,9 @@ settled trades or locked auction commitments.
 Exact production and consumption rates, budget caps and replenishment rates,
 price-response parameters, band widths, the activity decay constant, and dormancy
 thresholds remain configurable tuning. The initial goods catalogue is finalized
-in section 6; city economic identities remain to be assigned. The later balance
-between simulated and player industry remains open.
+in section 6, and city economic identities with their per-port trade roles are
+assigned in [the launch port roster](ports.md). The later balance between
+simulated and player industry remains open.
 
 Computer-controlled producers and buyers do not go bankrupt. They still obey
 finite supply, demand, budgets, storage, and berth capacity. When funds or space
@@ -434,8 +437,10 @@ mechanic to express it, as noted in section 14. The explicit bounds on simulated
 quote spreads prevent persistent system-funded intra-cluster arbitrage;
 correlation alone does not guarantee it.
 
-Cluster membership, regional inventory/demand responses, and the bounded local
-price adjustments are tuning choices. Validate them under sustained player-driven
+Cluster membership is recorded in [the launch port roster](ports.md), which
+also states how ports inside each cluster are differentiated. Regional
+inventory and demand responses and the bounded local price adjustments are
+tuning choices. Validate them under sustained player-driven
 inventory depletion as well as ordinary production and consumption.
 
 ### Activity index and market depth
@@ -551,13 +556,13 @@ not attempt to steer the money stock directly.
 Market styles are defaults, not permanent prohibitions on other mechanisms.
 Units, lot sizes, grades, and detailed market eligibility remain open.
 
-The finalized launch catalogue has 19 goods: four bulk commodities and three
-in each other category. Tankers and liquid storage are included at launch.
+The finalized launch catalogue has 20 goods: five bulk commodities and three in
+each other category. Tankers and liquid storage are included at launch.
 
 | Category               | Launch goods                                             |
 |------------------------|----------------------------------------------------------|
-| Bulk commodities       | Iron ore, grain, crude oil, refined fuel                 |
-| Luxury items           | Luxury watches, jewelry, designer clothing               |
+| Bulk commodities       | Iron ore, grain, crude oil, refined fuel, vegetable oil  |
+| Luxury items           | Whisky, jewelry, designer clothing                       |
 | Industrial machinery   | Turbines, construction equipment, agricultural machinery |
 | Mass consumer products | Electronics, appliances, everyday clothing               |
 | Scrap                  | Scrap aluminium, copper scrap, recovered plastics        |
@@ -577,9 +582,21 @@ cities consume refined fuel. These actors follow the shared production, budget,
 capacity, and market rules. Distinct crude and refined-fuel supply and demand
 create additional tanker routes and potential return cargo.
 
-For launch, tankers support either crude oil or refined fuel. Switching between
-them incurs automatic cleaning time and cost, shown in the handling estimate.
-The goods use separate liquid-storage allocations and must not be mixed.
+Three goods need liquid capacity: crude oil, refined fuel and vegetable oil. A
+tanker carries one at a time, and switching incurs automatic cleaning time and
+cost shown in the handling estimate. Cleaning between crude and refined fuel is
+the cheap switch; preparing a tank that held either for food-grade vegetable oil
+costs substantially more, which is why dedicated vegetable-oil tonnage exists.
+All three use separate liquid-storage allocations and must never be mixed.
+
+Vegetable oil exists to give tankers a counter-flow. Palm, coconut and soy oil
+move from tropical producers toward the same industrial and populous regions
+that buy refined fuel, so a tanker can discharge fuel and load oil for the
+return leg. That does not make every leg loaded: a tanker delivering fuel to a
+port that exports no liquid sails back in ballast, which is both realistic and
+intended. Ballast legs are why the oil trader starter package includes a general
+freighter, and they are not a defect to be fixed by relaxing the liquid-hold
+rule.
 
 Perishable batches retain harvest time and remaining shelf life through resale.
 Freshness declines in transit and storage; older goods become less valuable.
@@ -1404,9 +1421,11 @@ Re-entry takes a new queue position and retains the one-entry-per-ship rule.
 ## 11. Warehouses and leases
 
 Every port has finite rentable warehouse capacity. Ordinary, refrigerated, and
-liquid storage have separate availability and demand-dependent prices. Crude oil
-and refined fuel require separate compatible liquid-storage allocations rather
-than ordinary or refrigerated space. Each storage type uses a smooth utilization
+liquid storage have separate availability and demand-dependent prices. Crude oil,
+refined fuel and vegetable oil each require their own compatible liquid-storage
+allocation rather than ordinary or refrigerated space, and food-grade oil cannot
+occupy space that held either petroleum product without the cleaning in
+section 6. Each storage type uses a smooth utilization
 curve with a port-specific base rate and a steeper increase near full capacity.
 Utilization counts capacity leased or otherwise unavailable, including empty
 leased space, grace-period occupancy, liquidation occupancy, and protected
@@ -1813,6 +1832,33 @@ and size-restricted ships a role beyond owning cargo. Rate setting, capacity
 commitments, liability for late or spoiled cargo, and interaction with the
 existing reservation rules are undesigned.
 
+Luxury vehicles are a third. The roster would support them well — German marques
+behind Hamburg, Japanese ones at Tokyo, Italian production through Antwerp's
+inland catchment — but they do not fit the luxury category as section 6 defines
+it. That category's gameplay identity is high value in little space, which lets
+even a small freighter carry a fortune; cars are high value in a great deal of
+space, so only the largest ships could trade them and the distinction from mass
+consumer products would collapse. They also move as roll-on cargo rather than in
+any hold type section 9 defines. Adding vehicles therefore means adding a
+vehicle deck as a capability alongside dry, refrigerated and liquid capacity,
+and is deferred until then rather than forced into a luxury slot.
+
+Construction materials are the natural first cargo additions once facility
+construction exists. Cement, gypsum and architectural glass have real sources on
+the roster that barely overlap iron ore's — Abu Dhabi, Valencia, Ho Chi Minh
+City, Shanghai and Guangzhou are all ore importers that would gain a bulk export
+— so they would add route variety. They are deferred because they add no
+mechanic at launch. Unlike the liquid catalogue, where three goods and a
+hold restriction left tankers with no backhaul, dry ships may already carry any
+of the seventeen dry goods, and scrap is designed as their return cargo. A
+construction material today would trade exactly as iron ore does, into simulated
+demand only, and would tip the catalogue toward large tonnage. Once players
+build facilities, the same goods become inputs to a build decision with a
+player-facing sink, which is when they earn a slot. Cement additionally needs
+pneumatic discharge rather than an ordinary hold, and glass's defining trait is
+fragility, which section 10 rules out by design; both want capability work
+alongside the goods.
+
 ## 15. Implementation boundary and invariants
 
 The current repository implements an in-memory shared world and guest lobby,
@@ -1877,8 +1923,8 @@ retention policies as the persistent world grows.
 
 ## 16. Remaining decision checklist
 
-The discussion audit tracks 23 initial-game product decision groups below: **21
-complete, 2 remaining**. These are grouped decisions, not a count of every
+The discussion audit tracks 23 initial-game product decision groups below: **all
+23 complete**. These are grouped decisions, not a count of every
 implementation edge case. Completed decisions remain in the main sections; this
 checklist replaces the earlier review table that mixed resolved and unresolved
 items. Track progress against these groups rather than treating each tuning
@@ -1990,16 +2036,16 @@ change the list.
     inviters. Unlinked accounts are prompted to link once their company holds
     meaningful assets, and accept permanent loss on device-session loss plus
     in-app-only notices until they do.
-18. **Map and initial world — partially decided:** Equal Earth, clickable ships
+18. **Complete — Map and initial world:** Equal Earth, clickable ships
     and ports, route overlays, and port panels for markets, auctions, storage,
     and congestion. The user supplied 25 required locations in section 4;
     these are the default launch roster, and section 4 now resolves every
     city-to-harbor mapping that was ambiguous. Ports admit ships by size class
     through per-berth-group limits, splitting Ho Chi Minh City and Shanghai and
     capping Houston, and waterways carry their own limits, with the Panama Canal
-    closed to the largest class. Proposing city economic identities is the
-    remaining work before closing this group. Additions may be proposed only
-    for important gameplay balance needs and require the user's approval.
+    closed to the largest class. City economic identities are assigned in the
+    launch port roster. Additions may be proposed only for important gameplay
+    balance needs and require the user's approval.
 19. **Complete — Initial fleet and onboarding:** any launch port may be
     selected as home port, with all three starter ships placed there and local
     trading opportunities shown before confirmation. Four starter packages include
@@ -2007,19 +2053,20 @@ change the list.
     working cash for equivalent total value. Compare fleet value, starting cash,
     cargo capabilities, and operating costs; validate comparable opportunities
     through simulations across home ports without guaranteeing equal profits.
-20. **Simulated economy — partially decided:** gradual production and
-    consumption, capped buyer-budget replenishment, and bounded price responses
-    to surplus and shortages. Factories consume inputs and start with
-    inventories; raw-resource producers need no imported inputs. Recipes use
-    catalogue goods where relevant and abstract other materials as local
-    production costs. The 19-good catalogue is final; city-level supply and
-    demand remain open. Ports sharing a regional catchment use a shared regional
-    operating price driven by actual inventories and demand within fixed global
-    bands, with jointly bounded local quote adjustments keeping simulated
-    spreads near transport cost. Player orders remain unrestricted. Simulated
-    bidders carry private valuations around reference value so player
-    consignments face real competition rather than clearing at their reserve.
-    Numerical response parameters are tuning work.
+20. **Complete — Simulated economy:** gradual production and consumption, capped
+    buyer-budget replenishment, and bounded price responses to surplus and
+    shortages. Factories consume inputs and start with inventories; raw-resource
+    producers need no imported inputs. Recipes use catalogue goods where
+    relevant and abstract other materials as local production costs. The 20-good
+    catalogue is final, and city-level supply and demand are assigned per port
+    in the launch port roster, which carries a generated coverage check. Ports
+    sharing a regional catchment use a shared regional operating price driven by
+    actual inventories and demand within fixed global bands, with jointly
+    bounded local quote adjustments keeping simulated spreads near transport
+    cost. Player orders remain unrestricted. Simulated bidders carry private
+    valuations around reference value so player consignments face real
+    competition rather than clearing at their reserve. Numerical response
+    parameters are tuning work.
 21. **Complete — Monetary anchor and participation scaling:** absolute configured
     reference values and bands fix the price level and are never derived from
     observed trade history. A decaying per-company activity weight, capped at 1

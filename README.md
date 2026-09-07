@@ -6,7 +6,9 @@ only: a shared world and a live guest lobby. No trading, ships, cities, resource
 mines, factories, economy, or simulation clock has been implemented.
 
 See [the game design](docs/DESIGN.md) for agreed gameplay decisions, provisional
-balancing choices, and open questions for the persistent trading economy.
+balancing choices, and open questions for the persistent trading economy, and
+[the launch port roster](docs/ports.md) for the 25 ports' economic identities
+and trade roles.
 
 ## Run locally
 
