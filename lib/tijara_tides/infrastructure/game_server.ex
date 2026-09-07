@@ -92,7 +92,11 @@ defmodule TijaraTides.Infrastructure.GameServer do
         {:ok, game} = GameStore.claim(repo, state.world_id)
         initialized = Game.initialize(game, state.catalogue)
 
-        case GameStore.commit(repo, state.world_id, game.epoch, game, initialized) do
+        # Fresh-world market creation makes hundreds of writes over the database
+        # connection. Allow startup to complete without extending gameplay calls.
+        case GameStore.commit(repo, state.world_id, game.epoch, game, initialized, nil,
+               timeout: 120_000
+             ) do
           {:ok, :ok} ->
             {:ok, %{state | game: TijaraTides.Domain.Journal.clear(initialized), status: :ready}}
 

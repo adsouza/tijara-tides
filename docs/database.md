@@ -248,6 +248,10 @@ for health check configuration and restart behavior.
 
 ## Gameplay runtime safeguards
 
+Initial world creation has a 120-second transaction timeout to accommodate
+creating the port markets over a remote database connection. Ordinary gameplay
+retains the normal repository transaction timeout.
+
 Gameplay calls share a 30-second timeout so reads can queue behind database
 writes. Persistence and domain exceptions pause the world; operator logs include
 the exception type and stack frames, with argument values omitted. Database
