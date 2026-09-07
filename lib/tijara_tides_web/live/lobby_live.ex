@@ -98,7 +98,7 @@ defmodule TijaraTidesWeb.LobbyLive do
             Tabs in the same browser share a guest session.
           </p>
         </div>
-        <p class="mt-8 text-sm text-slate-400">Foundation preview · Gameplay is not available yet.</p>
+        <a href="/play" class="mt-8 inline-block rounded-lg bg-teal-700 px-6 py-3 text-white">Explore the trading world</a>
       </section>
     </Layouts.app>
     """

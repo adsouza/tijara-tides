@@ -58,6 +58,13 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Local-only default; production replaces this with SECRET_KEY_BASE.
+config :tijara_tides,
+       :game_secret,
+       "tijara-local-invitation-secret-not-for-production-01234567890123456789"
+
+config :phoenix, :filter_parameters, ["password", "secret", "token", "code"]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

@@ -18,10 +18,14 @@ unprivileged user, and includes no desktop toolchain or local environment files.
      ignored `.env.local` (without shell quotes). See [database setup](database.md).
    - `SECRET_KEY_BASE`: output of `mix phx.gen.secret`. Keep the same value across
      deployments so browser and desktop sessions remain valid.
-4. Create the Blueprint. Render builds the Dockerfile and starts its release.
+4. Before starting the first game deployment, apply the explicit migrations and
+   create a launch invitation using [database operations](database.md), with the
+   intended database and stable signing secret configured. Keep any existing
+   game server stopped while running the seed command.
+5. Create the Blueprint. Render builds the Dockerfile and starts its release.
    The initial creation deploys immediately; subsequent automatic deployments
    are configured to wait for passing CI checks.
-5. Open the assigned HTTPS URL and `/statusz`, then open the lobby in two browser
+6. Open the assigned HTTPS URL and `/statusz`, then open the lobby in two browser
    sessions. The live guest count should update in both. Enter the same HTTPS
    server URL in the native desktop client.
 
@@ -76,19 +80,20 @@ Never pass database credentials or the production signing secret as build args.
 
 ## Current limitations
 
-Neon connectivity is configured, but there are no game tables, migrations, or
-state writes yet. The lobby's in-memory state resets on restart or redeployment.
-No migration or seed command runs during image build or startup.
+Apply game migrations explicitly before enabling this milestone. The source
+commands are documented in [database operations](database.md); do not launch the server against an unmigrated database.
+No migration or seed command runs during image build or ordinary startup.
 
-Keep a single service instance. Render can briefly overlap old and new processes
-while deploying; before adding durable gameplay writes, implement database-backed
-ownership fencing so only the current world owner can commit. Persistence must
-load state at startup and transactionally store incremental changes for each
-player's independent turn before acknowledging/broadcasting it. No global turn
-barrier is intended. Companies progress while their owners are offline as long
-as the server remains awake, including the idle interval with no connected
-players. During hosting suspension or outages, pause all world clocks together and resume
-without offline catch-up, following the shared clock policy in the design.
+Keep a single service instance. Transactional ownership fencing rejects writes
+from an older owner during deployment overlap. Companies and the simulation
+clock persist; the temporary guest roster resets. Progress continues while the
+host is awake, including after disconnect, and pauses during hosting suspension
+without offline catch-up. `/statusz` requires both startup connectivity and a
+ready game owner.
+
+This is a playtest milestone with device-only accounts. Review
+[the implementation limits](IMPLEMENTATION.md) before inviting players. External
+identity linking and the complete economy remain follow-up work.
 
 Configuration fields follow the [Render Blueprint reference](https://render.com/docs/blueprint-spec).
 See also [Render health checks](https://render.com/docs/health-checks) and

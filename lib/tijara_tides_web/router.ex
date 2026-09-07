@@ -26,6 +26,9 @@ defmodule TijaraTidesWeb.Router do
     pipe_through :browser
 
     live "/", LobbyLive
+    live "/play", GameLive
+    post "/session/redeem", GameSessionController, :create
+    delete "/session", GameSessionController, :delete
   end
 
   # Other scopes may use custom stacks.

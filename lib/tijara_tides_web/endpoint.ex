@@ -8,6 +8,7 @@ defmodule TijaraTidesWeb.Endpoint do
     store: :cookie,
     key: "_tijara_tides_key",
     signing_salt: "BXNAi9y1",
+    max_age: 365 * 24 * 60 * 60,
     same_site: "Lax",
     http_only: true,
     secure: Application.compile_env(:tijara_tides, :secure_cookies, false)

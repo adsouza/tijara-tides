@@ -8,63 +8,61 @@ rules proposal.
 ## Layers
 
 ```text
-Browser (LiveView JS: render, connection, input transport)
-  ↕ HTTP / LiveView WebSocket
-TijaraTidesWeb (signed guest session, LiveView, presentation)
-  ↓
-Infrastructure.WorldServer (authoritative owner, monitored connections, PubSub)
-  ↓
-UseCases.WorldCommands (command validation/dispatch seam; currently rejects all)
-  ↓
-Domain.World (pure empty world identity)
+Browser / native webview
+  → TijaraTidesWeb.GameLive and GameSessionController
+  → Infrastructure.GameServer
+  → UseCases.GameCommands
+  → Domain.Game
 ```
 
-`boundary` enforces dependencies during compilation. `mix precommit` forces
-recompilation with warnings treated as errors, including architectural violations.
-The domain purity test carried forward from Armchair Metropolist inspects BEAM
-imports for process and framework calls that Boundary alone cannot exclude.
-
-The web layer may call Infrastructure's exported server API. It may not call
-use cases or manipulate domain state directly. Future rules belong in Domain and
-are orchestrated through UseCases. Infrastructure is where I/O adapters belong.
-No speculative gameplay entities or repository ports are supplied yet. The
-optional `Infrastructure.Persistence.Repo` provides Ecto/Postgrex connectivity
-when `DATABASE_URL` is configured; it does not persist world state yet. See
-[database setup](docs/database.md).
+`boundary` enforces dependencies during compilation. The domain purity test
+inspects BEAM imports for process and framework calls. Domain operations receive
+explicit time, identifiers, and static catalogue data; they perform no I/O.
+Infrastructure owns PostgreSQL, credential hashing, scheduling, and publication.
+The original `WorldServer` / `WorldCommands` / `Domain.World` path still serves
+only the temporary guest lobby.
 
 ## Ownership and synchronization
 
-One supervised `WorldServer` starts with the application and owns the `ocean`
-world. It does not start per browser and does not shut down when the last guest
-leaves. GenServer calls serialize access. A client cannot submit replacement
-state. The command API obtains the guest identity from the calling LiveView's
-attachment; client event payloads must never supply trusted identity.
+One `GameServer` owns the durable ocean world. Startup increments a database
+ownership epoch, restores entities and the committed simulation clock, and leaves
+progression paused until an authenticated client connects. Five-second ticks
+continue while the server stays awake after disconnect. Restart adds no elapsed
+wall time. Database failures stop progression and commands rather than producing
+uncommitted results.
 
-Guest IDs are random, server-minted values stored in signed, HTTP-only session
-cookies (secure in production). They identify browser sessions, not accounts.
-The public projection contains only the world ID, revision, guest count, and
-connection count. It does not expose credentials, process IDs, or private state.
+PostgreSQL stores typed relational tables for accounts, companies, ships,
+markets, sessions, invitations, and notices. Ship cargo and perishable market
+stock use permanent lot identities and separate ordered location rows; foreign keys enforce ownership and catalogue
+references. `GameRows` maps these records to the pure domain model. Each
+transaction locks the world row, verifies the owner epoch, writes changed
+columns and batches, and records the account/request fingerprint and result.
+Only variable command-result receipts retain JSONB. Pure domain operations emit
+balanced journal events and new lot identities alongside state changes. The
+same transaction persists these, verifies ledger reconciliation, and writes the
+receipt. Pending events are cleared after commit; historical journals and lot
+lineage stay in PostgreSQL rather than accumulating in world-process memory.
+Startup audits ledger totals before serving gameplay.
+A superseded process cannot commit. Same-request retries replay the committed
+result; a changed payload under the same request ID is rejected. Publication and
+acknowledgement follow commit. Keep one server instance; fencing is overlap
+protection, not a multi-instance availability mechanism.
 
-Each connected LiveView attaches once; repeat attachment is idempotent. Each
-connection is monitored. Losing one tab does not remove another tab belonging to
-the same guest. Guests with no connections disappear from this temporary roster;
-future persistent player records must be separate from connection metadata.
-Static HTTP rendering never attaches a guest or creates another world.
+Accounts outlive browser connections. Invitations are single-use and only their
+hashes are stored. A signed, HTTP-only cookie carries an opaque random device
+credential; server-side session lookup and expiry authorize every command.
+Public projections omit balances and cargo. PubSub announces revisions only;
+subscribers fetch their own authorized projection. Static route and map data are
+versioned assets. Email and Google identity linking remain unimplemented.
 
-LiveViews subscribe before attaching and receiving their snapshot. Updates carry
-monotonic revisions; stale queued snapshots are ignored. This avoids the initial
-read/subscribe race and rolling back the UI with an older event. World-specific
-topics isolate updates. For this tiny lobby a complete public projection is cheap;
-future gameplay should follow Armchair Metropolist's selective display-diff
-approach instead of broadcasting the entire game state to every player.
+When enabled, Repo and Readiness start before Telemetry, PubSub, WorldServer,
+GameServer, and Endpoint under `rest_for_one`. Owner crashes restart Endpoint so
+clients reconnect. Storage failure leaves gameplay unavailable and `/statusz`
+unhealthy; restart after repairing the failure. Migrations are explicit operator
+commands and never run at normal startup.
 
-When enabled, the database repository starts first. The remaining supervision
-order is Telemetry → PubSub → WorldServer → Endpoint with
-`:rest_for_one`. Losing the world or PubSub restarts downstream services, making
-browsers reconnect and mount against the current owner. Revisions reset with an
-owner restart, so reconnecting views take a fresh snapshot rather than comparing
-it against the old process's revision. This is restart recovery, not durable data
-recovery. No shutdown checkpoint or persistence guarantee exists yet.
+See [implementation scope](docs/IMPLEMENTATION.md) and
+[database operations](docs/database.md) for playtest rules and verification.
 
 ## Deliberate differences from Armchair Metropolist
 
@@ -80,24 +78,14 @@ recovery. No shutdown checkpoint or persistence guarantee exists yet.
   authoritative simulation. The desktop client bundles only a connection screen,
   uses native Rust menus for recovery, and grants remote pages no native APIs.
   See [desktop packaging](docs/desktop.md) for macOS, .deb, and Flatpak details.
-- Its Postgres/file snapshot adapters and tick scheduler solve established game
-  requirements. Storage format, transaction boundaries, and scheduler
-  implementation remain to be designed; the shared clock and no-catch-up rules
-  are defined in Tijara Tides' design.
+- Its Postgres/file snapshot adapters solve a different persistence model. Tijara
+  Tides commits individual entity changes with command receipts and a fenced
+  shared-world clock.
 
-## Scope and next decisions
+## Verification
 
-Only a single BEAM node is supported. PubSub does not create distributed state
-ownership, and adding replicas would fork the world. There is no cluster discovery
-configured. Horizontal scaling needs an explicit ownership/fencing strategy.
-
-Before valuable game state exists, design accounts and authorization, persistence
-and migrations, idempotent commands and retries, recovery, and abuse limits.
-Choose shared-world rules, time/progression, and visibility before implementing
-cities, markets, ships, trade routes, mines, or factories.
-
-Tests cover concurrent clients, same-guest tabs, disconnect cleanup, command
-rejection, topic isolation, session reuse, stale updates, and cross-client
-LiveView synchronization, and owner/endpoint restart recovery.
-CI checks the declared Elixir floor and the local version,
-and assembles a production release with assets.
+Tests cover the original guest lobby, company and trade rules, privacy, voyage
+bounds, concurrent invitation redemption, retry conflicts, transaction rollback,
+ownership fencing, restart recovery, and a complete LiveView trade journey.
+CI checks both supported Elixir/OTP pairs, disposable PostgreSQL integration,
+generated catalogue consistency, assets, and a production release.

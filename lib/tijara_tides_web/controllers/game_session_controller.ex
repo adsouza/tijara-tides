@@ -1,0 +1,33 @@
+defmodule TijaraTidesWeb.GameSessionController do
+  use TijaraTidesWeb, :controller
+  alias TijaraTides.Infrastructure.GameServer
+
+  def create(conn, %{"code" => code}) do
+    case GameServer.redeem(code) do
+      {:ok, %{"session" => token}} ->
+        conn
+        |> configure_session(renew: true)
+        |> put_session(:account_token, token)
+        |> redirect(to: ~p"/play")
+
+      {:error, _} ->
+        conn
+        |> put_flash(
+          :error,
+          "That invitation could not be redeemed. Check the code and that the game is available."
+        )
+        |> redirect(to: ~p"/play")
+    end
+  end
+
+  def create(conn, _), do: redirect(conn, to: ~p"/play")
+
+  def delete(conn, _) do
+    GameServer.sign_out(get_session(conn, :account_token))
+
+    conn
+    |> delete_session(:account_token)
+    |> configure_session(renew: true)
+    |> redirect(to: ~p"/play")
+  end
+end

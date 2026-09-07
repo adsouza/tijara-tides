@@ -2,12 +2,30 @@ import Config
 
 # No connection during ordinary tests, even if the shell has Neon credentials.
 if config_env() != :test do
-  if database_url = System.get_env("DATABASE_URL") do
-    config :tijara_tides, :start_repo, true
+  local_port = if config_env() == :dev, do: System.get_env("TIJARA_LOCAL_DB_PORT")
 
-    config :tijara_tides,
-           TijaraTides.Infrastructure.Persistence.Repo,
-           TijaraTides.Infrastructure.Persistence.DatabaseConfig.options(database_url)
+  cond do
+    local_port ->
+      config :tijara_tides, :start_repo, true
+
+      config :tijara_tides, TijaraTides.Infrastructure.Persistence.Repo,
+        hostname: "127.0.0.1",
+        port: String.to_integer(local_port),
+        username: "postgres",
+        database: "tijara_tides",
+        ssl: false,
+        pool_size: 2,
+        idle_limit: 0
+
+    database_url = System.get_env("DATABASE_URL") ->
+      config :tijara_tides, :start_repo, true
+
+      config :tijara_tides,
+             TijaraTides.Infrastructure.Persistence.Repo,
+             TijaraTides.Infrastructure.Persistence.DatabaseConfig.options(database_url)
+
+    true ->
+      :ok
   end
 end
 
@@ -61,6 +79,8 @@ if config_env() == :prod do
       environment variable SECRET_KEY_BASE is missing.
       You can generate one by calling: mix phx.gen.secret
       """
+
+  config :tijara_tides, :game_secret, secret_key_base
 
   host = System.get_env("PHX_HOST") || System.get_env("RENDER_EXTERNAL_HOSTNAME") || "example.com"
 

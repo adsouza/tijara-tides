@@ -8,3 +8,14 @@
 @custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 body { background-image: radial-gradient(ellipse at top right, #123a46 0%, transparent 65%); }
+
+/* Browser SVG focus outlines grow with the viewBox zoom. Use the marker's
+   non-scaling stroke to retain a compact keyboard focus indicator instead. */
+#world-map [role="button"]:focus {
+  outline: none;
+}
+#world-map g[role="button"]:focus-visible .port-marker-dot,
+#world-map circle[role="button"]:focus-visible {
+  stroke: white;
+  stroke-width: 2px;
+}

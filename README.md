@@ -1,9 +1,10 @@
 # Tijara Tides
 
 A multiplayer marine cargo trading game built with Elixir, OTP, Phoenix LiveView,
-and Tailwind CSS. This repository currently contains the multiplayer foundation
-only: a shared world and a live guest lobby. No trading, ships, cities, resources,
-mines, factories, economy, or simulation clock has been implemented.
+and Tailwind CSS. The first playable milestone includes invitation-based accounts,
+persistent companies, four starter fleets, manual trading, timed voyages, and a
+non-Mercator world map. See [implementation scope](docs/IMPLEMENTATION.md) for
+playtest limitations and the remaining milestones.
 
 See [the game design](docs/DESIGN.md) for agreed gameplay decisions, provisional
 balancing choices, and open questions for the persistent trading economy, and
@@ -35,6 +36,29 @@ Use `PORT=4001 mix phx.server` if port 4000 is already occupied.
 mix precommit       # formatting, forced boundary checks, and tests
 ```
 
+## Play locally
+
+Install PostgreSQL in addition to the tools above, then run:
+
+```sh
+python3 scripts/dev-game.py
+```
+
+The launcher creates a persistent local database under `tmp/local-game`, applies
+migrations, prints a launch invitation on first use, and opens the server at
+<http://localhost:4000/play>. Paste the invitation into the game, name your company,
+and choose a home port and starter fleet. It ignores inherited Neon credentials.
+Ctrl-C stops both services while retaining your game. Use `--seed` to issue
+another launch invitation or `--web-port 4001` for another web port.
+
+Accounts currently use a durable, revocable device credential. Email magic links,
+Google linking, and cross-device recovery are a following milestone. Losing the
+browser's cookie loses access to an unlinked account; use this build for playtests.
+
+```sh
+python3 scripts/test-game-db.py  # full suite against disposable local PostgreSQL
+```
+
 ## Server release
 
 For Render Free with Neon, follow [deployment setup](docs/deploying.md). The
@@ -51,12 +75,10 @@ A release builds and digests its own assets. Preserve a stable `SECRET_KEY_BASE`
 across real deployments. Production expects HTTPS at a reverse proxy and uses
 secure session cookies. Configure the proxy and `PHX_HOST` for your deployment.
 
-Run **one server instance**. Ownership is local to one BEAM node; starting multiple
-replicas would create separate worlds. State is in memory and resets on restart.
-Guest sessions are a development foundation, not authenticated player accounts.
-There are no valuable game assets to preserve yet. Durable storage, account
-security, command deduplication, and distributed ownership must be designed before
-introducing a persistent multiplayer economy.
+Run **one server instance**. Gameplay is stored in PostgreSQL; transactional
+ownership fencing rejects writes from a superseded server. The simulation resumes
+from its last committed clock when a player connects, without offline catch-up.
+The guest lobby remains separate and resets on restart.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for what was carried forward from Armchair
 Metropolist, lifecycle behavior, and the boundaries for future gameplay work.

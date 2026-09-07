@@ -15,6 +15,7 @@ defmodule TijaraTides.Application do
           TijaraTidesWeb.Telemetry,
           {Phoenix.PubSub, name: TijaraTides.PubSub},
           {TijaraTides.Infrastructure.WorldServer, name: TijaraTides.Infrastructure.WorldServer},
+          TijaraTides.Infrastructure.GameServer,
           TijaraTidesWeb.Endpoint
         ]
 

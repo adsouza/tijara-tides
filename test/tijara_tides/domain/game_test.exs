@@ -1,0 +1,308 @@
+defmodule TijaraTides.Domain.GameTest do
+  use ExUnit.Case, async: true
+  alias TijaraTides.Domain.Game
+  alias TijaraTides.Infrastructure.GameCatalogue
+
+  def setup_game do
+    catalogue = GameCatalogue.all()
+    state = Game.initialize(%{entities: %{}, clock_ms: 0, epoch: 1, revision: 0}, catalogue)
+    {:ok, state, _} = Game.seed_invite(state, "invite")
+    {:ok, state, _} = Game.redeem(state, "invite", "session", %{id: "account", wall_ms: 0})
+    account = Game.get(state, "accounts", "account")
+    ctx = %{id: "company", catalogue: catalogue}
+
+    {:ok, state, _} =
+      Game.execute(
+        state,
+        account,
+        %{
+          "action" => "company",
+          "name" => "Ocean Company",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        ctx,
+        catalogue
+      )
+
+    {state, Game.get(state, "accounts", "account"), catalogue}
+  end
+
+  test "purchase totals include handling and the applicable tanker cleaning fee" do
+    goods = GameCatalogue.all()["goods"]
+    quote = %{"ask" => 1000, "handling_fee" => 200}
+    ship = %{"class" => "tanker", "last_liquid" => "Crude oil"}
+    assert Game.purchase_total(quote, ship, goods["Crude oil"], 3) == 3600
+    assert Game.purchase_total(quote, ship, goods["Refined fuel"], 3) == 8600
+    assert Game.purchase_total(quote, ship, goods["Vegetable oil"], 3) == 28600
+    assert Game.purchase_total(quote, ship, goods["Vegetable oil"], 0) == 0
+  end
+
+  test "cargo compatibility shares hold and single-liquid rules" do
+    goods = GameCatalogue.all()["goods"]
+    ship = fn class -> %{"class" => class, "cargo" => []} end
+    assert Game.compatible_cargo?(ship.("freighter"), goods["Lumber"])
+    refute Game.compatible_cargo?(ship.("freighter"), goods["Fruit"])
+    refute Game.compatible_cargo?(ship.("freighter"), goods["Crude oil"])
+    assert Game.compatible_cargo?(ship.("reefer"), goods["Fruit"])
+    assert Game.compatible_cargo?(ship.("reefer"), goods["Lumber"])
+    assert Game.compatible_cargo?(ship.("tanker"), goods["Vegetable oil"])
+    refute Game.compatible_cargo?(ship.("tanker"), goods["Lumber"])
+    loaded = Map.put(ship.("tanker"), "cargo", [%{"good" => "Crude oil", "quantity" => 1}])
+    assert Game.compatible_cargo?(loaded, goods["Crude oil"])
+    refute Game.compatible_cargo?(loaded, goods["Vegetable oil"])
+  end
+
+  test "freshness estimates use purchased batches, selected quantity and full unloading time" do
+    batches = [
+      %{"good" => "Fruit", "quantity" => 2, "expires_ms" => 10_000},
+      %{"good" => "Fruit", "quantity" => 3, "expires_ms" => 20_000}
+    ]
+
+    assert Game.freshness(batches, 2, 1000, Game.handling_ms(2))["after_ms"] == 8000
+    assert Game.freshness(batches, 5, 1000, Game.handling_ms(5))["after_ms"] == 6500
+    assert Game.freshness(batches, 5, 9000, Game.handling_ms(5))["after_ms"] == 0
+
+    assert [%{"good" => "Fruit", "quantity" => 5, "arrival_ms" => 4000, "unloaded_ms" => 1500}] =
+             Game.voyage_freshness(%{"cargo" => batches}, 1000, 5000)
+
+    assert Game.voyage_freshness(
+             %{"cargo" => [%{"good" => "Lumber", "quantity" => 1, "expires_ms" => nil}]},
+             0,
+             5000
+           ) == []
+  end
+
+  test "starter packages contain three ships and equal total capital" do
+    for {package, fleet} <- Game.packages() do
+      assert length(fleet) == 3
+      assert Game.package_cash(package) > 0
+
+      assert Game.package_cash(package) + Enum.sum(Enum.map(fleet, &Game.classes()[&1]["price"])) ==
+               20_000_000
+    end
+  end
+
+  test "invitation redemption and expiry cannot both consume and refund quota" do
+    {state, account, catalogue} = setup_game()
+
+    {:ok, state, result} =
+      Game.execute(state, account, %{"action" => "invite"}, %{invite_hash: "child"}, catalogue)
+
+    assert Game.get(state, "accounts", "account")["invite_quota"] == 2
+
+    {:ok, redeemed, _} =
+      Game.redeem(state, "child", "other-session", %{id: "child-account", wall_ms: 0})
+
+    assert {:error, :invalid_invitation} =
+             Game.redeem(redeemed, "child", "third", %{id: "third", wall_ms: 0})
+
+    redeemed = Game.advance(redeemed, result["expires_ms"], catalogue)
+    assert Game.get(redeemed, "accounts", "account")["invite_quota"] == 2
+    expired = Game.advance(state, result["expires_ms"], catalogue)
+    assert Game.get(expired, "accounts", "account")["invite_quota"] == 3
+    expired = Game.advance(expired, 1, catalogue)
+    assert Game.get(expired, "accounts", "account")["invite_quota"] == 3
+
+    assert {:error, :invalid_invitation} =
+             Game.redeem(expired, "child", "other", %{id: "other", wall_ms: 0})
+  end
+
+  test "buying reserves actual capacity and cannot bypass ownership, funds, limits or handling" do
+    {state, account, catalogue} = setup_game()
+
+    buy = %{
+      "action" => "buy",
+      "ship" => "company:1",
+      "good" => "Lumber",
+      "quantity" => 10,
+      "limit" => 30_000
+    }
+
+    {:ok, after_buy, _} = Game.execute(state, account, buy, %{}, catalogue)
+    assert Game.get(after_buy, "ships", "company:1")["status"] == "loading"
+    assert Game.get(after_buy, "markets", "Jakarta|Lumber")["stock"] == 490
+    assert {:error, :invalid_trade} = Game.execute(after_buy, account, buy, %{}, catalogue)
+
+    assert {:error, :invalid_trade} =
+             Game.execute(state, %{account | "company_id" => "other"}, buy, %{}, catalogue)
+
+    assert {:error, :price_changed} =
+             Game.execute(state, account, %{buy | "limit" => 1}, %{}, catalogue)
+
+    assert {:error, :capacity_exceeded} =
+             Game.execute(state, account, %{buy | "quantity" => 1000}, %{}, catalogue)
+
+    assert {:error, :invalid_trade} =
+             Game.execute(state, account, %{buy | "quantity" => -1}, %{}, catalogue)
+  end
+
+  test "voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo" do
+    {state, account, catalogue} = setup_game()
+
+    {:ok, state, _} =
+      Game.execute(
+        state,
+        account,
+        %{
+          "action" => "buy",
+          "ship" => "company:1",
+          "good" => "Lumber",
+          "quantity" => 10,
+          "limit" => 30_000
+        },
+        %{},
+        catalogue
+      )
+
+    state = Game.advance(state, 5000, catalogue)
+    ship = Game.get(state, "ships", "company:1")
+    estimate = Game.voyage_quote(ship, "Singapore", catalogue)
+
+    {:ok, state, _} =
+      Game.execute(
+        state,
+        account,
+        %{
+          "action" => "sail",
+          "ship" => "company:1",
+          "destination" => "Singapore",
+          "fuel_limit" => estimate["fuel"]
+        },
+        %{},
+        catalogue
+      )
+
+    assert Game.get(state, "companies", "company")["reserved"] == estimate["fuel"]
+    public = Game.public(state, catalogue)
+    refute Map.has_key?(public["ships"]["company:1"], "cargo")
+    refute Map.has_key?(public["companies"]["company"], "cash")
+    assert Game.private(state, %{"id" => "stranger", "company_id" => "other"})["ships"] == %{}
+    arrived = Game.advance(state, estimate["duration_ms"], catalogue)
+    assert Game.get(arrived, "ships", "company:1")["port"] == "Singapore"
+    assert Game.get(arrived, "companies", "company")["reserved"] == 0
+    again = Game.advance(arrived, 0, catalogue)
+    assert again == arrived
+
+    assert {:ok, sold, _} =
+             Game.execute(
+               arrived,
+               account,
+               %{
+                 "action" => "sell",
+                 "ship" => "company:1",
+                 "good" => "Lumber",
+                 "quantity" => 10,
+                 "limit" => 1
+               },
+               %{},
+               catalogue
+             )
+
+    assert Game.get(sold, "ships", "company:1")["cargo"] == []
+  end
+
+  test "legacy voyages accelerate once while preserving progress and fuel already spent" do
+    {state, account, catalogue} = setup_game()
+
+    {:ok, state, _} =
+      Game.execute(
+        state,
+        account,
+        %{
+          "action" => "sail",
+          "ship" => "company:1",
+          "destination" => "Singapore",
+          "fuel_limit" => 100_000_000
+        },
+        %{id: "sail", catalogue: catalogue},
+        catalogue
+      )
+
+    ship = Game.get(state, "ships", "company:1")
+    burned = div(ship["fuel_total"], 2)
+
+    legacy =
+      ship
+      |> Map.delete("voyage_speedup")
+      |> Map.merge(%{
+        "depart_ms" => 0,
+        "arrive_ms" => 100_000,
+        "last_cost_ms" => 50_000,
+        "fuel_burned" => burned
+      })
+
+    state = put_in(state, [:entities, "ships", "company:1"], legacy)
+    state = %{state | clock_ms: 50_000}
+    migrated = Game.advance(state, 0, catalogue)
+    ship = Game.get(migrated, "ships", "company:1")
+    assert ship["depart_ms"] == 45_000
+    assert ship["arrive_ms"] == 55_000
+    assert ship["fuel_burned"] == burned
+    assert ship["voyage_speedup"] == 600
+    again = Game.advance(migrated, 0, catalogue)
+    assert Game.get(again, "ships", "company:1") == ship
+
+    assert Game.get(Game.advance(again, 5_000, catalogue), "ships", "company:1")["status"] ==
+             "docked"
+  end
+
+  test "all starter ship routes fit the voyage ceiling and the shortest fit idle time" do
+    catalogue = GameCatalogue.all()
+
+    for {class, _} <- Game.classes() do
+      times =
+        for {_, port} <- catalogue["ports"],
+            destination <- Map.keys(catalogue["ports"]),
+            destination != port["id"] do
+          Game.voyage_quote(
+            %{"class" => class, "port" => port["id"], "cargo" => []},
+            destination,
+            catalogue
+          )["duration_ms"]
+        end
+
+      assert Enum.max(times) <= 8_640_000
+      assert Enum.min(times) < 30_000
+    end
+  end
+
+  test "perishable purchases retain source freshness and spoilage writes off cargo once" do
+    {state, account, catalogue} = setup_game()
+    state = Game.advance(state, 60_000, catalogue)
+    ship = Game.get(state, "ships", "company:1") |> Map.put("class", "reefer")
+    state = Game.put(state, "ships", ship["id"], ship)
+    expiry = hd(Game.get(state, "markets", "Jakarta|Fruit")["batches"])["expires_ms"]
+
+    command = %{
+      "action" => "buy",
+      "ship" => ship["id"],
+      "good" => "Fruit",
+      "quantity" => 2,
+      "limit" => 100_000
+    }
+
+    assert {:ok, bought, _} = Game.execute(state, account, command, %{}, catalogue)
+    assert hd(Game.get(bought, "ships", ship["id"])["cargo"])["expires_ms"] == expiry
+    expired = Game.advance(bought, expiry - bought.clock_ms, catalogue)
+    assert Game.get(expired, "ships", ship["id"])["cargo"] == []
+    assert Game.advance(expired, 0, catalogue) == expired
+  end
+
+  test "market freshness expires between production boundaries" do
+    {state, _, catalogue} = setup_game()
+    market = Game.get(state, "markets", "Jakarta|Fruit")
+    market = %{market | "batches" => [%{"quantity" => 500, "expires_ms" => 1}]}
+    state = Game.put(state, "markets", "Jakarta|Fruit", market)
+    state = Game.advance(state, 1, catalogue)
+    assert Game.get(state, "markets", "Jakarta|Fruit")["stock"] == 0
+    assert Game.quote(state, catalogue, "Jakarta", "Fruit")["stock"] == 0
+  end
+
+  test "device expiry and invalid credentials never expose an account" do
+    {state, _, _} = setup_game()
+    assert {:ok, _} = Game.authenticate(state, "session", 0)
+    assert {:error, :invalid_session} = Game.authenticate(state, "session", 365 * 86_400_000)
+    assert {:error, :invalid_session} = Game.authenticate(state, "unknown", 0)
+  end
+end
