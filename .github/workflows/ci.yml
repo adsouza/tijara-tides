@@ -14,10 +14,11 @@ jobs:
             otp: '29.0.4'
     steps:
       - uses: actions/checkout@v7
-      - name: Port roster matches its generator
+      - name: Generated docs match their generators
         run: |
           python3 scripts/gen-ports-roster.py
-          git diff --exit-code docs/ports.md
+          python3 scripts/gen-ship-instructions.py
+          git diff --exit-code docs/ports.md docs/ship-instructions.md
       - uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ matrix.elixir }}

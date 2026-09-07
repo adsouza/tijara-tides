@@ -1166,6 +1166,12 @@ in section 11.
 
 ## 8. Ship instructions and repeatable routes
 
+This section is the authority for the rules below. Because they interlock across
+six concerns at once, they are also restated as explicit states, events, guards
+and effects in [the ship instruction state tables](ship-instructions.md), which
+implementation should build against and which records what this section leaves
+undecided.
+
 Players can give each destination instructions to sell up to a quantity above a
 minimum price, buy up to a quantity below a maximum price with a spending cap,
 then wait or continue. Sell instructions run before buy instructions. Unfilled
@@ -1261,8 +1267,10 @@ cash released from linked orders. Without an earmarked budget, use available
 unreserved cash up to the stop's spending cap. A player may explicitly change the
 budget subject to available funds and existing commitments. Release unused
 earmarked funds to available company cash when that stop's visit finishes, or
-when the stop is removed or cancelled. Do not release funds already committed
-to a settled trade or handling obligation. Waiting at the same unfinished stop
+when the stop is removed or cancelled, including after loading has begun or
+while the visit waits for another attempt. A visit ending before berth assignment
+also releases its unused budget and linked-order reservations. Do not release
+funds already committed to a settled trade or handling obligation. Waiting at the same unfinished stop
 does not itself finish the visit. A repeating route retains the configured
 budget amount but does not carry unused cash forward automatically. Before
 departing toward that stop, reserve the next visit's configured purchase budget
@@ -1285,6 +1293,11 @@ and notify, depart once the full purchase budget and fuel can be reserved; no
 manual resume is required. Notify once when a ship becomes blocked and once
 when it resumes, without repeated alerts for an unchanged blocked state.
 Reservation and departure must not execute twice on repeated retry events.
+Requesting departure does not reserve the purchase budget independently. One
+authoritative operation checks fuel plus the budget required by the current
+policy, reserves both once, updates the visit and budget lifecycles together,
+and departs. Immediate departures and later successful retries use the same
+operation and departure identity.
 When several ships await funding, consider them in order of when they became
 blocked and fund the longest-waiting ship whose required departure amount is
 currently available. Skip unaffordable requests rather than blocking later ones.
@@ -1299,8 +1312,11 @@ accumulation, following section 12. At most one ship per company accumulates at 
 time, the longest-waiting eligible one. The window has a fixed deadline; partial
 funding and repeated retries do not extend it.
 
-If fully funded within the window, the ship departs under normal rules. Otherwise
-release its accumulated cash at the deadline, pay overdue obligations first, and
+If fully funded within the window, atomically convert the accumulated cash into
+the leg's distinct fuel and purchase reservations and depart under normal rules.
+Do not retain a separate accumulated balance or reserve the same amount again
+from unreserved cash. Otherwise release its accumulated cash at the deadline,
+pay overdue obligations first, and
 run the normal oldest-affordable departure allocation before another accumulation
 attempt. Apply a configured retry cooldown to accumulation attempts so released
 cash is not immediately captured again; ordinary affordable departures remain
@@ -1323,6 +1339,13 @@ earmarked for its collection rather than offered to other ships or sales. Remote
 fills still require reserved cash and compatible warehouse capacity; linking
 never substitutes future ship capacity for warehouse space. Goods remain at the
 purchase port and retain their acquisition cost and freshness.
+
+A link is a standing property of the stop rather than a single order. Handover
+at berth ends that circuit's order, and a repeating route opens a fresh linked
+order for the next circuit when the visit finishes, so it has the whole circuit
+to fill before the ship returns. Each circuit's order is funded and reserved
+separately under the ordinary rules; nothing carries across from the previous
+one.
 
 Unlinked orders stay independent. A ship's purchases do not silently reduce or
 cancel warehouse orders for other purposes. Linked demand must be reconciled
@@ -1365,15 +1388,32 @@ price and quantity limits, minimum freshness, and skipping a purchase when
 previous cargo remains unsold. Auctions and contracts usually need more active
 planning.
 
-Each stop waits for its configured cargo targets, with an optional maximum wait.
-When that limit is reached, finish any committed handling, notify the player of
-the remaining shortfall, and continue subject to the existing departure funding
-rules. Do not initiate further fills for that visit after its wait limit. Normal
-visit-completion rules release unused reservations and cancel linked unfilled
-orders. A repeated visit evaluates the configured targets afresh; unmet quantities
-do not accumulate across visits. Existing qualifying cargo aboard still counts
-toward loading targets. Berth readiness and cooldown rules govern retries while
-waiting.
+A visit finishes when its configured cargo targets are met, when only loading
+targets remain and those are blocked by exhausted ship weight or volume, or when
+its optional maximum wait elapses. A full hold does not resolve outstanding
+sale or unload targets: those instructions continue waiting for viable
+conditions unless their own limits end them. Once sale and unload requirements
+are resolved, an oversized loading target must not make a full ship wait for
+room that will not appear. Finish committed handling and notify the loading
+shortfall before continuing under the departure funding rules.
+
+Each stop otherwise waits for its configured cargo targets, with an optional
+maximum wait. Measure that limit from arrival at the port; berth retries and
+phase changes do not restart it. Enforce it while awaiting a berth, unloading,
+loading, or waiting for conditions. At the deadline, stop new instruction and
+linked-order fills and new handling before processing competing events. If no
+handling is committed, finish the visit immediately; otherwise drain only the
+committed operation without starting the next phase. Notify the player of the
+remaining shortfall and continue subject to the existing
+departure funding rules. Where no maximum wait is configured the ship waits
+indefinitely for viable conditions, which is the instruction the player gave;
+its earmarked budget stays reserved meanwhile, and removing or changing the stop
+releases it. Do not initiate further fills for that visit after its wait limit.
+Normal visit-completion rules release unused reservations and cancel linked
+unfilled orders. A repeated visit evaluates the configured targets afresh; unmet
+quantities do not accumulate across visits. Existing qualifying cargo aboard
+still counts toward loading targets. Berth readiness and cooldown rules govern
+retries while waiting.
 
 Players can reroute ships underway. Before confirmation, show the revised route,
 arrival estimate, and additional fuel requirement. Consumed fuel remains spent.
