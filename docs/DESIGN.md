@@ -262,7 +262,7 @@ Size classes, each berth group's limit, and each waterway's limit are
 configurable.
 
 Each location should have distinct supply and demand. City economic identities,
-harbor mappings, trade roles across all 20 goods, and each port's relative
+harbor mappings, trade roles across all 21 goods, and each port's relative
 capacity and cost are recorded in [the launch port roster](ports.md). Each port
 serves its surrounding region: inland producers supply
 export goods, and imports serve inland buyers. Use this regional catchment to
@@ -349,7 +349,7 @@ do not bypass ongoing resource constraints. Raw-resource producers generate
 their goods without requiring imported inputs. Initial production recipes and
 inventory quantities remain to be defined and balanced.
 
-Production recipes use the 20 tradable goods where appropriate. Materials
+Production recipes use the 21 tradable goods where appropriate. Materials
 outside that catalogue, such as cask oak, bottling glass or textiles, are
 abstracted as local inputs included in production costs rather than added as
 tradable goods. This abstraction does not replace required inputs that are in
@@ -549,24 +549,41 @@ not attempt to steer the money stock directly.
 | Bulk commodities             | Continuous limit order book                   | Repeatable high-volume routes   | Thin margins reward efficient transport and full holds; later feed industry.                                |
 | Luxury items                 | Periodic auctions for specific lots           | Opportunistic shipments         | High value in little space, shallow demand, and competition for scarce lots.                                |
 | Industrial machinery         | Procurement auctions for requested deliveries | Contract-driven voyages         | Large, irregular commitments of capital and capacity, with delivery deadlines; later supports construction. |
-| Mass consumer products       | Continuous limit order book                   | Recurring distribution routes   | Broad recurring demand, moderate margins, and saturation from rival deliveries.                             |
+| Mass consumer products       | Continuous limit order book                   | Recurring distribution routes   | Broad recurring demand and saturation from rival deliveries, across a wide range of value density.          |
 | Scrap                        | Continuous limit order book                   | Conditional return cargo        | Recovered material flowing from consuming cities back toward industry makes round trips viable.             |
 | Perishables, such as bananas | Limit order book with freshness grades        | Time-sensitive recurring routes | Shelf life, transit, congestion, storage, and demand determine whether a shipment remains profitable.       |
 
 Market styles are defaults, not permanent prohibitions on other mechanisms.
 Units, lot sizes, grades, and detailed market eligibility remain open.
 
-The finalized launch catalogue has 20 goods: five bulk commodities and three in
-each other category. Tankers and liquid storage are included at launch.
+The finalized launch catalogue has 21 goods: five bulk commodities, four mass
+consumer products, and three in each other category. Tankers and liquid storage
+are included at launch.
 
 | Category               | Launch goods                                             |
 |------------------------|----------------------------------------------------------|
 | Bulk commodities       | Iron ore, grain, crude oil, refined fuel, vegetable oil  |
 | Luxury items           | Whisky, jewelry, designer clothing                       |
 | Industrial machinery   | Turbines, construction equipment, agricultural machinery |
-| Mass consumer products | Electronics, appliances, everyday clothing               |
+| Mass consumer products | Electronics, appliances, everyday clothing, spices       |
 | Scrap                  | Scrap aluminium, copper scrap, recovered plastics        |
 | Perishables            | Fruit, seafood, meat                                     |
+
+Mass consumer products span a wide value density too. Everyday clothing and
+appliances fill volume at moderate margins on recurring routes. Spices sit at
+the opposite end: a hold of cardamom or saffron is worth a fortune in very
+little space, and unlike luxury goods they trade on a continuous order book
+against broad, replenishing demand rather than in periodic auctions for scarce
+lots. That combination is deliberate, because it is the only high-value-density
+trade a small ship can work without waiting on an auction cycle. Spices are not
+perishable for game purposes: real ones lose potency over a year or two, but
+modelling that would collapse them into the perishables archetype and remove the
+distinction that earns them a place.
+
+The four spice origins are the historic ones — Indian, Ceylon, Indonesian and
+Vietnamese production — which the launch roster already covers, with Dubai as a
+re-export hub. Keep spice density and reference value far enough above the other
+consumer goods that the contrast survives balancing.
 
 Scrap spans a wide value density, and that spread is the category's point rather
 than an inconsistency. Recovered plastics are bulky and cheap, so they fill volume
@@ -1850,7 +1867,7 @@ City, Shanghai and Guangzhou are all ore importers that would gain a bulk export
 — so they would add route variety. They are deferred because they add no
 mechanic at launch. Unlike the liquid catalogue, where three goods and a
 hold restriction left tankers with no backhaul, dry ships may already carry any
-of the seventeen dry goods, and scrap is designed as their return cargo. A
+of the eighteen dry goods, and scrap is designed as their return cargo. A
 construction material today would trade exactly as iron ore does, into simulated
 demand only, and would tip the catalogue toward large tonnage. Once players
 build facilities, the same goods become inputs to a build decision with a
@@ -2057,7 +2074,7 @@ change the list.
     buyer-budget replenishment, and bounded price responses to surplus and
     shortages. Factories consume inputs and start with inventories; raw-resource
     producers need no imported inputs. Recipes use catalogue goods where
-    relevant and abstract other materials as local production costs. The 20-good
+    relevant and abstract other materials as local production costs. The 21-good
     catalogue is final, and city-level supply and demand are assigned per port
     in the launch port roster, which carries a generated coverage check. Ports
     sharing a regional catchment use a shared regional operating price driven by

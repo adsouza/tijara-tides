@@ -4,7 +4,7 @@ Economic identities and physical character for the 25 launch ports. This
 document supplies the data that the rules in [the game design](DESIGN.md)
 reserve space for: section 4 asks for city economic identities, section 5 leaves
 city-level supply and demand open and requires regional catchments to share
-price movement, and section 6 fixes the 20-good catalogue used here.
+price movement, and section 6 fixes the 21-good catalogue used here.
 
 Authoritative here: which ports supply and demand which goods and at what
 relative weight, which ports share a catchment, and each port's physical
@@ -77,12 +77,12 @@ hinterland. Buys crude to sell refined fuel, re-exports spirits across the
 region, and imports nearly all of its food.
 
 **Ho Chi Minh City** (Saigon and Cai Mep) — Vietnam's export engine for apparel,
-electronics, rice, fruit and farmed seafood. Takes in refined fuel and recovered
-plastics for processing.
+electronics, rice, fruit, pepper and farmed seafood. Takes in refined fuel and
+recovered plastics for processing.
 
 **Jakarta** (Tanjung Priok) — Indonesian resource exporter and fast-growing
-consumer market, importing grain and fuel while shipping ore, palm oil, apparel
-and seafood.
+consumer market, importing grain and fuel while shipping ore, palm oil, the
+nutmeg and cloves of the original Spice Islands, apparel and seafood.
 
 **Manila** — Philippine semiconductor assembly, nickel and iron ore mining, and
 tropical agriculture. The roster's leading fruit, tuna and coconut oil exporter,
@@ -90,12 +90,13 @@ dependent on imported grain, fuel and meat.
 
 ### South Asia
 
-**Colombo** — South Asian transshipment point exporting apparel, gemstones and
-seafood. Small hinterland, so most bulk arrives rather than departs.
+**Colombo** — South Asian transshipment point and the roster's cinnamon source,
+exporting spices, apparel, gemstones and seafood. Small hinterland, so most bulk
+arrives rather than departs.
 
 **Mumbai** (Jawaharlal Nehru / Nhava Sheva) — India's largest container gateway:
-ore, refined fuel, tractors and apparel out, crude in, and the roster's dominant
-cut-gemstone and jewelry exporter. A heavy scrap buyer.
+ore, refined fuel, tractors, apparel and spices out, crude in, and the roster's
+dominant cut-gemstone and jewelry exporter. A heavy scrap buyer.
 
 ### The Gulf
 
@@ -267,33 +268,33 @@ meaningful volume, so no simulated actor there trades it.
 
 ### Mass consumer products
 
-| Port | Electronics | Appliances | Everyday clothing |
-|------|-------------|------------|-------------------|
-| Shanghai | `++exp` | `++exp` | `+exp` |
-| Busan | `++exp` | `++exp` | `+imp` |
-| Tokyo | `++exp` | `++exp` | `++imp` |
-| Hong Kong | `+imp` | `+imp` | `+imp` |
-| Shenzhen | `++exp` | `+exp` | `+exp` |
-| Guangzhou | `+exp` | `++exp` | `++exp` |
-| Singapore | `+exp` | `+imp` | `+imp` |
-| Ho Chi Minh City | `++exp` | `+exp` | `++exp` |
-| Jakarta | `+imp` | `+imp` | `++exp` |
-| Manila | `++exp` | `+imp` | `+exp` |
-| Colombo | `+imp` | `+imp` | `++exp` |
-| Mumbai | `++imp` | `+imp` | `++exp` |
-| Dubai | `++imp` | `++imp` | `++imp` |
-| Abu Dhabi | `+imp` | `+imp` | `+imp` |
-| Rotterdam | `+imp` | `+imp` | `++imp` |
-| Antwerp | `+imp` | `++imp` | `+imp` |
-| Hamburg | `++imp` | `+exp` | `+imp` |
-| Valencia | `+imp` | `++exp` | `++exp` |
-| Athens | `+imp` | `+imp` | `+imp` |
-| Tangier | `+exp` | `+imp` | `++exp` |
-| New York City | `++imp` | `++imp` | `++imp` |
-| Los Angeles | `++imp` | `++imp` | `++imp` |
-| Houston | `+imp` | `+imp` | `+imp` |
-| Colón | `++imp` | `++exp` | `++exp` |
-| São Paulo | `++imp` | `++imp` | `+imp` |
+| Port | Electronics | Appliances | Everyday clothing | Spices |
+|------|-------------|------------|-------------------|--------|
+| Shanghai | `++exp` | `++exp` | `+exp` | `++imp` |
+| Busan | `++exp` | `++exp` | `+imp` | `+imp` |
+| Tokyo | `++exp` | `++exp` | `++imp` | `+imp` |
+| Hong Kong | `+imp` | `+imp` | `+imp` | `+imp` |
+| Shenzhen | `++exp` | `+exp` | `+exp` | `+imp` |
+| Guangzhou | `+exp` | `++exp` | `++exp` | `+exp` |
+| Singapore | `+exp` | `+imp` | `+imp` | `+imp` |
+| Ho Chi Minh City | `++exp` | `+exp` | `++exp` | `++exp` |
+| Jakarta | `+imp` | `+imp` | `++exp` | `++exp` |
+| Manila | `++exp` | `+imp` | `+exp` | `+imp` |
+| Colombo | `+imp` | `+imp` | `++exp` | `++exp` |
+| Mumbai | `++imp` | `+imp` | `++exp` | `++exp` |
+| Dubai | `++imp` | `++imp` | `++imp` | `+exp` |
+| Abu Dhabi | `+imp` | `+imp` | `+imp` | `+imp` |
+| Rotterdam | `+imp` | `+imp` | `++imp` | `++imp` |
+| Antwerp | `+imp` | `++imp` | `+imp` | `+imp` |
+| Hamburg | `++imp` | `+exp` | `+imp` | `++imp` |
+| Valencia | `+imp` | `++exp` | `++exp` | `+imp` |
+| Athens | `+imp` | `+imp` | `+imp` | `+imp` |
+| Tangier | `+exp` | `+imp` | `++exp` | `+exp` |
+| New York City | `++imp` | `++imp` | `++imp` | `++imp` |
+| Los Angeles | `++imp` | `++imp` | `++imp` | `++imp` |
+| Houston | `+imp` | `+imp` | `+imp` | `+imp` |
+| Colón | `++imp` | `++exp` | `++exp` | `+imp` |
+| São Paulo | `++imp` | `++imp` | `+imp` | `+imp` |
 
 ### Scrap
 
@@ -421,6 +422,7 @@ four.
 | Electronics | 9 | 16 |
 | Appliances | 9 | 16 |
 | Everyday clothing | 11 | 14 |
+| Spices | 7 | 18 |
 | Scrap aluminium | 14 | 11 |
 | Copper scrap | 14 | 11 |
 | Recovered plastics | 10 | 8 |

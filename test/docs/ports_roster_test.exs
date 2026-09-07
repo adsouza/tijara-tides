@@ -138,7 +138,7 @@ defmodule Docs.PortsRosterTest do
     parsed = @roster |> File.read!() |> parse()
 
     # A parser that matched nothing would satisfy every check below vacuously.
-    assert length(parsed.goods) == 20, "parsed #{length(parsed.goods)} goods, expected 20"
+    assert length(parsed.goods) == 21, "parsed #{length(parsed.goods)} goods, expected 21"
     assert map_size(parsed.roles) == 25, "parsed #{map_size(parsed.roles)} ports, expected 25"
     assert map_size(parsed.tiers) == 25, "parsed #{map_size(parsed.tiers)} tier rows"
     assert map_size(parsed.clusters) == 3, "parsed #{map_size(parsed.clusters)} clusters"
