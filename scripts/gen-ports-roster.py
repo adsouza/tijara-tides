@@ -62,8 +62,8 @@ CATEGORIES = [
 
 CLUSTERS = {
     "Pearl River Delta": ["Hong Kong", "Shenzhen", "Guangzhou"],
-    "Northern Europe": ["Rotterdam", "Antwerp", "Hamburg"],
-    "Lower Gulf": ["Dubai", "Abu Dhabi"],
+    "Northern Frangistan": ["Rotterdam", "Antwerp", "Hamburg"],
+    "Strait of Hormuz": ["Dubai", "Abu Dhabi"],
 }
 
 # port: (harbor, identity, tiers)
@@ -233,7 +233,7 @@ REGIONS = [
  ("Southeast Asia", ["Singapore","Ho Chi Minh City","Jakarta","Manila"]),
  ("South Asia", ["Colombo","Mumbai"]),
  ("The Gulf", ["Dubai","Abu Dhabi"]),
- ("Northern Europe", ["Rotterdam","Antwerp","Hamburg"]),
+ ("Northern Frangistan", ["Rotterdam","Antwerp","Hamburg"]),
  ("Mediterranean and North Africa", ["Valencia","Athens","Tangier"]),
  ("North America", ["New York City","Los Angeles","Houston"]),
  ("Latin America", ["Colón","São Paulo"]),
@@ -491,5 +491,5 @@ for inv in [
                            break_long_words=False, break_on_hyphens=False))
 o.append("")
 
-io.open(ROOT / "docs/ports.md", "w", encoding="utf-8").write("\n".join(o))
+io.open(ROOT / "docs/ports.md", "w", encoding="utf-8").write("\n".join(o).replace("Scrap aluminium", "Aluminium scrap"))
 print("wrote docs/ports.md")

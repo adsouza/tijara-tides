@@ -168,11 +168,30 @@ defmodule Docs.UxInventoryTest do
   # this counts requirement-like sentences and fails when the total moves. It is
   # a tripwire, not a proof: rewording trips it too, and the answer is to look,
   # confirm nothing was added, and regenerate.
-  @requirement_words ~w(Show Display Shows Displays Notify Notifies
-                        show shows display displays visible
-                        notify notifies notification notifications
-                        reveal reveals expose exposes warn warns
-                        countdown countdowns label labels labelled)
+  # Inflections are spelled out, because a missing form silently lowers the
+  # count: this list once held "show" but not "shows", so making a sentence more
+  # imperative made the total fall. Interaction verbs earn a place only when
+  # every sentence they newly match is real surface. Measured against DESIGN.md,
+  # "open", "group" and "retain" match 18, 15 and 37 further sentences that are
+  # overwhelmingly about open orders, berth groups and retained cargo, so they
+  # stay out; the noun "warning" stays out for the same reason, since here it
+  # names a timer rather than a notice. Widen this only with that check in hand.
+  @requirement_words ~w(Show Shows Showing Shown show shows showing shown
+                        Display Displays Displaying Displayed
+                        display displays displaying displayed
+                        Reveal Reveals Revealing Revealed
+                        reveal reveals revealing revealed
+                        Expose Exposes Exposing Exposed
+                        expose exposes exposing exposed
+                        Notify Notifies Notifying Notified
+                        notify notifies notifying notified
+                        notification notifications
+                        Selecting selecting
+                        Click Clicks Clickable click clicks clickable
+                        Zoom Zooms Zooming zoom zooms zooming
+                        warn warns warned Warned
+                        visible countdown countdowns
+                        label labels labelled labeled labeling Labeled Labeling)
 
   defp check_tripwire(%{tripwire: nil}, _design), do: []
 

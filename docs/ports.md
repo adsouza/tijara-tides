@@ -31,8 +31,8 @@ spreads to stay near the cost of moving goods between them. Cluster membership
 is therefore data this document must state rather than leave implied.
 
 - **Pearl River Delta:** Hong Kong, Shenzhen, Guangzhou
-- **Northern Europe:** Rotterdam, Antwerp, Hamburg
-- **Lower Gulf:** Dubai, Abu Dhabi
+- **Northern Frangistan:** Rotterdam, Antwerp, Hamburg
+- **Strait of Hormuz:** Dubai, Abu Dhabi
 
 Every other port stands alone in its own catchment. Correlated prices make
 specialization the only thing distinguishing ports inside a cluster, so their
@@ -108,7 +108,7 @@ Gulf and East Africa, with sustained construction demand and no food production.
 aluminium smelting that consumes imported scrap. Buys power-generation turbines
 and all of its food.
 
-### Northern Europe
+### Northern Frangistan
 
 **Rotterdam** — Europe's largest port and its oil gateway, feeding Rhine-valley
 steel and engineering. Exports refined fuel, turbines and scrap and lands
@@ -311,7 +311,7 @@ still apply.
 
 ### Scrap
 
-| Port | Scrap aluminium | Copper scrap | Recovered plastics |
+| Port | Aluminium scrap | Copper scrap | Recovered plastics |
 |------|-----------------|--------------|--------------------|
 | Shanghai | `+imp` | `++imp` | `—` |
 | Busan | `++imp` | `+imp` | `+imp` |
@@ -466,7 +466,7 @@ cannot masquerade as production coverage.
 | Appliances | 9 | 17 |
 | Everyday clothing | 11 | 15 |
 | Spices | 7 | 21 |
-| Scrap aluminium | 14 | 11 |
+| Aluminium scrap | 14 | 11 |
 | Copper scrap | 13 | 12 |
 | Recovered plastics | 10 | 8 |
 | Fruit | 11 | 14 |

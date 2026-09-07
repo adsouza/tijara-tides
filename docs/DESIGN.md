@@ -45,6 +45,18 @@ obligations to inform, and deferring one to a subsequent screen breaks the rule
 that a player commits knowingly. The collected list of both kinds is in the
 player-facing surface.
 
+### Interaction continuity and feedback
+
+Live world updates must preserve expanded ship groups, selected ships, selected
+cargo, regional zoom, table sorting, and in-progress quantity entries.
+
+Transient action notifications stack, dismiss automatically after ten seconds,
+and provide an explicit dismiss button; a new notification must not extend an
+older notification's lifetime.
+
+Persistent company notices remain separate from transient action notifications,
+so dismissing a toast does not erase company history.
+
 ## 2. Accounts, companies, and persistence
 
 - Players use durable accounts with authenticated device sessions; browser guests
@@ -186,8 +198,15 @@ a ship departing near the player's final interaction finish a short voyage
 during the host's idle interval before suspension. Loading, berth queues, and
 weather can extend the full port call beyond that interval; completion before
 suspension is a normal-condition pacing goal, not an availability guarantee.
-Regional voyages of several hours and ocean crossings of 12–24 hours remain
-pacing suggestions. Balance navigable sea routes and ship speeds so that even
+Playtesting supersedes the earlier several-hour regional and 12–24-hour ocean
+pacing suggestions. The current voyage tuning is 600 times physical sailing
+speed, ten times faster than the initial playtest, with a six-second minimum.
+For a balanced freighter, Guangzhou–Hong Kong is about 18 seconds,
+Hamburg–Rotterdam about 1.35 minutes, and Jakarta–New York about 48 minutes.
+Handling and queues are additional. When applying this tuning to voyages already
+underway, preserve route progress and fuel already spent and shorten the remaining
+sailing time once. This change does not rescale reporting periods or other world
+timers. Balance navigable sea routes and ship speeds so that even
 the slowest ship's longest direct port-to-port voyage takes no more than 24 real
 hours under normal conditions; shorter is fine. Weather delays and port queues
 may add time beyond that normal voyage ceiling. Exact shorter-route durations
@@ -225,13 +244,32 @@ closure. Recompute activity weights from the same timestamps, so demand scaling
 reflects who is actually still playing.
 
 Player disconnections do not immediately pause the world: simulation continues
-while the server remains awake, including the idle interval after the last player
-disconnects. Persist completed progress during this interval. After suspension,
-resume from durable state when a player reconnects and the world is ready.
-Health checks and other non-player requests alone do not resume a paused world.
-There is no offline catch-up for time spent suspended or otherwise paused.
-Published real-time estimates assume the world
-stays active; pauses extend their wall-clock completion times.
+while the server remains awake, including the idle interval after the last
+player disconnects. Persist completed progress during this interval. After
+suspension, resume from durable state when a player reconnects and the world is
+ready. Health checks and other non-player requests alone do not resume a paused
+world. There is no offline catch-up for time spent suspended or otherwise
+paused. Published real-time estimates assume the world stays active; pauses
+extend their wall-clock completion times.
+
+Time appears in the interface under one policy, gathered here because sections
+7, 11 and 12 each rely on part of it. A quantity denominated in a game period
+carries its real equivalent, as above; that rule is about game periods and does
+not reach durations this document already states in real time. A moment the
+player can still act before — an auction close, an installment due date, a lease
+or grace deadline — appears in the player's local time zone with a countdown to
+it. Presentation never changes what binds: the server's schedule and deadlines
+are authoritative, while time zone, countdown and rounding are rendering.
+
+The timer families differ in which half of that display survives a pause. A
+world timer's countdown measures time the world is operating, so the wall-clock
+moment it lands on moves whenever the world sleeps; the countdown is nonetheless
+exact while a player is watching it, since their presence is what keeps the
+world awake. Show both, derive the absolute time from the current schedule
+rather than storing it for redisplay, and treat a world deadline's wall-clock
+time as an estimate on the same footing as a published voyage estimate. Player
+timers need no such care: they run on wall-clock time already, so their
+deadlines are fixed instants that a pause does not move.
 
 There are four leaderboard rankings: quarterly profit, quarterly ROI, yearly
 profit, and yearly ROI. Rankings show the player's lifetime bankruptcy count.
@@ -288,6 +326,12 @@ terminals into that port's facilities rather than separate gameplay destinations
 A roster entry with size-gated berth groups likewise remains one destination with
 one marker; its terminals appear inside the port panel, not on the map as rivals.
 These mappings represent existing roster entries, not additional ports.
+
+At world scale, nearby roster ports are grouped under one regional marker.
+Selecting a multi-port region zooms the map to that region and opens a list of
+its ports; selecting a listed port opens that port's panel. Regional views
+retain the individual harbor markers described above and include a World view
+control. Grouping affects presentation only, not destinations or economics.
 
 Ports admit ships by size class, which joins the attributes distinguishing ship
 classes in section 9. Each port has one or more berth groups, and each group
@@ -379,6 +423,32 @@ world. If the resolution of public information ever needs reducing, do it by
 publishing less, not by publishing something false: reporting a ship as in port
 without separating anchorage from berth would mask handling time behind queue
 time without misstating anything.
+
+### Playtest map and port interactions
+
+The regional groups are Pearl River Delta (Guangzhou, Shenzhen, Hong Kong),
+Northern Frangistan (Antwerp, Rotterdam, Hamburg), and Strait of Hormuz (Dubai,
+Abu Dhabi).
+
+Regional zoom uses detailed coastlines and readable port labels that do not
+overlap; harbor coordinates remain anchored to the harbor rather than the city
+center.
+
+Ship markers are slightly smaller than individual port markers at every zoom
+level, and keyboard focus indicators remain compact when zoomed.
+
+Show repeated directional arrowheads along sailing routes toward the
+destination, including routes crossing the map seam.
+
+Show only ships at sea as individual map markers; ships at port remain
+selectable through port traffic and must not cover the port marker.
+
+Selecting an owned ship on the map or in port traffic selects the same ship in
+Your fleet and updates its manifest and controls.
+
+The separate public ship inspector is shown for other companies' ships only;
+owned ships use Your fleet and their private detail panel without a duplicate
+summary.
 
 ## 5. Mixed city economy
 
@@ -661,7 +731,7 @@ are included at launch.
 | Luxury items           | Whisky, jewelry, designer clothing                       |
 | Industrial machinery   | Turbines, construction equipment, agricultural machinery |
 | Mass consumer products | Electronics, appliances, everyday clothing, spices       |
-| Scrap                  | Scrap aluminium, copper scrap, recovered plastics        |
+| Scrap                  | Aluminium scrap, copper scrap, recovered plastics        |
 | Perishables            | Fruit, seafood, meat                                     |
 
 Lumber means sawn lumber, not raw logs or finished furniture. It trades on the
@@ -696,7 +766,7 @@ Scrap spans a wide value density, and that spread is the category's point rather
 than an inconsistency. Recovered plastics are bulky and cheap, so they fill volume
 and only pay when a hold would otherwise travel empty. Copper scrap is among the
 densest-value non-precious cargoes and behaves like a bulk commodity, filling
-weight and justifying a voyage on its own. Scrap aluminium sits between them.
+weight and justifying a voyage on its own. Aluminium scrap sits between them.
 Tune each good's density and reference value to preserve that contrast, since it
 is what exercises the weight-versus-volume tradeoff in section 9; do not flatten
 the category into uniformly cheap, bulky freight.
@@ -846,6 +916,56 @@ Do not deduct an exchange commission from proceeds. Port handling, storage,
 fuel, and other established logistics costs remain separate expenses. Auction
 rules are specified separately below.
 
+### Port traffic and manual trading interface
+
+Show the total number of ships physically at the inspected port, grouped by
+status or by company, with expandable lists of selectable ships.
+
+Port traffic distinguishes queued, berthed or docked, loading, unloading, and
+other applicable operational statuses; sailing ships are excluded.
+
+For a selected local ship, hide cargo it cannot carry, including incompatible
+liquid mixtures, and hide a cargo row when neither buying nor selling is
+available.
+
+Disable Buy when no supply is available and Sell when no owned cargo or no
+destination demand is available; a disabled action's quantity field displays
+zero.
+
+Keep cargo filtering stable during loading, unloading, and live redraws;
+temporarily busy handling must not flash all cargo rows into view.
+
+Hide both Aboard and Trade columns when the player owns no ship physically at
+the inspected port; retain remote market browsing.
+
+The Aboard column shows the selected local ship's total lots of each cargo
+across purchase batches; use a dash when the selected ship is elsewhere.
+
+Show the total purchase amount beside each available Buy button for the entered
+lot quantity, including handling and applicable tanker cleaning fees.
+
+Update the purchase total when quantity changes and display it in red when
+available unreserved cash is insufficient or unpaid costs block purchasing,
+with an accessible explanation.
+
+### Cross-port cargo comparison
+
+Provide a cargo selector and two market tables beside each other: Supply on the
+left and Demand on the right; stack them on narrow screens.
+
+Each cargo comparison table lists applicable ports, quantity in lots, and its
+relevant buy or sell price per lot before handling; selecting a port opens its
+market.
+
+Default Supply to ascending buy price, then descending supply; default Demand
+to descending sell price, then descending demand.
+
+Allow independent sorting by port, quantity, or price in each table, with
+visible sort-direction indicators and live quantities and prices.
+
+Keep exhausted applicable markets visible with zero quantity and no executable
+price; clearly label markets whose trading system is not available yet.
+
 ### Trade settlement and physical handling
 
 For order-book trades involving a ship, settle before handling, once the ship
@@ -965,16 +1085,16 @@ Assignment is system-controlled rather than chosen by the seller. Sellers can
 prepare consignments for future windows while current bidding is underway. Give
 ports fixed, staggered schedule offsets so auctions close at different times
 throughout the day. Show opening and closing times in the player's local time
-with countdowns. Local display time does not alter the authoritative schedule.
-The interval, the window length, and exact port offsets all belong to the
-configurable schedule. Schedule changes must preserve the published opening and
-closing times of already-scheduled auctions and their reservations, applying to
-future schedules. Procurement requests and bankrupt assets also join the next
-unopened scheduled port auction once ready, using that port's opening, closing,
-and bidding window. Procurement delivery windows follow award and must leave
-time to source and transport goods. They are distinct from the bidding window.
-Assets still at sea or in handling remain ineligible until their existing
-readiness conditions hold.
+with countdowns, under the display policy in section 3. Local display time does
+not alter the authoritative schedule. The interval, the window length, and exact
+port offsets all belong to the configurable schedule. Schedule changes must
+preserve the published opening and closing times of already-scheduled auctions
+and their reservations, applying to future schedules. Procurement requests and
+bankrupt assets also join the next unopened scheduled port auction once ready,
+using that port's opening, closing, and bidding window. Procurement delivery
+windows follow award and must leave time to source and transport goods. They are
+distinct from the bidding window. Assets still at sea or in handling remain
+ineligible until their existing readiness conditions hold.
 
 Perishable liquidation lots use fixed, expedited two-real-hour bidding windows,
 configurable for future auctions. If a lot cannot remain usable through the
@@ -1504,6 +1624,32 @@ That matters because the replacement-company path in section 12 is deliberately
 weakened: without a divestment route, bankruptcy would be the only way to shed
 unsuitable tonnage, and the design would be pushing players toward the reset it
 is trying to discourage.
+
+### Fleet and manifest presentation
+
+The private ship manifest is a table with aligned columns for cargo, lots,
+weight, volume, average cost per lot, and first expiry.
+
+Consolidate purchase batches into one manifest row per cargo type, summing
+quantity, weight, and volume, using quantity-weighted average acquisition cost
+and the earliest remaining expiry; preserve separate batches for accounting and
+freshness.
+
+Make every manifest column sortable in either direction, using numeric values
+rather than formatted text; non-perishable cargo follows dated cargo when
+sorting by expiry.
+
+Show occupied and total ship capacity for both weight and volume, updating as
+cargo changes.
+
+Use cubic meters for solid cargo volume and ship volume capacity, liters for
+liquid cargo volume, and kilograms for weight.
+
+Use material-first scrap names consistently: Aluminium scrap and Copper scrap.
+
+Numeric columns align for scanning, and the manifest scrolls horizontally on
+narrow screens. Cargo-name sorting uses the displayed names, with ascending
+cargo name as the initial manifest order.
 
 ## 10. Voyages, labour, and port handling
 
@@ -2204,18 +2350,20 @@ change the list.
     Storage-type transfers take time and require compatible receiving capacity;
     refrigeration never restores freshness. Interrupted handling resumes saved
     progress with ownership and capacity reservations preserved.
-16. **Complete — World time and outages:** one real week per quarter and
-    four per 52-week game year, with a shared published reporting calendar.
-    Normal direct voyages take at most 24 real hours even for the slowest ship;
-    the shortest routes take under 15 real minutes for every eligible ship.
-    Weather and queues may add time. Simulation continues through the host's
-    awake idle interval after the last player disconnects. Hosting suspension
-    and game-wide outages pause every world timer together, without catch-up;
-    player timers, meaning owner absence, its closure warning, and activity
-    weight decay, run on wall-clock time and never pause. Every duration is real
-    time unless marked a game period; ship useful lives, depreciation, and loan
-    interest and installments are quoted in game time and displayed alongside
-    their real equivalents.
+16. **Complete — World time and outages:** one real week per quarter and four
+    per 52-week game year, with a shared published reporting calendar. Normal
+    direct voyages take at most 24 real hours even for the slowest ship; the
+    shortest routes take under 15 real minutes for every eligible ship. Weather
+    and queues may add time. Simulation continues through the host's awake idle
+    interval after the last player disconnects. Hosting suspension and game-wide
+    outages pause every world timer together, without catch-up; player timers,
+    meaning owner absence, its closure warning, and activity weight decay, run
+    on wall-clock time and never pause. Every duration is real time unless
+    marked a game period; ship useful lives, depreciation, and loan interest and
+    installments are quoted in game time and displayed alongside their real
+    equivalents. Actionable deadlines additionally carry the player's local time
+    and a countdown; a world timer's countdown runs only while the world does,
+    so its wall-clock time is derived on display rather than stored.
 17. **Complete — Authentication experience:** no passwords; invite redemption
     creates an account and device session without email or Google. Optional
     verified linking at any time supports email magic links on web and native
