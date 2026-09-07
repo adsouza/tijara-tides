@@ -12,6 +12,18 @@ grep -Eq '^shared=.*network' /tmp/tijara-flatpak-permissions.txt
 if grep -Eq '^filesystems=|^sockets=.*system-bus' /tmp/tijara-flatpak-permissions.txt; then
   echo 'Unexpected filesystem or system bus access' >&2; exit 1
 fi
+# The manifest rewrites the shared metadata's desktop-id for this packaging
+# path, so verify the installed pair rather than trusting the substitution.
+metainfo=$(mktemp)
+trap 'rm -f "$metainfo"' EXIT
+flatpak run --command=cat "$app_id" "/app/share/metainfo/$app_id.metainfo.xml" > "$metainfo"
+mapfile -t launchers < <(flatpak run --command=sh "$app_id" -c 'ls -1 /app/share/applications')
+if [[ ${#launchers[@]} != 1 ]]; then
+  echo "Expected exactly one exported launcher, got: ${launchers[*]}" >&2; exit 1
+fi
+appstreamcli validate --no-net "$metainfo"
+"$(dirname "$0")/check-appstream-launcher.py" "$metainfo" "${launchers[0]}"
+
 flatpak run --command=sh "$app_id" -c '
   set -eu
   ldd /app/bin/tijara-tides > /tmp/ldd.txt

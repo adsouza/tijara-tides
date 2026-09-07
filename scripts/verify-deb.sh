@@ -11,16 +11,9 @@ grep -Eq '^Exec=tijara-tides( |$)' "$desktop"
 grep -qx 'Icon=tijara-tides' "$desktop"
 test -s "$task_stage/usr/share/icons/hicolor/scalable/apps/tijara-tides.svg"
 appstreamcli validate --no-net "$task_stage/usr/share/metainfo/io.github.adsouza.tijara-tides.metainfo.xml"
-python3 - "$task_stage/usr/share/metainfo/io.github.adsouza.tijara-tides.metainfo.xml" "$desktop" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-from pathlib import Path
-
-metadata, desktop = map(Path, sys.argv[1:])
-launchers = ET.parse(metadata).findall("launchable[@type='desktop-id']")
-if [launcher.text for launcher in launchers] != [desktop.name]:
-    raise SystemExit(f"AppStream desktop-id must match installed launcher: {desktop.name}")
-PY
+"$(dirname "$0")/check-appstream-launcher.py" \
+  "$task_stage/usr/share/metainfo/io.github.adsouza.tijara-tides.metainfo.xml" \
+  "$(basename "$desktop")"
 # This client must never acquire Armchair Metropolist's local BEAM sidecar.
 test "$(find "$task_stage/usr/bin" -maxdepth 1 -type f | wc -l)" -eq 1
 ldd "$task_stage/usr/bin/tijara-tides" > "$task_stage/ldd.txt"

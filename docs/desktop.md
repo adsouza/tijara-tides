@@ -71,7 +71,9 @@ this client needs normal network/proxy behavior.
 
 The shared AppStream metadata names the Debian launcher, `Tijara Tides.desktop`.
 Flatpak renames that launcher to the application ID and updates the metadata's
-`desktop-id` to match during packaging.
+`desktop-id` to match during packaging. Both verification scripts assert the
+installed pair through `scripts/check-appstream-launcher.py`, so the rename
+cannot silently leave the metadata pointing at a launcher that is not there.
 
 On Linux, install the toolchain and runtime once:
 
