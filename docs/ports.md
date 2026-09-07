@@ -42,8 +42,8 @@ identities below deliberately diverge, and their physical tiers differ as well.
 
 Each identity characterizes a port: its real economic base and what that means
 for the goods moving through it. They are orientation, not enumeration, and no
-sentence lists all nineteen goods. Where an identity and the trade role tables
-below could be read differently, the tables are authoritative.
+sentence lists every good. Where an identity and the trade role tables below
+could be read differently, the tables are authoritative.
 
 ### East Asia
 
@@ -165,8 +165,18 @@ imported fuel and manufactures.
 Roles are relative weights, not quantities. A major exporter is expected to be
 among the roster's main sources of that good and to sustain repeatable routes; a
 minor one supplies opportunistically or seasonally. The same reading applies to
-demand. A dash means the port neither produces nor consumes the good in
-meaningful volume, so no simulated actor there trades it.
+demand. Buying and selling are independent: a combined code such as `++exp/+imp`
+specifies major selling supply and minor buying demand. Export-only roles
+represent local or hinterland producers; the re-export merchants listed below
+instead buy and resell existing stock. Their buying weight is procurement for
+resale, not end consumption. A dash means the port neither produces nor consumes
+the good in meaningful volume, so no simulated actor there trades it.
+Player-to-player trading remains permitted. Luxury auctions receive simulated
+participation only where the role includes buying demand (including merchant
+buying). Export-only and not-traded roles allow player-only luxury auctions,
+with a clear "No simulated buyers" notice before consignment and on the listing.
+Buying demand indicates eligibility, not guaranteed bids: budgets and capacity
+still apply.
 
 | Code | Meaning |
 |------|---------|
@@ -213,16 +223,16 @@ meaningful volume, so no simulated actor there trades it.
 | Shanghai | `++imp` | `++imp` | `++imp` |
 | Busan | `+imp` | `+imp` | `+imp` |
 | Tokyo | `++exp` | `++imp` | `++imp` |
-| Hong Kong | `++exp` | `++exp` | `++imp` |
+| Hong Kong | `++exp/++imp` | `++exp/++imp` | `++imp` |
 | Shenzhen | `—` | `—` | `—` |
 | Guangzhou | `+imp` | `—` | `—` |
-| Singapore | `+exp` | `+imp` | `++imp` |
+| Singapore | `+exp/+imp` | `+imp` | `++imp` |
 | Ho Chi Minh City | `—` | `—` | `—` |
 | Jakarta | `—` | `—` | `—` |
 | Manila | `—` | `—` | `—` |
 | Colombo | `—` | `+exp` | `—` |
 | Mumbai | `+imp` | `++exp` | `+imp` |
-| Dubai | `+imp` | `++exp` | `++imp` |
+| Dubai | `+imp` | `++exp/++imp` | `++imp` |
 | Abu Dhabi | `—` | `—` | `—` |
 | Rotterdam | `—` | `—` | `—` |
 | Antwerp | `—` | `++exp` | `+exp` |
@@ -233,7 +243,7 @@ meaningful volume, so no simulated actor there trades it.
 | New York City | `+exp` | `++imp` | `++imp` |
 | Los Angeles | `++imp` | `++imp` | `++imp` |
 | Houston | `+exp` | `—` | `—` |
-| Colón | `—` | `—` | `++exp` |
+| Colón | `—` | `—` | `++exp/++imp` |
 | São Paulo | `+imp` | `+imp` | `+imp` |
 
 ### Industrial machinery
@@ -275,25 +285,25 @@ meaningful volume, so no simulated actor there trades it.
 | Tokyo | `++exp` | `++exp` | `++imp` | `+imp` |
 | Hong Kong | `+imp` | `+imp` | `+imp` | `+imp` |
 | Shenzhen | `++exp` | `+exp` | `+exp` | `+imp` |
-| Guangzhou | `+exp` | `++exp` | `++exp` | `+exp` |
-| Singapore | `+exp` | `+imp` | `+imp` | `+imp` |
+| Guangzhou | `+exp` | `++exp` | `++exp` | `+exp/+imp` |
+| Singapore | `+exp/+imp` | `+imp` | `+imp` | `+imp` |
 | Ho Chi Minh City | `++exp` | `+exp` | `++exp` | `++exp` |
 | Jakarta | `+imp` | `+imp` | `++exp` | `++exp` |
 | Manila | `++exp` | `+imp` | `+exp` | `+imp` |
 | Colombo | `+imp` | `+imp` | `++exp` | `++exp` |
 | Mumbai | `++imp` | `+imp` | `++exp` | `++exp` |
-| Dubai | `++imp` | `++imp` | `++imp` | `+exp` |
+| Dubai | `++imp` | `++imp` | `++imp` | `+exp/+imp` |
 | Abu Dhabi | `+imp` | `+imp` | `+imp` | `+imp` |
 | Rotterdam | `+imp` | `+imp` | `++imp` | `++imp` |
 | Antwerp | `+imp` | `++imp` | `+imp` | `+imp` |
 | Hamburg | `++imp` | `+exp` | `+imp` | `++imp` |
 | Valencia | `+imp` | `++exp` | `++exp` | `+imp` |
 | Athens | `+imp` | `+imp` | `+imp` | `+imp` |
-| Tangier | `+exp` | `+imp` | `++exp` | `+exp` |
+| Tangier | `+exp` | `+imp` | `++exp` | `+exp/+imp` |
 | New York City | `++imp` | `++imp` | `++imp` | `++imp` |
 | Los Angeles | `++imp` | `++imp` | `++imp` | `++imp` |
 | Houston | `+imp` | `+imp` | `+imp` | `+imp` |
-| Colón | `++imp` | `++exp` | `++exp` | `+imp` |
+| Colón | `++imp` | `++exp/++imp` | `++exp/++imp` | `+imp` |
 | São Paulo | `++imp` | `++imp` | `+imp` | `+imp` |
 
 ### Scrap
@@ -356,6 +366,33 @@ meaningful volume, so no simulated actor there trades it.
 | Colón | `++exp` | `+exp` | `+imp` |
 | São Paulo | `++exp` | `+imp` | `++exp` |
 
+## Re-export merchants
+
+These entries identify merchant supply separately from local production.
+Merchants buy existing goods at their port, occupy paid compatible warehouse
+space, and resell only inventory they own and can commit. They generate no
+replacement stock; empty inventory means no sell offer. Goods enter through
+player deliveries or other valid local purchases, never through implicit off-map
+replenishment. Buying and selling weights are separate targets, not guaranteed
+throughput. Luxury merchants buy and sell through scheduled auctions; purchased
+stock can only be consigned to a later auction whose bidding has not opened.
+They cannot bid on their own lots or count a purchase as consumption. See
+DESIGN.md section 5 for budgets, reservations, and inventory-conservation rules.
+
+| Port | Good | Buying | Selling |
+|------|------|--------|---------|
+| Hong Kong | Whisky | `++imp` | `++exp` |
+| Hong Kong | Jewelry | `++imp` | `++exp` |
+| Guangzhou | Spices | `+imp` | `+exp` |
+| Singapore | Whisky | `+imp` | `+exp` |
+| Singapore | Electronics | `+imp` | `+exp` |
+| Dubai | Jewelry | `++imp` | `++exp` |
+| Dubai | Spices | `+imp` | `+exp` |
+| Tangier | Spices | `+imp` | `+exp` |
+| Colón | Designer clothing | `++imp` | `++exp` |
+| Colón | Appliances | `++imp` | `++exp` |
+| Colón | Everyday clothing | `++imp` | `++exp` |
+
 ## Physical and cost character
 
 Tiers are relative to the rest of the roster, not absolute figures. Storage
@@ -404,7 +441,9 @@ Section 5 requires every good to have several supplying and buying ports and
 forbids exclusive access. These counts were derived from the tables above, and
 must be re-derived whenever a role changes. Bulk commodities are held to at
 least five suppliers and five buyers; every other good to at least three and
-four.
+four. A merchant counts as both a supplier and a buyer, but never as a producer.
+Every good must also retain at least one actual producer so merchant resale
+cannot masquerade as production coverage.
 
 | Good | Exporters | Importers |
 |------|-----------|-----------|
@@ -413,16 +452,16 @@ four.
 | Crude oil | 5 | 17 |
 | Refined fuel | 8 | 17 |
 | Vegetable oil | 8 | 17 |
-| Whisky | 5 | 7 |
-| Jewelry | 5 | 7 |
-| Designer clothing | 5 | 10 |
+| Whisky | 5 | 9 |
+| Jewelry | 5 | 9 |
+| Designer clothing | 5 | 11 |
 | Turbines | 9 | 14 |
 | Construction equipment | 10 | 15 |
 | Agricultural machinery | 10 | 8 |
-| Electronics | 9 | 16 |
-| Appliances | 9 | 16 |
-| Everyday clothing | 11 | 14 |
-| Spices | 7 | 18 |
+| Electronics | 9 | 17 |
+| Appliances | 9 | 17 |
+| Everyday clothing | 11 | 15 |
+| Spices | 7 | 21 |
 | Scrap aluminium | 14 | 11 |
 | Copper scrap | 14 | 11 |
 | Recovered plastics | 10 | 8 |
@@ -444,10 +483,15 @@ These properties must keep holding as the roster is balanced:
 - Every good has at least three exporters and four importers; bulk commodities
   have at least five of each.
 - No good is exclusive to one port.
+- Every good has an actual producer; re-export merchants buy and resell stock
+  without producing it.
 - Every port both imports and exports something, so round trips are possible
   everywhere.
 - Crude oil and refined fuel have distinct enough sources that tankers have
   cargo in both directions.
+- At least one two- or three-port cycle carries vegetable oil and crude oil or
+  refined fuel. Each leg must have a seller at its origin and a buyer of the
+  same good at its destination; ports in the cycle are distinct.
 - Ports inside one cluster differ in at least half of their trade roles, since
   correlated prices leave specialization as their only distinction.
 - Refrigerated capacity stays scarce enough that reefer-only perishables remain

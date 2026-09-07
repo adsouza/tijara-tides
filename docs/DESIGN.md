@@ -341,6 +341,35 @@ ports. Differentiate ports through production, demand, operating costs, and
 capacity rather than exclusive access to a good. Provide alternative trading
 routes when one market becomes crowded, subject to finite supply and demand.
 
+The port roster distinguishes local or hinterland producers from re-export
+merchants. Buying demand and selling supply have independent relative weights;
+a merchant can do both for the same good. Merchant purchases replenish resale
+inventory, not end-consumer demand. Every good retains an actual producer;
+counting merchant supply toward port coverage does not make it production.
+
+Re-export merchants buy existing goods through their port's markets, hold them
+in paid compatible warehouse space, and resell only available owned stock.
+They never generate replacement stock or obtain implicit off-map replenishment.
+Goods must arrive through player deliveries or other valid local purchases.
+Purchases conserve quantity and preserve batch identity, freshness, and physical
+location under the ordinary settlement rules; resale does not count as production.
+Starting merchant inventory, if supplied, must be an explicit allocation from
+existing producer inventory, not a second copy of goods.
+
+Merchants obey the simulated-actor budget and replenishment rules, reserve funds
+and receiving capacity for purchases, and reserve stock for sales. Empty stock,
+insufficient funds, or unavailable space prevents new commitments; their
+re-export role does not guarantee throughput or exempt them from paid storage.
+Ordinary price bands and regional spread limits apply to their order-book quotes.
+They cannot trade with themselves or bid on their own consignments.
+
+For luxury goods, merchants buy and sell through scheduled auctions. Purchased
+stock may be consigned only to a later auction whose bidding has not opened, once
+ownership and available inventory are confirmed. An unawarded bid cannot back a
+consignment, and resale follows the same fixed lot, reserve, and storage-coverage
+rules as other consignments. Buying and reselling do not consume the goods;
+eventual end buyers remain the consumption sink.
+
 Simulated factories require and consume inputs to produce outputs; refineries,
 for example, consume crude oil to produce refined fuel. Give these factories
 starting input and output inventories so trade can begin immediately. Production
@@ -615,6 +644,16 @@ intended. Ballast legs are why the oil trader starter package includes a general
 freighter, and they are not a defect to be fixed by relaxing the liquid-hold
 rule.
 
+The launch roster must retain at least one two- or three-port liquid trading
+cycle containing vegetable oil and either crude oil or refined fuel. Two-port
+routes exchange vegetable oil for either petroleum cargo. Triangles may, for
+example, carry crude oil from A to B, refined fuel from B to C, and vegetable oil
+from C back to A. Validate a seller and buyer of the same cargo on each leg and
+require distinct ports before returning to the origin; one dual-role port cannot
+satisfy the cycle by itself. Existing cleaning requirements apply at each cargo
+switch. This is a roster coverage check, not a restriction on player route length
+or a guarantee of available stock, capacity, or profitable prices on every voyage.
+
 Perishable batches retain harvest time and remaining shelf life through resale.
 Freshness declines in transit and storage; older goods become less valuable.
 Expired goods cannot sell as food and are discarded. Refrigeration slows aging
@@ -792,7 +831,9 @@ All auctions are computer-run. Players sell luxury goods by consigning lots to
 scheduled port auctions, rather than starting individual auctions on demand.
 Players choose their lot and minimum sale price; the system controls the
 schedule, bidding, and settlement. Simulated buyers and other players may bid.
-Simulated bidders must make these auctions genuinely competitive. Sealed
+Where the roster specifies buying demand for that good at that port, including
+re-export merchant demand, simulated bidders must provide auction competition.
+Sealed
 second-price bidding pays the reserve whenever only one eligible bidder appears,
 so at launch population, with one auction per port per day, a player's consignment
 would otherwise realize exactly its minimum and the competition for scarce lots
@@ -801,8 +842,16 @@ buyers private valuations drawn around the good's configured reference value and
 adjusted for local demand, and have a configured expected number participate per
 lot, so a consignment faces real competition without a guaranteed clearing price.
 Simulated bidders obey the same budget, capacity, and eligibility rules as
-players. Valuation spread and expected participation are tuning parameters; that
-player consignments must face competition is not.
+players. Valuation spread and expected participation are tuning parameters;
+participation where buying demand exists remains subject to those resource
+constraints and does not guarantee a bid or sale.
+
+Where the roster specifies no buying demand, including export-only and not-traded
+roles, luxury consignments are still permitted but auctions rely entirely on
+player bids. Show **No simulated buyers** before the seller commits a consignment
+and on its auction listing. A not-traded role restricts simulated actors, not
+player-to-player trading. Apply the ordinary reserve and settlement rules; an
+unsold lot returns to available inventory under the existing release rules.
 Each lot settles separately under the asset-auction rules below. Consigned cargo
 stays reserved in the seller's warehouse until sold or released; scheduling does
 not bypass finite storage or lease coverage.
@@ -2082,7 +2131,8 @@ change the list.
     bounded local quote adjustments keeping simulated spreads near transport
     cost. Player orders remain unrestricted. Simulated bidders carry private
     valuations around reference value so player consignments face real
-    competition rather than clearing at their reserve. Numerical response
+    competition at ports with buying demand. Other ports permit player-only
+    luxury auctions with a clear no-simulated-buyers notice. Numerical response
     parameters are tuning work.
 21. **Complete — Monetary anchor and participation scaling:** absolute configured
     reference values and bands fix the price level and are never derived from

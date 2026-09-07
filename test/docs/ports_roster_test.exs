@@ -7,7 +7,7 @@ defmodule Docs.PortsRosterTest do
   separate table with nothing tying them to the data. This test re-derives them.
 
   Parsing is deliberately structural rather than positional: a trade-role table
-  is recognised by every body cell holding one of the five role codes, and the
+  is recognised by every body cell holding one of the role codes, including independent buying/selling combinations, and the
   physical table by having a Reefer column. Renaming a heading or reordering
   sections therefore cannot quietly disable a check. The failure mode that
   matters for a document checker is matching nothing and passing anyway, so the
@@ -117,6 +117,31 @@ defmodule Docs.PortsRosterTest do
              ["Twin Delta: Alpha and Bravo differ in only 1 of 4 trade roles"]
   end
 
+  test "21 goods require at least 11 differing cluster roles" do
+    a = Map.new(1..21, &{Integer.to_string(&1), "++exp"})
+    b = Map.new(1..21, &{Integer.to_string(&1), if(&1 <= 10, do: "++imp", else: "++exp")})
+    parsed = %{clusters: %{"Cluster" => ["Alpha", "Bravo"]}, roles: %{"Alpha" => a, "Bravo" => b}}
+
+    assert check_cluster_spread(parsed) ==
+             ["Cluster: Alpha and Bravo differ in only 10 of 21 trade roles"]
+
+    assert parsed
+           |> put_in([:roles, "Bravo", "11"], "++imp")
+           |> check_cluster_spread() == []
+  end
+
+  test "an even catalogue accepts exactly half of its roles differing" do
+    parsed = %{
+      clusters: %{"Cluster" => ["Alpha", "Bravo"]},
+      roles: %{
+        "Alpha" => %{"A" => "++exp", "B" => "++exp"},
+        "Bravo" => %{"A" => "++imp", "B" => "++exp"}
+      }
+    }
+
+    assert check_cluster_spread(parsed) == []
+  end
+
   test "flags refrigerated capacity that is not scarce" do
     assert @abundant_reefer |> parse() |> check_reefer_scarcity() ==
              ["2 of 3 ports have high refrigerated capacity; fewer than half should"]
@@ -131,7 +156,65 @@ defmodule Docs.PortsRosterTest do
 
   test "flags a liquid catalogue that leaves tankers no counter-flow" do
     assert @no_liquid_backhaul |> parse() |> check_liquid_backhaul() ==
-             ["no port imports refined fuel while exporting vegetable oil"]
+             ["no two- or three-port liquid cycle includes vegetable oil and petroleum"]
+  end
+
+  test "rejects vegetable-oil backhaul without a buyer at a fuel-exporting port" do
+    parsed =
+      parse("""
+      | Port | Refined fuel | Vegetable oil |
+      |------|--------------|---------------|
+      | Alpha | `++exp` | `++exp` |
+      | Bravo | `++imp` | `++exp` |
+      | Charlie | `++imp` | `++imp` |
+      """)
+
+    assert check_liquid_backhaul(parsed) ==
+             ["no two- or three-port liquid cycle includes vegetable oil and petroleum"]
+
+    repaired = put_in(parsed, [:roles, "Alpha", "Vegetable oil"], "++imp")
+    assert check_liquid_backhaul(repaired) == []
+  end
+
+  test "one merchant port cannot count as both ends of a backhaul route" do
+    parsed =
+      parse("""
+      | Port | Refined fuel | Vegetable oil |
+      |------|--------------|---------------|
+      | Hub | `++exp/+imp` | `++exp/+imp` |
+      """)
+
+    assert check_liquid_backhaul(parsed) != []
+  end
+
+  test "accepts crude oil opposite vegetable oil without refined fuel" do
+    parsed =
+      parse("""
+      | Port | Crude oil | Vegetable oil |
+      |------|-----------|---------------|
+      | Alpha | `++exp` | `++imp` |
+      | Bravo | `++imp` | `++exp` |
+      """)
+
+    assert check_liquid_backhaul(parsed) == []
+
+    assert check_liquid_backhaul(put_in(parsed, [:roles, "Alpha", "Vegetable oil"], "++exp")) !=
+             []
+  end
+
+  test "accepts a crude-fuel-vegetable triangle but rejects a broken closing leg" do
+    parsed =
+      parse("""
+      | Port | Crude oil | Refined fuel | Vegetable oil |
+      |------|-----------|--------------|---------------|
+      | Alpha | `++exp` | `—` | `++imp` |
+      | Bravo | `++imp` | `++exp` | `—` |
+      | Charlie | `—` | `++imp` | `++exp` |
+      """)
+
+    assert check_liquid_backhaul(parsed) == []
+    assert check_liquid_backhaul(put_in(parsed, [:roles, "Alpha", "Vegetable oil"], "—")) != []
+    assert check_liquid_backhaul(put_in(parsed, [:roles, "Charlie", "Refined fuel"], "—")) != []
   end
 
   test "the committed roster satisfies every invariant" do
@@ -145,6 +228,42 @@ defmodule Docs.PortsRosterTest do
 
     assert violations(parsed) == [],
            "#{@roster} breaks its own invariants:\n  " <> Enum.join(violations(parsed), "\n  ")
+  end
+
+  test "merchant supply and demand count independently without creating a producer" do
+    parsed =
+      parse("""
+      ### Luxury items
+
+      | Port | Whisky |
+      |------|--------|
+      | Hub | `++exp/+imp` |
+      """)
+
+    assert parsed.roles["Hub"]["Whisky"] == "++exp/+imp"
+    assert check_round_trips(parsed) == []
+
+    assert check_producers(parsed) == [
+             "Whisky has no producer; merchant resale is not production"
+           ]
+
+    assert check_minimums(parsed) == [
+             "Whisky has 1 exporter(s), needs at least 3",
+             "Whisky has 1 importer(s), needs at least 4"
+           ]
+  end
+
+  test "merchant declarations must match separate buying and selling weights" do
+    parsed = %{
+      roles: %{"Hub" => %{"Whisky" => "++exp/+imp"}},
+      merchants: [{"Hub", "Whisky", "+imp", "++exp"}]
+    }
+
+    assert check_merchants(parsed) == []
+    assert check_merchants(%{parsed | merchants: []}) != []
+
+    assert check_merchants(%{parsed | merchants: [{"Hub", "Whisky", "++imp", "++exp"}]}) ==
+             ["merchant weights disagree: Hub / Whisky"]
   end
 
   # -- parsing ---------------------------------------------------------------
@@ -163,7 +282,8 @@ defmodule Docs.PortsRosterTest do
       category: for({c, {goods, _r}} <- role_tables, g <- goods, into: %{}, do: {g, c}),
       roles: roles(role_tables),
       clusters: clusters(markdown),
-      tiers: tiers(tables)
+      tiers: tiers(tables),
+      merchants: merchants(tables)
     }
   end
 
@@ -189,6 +309,16 @@ defmodule Docs.PortsRosterTest do
     Enum.find_value(tables, %{}, fn {_category, {columns, rows}} ->
       if "Reefer" in columns do
         Map.new(rows, fn {port, values} -> {port, Map.new(Enum.zip(columns, values))} end)
+      end
+    end)
+  end
+
+  defp merchants(tables) do
+    Enum.find_value(tables, [], fn {_category, {columns, rows}} ->
+      if columns == ["Good", "Buying", "Selling"] do
+        Enum.map(rows, fn {port, [good, buying, selling]} ->
+          {port, good, buying, selling}
+        end)
       end
     end)
   end
@@ -235,20 +365,61 @@ defmodule Docs.PortsRosterTest do
   defp role_table?({goods, rows}) do
     goods != [] and
       Enum.all?(rows, fn {_port, cells} ->
-        length(cells) == length(goods) and Enum.all?(cells, &(&1 in @codes))
+        length(cells) == length(goods) and Enum.all?(cells, &valid_role?/1)
       end)
   end
 
   # -- checks ----------------------------------------------------------------
 
   defp violations(parsed) do
-    check_exclusive(parsed) ++
+    check_merchants(parsed) ++
+      check_producers(parsed) ++
+      check_exclusive(parsed) ++
       check_minimums(parsed) ++
       check_round_trips(parsed) ++
       check_tanker_directions(parsed) ++
       check_liquid_backhaul(parsed) ++
       check_cluster_spread(parsed) ++
       check_reefer_scarcity(parsed)
+  end
+
+  defp has_role?(nil, _codes), do: false
+  defp has_role?(role, codes), do: Enum.any?(String.split(role, "/"), &(&1 in codes))
+  defp exports?(role), do: has_role?(role, @exports)
+  defp imports?(role), do: has_role?(role, @imports)
+
+  defp valid_role?(role) do
+    case String.split(role, "/") do
+      [single] -> single in @codes
+      [selling, buying] -> selling in @exports and buying in @imports
+      _ -> false
+    end
+  end
+
+  defp check_producers(%{goods: goods, roles: roles}) do
+    for good <- goods,
+        not Enum.any?(roles, fn {_port, by_good} -> by_good[good] in @exports end),
+        do: "#{good} has no producer; merchant resale is not production"
+  end
+
+  defp check_merchants(%{roles: roles, merchants: merchants}) do
+    declared = for {port, good, _buy, _sell} <- merchants, do: {port, good}
+
+    combined =
+      for {port, goods} <- roles,
+          {good, role} <- goods,
+          exports?(role) and imports?(role),
+          do: {port, good}
+
+    missing = for key <- combined -- declared, do: "missing merchant declaration: #{inspect(key)}"
+    extra = for key <- declared -- combined, do: "invalid merchant declaration: #{inspect(key)}"
+
+    mismatched =
+      for {port, good, buying, selling} <- merchants,
+          get_in(roles, [port, good]) != selling <> "/" <> buying,
+          do: "merchant weights disagree: #{port} / #{good}"
+
+    missing ++ extra ++ mismatched
   end
 
   defp check_exclusive(%{goods: goods, roles: roles}) do
@@ -262,8 +433,8 @@ defmodule Docs.PortsRosterTest do
     for good <- goods,
         {least_exp, least_imp} = minimums_for(Map.get(category, good)),
         shortfall <- [
-          shortfall(good, "exporter", ports_where(roles, good, &(&1 in @exports)), least_exp),
-          shortfall(good, "importer", ports_where(roles, good, &(&1 in @imports)), least_imp)
+          shortfall(good, "exporter", ports_where(roles, good, &exports?/1), least_exp),
+          shortfall(good, "importer", ports_where(roles, good, &imports?/1), least_imp)
         ],
         shortfall != nil,
         do: shortfall
@@ -280,7 +451,7 @@ defmodule Docs.PortsRosterTest do
   defp check_round_trips(%{roles: roles}) do
     for {port, by_good} <- Enum.sort(roles),
         {direction, codes} <- [{"exports", @exports}, {"imports", @imports}],
-        not Enum.any?(Map.values(by_good), &(&1 in codes)),
+        not Enum.any?(Map.values(by_good), &has_role?(&1, codes)),
         do: "#{port} #{direction} nothing"
   end
 
@@ -290,7 +461,7 @@ defmodule Docs.PortsRosterTest do
     if "Crude oil" in goods and "Refined fuel" in goods do
       for {out, back} <- [{"Crude oil", "Refined fuel"}, {"Refined fuel", "Crude oil"}],
           not Enum.any?(roles, fn {_port, by_good} ->
-            by_good[out] in @exports and by_good[back] in @imports
+            exports?(by_good[out]) and imports?(by_good[back])
           end),
           do: "no port exports #{String.downcase(out)} while importing #{String.downcase(back)}"
     else
@@ -298,21 +469,40 @@ defmodule Docs.PortsRosterTest do
     end
   end
 
-  # Vegetable oil exists so a tanker delivering fuel has something to load for
-  # the return leg; that only holds while the two flow in opposite directions.
+  # Rotate a two- or three-port cycle to begin with vegetable oil; the other
+  # legs must include petroleum and return to the original port.
   defp check_liquid_backhaul(%{goods: goods, roles: roles}) do
-    fuel = "Refined fuel"
-    veg = "Vegetable oil"
+    petroleum = Enum.filter(["Crude oil", "Refined fuel"], &(&1 in goods))
+    liquids = ["Vegetable oil" | petroleum]
+    ports = Map.keys(roles)
 
-    if fuel in goods and veg in goods do
-      if Enum.any?(roles, fn {_port, by_good} ->
-           by_good[fuel] in @imports and by_good[veg] in @exports
-         end),
-         do: [],
-         else: ["no port imports refined fuel while exporting vegetable oil"]
+    if "Vegetable oil" in goods and petroleum != [] do
+      valid =
+        Enum.any?(ports, fn a ->
+          Enum.any?(ports, fn b ->
+            ships_good?(roles, a, b, "Vegetable oil") and
+              (Enum.any?(petroleum, &ships_good?(roles, b, a, &1)) or
+                 Enum.any?(ports -- [a, b], fn c ->
+                   Enum.any?(liquids, fn g ->
+                     Enum.any?(liquids, fn h ->
+                       (g in petroleum or h in petroleum) and
+                         ships_good?(roles, b, c, g) and ships_good?(roles, c, a, h)
+                     end)
+                   end)
+                 end))
+          end)
+        end)
+
+      if valid,
+        do: [],
+        else: ["no two- or three-port liquid cycle includes vegetable oil and petroleum"]
     else
       []
     end
+  end
+
+  defp ships_good?(roles, origin, destination, good) do
+    origin != destination and exports?(roles[origin][good]) and imports?(roles[destination][good])
   end
 
   # Correlated prices leave specialization as a cluster's only distinction, so
@@ -322,7 +512,7 @@ defmodule Docs.PortsRosterTest do
         [a, b] <- pairs(Enum.filter(members, &Map.has_key?(roles, &1))),
         shared = shared_roles(roles[a], roles[b]),
         total = map_size(roles[a]),
-        total - shared < div(total, 2),
+        (total - shared) * 2 < total,
         do: "#{name}: #{a} and #{b} differ in only #{total - shared} of #{total} trade roles"
   end
 

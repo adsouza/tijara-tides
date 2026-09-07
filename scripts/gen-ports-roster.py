@@ -15,7 +15,8 @@ Adding a good
 2. Give every port in M a role at the matching column position. Positions are
    silent about mistakes, so count carefully, or insert with a dict keyed by
    port name as the vegetable oil change did.
-3. Bump the expected count in test/docs/ports_roster_test.exs (`parsed.goods`).
+3. Update REEXPORTS for merchant-supplied goods; preserve independent buy/sell weights.
+   Bump the expected count in test/docs/ports_roster_test.exs (`parsed.goods`).
 4. Update the good-count claims in docs/DESIGN.md: the catalogue table and
    count sentence in section 6, the recipe sentence in section 5, and decision
    group 20. If the good needs liquid or refrigerated capacity, say so in
@@ -238,6 +239,25 @@ ORDER = [p for _, ps in REGIONS for p in ps]
 assert sorted(ORDER) == sorted(PORTS), set(ORDER) ^ set(PORTS)
 
 GOODS = [g for _, gs in CATEGORIES for g in gs]
+# Merchant supply is resale, never production. Values are independent buy weights;
+# existing export weights in M remain the selling weights.
+REEXPORTS = {
+    "Hong Kong": {"Whisky": I2, "Jewelry": I2},
+    "Singapore": {"Whisky": I1, "Electronics": I1},
+    "Dubai": {"Jewelry": I2, "Spices": I1},
+    "Guangzhou": {"Spices": I1},
+    "Tangier": {"Spices": I1},
+    "Colón": {"Designer clothing": I2, "Appliances": I2,
+              "Everyday clothing": I2},
+}
+for port, goods in REEXPORTS.items():
+    assert port in PORTS
+    for good, buying in goods.items():
+        i = GOODS.index(good)
+        selling = M[port][i]
+        assert selling in (E1, E2) and buying in (I1, I2), (port, good)
+        M[port][i] = selling + "/" + buying
+
 SIZE = {"any": "any", "capped": "≤ large", "split": "split"}
 W = 80
 def para(t): return textwrap.fill(" ".join(t.split()), width=W,
@@ -293,7 +313,7 @@ o.append("## Port identities\n")
 o.append(para("""
 Each identity characterizes a port: its real economic base and what that
 means for the goods moving through it. They are orientation, not
-enumeration, and no sentence lists all nineteen goods. Where an identity and
+enumeration, and no sentence lists every good. Where an identity and
 the trade role tables below could be read differently, the tables are
 authoritative."""))
 o.append("")
@@ -310,8 +330,18 @@ o.append(para("""
 Roles are relative weights, not quantities. A major exporter is expected to be
 among the roster's main sources of that good and to sustain repeatable routes; a
 minor one supplies opportunistically or seasonally. The same reading applies to
-demand. A dash means the port neither produces nor consumes the good in
-meaningful volume, so no simulated actor there trades it."""))
+demand. Buying and selling are independent: a combined code such as
+`++exp/+imp` specifies major selling supply and minor buying demand. Export-only
+roles represent local or hinterland producers; the re-export merchants listed
+below instead buy and resell existing stock. Their buying weight is procurement
+for resale, not end consumption. A dash means the port neither produces nor consumes the good in
+meaningful volume, so no simulated actor there trades it. Player-to-player
+trading remains permitted. Luxury auctions receive simulated participation only
+where the role includes buying demand (including merchant buying). Export-only
+and not-traded roles allow player-only luxury auctions, with a clear
+"No simulated buyers" notice before consignment and on the listing. Buying
+demand indicates eligibility, not guaranteed bids: budgets and capacity still
+apply."""))
 o.append("")
 o.append("| Code | Meaning |")
 o.append("|------|---------|")
@@ -330,6 +360,27 @@ for cat, gs in CATEGORIES:
         o.append("| %s | %s |" % (p, " | ".join("`%s`" % c for c in cells)))
     o.append("")
     base += len(gs)
+
+o.append("## Re-export merchants\n")
+o.append(para("""
+These entries identify merchant supply separately from local production. Merchants
+buy existing goods at their port, occupy paid compatible warehouse space, and
+resell only inventory they own and can commit. They generate no replacement stock;
+empty inventory means no sell offer. Goods enter through player deliveries or
+other valid local purchases, never through implicit off-map replenishment.
+Buying and selling weights are separate targets, not guaranteed throughput.
+Luxury merchants buy and sell through scheduled auctions; purchased stock can
+only be consigned to a later auction whose bidding has not opened. They cannot
+bid on their own lots or count a purchase as consumption. See DESIGN.md section 5
+for budgets, reservations, and inventory-conservation rules."""))
+o.append("")
+o.append("| Port | Good | Buying | Selling |")
+o.append("|------|------|--------|---------|")
+for p in ORDER:
+    for g, buying in REEXPORTS.get(p, {}).items():
+        selling = M[p][GOODS.index(g)].split("/")[0]
+        o.append(f"| {p} | {g} | `{buying}` | `{selling}` |")
+o.append("")
 
 o.append("## Physical and cost character\n")
 o.append(para("""
@@ -360,19 +411,47 @@ o.append(para("""
 Section 5 requires every good to have several supplying and buying ports and
 forbids exclusive access. These counts were derived from the tables above, and must
 be re-derived whenever a role changes. Bulk commodities are held to at least five
-suppliers and five buyers; every other good to at least three and four."""))
+suppliers and five buyers; every other good to at least three and four. A merchant
+counts as both a supplier and a buyer, but never as a producer. Every good must
+also retain at least one actual producer so merchant resale cannot masquerade
+as production coverage."""))
 o.append("")
 o.append("| Good | Exporters | Importers |")
 o.append("|------|-----------|-----------|")
 bulk = set(CATEGORIES[0][1])
-exp = lambda r: r in (E2, E1)
-imp = lambda r: r in (I1, I2)
+exp = lambda r: any(c in (E2, E1) for c in r.split("/"))
+imp = lambda r: any(c in (I1, I2) for c in r.split("/"))
+liquids = ["Crude oil", "Refined fuel", "Vegetable oil"]
+petroleum = {"Crude oil", "Refined fuel"}
+def can_ship(origin, destination, good):
+    i = GOODS.index(good)
+    return origin != destination and exp(M[origin][i]) and imp(M[destination][i])
+
+def has_liquid_cycle():
+    # Rotate every candidate cycle to start with its vegetable-oil leg.
+    for a in ORDER:
+        for b in ORDER:
+            if not can_ship(a, b, "Vegetable oil"):
+                continue
+            if any(can_ship(b, a, g) for g in petroleum):
+                return True
+            for c in ORDER:
+                if c in (a, b):
+                    continue
+                if any((g in petroleum or h in petroleum)
+                       and can_ship(b, c, g) and can_ship(c, a, h)
+                       for g in liquids for h in liquids):
+                    return True
+    return False
+
+assert has_liquid_cycle(), "no two- or three-port liquid cycle includes vegetable oil and petroleum"
 worst = []
 for i, g in enumerate(GOODS):
     col = [M[p][i] for p in M]
     e = sum(1 for r in col if exp(r)); m = sum(1 for r in col if imp(r))
     te, ti = (5, 5) if g in bulk else (3, 4)
     assert e >= te and m >= ti, (g, e, m)
+    assert any(r in (E1, E2) for r in col), (g, "no producer")
     worst.append((g, e, m))
     o.append("| %s | %d | %d |" % (g, e, m))
 o.append("")
@@ -390,8 +469,10 @@ o.append("These properties must keep holding as the roster is balanced:\n")
 for inv in [
  "Every good has at least three exporters and four importers; bulk commodities have at least five of each.",
  "No good is exclusive to one port.",
+ "Every good has an actual producer; re-export merchants buy and resell stock without producing it.",
  "Every port both imports and exports something, so round trips are possible everywhere.",
  "Crude oil and refined fuel have distinct enough sources that tankers have cargo in both directions.",
+ "At least one two- or three-port cycle carries vegetable oil and crude oil or refined fuel. Each leg must have a seller at its origin and a buyer of the same good at its destination; ports in the cycle are distinct.",
  "Ports inside one cluster differ in at least half of their trade roles, since correlated prices leave specialization as their only distinction.",
  "Refrigerated capacity stays scarce enough that reefer-only perishables remain a constrained trade.",
 ]:
