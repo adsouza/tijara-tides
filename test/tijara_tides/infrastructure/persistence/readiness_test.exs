@@ -16,8 +16,14 @@ defmodule TijaraTides.Infrastructure.Persistence.ReadinessTest do
     server = start_supervised!({Readiness, name: nil, enabled: true, check: check})
     assert_receive {:checking, worker}
     assert Readiness.status(server) == :checking
+    send(server, :unexpected)
+    send(server, {make_ref(), :ready})
+    assert Readiness.status(server) == :checking
     send(worker, :finish)
     await_status(server, :ready)
+    send(server, :unexpected)
+    send(server, {nil, :unexpected})
+    send(server, {:DOWN, make_ref(), :process, worker, :normal})
     for _ <- 1..20, do: assert(Readiness.status(server) == :ready)
     refute_receive {:checking, _}
   end
@@ -34,6 +40,9 @@ defmodule TijaraTides.Infrastructure.Persistence.ReadinessTest do
     server =
       start_supervised!({Readiness, name: nil, enabled: false, check: fn -> flunk("queried") end})
 
+    assert Readiness.status(server) == :not_configured
+    send(server, {nil, :ready})
+    send(server, :unexpected)
     assert Readiness.status(server) == :not_configured
   end
 

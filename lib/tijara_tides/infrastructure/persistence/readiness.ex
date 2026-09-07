@@ -37,7 +37,8 @@ defmodule TijaraTides.Infrastructure.Persistence.Readiness do
   def handle_call(:status, _from, state), do: {:reply, state.status, state}
 
   @impl true
-  def handle_info({ref, result}, %{task: ref} = state) do
+  def handle_info({ref, result}, %{task: ref} = state)
+      when is_reference(ref) and result in [:ready, :failed] do
     Process.demonitor(ref, [:flush])
 
     case result do
@@ -50,6 +51,8 @@ defmodule TijaraTides.Infrastructure.Persistence.Readiness do
 
     {:noreply, %{state | status: result, task: nil}}
   end
+
+  def handle_info(_message, state), do: {:noreply, state}
 
   defp safely_check(check) do
     case check.() do

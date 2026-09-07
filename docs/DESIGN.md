@@ -1264,19 +1264,19 @@ The stop's price and spending limits continue to apply. When an advance budget
 is earmarked, purchases use only that budget, also respecting any lower spending
 cap. Do not supplement it automatically from unreserved cash, sale proceeds, or
 cash released from linked orders. Without an earmarked budget, use available
-unreserved cash up to the stop's spending cap. A player may explicitly change the
-budget subject to available funds and existing commitments. Release unused
+unreserved cash up to the stop's spending cap. A player may explicitly change
+the budget subject to available funds and existing commitments. Release unused
 earmarked funds to available company cash when that stop's visit finishes, or
 when the stop is removed or cancelled, including after loading has begun or
-while the visit waits for another attempt. A visit ending before berth assignment
-also releases its unused budget and linked-order reservations. Do not release
-funds already committed to a settled trade or handling obligation. Waiting at the same unfinished stop
-does not itself finish the visit. A repeating route retains the configured
-budget amount but does not carry unused cash forward automatically. Before
-departing toward that stop, reserve the next visit's configured purchase budget
-alongside the leg's fuel budget. Do not reserve every stop's budget at the start
-of the circuit. Cash reserved for fuel and purchases remains distinct; neither
-can fund the other.
+while the visit waits for another attempt. A visit ending before berth
+assignment also releases its unused budget and linked-order reservations. Do not
+release funds already committed to a settled trade or handling obligation.
+Waiting at the same unfinished stop does not itself finish the visit. A
+repeating route retains the configured budget amount but does not carry unused
+cash forward automatically. Before departing toward that stop, reserve the next
+visit's configured purchase budget alongside the leg's fuel budget. Do not
+reserve every stop's budget at the start of the circuit. Cash reserved for fuel
+and purchases remains distinct; neither can fund the other.
 
 Each player has one global insufficient-funds policy for automated route
 departures, with no per-route override. Default to **Wait and notify**: pause
@@ -1316,22 +1316,22 @@ If fully funded within the window, atomically convert the accumulated cash into
 the leg's distinct fuel and purchase reservations and depart under normal rules.
 Do not retain a separate accumulated balance or reserve the same amount again
 from unreserved cash. Otherwise release its accumulated cash at the deadline,
-pay overdue obligations first, and
-run the normal oldest-affordable departure allocation before another accumulation
-attempt. Apply a configured retry cooldown to accumulation attempts so released
-cash is not immediately captured again; ordinary affordable departures remain
-eligible during that cooldown. Preserve the ship's original waiting age. Notify
-the player when accumulation times out. Window and cooldown durations follow the
-world-clock policy and remain tuning parameters. Accumulated reservations also
-release under the normal rules if the player changes the plan or the policy.
-Departure requirements follow the player's current global policy.
-When the global Skip purchases policy is triggered for a visit, cancel the
-unfilled remainder of remote buy orders linked to that visit and release their
-unused cash and warehouse-capacity reservations. Notify the player of the
-cancellation. Completed fills remain owned and reserved for collection because
-the ship still visits that stop. Do not cancel unrelated warehouse orders.
-Apply the cancellation once for that visit; cash it releases does not silently
-reverse the decision to skip purchases. Fully fund fuel before departure.
+pay overdue obligations first, and run the normal oldest-affordable departure
+allocation before another accumulation attempt. Apply a configured retry
+cooldown to accumulation attempts so released cash is not immediately captured
+again; ordinary affordable departures remain eligible during that cooldown.
+Preserve the ship's original waiting age. Notify the player when accumulation
+times out. Window and cooldown durations follow the world-clock policy and
+remain tuning parameters. Accumulated reservations also release under the normal
+rules if the player changes the plan or the policy. Departure requirements
+follow the player's current global policy. When the global Skip purchases policy
+is triggered for a visit, cancel the unfilled remainder of remote buy orders
+linked to that visit and release their unused cash and warehouse-capacity
+reservations. Notify the player of the cancellation. Completed fills remain
+owned and reserved for collection because the ship still visits that stop. Do
+not cancel unrelated warehouse orders. Apply the cancellation once for that
+visit; cash it releases does not silently reverse the decision to skip
+purchases. Fully fund fuel before departure.
 
 Remote buy orders may optionally be linked to a particular ship collection stop.
 Filled goods from a linked order count toward that stop's loading target and are
@@ -1404,13 +1404,13 @@ loading, or waiting for conditions. At the deadline, stop new instruction and
 linked-order fills and new handling before processing competing events. If no
 handling is committed, finish the visit immediately; otherwise drain only the
 committed operation without starting the next phase. Notify the player of the
-remaining shortfall and continue subject to the existing
-departure funding rules. Where no maximum wait is configured the ship waits
-indefinitely for viable conditions, which is the instruction the player gave;
-its earmarked budget stays reserved meanwhile, and removing or changing the stop
-releases it. Do not initiate further fills for that visit after its wait limit.
-Normal visit-completion rules release unused reservations and cancel linked
-unfilled orders. A repeated visit evaluates the configured targets afresh; unmet
+remaining shortfall and continue subject to the existing departure funding
+rules. Where no maximum wait is configured the ship waits indefinitely for
+viable conditions, which is the instruction the player gave; its earmarked
+budget stays reserved meanwhile, and removing or changing the stop releases it.
+Do not initiate further fills for that visit after its wait limit. Normal
+visit-completion rules release unused reservations and cancel linked unfilled
+orders. A repeated visit evaluates the configured targets afresh; unmet
 quantities do not accumulate across visits. Existing qualifying cargo aboard
 still counts toward loading targets. Berth readiness and cooldown rules govern
 retries while waiting.

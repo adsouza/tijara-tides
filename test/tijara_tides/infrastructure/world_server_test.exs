@@ -72,4 +72,14 @@ defmodule TijaraTides.Infrastructure.WorldServerTest do
     refute_receive {:world_updated, _}
     assert %{connections: 0} = WorldServer.snapshot(server)
   end
+
+  test "unexpected messages preserve the owner and its attached clients", %{server: server} do
+    snapshot = WorldServer.attach(server, "guest")
+    assert_receive {:world_updated, ^snapshot}
+    send(server, :unexpected)
+    send(server, {:unexpected, %{payload: "ignored"}})
+    send(server, {:DOWN, make_ref(), :process, self(), :normal})
+    assert WorldServer.snapshot(server) == snapshot
+    refute_receive {:world_updated, _}
+  end
 end

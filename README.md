@@ -14,8 +14,11 @@ and trade roles.
 
 Install Elixir and Erlang (the local versions are recorded in `.tool-versions`).
 The declared minimum Elixir version is 1.19.3; CI also checks that version.
-The lobby runs without a database or Node.js installation. Optional Neon
-connectivity is described in [database setup](docs/database.md).
+The lobby runs locally without a database or Node.js installation. Neon
+connectivity is optional for local development; see [database setup](docs/database.md).
+The supplied Render deployment requires `DATABASE_URL` and a successful startup
+database check: its `/statusz` health check returns 503 without either. See
+[deployment setup](docs/deploying.md) for configuration.
 
 ```sh
 mix setup

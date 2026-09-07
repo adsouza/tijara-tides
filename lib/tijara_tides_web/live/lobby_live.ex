@@ -13,12 +13,25 @@ defmodule TijaraTidesWeb.LobbyLive do
         WorldServer.snapshot()
       end
 
-    {:ok, assign(socket, snapshot: snapshot, page_title: "Harbor lobby")}
+    socket = assign(socket, page_title: "Harbor lobby", attach_error: nil)
+
+    case snapshot do
+      {:error, _reason} ->
+        {:ok,
+         assign(socket,
+           snapshot: nil,
+           attach_error: "Unable to join the harbor lobby. Please reload to try again."
+         )}
+
+      snapshot ->
+        {:ok, assign(socket, snapshot: snapshot)}
+    end
   end
 
   @impl true
   def handle_info({:world_updated, snapshot}, socket) do
-    if snapshot.world_id == socket.assigns.snapshot.world_id and
+    if is_map(socket.assigns.snapshot) and
+         snapshot.world_id == socket.assigns.snapshot.world_id and
          snapshot.revision > socket.assigns.snapshot.revision do
       {:noreply, assign(socket, :snapshot, snapshot)}
     else
@@ -42,11 +55,19 @@ defmodule TijaraTidesWeb.LobbyLive do
           <div class="flex flex-wrap items-center justify-between gap-4">
             <h2 class="text-xl font-medium">Harbor lobby</h2>
             <span id="connection-status" class="text-sm text-teal-300">
-              <span class="phx-connected:hidden">Connecting…</span>
-              <span class="hidden phx-connected:inline">Connected to the shared world</span>
+              <%= if @attach_error do %>
+                Unable to join
+              <% else %>
+                <span class="phx-connected:hidden">Connecting…</span>
+                <span class="hidden phx-connected:inline">Connected to the shared world</span>
+              <% end %>
             </span>
           </div>
-          <dl class="mt-8 grid gap-8 sm:grid-cols-3">
+          <p :if={@attach_error} id="attach-error" role="alert" class="mt-8 text-amber-300">
+            {@attach_error}
+            <a href="/" class="underline">Reload lobby</a>
+          </p>
+          <dl :if={@snapshot} class="mt-8 grid gap-8 sm:grid-cols-3">
             <div>
               <dt class="text-sm text-slate-400">Guests online</dt><dd
                 id="online-players"

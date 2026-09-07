@@ -67,6 +67,8 @@ defmodule TijaraTides.Infrastructure.WorldServer do
     end
   end
 
+  def handle_info(_message, state), do: {:noreply, state}
+
   defp publish(state) do
     state = %{state | revision: state.revision + 1}
 
