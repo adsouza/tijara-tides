@@ -113,15 +113,16 @@ and all of its food.
 steel and engineering. Exports refined fuel, turbines and scrap and lands
 enormous volumes of fruit.
 
-**Antwerp** — Chemicals, breakbulk and Europe's diamond trade, with major reefer
-capacity and a construction-machinery export stream. Its inland catchment
-reaches Italian and French fashion houses, and it ships recovered plastics
-outbound.
+**Antwerp** — Chemicals, refining and Europe's diamond trade, with major reefer
+capacity and a construction-machinery export stream. Ships refined products and
+recovered plastics outbound, and its inland catchment reaches Italian and French
+fashion houses.
 
 **Hamburg** — German and Central European machinery export — turbines,
-construction and agricultural equipment — plus grain, meat and metal scrap
-outbound to Asia. Its inland catchment also carries Central European fashion
-houses.
+construction and agricultural equipment — plus grain, meat and scrap aluminium
+outbound to Asia. Europe's largest copper smelter sits here and consumes
+imported copper scrap. Its inland catchment also carries Central European
+fashion houses.
 
 ### Mediterranean and North Africa
 
@@ -205,7 +206,7 @@ still apply.
 | Dubai | `—` | `++imp` | `+exp` | `+imp` | `++imp` |
 | Abu Dhabi | `+imp` | `++imp` | `++exp` | `++exp` | `+imp` |
 | Rotterdam | `++imp` | `++imp` | `++imp` | `++exp` | `++imp` |
-| Antwerp | `+imp` | `++imp` | `++imp` | `+imp` | `+imp` |
+| Antwerp | `+imp` | `++imp` | `++imp` | `+exp` | `+imp` |
 | Hamburg | `+imp` | `++exp` | `+imp` | `+imp` | `+imp` |
 | Valencia | `+imp` | `+imp` | `+imp` | `+imp` | `+exp` |
 | Athens | `+exp` | `++imp` | `++imp` | `++exp` | `+exp` |
@@ -326,7 +327,7 @@ still apply.
 | Abu Dhabi | `++imp` | `+imp` | `—` |
 | Rotterdam | `++exp` | `++exp` | `++exp` |
 | Antwerp | `+exp` | `+exp` | `++exp` |
-| Hamburg | `++exp` | `+exp` | `++exp` |
+| Hamburg | `++exp` | `++imp` | `++exp` |
 | Valencia | `+exp` | `+exp` | `+exp` |
 | Athens | `++exp` | `+exp` | `+exp` |
 | Tangier | `+imp` | `+imp` | `+imp` |
@@ -440,7 +441,7 @@ Canal, which is a routing constraint rather than a port one.
 Section 5 requires every good to have several supplying and buying ports and
 forbids exclusive access. These counts were derived from the tables above, and
 must be re-derived whenever a role changes. Bulk commodities are held to at
-least five suppliers and five buyers; every other good to at least three and
+least four suppliers and five buyers; every other good to at least three and
 four. A merchant counts as both a supplier and a buyer, but never as a producer.
 Every good must also retain at least one actual producer so merchant resale
 cannot masquerade as production coverage.
@@ -450,7 +451,7 @@ cannot masquerade as production coverage.
 | Iron ore | 5 | 11 |
 | Grain | 7 | 18 |
 | Crude oil | 5 | 17 |
-| Refined fuel | 8 | 17 |
+| Refined fuel | 9 | 16 |
 | Vegetable oil | 8 | 17 |
 | Whisky | 5 | 9 |
 | Jewelry | 5 | 9 |
@@ -463,25 +464,32 @@ cannot masquerade as production coverage.
 | Everyday clothing | 11 | 15 |
 | Spices | 7 | 21 |
 | Scrap aluminium | 14 | 11 |
-| Copper scrap | 14 | 11 |
+| Copper scrap | 13 | 12 |
 | Recovered plastics | 10 | 8 |
 | Fruit | 11 | 14 |
 | Seafood | 12 | 13 |
 | Meat | 9 | 16 |
 
-Luxury demand is deliberately the narrowest on the roster. Section 6 gives
-luxury goods shallow demand and competition for scarce lots, so only wealthy
-consumer markets buy them. Whisky and jewelry have genuine producers here —
-Japanese and American distilling, Indian and Belgian gem cutting — supplemented
-by the collector-auction and re-export hubs at Hong Kong, Singapore and Dubai.
-Designer clothing is the one luxury good with no coastal producer on the roster,
-so Italian and French fashion reaches the sea through the inland catchments
-behind Antwerp and Hamburg.
+Bulk commodities take a lower floor for sellers than for buyers, four against
+five. Real bulk export is source-concentrated: iron ore is dominated by a
+handful of countries and crude oil by a few more, and this roster carries five
+sellers of each because none of the remaining ports could plausibly be given ore
+or oil. Raising the seller floor would force inventing a source at a
+transshipment hub or an import gateway, which is a worse outcome than a narrow
+supply base. Buyers are plentiful for both, so their floor stays higher. Luxury
+demand is deliberately the narrowest on the roster. Section 6 gives luxury goods
+shallow demand and competition for scarce lots, so only wealthy consumer markets
+buy them. Whisky and jewelry have genuine producers here — Japanese and American
+distilling, Indian and Belgian gem cutting — supplemented by the
+collector-auction and re-export hubs at Hong Kong, Singapore and Dubai. Designer
+clothing is the one luxury good with no coastal producer on the roster, so
+Italian and French fashion reaches the sea through the inland catchments behind
+Antwerp and Hamburg.
 
 These properties must keep holding as the roster is balanced:
 
 - Every good has at least three exporters and four importers; bulk commodities
-  have at least five of each.
+  have at least four exporters and five importers.
 - No good is exclusive to one port.
 - Every good has an actual producer; re-export merchants buy and resell stock
   without producing it.

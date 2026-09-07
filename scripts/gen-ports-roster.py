@@ -143,16 +143,17 @@ PORTS = {
  "enormous volumes of fruit.",
  ("high","high","med","high","fast","high","any")),
 "Antwerp": ("Antwerp",
- "Chemicals, breakbulk and Europe's diamond trade, with major reefer "
- "capacity and a construction-machinery export stream. Its inland "
- "catchment reaches Italian and French fashion houses, and it ships "
- "recovered plastics outbound.",
+ "Chemicals, refining and Europe's diamond trade, with major reefer "
+ "capacity and a construction-machinery export stream. Ships refined "
+ "products and recovered plastics outbound, and its inland catchment "
+ "reaches Italian and French fashion houses.",
  ("med","high","high","high","fast","high","any")),
 "Hamburg": ("Hamburg",
  "German and Central European machinery export — turbines, construction "
- "and agricultural equipment — plus grain, meat and metal scrap outbound "
- "to Asia. Its inland catchment also carries Central European fashion "
- "houses.",
+ "and agricultural equipment — plus grain, meat and scrap aluminium "
+ "outbound to Asia. Europe's largest copper smelter sits here and consumes "
+ "imported copper scrap. Its inland catchment also carries Central "
+ "European fashion houses.",
  ("high","high","med","med","fast","high","any")),
 "Valencia": ("Valencia",
  "Spanish Mediterranean exporter of citrus, pork, appliances and apparel, "
@@ -213,8 +214,8 @@ M = {
 "Dubai":            [X ,I2,E1,I1,I2,I1,E2,I2,I1,I2,X ,I2,I2,I2,E1,I2,I1,X ,I2,I1,I2],
 "Abu Dhabi":        [I1,I2,E2,E2,I1,X ,X ,X ,I2,I2,X ,I1,I1,I1,I1,I2,I1,X ,I2,I1,I2],
 "Rotterdam":        [I2,I2,I2,E2,I2,X ,X ,X ,E2,E1,E2,I1,I1,I2,I2,E2,E2,E2,I2,I1,E1],
-"Antwerp":          [I1,I2,I2,I1,I1,X ,E2,E1,E1,E2,E1,I1,I2,I1,I1,E1,E1,E2,I2,I1,E1],
-"Hamburg":          [I1,E2,I1,I1,I1,X ,X ,E1,E2,E2,E2,I2,E1,I1,I2,E2,E1,E2,I1,I1,E2],
+"Antwerp":          [I1,I2,I2,E1,I1,X ,E2,E1,E1,E2,E1,I1,I2,I1,I1,E1,E1,E2,I2,I1,E1],
+"Hamburg":          [I1,E2,I1,I1,I1,X ,X ,E1,E2,E2,E2,I2,E1,I1,I2,E2,I2,E2,I1,I1,E2],
 "Valencia":         [I1,I1,I1,I1,E1,X ,X ,E1,I1,E2,E2,I1,E2,E2,I1,E1,E1,E1,E2,E1,E2],
 "Athens":           [E1,I2,I2,E2,E1,X ,X ,X ,I1,I1,I1,I1,I1,I1,I1,E2,E1,E1,E2,E1,I2],
 "Tangier":          [X ,I2,I1,I2,I1,X ,X ,E1,I1,I1,I1,E1,I1,E2,E1,I1,I1,I1,E2,E2,I1],
@@ -410,7 +411,7 @@ o.append("## Coverage check\n")
 o.append(para("""
 Section 5 requires every good to have several supplying and buying ports and
 forbids exclusive access. These counts were derived from the tables above, and must
-be re-derived whenever a role changes. Bulk commodities are held to at least five
+be re-derived whenever a role changes. Bulk commodities are held to at least four
 suppliers and five buyers; every other good to at least three and four. A merchant
 counts as both a supplier and a buyer, but never as a producer. Every good must
 also retain at least one actual producer so merchant resale cannot masquerade
@@ -449,13 +450,21 @@ worst = []
 for i, g in enumerate(GOODS):
     col = [M[p][i] for p in M]
     e = sum(1 for r in col if exp(r)); m = sum(1 for r in col if imp(r))
-    te, ti = (5, 5) if g in bulk else (3, 4)
+    te, ti = (4, 5) if g in bulk else (3, 4)
     assert e >= te and m >= ti, (g, e, m)
     assert any(r in (E1, E2) for r in col), (g, "no producer")
     worst.append((g, e, m))
     o.append("| %s | %d | %d |" % (g, e, m))
 o.append("")
 o.append(para("""
+Bulk commodities take a lower floor for sellers than for buyers, four against
+five. Real bulk export is source-concentrated: iron ore is dominated by a handful
+of countries and crude oil by a few more, and this roster carries five sellers of
+each because none of the remaining ports could plausibly be given ore or oil.
+Raising the seller floor would force inventing a source at a transshipment hub or
+an import gateway, which is a worse outcome than a narrow supply base. Buyers are
+plentiful for both, so their floor stays higher.
+
 Luxury demand is deliberately the narrowest on the roster. Section 6 gives
 luxury goods shallow demand and competition for scarce lots, so only wealthy
 consumer markets buy them. Whisky and jewelry have genuine producers here —
@@ -467,7 +476,7 @@ behind Antwerp and Hamburg."""))
 o.append("")
 o.append("These properties must keep holding as the roster is balanced:\n")
 for inv in [
- "Every good has at least three exporters and four importers; bulk commodities have at least five of each.",
+ "Every good has at least three exporters and four importers; bulk commodities have at least four exporters and five importers.",
  "No good is exclusive to one port.",
  "Every good has an actual producer; re-export merchants buy and resell stock without producing it.",
  "Every port both imports and exports something, so round trips are possible everywhere.",

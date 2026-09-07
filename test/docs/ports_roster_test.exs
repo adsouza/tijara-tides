@@ -96,7 +96,7 @@ defmodule Docs.PortsRosterTest do
 
   test "holds bulk commodities to a higher minimum than other categories" do
     assert @thin_bulk |> parse() |> check_minimums() ==
-             ["Iron ore has 3 exporter(s), needs at least 5"]
+             ["Iron ore has 3 exporter(s), needs at least 4"]
   end
 
   test "flags ports that cannot make a round trip" do
@@ -440,7 +440,7 @@ defmodule Docs.PortsRosterTest do
         do: shortfall
   end
 
-  defp minimums_for("Bulk commodities"), do: {5, 5}
+  defp minimums_for("Bulk commodities"), do: {4, 5}
   defp minimums_for(_other), do: {3, 4}
 
   defp shortfall(good, role, ports, least) when length(ports) < least,
