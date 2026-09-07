@@ -77,10 +77,20 @@ defmodule TijaraTides.Domain.Game do
       | entities: Map.update(state.entities, kind, %{id => value}, &Map.put(&1, id, value))
     }
 
+  def delete(state, "companies", id) do
+    if Enum.any?(entities(state, "ships"), fn {_, ship} -> ship["company_id"] == id end),
+      do: raise(ArgumentError, "retire or transfer ships before removing a company")
+
+    %{state | entities: Map.update(state.entities, "companies", %{}, &Map.delete(&1, id))}
+  end
+
   def delete(state, kind, id),
     do: %{state | entities: Map.update(state.entities, kind, %{}, &Map.delete(&1, id))}
 
   def initialize(state, catalogue) do
+    validate_catalogue!(catalogue)
+    state = prune_notices(state)
+
     if map_size(entities(state, "markets")) == 0 do
       Enum.reduce(catalogue["ports"], state, fn {port, definition}, state ->
         Enum.reduce(definition["roles"], state, fn {good, role}, state ->
@@ -172,6 +182,23 @@ defmodule TijaraTides.Domain.Game do
   end
 
   def redeem(state, hash, session_hash, context) do
+    case get(state, "invitations", hash) do
+      %{"status" => "redeemed", "invitee" => account_id} ->
+        case authenticate(state, session_hash, context.wall_ms) do
+          {:ok, %{"id" => ^account_id}} -> {:replay, %{"account_id" => account_id}}
+          _ -> {:error, :invalid_invitation}
+        end
+
+      _ ->
+        # A device credential can bootstrap only one account. Never overwrite a
+        # session when concurrent forms submit two different invitations.
+        if get(state, "sessions", session_hash),
+          do: {:error, :invalid_invitation},
+          else: redeem_new(state, hash, session_hash, context)
+    end
+  end
+
+  defp redeem_new(state, hash, session_hash, context) do
     with %{"status" => "issued", "expires_ms" => expiry} = invite <-
            get(state, "invitations", hash),
          true <- state.clock_ms < expiry do
@@ -599,7 +626,7 @@ defmodule TijaraTides.Domain.Game do
     end)
   end
 
-  def voyage_quote(ship, destination, catalogue) do
+  def voyage_quote(ship, destination, catalogue) when is_binary(destination) do
     case catalogue["routes"][ship["port"] <> "|" <> destination] do
       nil ->
         nil
@@ -625,16 +652,13 @@ defmodule TijaraTides.Domain.Game do
     end
   end
 
+  def voyage_quote(_ship, _destination, _catalogue), do: nil
+
   defp sail(state, account, id, destination, limit, catalogue) do
-    with %{"company_id" => owner, "status" => "docked"} = ship <- get(state, "ships", id),
-         true <- owner == account["company_id"],
-         %{} = estimate <- voyage_quote(ship, destination, catalogue),
-         true <- is_integer(limit) and limit >= estimate["fuel"],
-         true <- estimate["duration_ms"] <= 86_400_000,
-         company <- get(state, "companies", owner),
-         true <-
-           company["unpaid"] == 0 and
-             company["cash"] - company["reserved"] >= estimate["fuel"] + estimate["canal_fees"] do
+    with {:ok, ship, company, estimate} <-
+           departure_check(state, account, id, destination, limit, catalogue) do
+      owner = company["id"]
+
       ship = %{
         ship
         | "status" => "sailing",
@@ -671,8 +695,58 @@ defmodule TijaraTides.Domain.Game do
         )
 
       {:ok, state, %{"arrive_ms" => ship["arrive_ms"], "fuel" => estimate["fuel"]}}
-    else
-      _ -> {:error, :cannot_depart}
+    end
+  end
+
+  defp departure_check(state, account, id, destination, limit, catalogue) do
+    ship = get(state, "ships", id)
+    company = get(state, "companies", account["company_id"])
+
+    cond do
+      is_nil(ship) or is_nil(company) or ship["company_id"] != account["company_id"] ->
+        {:error, :departure_ship_unavailable}
+
+      ship["status"] != "docked" ->
+        {:error,
+         {:departure_busy, ship["status"],
+          max(0, (ship["arrive_ms"] || state.clock_ms) - state.clock_ms)}}
+
+      not is_binary(destination) or not Map.has_key?(catalogue["ports"], destination) ->
+        {:error, :departure_destination_invalid}
+
+      destination == ship["port"] ->
+        {:error, {:departure_already_here, destination}}
+
+      true ->
+        case voyage_quote(ship, destination, catalogue) do
+          nil -> {:error, {:departure_no_route, ship["port"], destination}}
+          estimate -> departure_funding(ship, company, estimate, limit)
+        end
+    end
+  end
+
+  defp departure_funding(ship, company, estimate, limit) do
+    available = company["cash"] - company["reserved"]
+    required = estimate["fuel"] + estimate["canal_fees"]
+
+    cond do
+      not is_integer(limit) or limit < 0 ->
+        {:error, :departure_fuel_limit_invalid}
+
+      limit < estimate["fuel"] ->
+        {:error, {:departure_fuel_limit, estimate["fuel"], limit}}
+
+      estimate["duration_ms"] > 86_400_000 ->
+        {:error, {:departure_too_long, estimate["duration_ms"]}}
+
+      company["unpaid"] > 0 ->
+        {:error, {:departure_unpaid, company["unpaid"]}}
+
+      available < required ->
+        {:error, {:departure_funds, estimate["fuel"], estimate["canal_fees"], available}}
+
+      true ->
+        {:ok, ship, company, estimate}
     end
   end
 
@@ -699,6 +773,37 @@ defmodule TijaraTides.Domain.Game do
 
   defp retime_voyage(ship, _clock), do: ship
 
+  defp validate_catalogue!(catalogue) do
+    Enum.each(raw_goods(), fn good ->
+      unless Map.has_key?(catalogue["goods"], good),
+        do: raise(ArgumentError, "unknown raw production good: #{good}")
+    end)
+
+    Enum.each(catalogue["ports"], fn {port, definition} ->
+      Enum.each(definition["roles"], fn {good, role} ->
+        unless Map.has_key?(catalogue["goods"], good),
+          do: raise(ArgumentError, "unknown role good at #{port}: #{good}")
+
+        if catalogue["goods"][good]["shelf_ms"] > 0 and String.contains?(role, "/"),
+          do: raise(ArgumentError, "perishable merchant markets are not supported")
+      end)
+    end)
+  end
+
+  def raw_goods,
+    do: [
+      "Iron ore",
+      "Grain",
+      "Lumber",
+      "Crude oil",
+      "Fruit",
+      "Seafood",
+      "Meat",
+      "Scrap aluminium",
+      "Copper scrap",
+      "Recovered plastics"
+    ]
+
   def advance(state, elapsed, catalogue) when is_integer(elapsed) and elapsed >= 0 do
     now = state.clock_ms + elapsed
     state = %{state | clock_ms: now}
@@ -706,7 +811,14 @@ defmodule TijaraTides.Domain.Game do
     state =
       Enum.reduce(entities(state, "ships"), state, fn {id, ship}, state ->
         ship = retime_voyage(ship, now - elapsed)
-        company = get(state, "companies", ship["company_id"])
+
+        company =
+          get(state, "companies", ship["company_id"]) ||
+            raise(
+              ArgumentError,
+              "ship #{id} has no owning company; retire or transfer ships before removing a company"
+            )
+
         class = classes()[ship["class"]]
         end_ms = ship["arrive_ms"] || now
 
@@ -813,19 +925,7 @@ defmodule TijaraTides.Domain.Game do
         if minutes > 0 do
           # Manufactured supply is a finite initial allocation until input purchasing
           # and recipes are implemented. Never synthesize re-export merchant stock.
-          raw =
-            market["good"] in [
-              "Iron ore",
-              "Grain",
-              "Lumber",
-              "Crude oil",
-              "Fruit",
-              "Seafood",
-              "Meat",
-              "Scrap aluminium",
-              "Copper scrap",
-              "Recovered plastics"
-            ]
+          raw = market["good"] in raw_goods()
 
           produced =
             if raw and market["seller"] and not market["merchant"],
@@ -919,22 +1019,46 @@ defmodule TijaraTides.Domain.Game do
         Map.filter(entities(state, "ships"), fn {_, s} ->
           s["company_id"] == account["company_id"]
         end),
-      "notices" =>
-        entities(state, "notices")
-        |> Map.values()
-        |> Enum.filter(&(&1["account_id"] == account["id"]))
+      "notices" => Map.get(Map.get(state, :notices_by_account, %{}), account["id"], [])
     }
   end
 
   defp notice(state, nil, _id, _text), do: state
 
-  defp notice(state, account, id, text),
-    do:
-      put(state, "notices", id, %{
-        "account_id" => account,
-        "text" => text,
-        "clock_ms" => state.clock_ms
-      })
+  defp notice(state, account, id, text) do
+    state
+    |> put("notices", id, %{
+      "account_id" => account,
+      "text" => text,
+      "clock_ms" => state.clock_ms
+    })
+    |> prune_notices()
+  end
+
+  # Retain the newest 100 notices per account, including across restarts.
+  defp prune_notices(state) do
+    retained =
+      entities(state, "notices")
+      |> Enum.group_by(fn {_, notice} -> notice["account_id"] end)
+      |> Enum.flat_map(fn {_, notices} ->
+        notices
+        |> Enum.sort_by(fn {id, notice} -> {-notice["clock_ms"], id} end)
+        |> Enum.take(100)
+      end)
+      |> Map.new()
+
+    index =
+      retained
+      |> Map.values()
+      |> Enum.group_by(& &1["account_id"])
+      |> Map.new(fn {account, notices} ->
+        {account, Enum.sort_by(notices, & &1["clock_ms"], :desc)}
+      end)
+
+    state
+    |> Map.put(:entities, Map.put(state.entities, "notices", retained))
+    |> Map.put(:notices_by_account, index)
+  end
 
   defp handling_rate(%{"tiers" => %{"cost" => "high"}}), do: 600
   defp handling_rate(%{"tiers" => %{"cost" => "low"}}), do: 200

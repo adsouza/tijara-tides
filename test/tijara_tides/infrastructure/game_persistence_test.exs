@@ -21,7 +21,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
        pool_size: 4}
     )
 
-    Ecto.Migrator.run(Repo, Application.app_dir(:tijara_tides, "priv/repo/migrations"), :up,
+    Ecto.Migrator.run(Repo, TijaraTides.TestMigrations.all(), :up,
       all: true,
       log: false
     )
@@ -37,6 +37,221 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     {:ok, code} = GameServer.seed(server)
     %{server: server, code: code, world_id: id}
+  end
+
+  test "invalid preview destinations leave the shared owner available", %{
+    server: server,
+    code: code
+  } do
+    {:ok, %{"session" => token}} = GameServer.redeem(code, server)
+
+    {:ok, %{"company_id" => company}} =
+      GameServer.command(
+        token,
+        "company",
+        %{
+          "action" => "company",
+          "name" => "Preview Safety",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        server
+      )
+
+    for destination <- [nil, %{}, [], 42, "not-a-port"] do
+      assert GameServer.preview(token, company <> ":1", destination, server) == nil
+      assert Process.alive?(server)
+      assert GameServer.readiness(server) == :ready
+    end
+
+    assert is_map(GameServer.preview(token, company <> ":1", "Singapore", server))
+  end
+
+  test "a dropped redemption response is recoverable only with the original device cookie across restart",
+       %{server: server, code: code, world_id: world} do
+    Application.put_env(:tijara_tides, :game_server, server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+    form_conn = get(build_conn(), "/play")
+    device = Plug.Conn.get_session(form_conn, :redemption_token)
+    assert is_binary(device)
+
+    response = form_conn |> recycle() |> post("/session/redeem", %{"code" => code})
+    assert Plug.Conn.get_session(response, :account_token) == device
+    assert Plug.Conn.get_session(response, :redemption_token) == nil
+    account_id = GameServer.snapshot(device, server).private["account"]["id"]
+
+    replacement =
+      start_supervised!({GameServer, name: nil, enabled: true, world_id: world},
+        id: :redemption_replacement
+      )
+
+    Application.put_env(:tijara_tides, :game_server, replacement)
+    revision = :sys.get_state(replacement).game.revision
+
+    # Discard the POST response cookie; retry using only the pre-submit cookie.
+    retry = form_conn |> recycle() |> post("/session/redeem", %{"code" => code})
+    assert Plug.Conn.get_session(retry, :account_token) == device
+    assert GameServer.snapshot(device, replacement).private["account"]["id"] == account_id
+    assert :sys.get_state(replacement).game.revision == revision
+
+    assert [[1]] =
+             Repo.query!("SELECT count(*) FROM game_accounts WHERE world_id=$1", [world]).rows
+
+    assert [[1]] =
+             Repo.query!("SELECT count(*) FROM game_sessions WHERE world_id=$1", [world]).rows
+
+    stranger =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => code})
+
+    assert Plug.Conn.get_session(stranger, :account_token) == nil
+    assert :ok = GameServer.sign_out(device, replacement)
+    revoked = form_conn |> recycle() |> post("/session/redeem", %{"code" => code})
+    assert Plug.Conn.get_session(revoked, :account_token) == nil
+    assert GameServer.snapshot(device, replacement).private == nil
+  end
+
+  test "redemption requires a delivered cookie and same-device retries create only one account",
+       %{server: server, code: code, world_id: world} do
+    Application.put_env(:tijara_tides, :game_server, server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+    response = post(build_conn(), "/session/redeem", %{"code" => code})
+    assert Plug.Conn.get_session(response, :account_token) == nil
+
+    assert [[0]] =
+             Repo.query!("SELECT count(*) FROM game_accounts WHERE world_id=$1", [world]).rows
+
+    device = GameServer.token()
+
+    results =
+      1..8
+      |> Task.async_stream(fn _ -> GameServer.redeem_for_device(code, device, server) end,
+        max_concurrency: 8
+      )
+      |> Enum.map(fn {:ok, result} -> result end)
+
+    assert Enum.all?(results, &match?({:ok, %{"session" => ^device}}, &1))
+    assert results |> Enum.uniq() |> length() == 1
+    {:ok, another_code} = GameServer.seed(server)
+
+    assert {:error, :invalid_invitation} =
+             GameServer.redeem_for_device(another_code, device, server)
+
+    assert [[1]] =
+             Repo.query!("SELECT count(*) FROM game_accounts WHERE world_id=$1", [world]).rows
+  end
+
+  test "release checks and migrations leave world ownership unchanged", %{
+    server: server,
+    world_id: world
+  } do
+    previous = Application.get_env(:tijara_tides, Repo)
+    previous_enabled = Application.get_env(:tijara_tides, :start_repo)
+    Application.put_env(:tijara_tides, :start_repo, true)
+
+    Application.put_env(:tijara_tides, Repo,
+      hostname: "127.0.0.1",
+      port: String.to_integer(System.fetch_env!("TIJARA_TEST_DB_PORT")),
+      database: "postgres",
+      username: "postgres",
+      ssl: false
+    )
+
+    on_exit(fn ->
+      if previous == nil,
+        do: Application.delete_env(:tijara_tides, Repo),
+        else: Application.put_env(:tijara_tides, Repo, previous)
+
+      Application.put_env(:tijara_tides, :start_repo, previous_enabled)
+    end)
+
+    before = :sys.get_state(server).game.epoch
+
+    output =
+      ExUnit.CaptureIO.capture_io(fn ->
+        assert :ok = TijaraTides.Release.check_database()
+        assert [] = TijaraTides.Release.migrate()
+      end)
+
+    assert output =~ "127.0.0.1:"
+    assert output =~ "/postgres"
+
+    assert [[^before]] =
+             Repo.query!("SELECT epoch FROM game_worlds WHERE id=$1", [world]).rows
+
+    assert GameServer.readiness(server) == :ready
+  end
+
+  # Covers the outer receipt lookup. The transaction-level replay shares its
+  # decorator, but injecting a receipt between the two lookups is deliberately
+  # outside this test's scope.
+  test "legacy invitation receipts replay the original code after subkey derivation", %{
+    server: server,
+    code: code
+  } do
+    {:ok, %{"session" => token}} = GameServer.redeem(code, server)
+    state = :sys.get_state(server)
+
+    {:ok, account} =
+      Game.authenticate(state.game, GameServer.hash(token), System.system_time(:millisecond))
+
+    request = "legacy-invite"
+    command = %{"action" => "invite"}
+
+    legacy =
+      :crypto.mac(
+        :hmac,
+        :sha256,
+        Application.fetch_env!(:tijara_tides, :game_secret),
+        "invite:" <> account["id"] <> ":" <> request
+      )
+      |> Base.url_encode64(padding: false)
+
+    context = %{id: "legacy", invite_hash: GameServer.hash(legacy)}
+    {:ok, game, result} = Game.execute(state.game, account, command, context, state.catalogue)
+    receipt = {account["id"], request, GameServer.hash(:erlang.term_to_binary(command)), result}
+
+    assert {:ok, :ok} =
+             GameStore.commit(Repo, state.world_id, game.epoch, state.game, game, receipt)
+
+    :sys.replace_state(server, &%{&1 | game: TijaraTides.Domain.Journal.clear(game)})
+    assert {:ok, %{"code" => ^legacy}} = GameServer.command(token, request, command, server)
+  end
+
+  test "integrity failures are logged and reported distinctly from database outages", %{
+    server: server,
+    code: code
+  } do
+    {:ok, %{"session" => token}} = GameServer.redeem(code, server)
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "create",
+        %{
+          "action" => "company",
+          "name" => "Integrity Shipping",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        server
+      )
+
+    state = :sys.get_state(server)
+
+    Repo.query!(
+      "UPDATE game_companies SET cash_cents = cash_cents + 1 WHERE world_id = $1",
+      [state.world_id]
+    )
+
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        assert {:error, :internal_error} = GameServer.seed(server)
+      end)
+
+    assert log =~ "ArgumentError"
+    assert log =~ "financial_ledger.ex"
+    refute log =~ token
+    assert GameServer.readiness(server) == :unavailable
   end
 
   test "concurrent redemption creates one account and one session", %{
@@ -195,7 +410,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
   } do
     Application.put_env(:tijara_tides, :game_server, server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
-    conn = build_conn() |> post("/session/redeem", %{"code" => code})
+    conn = build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => code})
     assert redirected_to(conn) == "/play"
     token = Plug.Conn.get_session(conn, :account_token)
     assert is_binary(token)
@@ -401,7 +616,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
   } do
     Application.put_env(:tijara_tides, :game_server, server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
-    conn = build_conn() |> post("/session/redeem", %{"code" => code})
+    conn = build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => code})
     token = Plug.Conn.get_session(conn, :account_token)
     {:ok, view, _} = conn |> recycle() |> live("/play")
 

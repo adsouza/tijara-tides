@@ -6,6 +6,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   alias TijaraTides.Infrastructure.GameCatalogue
   alias TijaraTides.Infrastructure.Persistence.{GameStore, Repo}
   @topic "game:ocean"
+  @call_timeout 30_000
 
   defp default_server, do: Application.get_env(:tijara_tides, :game_server, __MODULE__)
 
@@ -13,21 +14,29 @@ defmodule TijaraTides.Infrastructure.GameServer do
     do: GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
 
   def snapshot(token \\ nil, server \\ default_server()),
-    do: GenServer.call(server, {:snapshot, token})
+    do: GenServer.call(server, {:snapshot, token}, @call_timeout)
 
   def command(token, request, command, server \\ default_server()),
-    do: GenServer.call(server, {:command, token, request, command}, 30_000)
+    do: GenServer.call(server, {:command, token, request, command}, @call_timeout)
 
   def preview(token, ship, destination, server \\ default_server()),
-    do: GenServer.call(server, {:preview, token, ship, destination})
+    do: GenServer.call(server, {:preview, token, ship, destination}, @call_timeout)
 
   def redeem(code, server \\ default_server()),
-    do: GenServer.call(server, {:redeem, code}, 30_000)
+    do: redeem_for_device(code, token(), server)
 
-  def seed(server \\ default_server()), do: GenServer.call(server, :seed, 30_000)
-  def sign_out(token, server \\ default_server()), do: GenServer.call(server, {:sign_out, token})
-  def connect(token, server \\ default_server()), do: GenServer.call(server, {:connect, token})
-  def readiness(server \\ default_server()), do: GenServer.call(server, :readiness)
+  def redeem_for_device(code, device_token, server \\ default_server()),
+    do: GenServer.call(server, {:redeem, code, device_token}, @call_timeout)
+
+  def seed(server \\ default_server()), do: GenServer.call(server, :seed, @call_timeout)
+
+  def sign_out(token, server \\ default_server()),
+    do: GenServer.call(server, {:sign_out, token}, @call_timeout)
+
+  def connect(token, server \\ default_server()),
+    do: GenServer.call(server, {:connect, token}, @call_timeout)
+
+  def readiness(server \\ default_server()), do: GenServer.call(server, :readiness, @call_timeout)
   def subscribe, do: Phoenix.PubSub.subscribe(TijaraTides.PubSub, @topic)
 
   def definitions,
@@ -39,6 +48,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
       packages: Game.packages(),
       package_cash: Map.new(Game.packages(), fn {id, _} -> {id, Game.package_cash(id)} end)
     }
+
+  def cargo_name(good), do: GameCatalogue.all()["goods"][good]["name"] || good
 
   def purchase_total(quote, ship, item, quantity),
     do: Game.purchase_total(quote, ship, item, quantity)
@@ -55,7 +66,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def hash(token) when is_binary(token),
     do: :crypto.hash(:sha256, token) |> Base.encode16(case: :lower)
 
-  def hash(_), do: "invalid"
+  def hash(_), do: nil
   def token, do: Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
   def request_id, do: Ecto.UUID.generate()
 
@@ -89,8 +100,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
             {:ok, %{state | status: :unavailable}}
         end
       rescue
-        _ ->
-          Logger.error("Game storage unavailable; apply game migrations before starting gameplay")
+        error ->
+          log_failure("initialization", error, __STACKTRACE__)
           {:ok, %{state | status: :unavailable}}
       end
     else
@@ -160,7 +171,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   def handle_call({:preview, token, id, destination}, _from, %{status: :ready} = state) do
     result =
-      with {:ok, account} <- account(state, token),
+      with true <- is_binary(destination),
+           {:ok, account} <- account(state, token),
            %{"company_id" => owner, "status" => "docked"} = ship <-
              Game.get(state.game, "ships", id),
            true <- owner == account["company_id"] do
@@ -210,9 +222,9 @@ defmodule TijaraTides.Infrastructure.GameServer do
     end
   end
 
-  def handle_call({:redeem, code}, _from, %{status: :ready} = state)
-      when is_binary(code) and byte_size(code) <= 100 do
-    session = token()
+  def handle_call({:redeem, code, session}, _from, %{status: :ready} = state)
+      when is_binary(code) and byte_size(code) <= 100 and
+             is_binary(session) and byte_size(session) == 43 do
     ctx = context(state)
 
     case Game.redeem(state.game, hash(String.trim(code)), hash(session), ctx) do
@@ -220,6 +232,9 @@ defmodule TijaraTides.Infrastructure.GameServer do
         finish(state, game, result, nil, fn result ->
           {:ok, Map.put(result, "session", session)}
         end)
+
+      {:replay, result} ->
+        {:reply, {:ok, Map.put(result, "session", session)}, state}
 
       error ->
         {:reply, error, state}
@@ -242,13 +257,23 @@ defmodule TijaraTides.Infrastructure.GameServer do
         :crypto.mac(
           :hmac,
           :sha256,
-          Application.fetch_env!(:tijara_tides, :game_secret),
+          invite_key(),
           "invite:" <> a["id"] <> ":" <> request
         )
         |> Base.url_encode64(padding: false)
 
       decorate = fn result ->
-        if command["action"] == "invite", do: Map.put(result, "code", invite), else: result
+        if command["action"] == "invite" do
+          # Receipts issued before subkey derivation must replay the same code.
+          code =
+            if result["invitation"] == hash(invite),
+              do: invite,
+              else: legacy_invite(a["id"], request)
+
+          Map.put(result, "code", code)
+        else
+          result
+        end
       end
 
       # Receipts contain public results only, never plaintext credentials.
@@ -274,11 +299,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
                 receipt = {a["id"], request, fingerprint, result}
 
                 finish(state, game, result, receipt, fn result ->
-                  {:ok,
-                   if(command["action"] == "invite",
-                     do: Map.put(result, "code", invite),
-                     else: result
-                   )}
+                  {:ok, decorate.(result)}
                 end)
 
               error ->
@@ -286,8 +307,9 @@ defmodule TijaraTides.Infrastructure.GameServer do
             end
         end
       rescue
-        _ ->
-          {:reply, {:error, :storage_unavailable}, %{state | status: :unavailable, active: false}}
+        error ->
+          reason = log_failure("command", error, __STACKTRACE__)
+          {:reply, {:error, reason}, %{state | status: :unavailable, active: false}}
       end
     else
       _ -> {:reply, {:error, :invalid_session}, state}
@@ -316,6 +338,10 @@ defmodule TijaraTides.Infrastructure.GameServer do
         Logger.error("World progression paused: #{reason}")
         {:noreply, %{state | active: false, status: :unavailable}}
     end
+  rescue
+    error ->
+      log_failure("progression", error, __STACKTRACE__)
+      {:noreply, %{state | active: false, status: :unavailable}}
   end
 
   def handle_info(_message, state), do: {:noreply, state}
@@ -323,8 +349,51 @@ defmodule TijaraTides.Infrastructure.GameServer do
   defp context(state),
     do: %{id: request_id(), wall_ms: System.system_time(:millisecond), catalogue: state.catalogue}
 
-  defp account(state, token),
+  defp account(state, token) when is_binary(token),
     do: Game.authenticate(state.game, hash(token), System.system_time(:millisecond))
+
+  defp account(_state, _token), do: {:error, :invalid_session}
+
+  defp legacy_invite(account_id, request) do
+    :crypto.mac(
+      :hmac,
+      :sha256,
+      Application.fetch_env!(:tijara_tides, :game_secret),
+      "invite:" <> account_id <> ":" <> request
+    )
+    |> Base.url_encode64(padding: false)
+  end
+
+  defp invite_key,
+    do:
+      :crypto.mac(
+        :hmac,
+        :sha256,
+        Application.fetch_env!(:tijara_tides, :game_secret),
+        "tijara-tides/invite-key/v1"
+      )
+
+  defp log_failure(operation, error, stacktrace) do
+    # Exception messages may contain SQL parameters or credentials. Log the type
+    # and stack frames, without inspecting the exception or command payload.
+    stacktrace =
+      Enum.map(stacktrace, fn
+        {module, function, args, location} when is_list(args) ->
+          {module, function, length(args), location}
+
+        frame ->
+          frame
+      end)
+
+    Logger.error(
+      "Game #{operation} failed (#{inspect(error.__struct__)}):\n" <>
+        Exception.format_stacktrace(stacktrace)
+    )
+
+    if is_struct(error, Postgrex.Error) or is_struct(error, DBConnection.ConnectionError),
+      do: :storage_unavailable,
+      else: :internal_error
+  end
 
   defp finish(state, game, result, receipt, reply) do
     case persist(state, game, receipt) do
@@ -346,6 +415,6 @@ defmodule TijaraTides.Infrastructure.GameServer do
         error
     end
   rescue
-    _ -> {:error, :storage_unavailable}
+    error -> {:error, log_failure("persistence", error, __STACKTRACE__)}
   end
 end

@@ -84,6 +84,25 @@ Apply game migrations explicitly before enabling this milestone. The source
 commands are documented in [database operations](database.md); do not launch the server against an unmigrated database.
 No migration or seed command runs during image build or ordinary startup.
 
+The image supports explicit release migrations:
+
+```sh
+/app/bin/tijara_tides eval 'TijaraTides.Release.migrate()'
+```
+
+Render Free provides neither dashboard/SSH shell access nor pre-deploy commands.
+Run a one-off container using the production image from a trusted runner, or use
+the checkout scripts. A paid service can use its shell or a pre-deploy command
+for migrations compatible with the previous running version. See
+[Render shell access](https://render.com/docs/ssh) and
+[deploy steps](https://render.com/docs/deploys).
+Never put database credentials into image build arguments.
+
+The image also disables Erlang distribution by default. Live-node invitation
+seeding via RPC requires enabling local node distribution before startup; see
+[release operations](database.md#release-operations). Running the standalone seed
+process while a deployed world is active still fences that world.
+
 Keep a single service instance. Transactional ownership fencing rejects writes
 from an older owner during deployment overlap. Companies and the simulation
 clock persist; the temporary guest roster resets. Progress continues while the

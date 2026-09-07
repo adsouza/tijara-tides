@@ -44,11 +44,16 @@ tuning = {
 }
 liquid={'Crude oil','Refined fuel','Vegetable oil'}
 life={'Fruit':72,'Seafood':36,'Meat':48}
+# Display names may change; saved cargo IDs must not.
+def cargo_id(name):
+ return {'Aluminium scrap': 'Scrap aluminium'}.get(name, name)
 goods={}
 for category, names in namespace['CATEGORIES']:
  for name in names:
+  display_name=name
+  name=cargo_id(name)
   price, weight, volume=tuning[name]
-  goods[name]={'id':name,'category':category,'reference_cents':price,'weight_kg':weight,
+  goods[name]={'id':name,'name':display_name,'category':category,'reference_cents':price,'weight_kg':weight,
    'volume_l':volume,'hold':'liquid' if name in liquid else 'reefer' if name in life else 'dry',
    'shelf_ms':life.get(name,0)*3600000,
    'manual':category not in ['Luxury items','Industrial machinery']}
@@ -56,7 +61,7 @@ ports={}
 for name in namespace['ORDER']:
  harbor,identity,tiers=namespace['PORTS'][name]
  ports[name]={'id':name,'harbor':harbor,'identity':identity,'coordinates':locations[name],
-  'roles':dict(zip(namespace['GOODS'],namespace['M'][name])),
+  'roles':dict(zip(map(cargo_id, namespace['GOODS']),namespace['M'][name])),
   'tiers':dict(zip(['berths','ordinary','reefer','liquid','speed','cost','size'],tiers))}
 assert set(ports)==set(locations)
 def distance(a,b):

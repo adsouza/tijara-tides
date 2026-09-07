@@ -28,6 +28,144 @@ defmodule TijaraTides.Domain.GameTest do
     {state, Game.get(state, "accounts", "account"), catalogue}
   end
 
+  test "redemption retries cannot revive expired sessions or overwrite another account" do
+    {state, _account, _catalogue} = setup_game()
+
+    assert {:replay, %{"account_id" => "account"}} =
+             Game.redeem(state, "invite", "session", %{id: "unused", wall_ms: 1})
+
+    assert {:error, :invalid_invitation} =
+             Game.redeem(state, "invite", "session", %{id: "unused", wall_ms: 365 * 86_400_000})
+
+    {:ok, state, _} = Game.seed_invite(state, "second")
+
+    assert {:error, :invalid_invitation} =
+             Game.redeem(state, "second", "session", %{id: "unused", wall_ms: 1})
+  end
+
+  test "departure failures identify status, destination, budget, arrears and available funds" do
+    {state, account, catalogue} = setup_game()
+    ship = Game.get(state, "ships", "company:1")
+    company = Game.get(state, "companies", "company")
+    estimate = Game.voyage_quote(ship, "Singapore", catalogue)
+
+    command = %{
+      "action" => "sail",
+      "ship" => ship["id"],
+      "destination" => "Singapore",
+      "fuel_limit" => estimate["fuel"]
+    }
+
+    run = fn state, command, catalogue ->
+      Game.execute(state, account, command, %{}, catalogue)
+    end
+
+    assert {:error, :departure_ship_unavailable} =
+             run.(state, %{command | "ship" => "missing"}, catalogue)
+
+    foreign = Game.put(state, "ships", ship["id"], %{ship | "company_id" => "other"})
+    assert {:error, :departure_ship_unavailable} = run.(foreign, command, catalogue)
+
+    for status <- ["loading", "unloading", "sailing"] do
+      busy =
+        Game.put(state, "ships", ship["id"], %{ship | "status" => status, "arrive_ms" => 5000})
+
+      assert {:error, {:departure_busy, ^status, 5000}} = run.(busy, command, catalogue)
+    end
+
+    assert {:error, :departure_destination_invalid} =
+             run.(state, %{command | "destination" => nil}, catalogue)
+
+    assert {:error, {:departure_already_here, "Jakarta"}} =
+             run.(state, %{command | "destination" => "Jakarta"}, catalogue)
+
+    assert {:error, {:departure_no_route, "Jakarta", "Singapore"}} =
+             run.(state, command, Map.put(catalogue, "routes", %{}))
+
+    assert {:error, :departure_fuel_limit_invalid} =
+             run.(state, %{command | "fuel_limit" => nil}, catalogue)
+
+    fuel = estimate["fuel"]
+
+    assert {:error, {:departure_fuel_limit, ^fuel, 0}} =
+             run.(state, %{command | "fuel_limit" => 0}, catalogue)
+
+    unpaid = Game.put(state, "companies", "company", %{company | "unpaid" => 1250})
+    assert {:error, {:departure_unpaid, 1250}} = run.(unpaid, command, catalogue)
+    poor = Game.put(state, "companies", "company", %{company | "cash" => 500, "reserved" => 400})
+    assert {:error, {:departure_funds, ^fuel, 0, 100}} = run.(poor, command, catalogue)
+    canal = put_in(catalogue, ["routes", "Jakarta|Singapore", "passages"], ["suez"])
+    assert {:error, {:departure_funds, ^fuel, 25_000, 100}} = run.(poor, command, canal)
+
+    long = put_in(catalogue, ["routes", "Jakarta|Singapore", "nautical_miles"], 20_000_000)
+
+    assert {:error, {:departure_too_long, duration}} =
+             run.(state, %{command | "fuel_limit" => 9_999_999_999}, long)
+
+    assert duration > 86_400_000
+  end
+
+  test "catalogue production IDs and aluminium display name stay consistent" do
+    catalogue = GameCatalogue.all()
+    assert Enum.all?(Game.raw_goods(), &Map.has_key?(catalogue["goods"], &1))
+    assert catalogue["goods"]["Scrap aluminium"]["name"] == "Aluminium scrap"
+    broken = update_in(catalogue, ["goods"], &Map.delete(&1, "Scrap aluminium"))
+
+    assert_raise ArgumentError, ~r/unknown raw production good/, fn ->
+      Game.initialize(%{entities: %{}, clock_ms: 0}, broken)
+    end
+  end
+
+  test "unknown role goods are rejected before shelf life or merchant checks" do
+    for role <- ["++exp", "++exp/++imp"] do
+      catalogue =
+        put_in(GameCatalogue.all(), ["ports", "Jakarta", "roles", "Unknown cargo"], role)
+
+      assert_raise ArgumentError, "unknown role good at Jakarta: Unknown cargo", fn ->
+        Game.initialize(%{entities: %{}, clock_ms: 0}, catalogue)
+      end
+    end
+  end
+
+  test "perishable merchant roles are rejected before world creation" do
+    catalogue = put_in(GameCatalogue.all(), ["ports", "Jakarta", "roles", "Fruit"], "exp/imp")
+
+    assert_raise ArgumentError, ~r/perishable merchant/, fn ->
+      Game.initialize(%{entities: %{}, clock_ms: 0}, catalogue)
+    end
+  end
+
+  test "orphan ships fail explicitly instead of silently dropping operating costs" do
+    {state, account, catalogue} = setup_game()
+
+    assert_raise ArgumentError, ~r/retire or transfer ships/, fn ->
+      Game.delete(state, "companies", account["company_id"])
+    end
+
+    state = %{state | entities: Map.put(state.entities, "companies", %{})}
+
+    assert_raise ArgumentError, ~r/retire or transfer ships/, fn ->
+      Game.advance(state, 1000, catalogue)
+    end
+  end
+
+  test "initialization bounds notices per account and keeps the newest ones" do
+    {state, account, catalogue} = setup_game()
+
+    notices =
+      Map.new(1..150, fn n ->
+        {Integer.to_string(n),
+         %{"account_id" => account["id"], "clock_ms" => n, "text" => "notice"}}
+      end)
+
+    state = %{state | entities: Map.put(state.entities, "notices", notices)}
+    state = Game.initialize(state, catalogue)
+    private = Game.private(state, account)
+    assert length(private["notices"]) == 100
+    assert hd(private["notices"])["clock_ms"] == 150
+    assert List.last(private["notices"])["clock_ms"] == 51
+  end
+
   test "purchase totals include handling and the applicable tanker cleaning fee" do
     goods = GameCatalogue.all()["goods"]
     quote = %{"ask" => 1000, "handling_fee" => 200}

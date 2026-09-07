@@ -50,7 +50,21 @@ protection, not a multi-instance availability mechanism.
 
 Accounts outlive browser connections. Invitations are single-use and only their
 hashes are stored. A signed, HTTP-only cookie carries an opaque random device
-credential; server-side session lookup and expiry authorize every command.
+credential; server-side session lookup and expiry authorize every command. The
+anonymous invitation form pre-issues that private credential before any
+redemption mutation. Redemption retries match both the invitation's account and
+the existing device session, without creating another account or extending its
+expiry. A revoked session cannot be recreated by retrying the invitation.
+
+Pre-issuing moves that credential into the browser before it authorizes
+anything, so its exposure begins at the form rather than at the redemption
+response. The window is longer, not the capability: the value is inert until an
+invitation is redeemed with it, it travels in the same signed, HTTP-only,
+SameSite=Lax cookie as the session it becomes, and reading it before redemption
+grants what reading it afterwards would. Minting on POST would shorten that
+window and restore the unrecoverable lost-response failure pre-issuing exists to
+prevent.
+
 Public projections omit balances and cargo. PubSub announces revisions only;
 subscribers fetch their own authorized projection. Static route and map data are
 versioned assets. Email and Google identity linking remain unimplemented.

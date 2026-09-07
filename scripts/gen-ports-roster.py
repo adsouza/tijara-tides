@@ -56,7 +56,7 @@ CATEGORIES = [
                               "Agricultural machinery"]),
     ("Mass consumer products", ["Electronics", "Appliances",
                                 "Everyday clothing", "Spices"]),
-    ("Scrap", ["Scrap aluminium", "Copper scrap", "Recovered plastics"]),
+    ("Scrap", ["Aluminium scrap", "Copper scrap", "Recovered plastics"]),
     ("Perishables", ["Fruit", "Seafood", "Meat"]),
 ]
 
@@ -151,7 +151,7 @@ PORTS = {
  ("med","high","high","high","fast","high","any")),
 "Hamburg": ("Hamburg",
  "German and Central European machinery export — turbines, construction "
- "and agricultural equipment — plus grain, meat and scrap aluminium "
+ "and agricultural equipment — plus grain, meat and aluminium scrap "
  "outbound to Asia. Europe's largest copper smelter sits here and consumes "
  "imported copper scrap. Its inland catchment also carries Central "
  "European fashion houses and sawmill lumber.",
@@ -491,5 +491,5 @@ for inv in [
                            break_long_words=False, break_on_hyphens=False))
 o.append("")
 
-io.open(ROOT / "docs/ports.md", "w", encoding="utf-8").write("\n".join(o).replace("Scrap aluminium", "Aluminium scrap"))
+io.open(ROOT / "docs/ports.md", "w", encoding="utf-8").write("\n".join(o))
 print("wrote docs/ports.md")

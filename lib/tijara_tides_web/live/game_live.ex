@@ -220,8 +220,7 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   # Keep persisted good IDs stable when their player-facing names change.
-  defp cargo_name("Scrap aluminium"), do: "Aluminium scrap"
-  defp cargo_name(good), do: good
+  defp cargo_name(good), do: GameServer.cargo_name(good)
 
   defp cargo_markets(definitions, view, good, side, {column, direction}) do
     rows =
@@ -367,8 +366,53 @@ defmodule TijaraTidesWeb.GameLive do
   defp money(cents), do: "$" <> :erlang.float_to_binary(cents / 100, decimals: 2)
   defp minutes(ms), do: Float.round(ms / 60000, 1)
 
-  defp error_message(reason) do
+  @doc false
+  def error_message({:departure_busy, status, remaining}) do
+    action =
+      case status do
+        "sailing" -> "already sailing"
+        "loading" -> "still loading cargo"
+        "unloading" -> "still unloading cargo"
+        _ -> "not docked (#{status})"
+      end
+
+    "This ship is #{action}. " <>
+      if(remaining > 0,
+        do: "It will be ready in about #{ceil(remaining / 1000)} seconds.",
+        else: "Wait for its status to update before departing."
+      )
+  end
+
+  def error_message({:departure_already_here, port}),
+    do: "This ship is already at #{port}. Choose a different destination."
+
+  def error_message({:departure_no_route, from, destination}),
+    do:
+      "There is no available sea route from #{from} to #{destination}. Choose another destination."
+
+  def error_message({:departure_fuel_limit, fuel, limit}),
+    do:
+      "Fuel now requires #{money(fuel)}, above the confirmed limit of #{money(limit)}. Review the voyage estimate and confirm again."
+
+  def error_message({:departure_too_long, duration}),
+    do:
+      "This route would take #{minutes(duration)} minutes, exceeding the 24-hour voyage limit. Choose a closer destination."
+
+  def error_message({:departure_unpaid, unpaid}),
+    do:
+      "Your company owes #{money(unpaid)} in unpaid operating costs. Sell cargo to settle those costs before departing."
+
+  def error_message({:departure_funds, fuel, canal, available}) do
+    required = fuel + canal
+
+    "Departure requires #{money(required)}: #{money(fuel)} for fuel and #{money(canal)} in canal fees. " <>
+      "You have #{money(available)} available after reservations, leaving a shortfall of #{money(required - available)}."
+  end
+
+  def error_message(reason) do
     %{
+      internal_error: "The world paused after an internal error. Please contact the operator.",
+      storage_unavailable: "The database is unavailable. Please try again later.",
       insufficient_cash: "Not enough available cash. Check reserved fuel and unpaid costs.",
       capacity_exceeded: "That cargo exceeds this ship's weight or volume limit.",
       incompatible_cargo:
@@ -382,14 +426,21 @@ defmodule TijaraTidesWeb.GameLive do
       name_taken: "That company name is already taken.",
       invalid_name: "Use a company name between 1 and 60 characters.",
       no_invitation_quota: "No invitation entitlement is available.",
-      cannot_depart:
-        "This voyage cannot depart. Check the destination, available fuel funds, and handling status."
+      departure_ship_unavailable: "Select a ship owned by your company before departing.",
+      departure_destination_invalid: "Choose a valid destination port.",
+      departure_fuel_limit_invalid:
+        "The fuel limit is invalid. Review the voyage estimate and confirm again."
     }[reason] || "The action could not be completed. Please refresh and try again."
   end
 
-  defp ship_coordinates(ship, clock, catalogue) do
+  @doc false
+  def ship_coordinates(ship, clock, catalogue) do
     if ship["status"] == "sailing" do
-      coords = catalogue["routes"][ship["port"] <> "|" <> ship["destination"]]["coordinates"]
+      # A removed route must not break rendering an already committed voyage.
+      # Keep the marker at its departure port until arrival if geometry is absent.
+      coords =
+        get_in(catalogue, ["routes", ship["port"] <> "|" <> ship["destination"], "coordinates"]) ||
+          List.duplicate(catalogue["ports"][ship["port"]]["coordinates"], 2)
 
       fraction =
         min(1, max(0, (clock - ship["depart_ms"]) / (ship["arrive_ms"] - ship["depart_ms"])))

@@ -34,12 +34,16 @@ mix run --no-start scripts/check_database.exs
 
 This starts one temporary repository connection, runs `SELECT 1`, and closes it.
 The application uses `DATABASE_URL` (direct connection); `DATABASE_URL_POOLED` is
-retained for future use but is not selected automatically.
+retained for future use but is not selected automatically. Verification and
+migration use the same runtime repository configuration and print only the
+target host, port, and database. All three operator commands, including seeding,
+reject an environment containing both `DATABASE_URL` and `TIJARA_LOCAL_DB_PORT`; unset the unintended target first.
 
 On Render, set `DATABASE_URL` in the service's secret environment settings. The
 local environment file does not get deployed. Normal tests ignore the variable
 and do not connect to Neon, even when it is inherited from the shell. Without
-`DATABASE_URL`, the server currently continues in the original in-memory mode.
+`DATABASE_URL` or an explicit local database, only the guest lobby is available;
+durable gameplay is not configured.
 
 ## TLS and idle traffic
 
@@ -68,14 +72,63 @@ With the intended database environment configured, apply migrations explicitly
 before starting the game:
 
 ```sh
-mix run --no-start scripts/migrate_game.exs
-mix run scripts/seed_game.exs
+env -u TIJARA_LOCAL_DB_PORT mix run --no-start scripts/check_database.exs
+env -u TIJARA_LOCAL_DB_PORT mix run --no-start scripts/migrate_game.exs
+env -u TIJARA_LOCAL_DB_PORT mix run --no-start scripts/seed_game.exs
 ```
 
-The seed command starts an application owner and prints a single-use launch
-invitation. Run it while the normal server is stopped; it claims ownership just
-like any other application startup. It never sends email. Normal startup neither
+The seed command validates and announces its target before starting an application
+owner and printing a single-use launch invitation. The `--no-start` flag is
+required: without it, Mix would boot and claim the world before the script can
+validate the environment. Run it while the normal server is stopped; it claims
+ownership just like any other application startup. It never sends email. Normal startup neither
 migrates nor creates launch invitations. Back up PostgreSQL before schema changes.
+
+## Release operations
+
+The release includes `TijaraTides.Release` and the migration files; Mix and a
+source checkout are unnecessary. With the intended `DATABASE_URL` and
+`SECRET_KEY_BASE` supplied to the release:
+
+```sh
+bin/tijara_tides eval 'TijaraTides.Release.check_database()'
+bin/tijara_tides eval 'TijaraTides.Release.migrate()'
+```
+
+These commands start only the repository and its dependencies. They neither
+start the endpoint nor claim world ownership. The migrator runs pending
+migrations only. For incompatible schema changes, stop gameplay before migrating.
+
+A one-off container can run the same command from the built production image.
+The private environment file below supplies the database URL and signing secret:
+
+```sh
+docker run --rm --env-file /private/path/neon.env tijara-tides:production \
+  /app/bin/tijara_tides eval 'TijaraTides.Release.migrate()'
+```
+
+To seed through an existing owner, use RPC on that owner's running container:
+
+```sh
+bin/tijara_tides rpc 'IO.inspect(TijaraTides.Infrastructure.GameServer.seed())'
+```
+
+The returned single-use code is a credential; keep it private. This calls the
+existing GenServer and does not increment its ownership epoch. The image
+defaults to `RELEASE_DISTRIBUTION=none`, so RPC requires explicitly setting
+`RELEASE_DISTRIBUTION=sname` before starting the node and using its release
+cookie. An `eval` process is a different node and cannot substitute for RPC.
+
+For the initial seed with no running server, the checkout seed script remains
+available. A release-only equivalent is:
+
+```sh
+bin/tijara_tides eval 'TijaraTides.Release.seed()'
+```
+
+This last command starts a temporary world owner: keep the deployed server
+stopped, unset `PHX_SERVER` in that process, and deploy or restart only after it
+exits. Normal startup never seeds or migrates automatically.
 
 ## Relational game schema
 
@@ -95,7 +148,7 @@ between those maps and SQL rows.
 | `game_ship_cargo_batches`, `game_market_stock_batches` | Read-only compatibility views over lots and holdings. |
 | `game_sessions` | Hashed device credential ID, account, wall-clock expiry. |
 | `game_invitations` | Hashed code ID, inviter, invitee, seed flag, status, world-clock expiry. |
-| `game_notices` | Recipient account, message, world-clock creation time. |
+| `game_notices` | Recipient account, message, world-clock creation time; newest 100 per account. |
 | `game_ports`, `game_cargo_types`, `game_ship_classes` | Stable reference IDs and display names for foreign keys. |
 | `game_receipts` | Account/request key, fingerprint, and variable JSONB command result for retry replay. |
 | `game_journal_transactions`, `game_journal_entries` | Append-only financial events and balanced debit/credit lines. |
@@ -192,3 +245,31 @@ query Neon. A configured deployment must also have a ready game owner; missing
 migrations or failed gameplay persistence return 503. The cached connectivity
 check alone does not continuously monitor the database. See [deployment setup](deploying.md)
 for health check configuration and restart behavior.
+
+## Gameplay runtime safeguards
+
+Gameplay calls share a 30-second timeout so reads can queue behind database
+writes. Persistence and domain exceptions pause the world; operator logs include
+the exception type and stack frames, with argument values omitted. Database
+exceptions report storage unavailability, while other exceptions report an
+internal error. Resolve the cause before restarting the owner.
+
+Notices are pruned at initialization and when a new notice is created. The owner
+keeps an account index for snapshots; neither this index nor historic journal
+entries are serialized into the world row. Company removal requires transferring
+or retiring its ships first, enforced by the domain and PostgreSQL foreign keys.
+
+Cargo IDs are durable identifiers, separate from catalogue display names.
+For example, ID `Scrap aluminium` displays as `Aluminium scrap`. Production
+definitions are validated against these IDs at initialization. Perishable
+merchant roles remain unsupported and are rejected before the world starts.
+
+New invitation codes use an HMAC subkey derived specifically for invitations.
+Existing invitation receipts retain their original code on replay.
+
+Invitation redemption issues the device credential in the form's signed cookie
+before the POST. The transaction stores only its hash. If the response is lost,
+the same device can repeat redemption and receive the same account credential;
+a different device cannot replay it using the invite alone. No extra database
+table is needed. Missing cookies, revoked sessions, and expired sessions cannot
+use this retry path.

@@ -47,7 +47,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     end)
 
     GenServer.stop(admin)
-    migrations = Application.app_dir(:tijara_tides, "priv/repo/migrations")
+    migrations = TijaraTides.TestMigrations.all()
     Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_260_907_000_000, log: false)
     %{migrations: migrations}
   end

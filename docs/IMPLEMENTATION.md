@@ -72,7 +72,13 @@ bills; loans and bankruptcy recovery are a later milestone.
 Launch invitations grant three outgoing invitations; ordinary invitees initially
 have no outgoing quota. Unused invitations expire after three active-world days
 and restore their inviter's quota. Device sessions expire after one wall-clock
-year. Email delivery, identity linking, and account recovery are deferred.
+year. Before redemption, GET /play delivers a private random device credential
+in the signed, HTTP-only cookie. A lost redemption response can be retried using
+that same credential, including after server restart. Another device holding
+only the invitation cannot recover the account; revoked or expired credentials
+cannot be revived. POST without the pre-issued cookie consumes nothing.
+Email delivery, identity linking, and recovery after losing the device credential
+are deferred.
 
 ## Verification gates
 

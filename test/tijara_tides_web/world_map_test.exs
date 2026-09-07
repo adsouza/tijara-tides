@@ -2,6 +2,22 @@ defmodule TijaraTidesWeb.WorldMapTest do
   use ExUnit.Case, async: true
   alias TijaraTidesWeb.WorldMap
 
+  test "an underway ship remains renderable after its route is removed" do
+    catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
+    catalogue = Map.put(catalogue, "routes", %{})
+
+    ship = %{
+      "status" => "sailing",
+      "port" => "Hamburg",
+      "destination" => "Rotterdam",
+      "depart_ms" => 0,
+      "arrive_ms" => 1000
+    }
+
+    assert TijaraTidesWeb.GameLive.ship_coordinates(ship, 500, catalogue) ==
+             catalogue["ports"]["Hamburg"]["coordinates"]
+  end
+
   test "route arrows follow travel direction, including short routes and seam crossings" do
     [east] = WorldMap.route_arrows([[0, 0], [0.1, 0]], 1)
     [west] = WorldMap.route_arrows([[0.1, 0], [0, 0]], 1)

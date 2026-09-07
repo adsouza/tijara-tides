@@ -120,7 +120,7 @@ recovered plastics outbound, and its inland catchment reaches Italian and French
 fashion houses.
 
 **Hamburg** — German and Central European machinery export — turbines,
-construction and agricultural equipment — plus grain, meat and scrap aluminium
+construction and agricultural equipment — plus grain, meat and aluminium scrap
 outbound to Asia. Europe's largest copper smelter sits here and consumes
 imported copper scrap. Its inland catchment also carries Central European
 fashion houses and sawmill lumber.

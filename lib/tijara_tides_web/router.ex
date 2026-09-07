@@ -5,6 +5,7 @@ defmodule TijaraTidesWeb.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug TijaraTidesWeb.Plugs.GuestSession
+    plug TijaraTidesWeb.Plugs.RedemptionSession
     plug :fetch_live_flash
     plug :put_root_layout, html: {TijaraTidesWeb.Layouts, :root}
     plug :protect_from_forgery
