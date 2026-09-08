@@ -564,6 +564,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              "button[phx-click=ship][phx-value-id='#{other_ship["id"]}'][aria-pressed=false]"
            )
 
+    assert has_element?(view, "#map-ship-overlay", ship["name"])
+    assert has_element?(view, "#map-ship-overlay", "Cargo aboard")
     assert has_element?(view, "h3", "#{ship["name"]} — private manifest")
     refute has_element?(view, "#public-ship-inspector")
 
@@ -792,6 +794,13 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert Plug.Conn.get_session(other_conn, :account_token)
     {:ok, other_view, _} = live(recycle(other_conn), "/play")
     assert has_element?(other_view, "#world-map [data-map-ship='#{ship["id"]}']")
+    render_click(other_view, "inspect-ship", %{"id" => ship["id"]})
+    assert has_element?(other_view, "#map-ship-overlay", ship["name"])
+    refute has_element?(other_view, "#map-ship-overlay", "Cargo aboard")
+    refute has_element?(other_view, "#map-ship-overlay table")
+    render_click(other_view, "close-map-ship")
+    refute has_element?(other_view, "#map-ship-overlay")
+
     render_change(other_view, "map-filters", %{"classes" => classes, "show_others" => "false"})
     refute has_element?(other_view, "#world-map [data-map-ship]")
     refute has_element?(other_view, "#world-map [data-map-route]")

@@ -143,6 +143,10 @@ defmodule TijaraTidesWeb.GameLive do
     {:noreply, assign(socket, :manifest_sort, {column, direction})}
   end
 
+  def handle_event("close-map-ship", _params, socket) do
+    {:noreply, assign(socket, :inspected_ship, nil)}
+  end
+
   def handle_event("inspect-ship", %{"id" => id}, socket) do
     cond do
       socket.assigns.view.private && socket.assigns.view.private["ships"][id] ->
@@ -1547,6 +1551,50 @@ defmodule TijaraTidesWeb.GameLive do
                       </button>
                     </div>
                   </div>
+                  <aside
+                    :if={@inspected_ship && @view.public["ships"][@inspected_ship]}
+                    id="map-ship-overlay"
+                    aria-label="Selected ship"
+                    class="map-ship-overlay"
+                  >
+                    <% inspected = @view.public["ships"][@inspected_ship] %>
+                    <% own = @view.private && @view.private["ships"][@inspected_ship] %>
+                    <button
+                      type="button"
+                      phx-click="close-map-ship"
+                      aria-label="Dismiss ship information"
+                      class="float-right ml-3 rounded px-2 py-1 text-slate-300"
+                    >✕</button>
+                    <h2 class="text-base font-semibold text-teal-200">{inspected["name"]}</h2>
+                    <p>{@view.public["companies"][inspected["company_id"]]["name"]}</p>
+                    <p>{@definitions.classes[inspected["class"]]["name"]} · {inspected["status"]}</p>
+                    <p>
+                      {inspected["port"]}<span :if={inspected["destination"]}> → {inspected[
+                        "destination"
+                      ]}</span>
+                    </p>
+                    <p :if={inspected["status"] in ["sailing", "loading", "unloading"]}>
+                      {minutes(max(0, inspected["arrive_ms"] - @view.public["clock_ms"]))} min remaining
+                    </p>
+                    <div :if={own} class="mt-2 border-t border-slate-600 pt-2">
+                      <p class="font-semibold">Cargo aboard</p>
+                      <p :if={own["cargo"] == []} class="text-slate-400">Empty hold</p>
+                      <table :if={own["cargo"] != []} class="w-full" aria-label="Selected ship cargo">
+                        <thead>
+                          <tr>
+                            <th class="text-left">Cargo</th><th class="text-right">Lots</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr :for={row <- manifest(own["cargo"])}>
+                            <td>{cargo_name(row["good"])}</td><td class="text-right tabular-nums">
+                              {row["quantity"]}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </aside>
                 </section>
                 <div class="panel-content" tabindex="0" aria-label="Fleet and ship details">
                   <section
