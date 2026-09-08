@@ -75,7 +75,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
       )
 
     state =
-      Game.put(state, "notices", "notice", %{
+      TijaraTides.Domain.State.put(state, "notices", "notice", %{
         "account_id" => "account",
         "text" => "Preserve this notice",
         "clock_ms" => 0
@@ -88,7 +88,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
       %{"good" => "Lumber", "quantity" => 3, "unit_cost" => 24000, "expires_ms" => nil}
     ]
 
-    Game.put(state, "ships", ship["id"], %{ship | "cargo" => cargo})
+    TijaraTides.Domain.State.put(state, "ships", ship["id"], %{ship | "cargo" => cargo})
   end
 
   defp store_legacy(state) do

@@ -6,6 +6,9 @@ The approved design remains authoritative. This milestone does not expose
 auctions, remote orders, warehouses, loans, bankruptcy, or player industry before
 their settlement and recovery rules are implemented.
 
+See [architecture and domain boundaries](architecture.md) for command workflows,
+query projections, consistency and module responsibilities.
+
 ## Data and authority
 
 - Domain operations receive explicit time, identifiers, and catalogue data. They

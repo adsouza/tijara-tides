@@ -70,7 +70,7 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     ship = Game.get(state, "ships", "company:1")
 
     state =
-      Game.put(state, "companies", "company", %{
+      TijaraTides.Domain.State.put(state, "companies", "company", %{
         Game.get(state, "companies", "company")
         | "cash" => 1_000_000_000
       })

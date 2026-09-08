@@ -12,6 +12,7 @@ defmodule TijaraTides.Infrastructure do
     ],
     exports: [
       GameServer,
+      GameQueries,
       GameCatalogue,
       Persistence.GameStore,
       WorldServer,

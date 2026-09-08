@@ -1,0 +1,131 @@
+# Domain boundaries and command/query architecture
+
+Tijara Tides is a modular monolith with a pure domain, a transport-independent
+application layer, PostgreSQL adapters, and Phoenix LiveView presentation. One
+GenServer remains the authoritative writer for each running world. The world is
+the current transaction boundary; the modules below are responsibility boundaries,
+not independently deployed services or independently committed aggregates.
+
+## Responsibilities
+
+| Area | Owner | Invariants |
+|---|---|---|
+| Identity and company formation | `Domain.Accounts` | Valid durable sessions; one active company per account; invitation entitlement lifecycle; equal-value starter packages. |
+| Ship operation | `Domain.Fleet` | Ownership and handling status before departure; fuel funding and reservation; capacity measured in kg/litres; fuel and crew costs settled once. |
+| Cargo | `Domain.CargoRules`, `CargoLots` | Hold compatibility, liquid mixing restrictions, freshness, stable lot identity and split lineage. |
+| Trading | `Domain.Trading` | Atomic cash, cargo, liquidity and accounting changes; destination funding rechecked before purchase. |
+| City markets | `Domain.Markets` | Bounded stock, demand and budgets; finite manufactured stock; no synthetic merchant inventory; world-time replenishment. |
+| Accounting | `Domain.Journal`, persistence ledger adapter | Balanced integer-cent entries; durable ledger and entity balances committed together and reconciled. |
+| Visibility | `Domain.Visibility` | Public ships never expose cargo, balances, credentials or private instructions; owner projections require authentication. |
+| Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, then fleet operations, market recovery and invitation expiry in the established order; commit all phases together. |
+
+`Domain.ReadState` exports only reads for application projections.
+`Domain.State` is unexported internal state-access machinery, not a general
+application write API. The compatibility facade exposes no generic put/delete
+operations; sign-out goes through `Accounts.sign_out/2`. A change to an entity belongs in the domain operation that owns its
+rules. A row or map is not automatically a DDD aggregate.
+
+`Domain.Trade` is an explicit trade intention; execution still validates its
+values against current state. `Domain.Capacity` is an occupied-capacity value.
+Durable entities retain their existing string-keyed representation behind the
+relational mapper to preserve stored data and wire compatibility. New types do
+not authorize bypassing ownership, funding or lifecycle checks.
+
+`Domain.Game` remains a compatibility facade. New rules belong to the focused
+modules, not that facade. These responsibilities can guide future bounded-context
+design, but trading and fleet are not independent contexts: they currently
+participate in shared synchronous invariants.
+
+## Command execution and atomicity
+
+```mermaid
+flowchart LR
+  UI[LiveView or another transport] --> Adapter[GameServer adapter]
+  Adapter --> Workflow[UseCases.GameCommands]
+  Workflow --> Rules[Pure domain operation]
+  Workflow --> Port[UseCases.CommandStore port]
+  Port --> SQL[PostgreSQL adapter]
+  SQL --> Commit[Atomic commit]
+  Commit --> Projection[Committed read projection]
+  Projection --> Notify[Revision publication and reply]
+```
+
+The adapter supplies credentials, time, identifiers and persistence context.
+`CommandRequest` carries the original payload, request ID and fingerprint.
+`GameCommands.run` authenticates the session, validates the payload, checks the
+durable receipt, invokes
+the domain operation, and commits changed state with its receipt and accounting.
+The persistence adapter wraps the existing `GameStore` transaction rather than
+introducing a second transaction around it.
+
+The SQL transaction locks the world row and checks the ownership epoch. It writes
+changed rows, lot records, journal entries, the command receipt and world metadata
+together. No successful command acknowledgement or revision publication precedes
+that commit.
+
+Invalid or expired sessions return `:invalid_session`; non-map payloads return
+`:invalid_command_payload`, payloads over 12 keys return
+`:too_many_command_fields`, and payloads over 4096 encoded bytes return
+`:command_payload_too_large`. These validation errors do not touch persistence.
+
+A business rejection leaves the current state available and unchanged. A commit
+failure stops normal world operation; an unexpected storage or domain exception
+is classified by the adapter and also stops the world. A retry with the same
+request and fingerprint returns the stored result; conflicting payload reuse
+fails. Both the initial receipt check and a receipt discovered inside the
+transaction use the same result-decoration path. Plaintext invitation credentials
+remain outside durable receipts.
+
+`CommandResult.committed?` distinguishes new commits from replay, so replay does
+not increment the revision or publish a fictitious change. Seed, redemption,
+sign-out and simulation progression retain their established lifecycle handlers
+and share the same commit-before-publication discipline.
+
+Before splitting world transactions into smaller aggregates, explicitly resolve
+cross-company trades, liquidity competition, cargo ownership and financial
+conservation. A process-per-ship split alone would not solve those invariants.
+
+## Query responsibilities and consistency
+
+`UseCases.GameQueries` owns pure planning and display-data calculations:
+destination comparisons, affordable trade limits, purchase estimates, cargo
+market rows and ROI ordering, port cargo visibility, and consolidated/sorted
+manifests. The infrastructure read adapter supplies the loaded catalogue.
+LiveView owns selections, menus, formatting and layout, not these calculations.
+
+`WorldProjection` is a typed public read model containing the map/public world
+and market quotes for one committed revision. It is built on startup and replaced
+after a successful state commit, before publication. Multiple snapshots reuse it.
+A failed transaction never replaces it. The projection is disposable and is
+rebuilt from authoritative state after restart; it is not a second source of truth.
+
+Private projections are built only after validating the requesting session
+against current state and wall-clock expiry. They are not stored in the shared
+public projection. Query helpers consume the appropriate projection; filtering
+in JavaScript or LiveView is not a privacy boundary.
+
+Snapshots and voyage previews still execute through the owning GenServer. This
+retains ordered, current reads without a second process, separate database or
+eventual-consistency protocol. UI-side pure query transformations run outside
+that mailbox. If load warrants independently served reads later, their access
+control, revision consistency and failure behavior need explicit tests first.
+
+This is lightweight CQRS with distinct command workflows and read projections.
+It is not event sourcing: PostgreSQL entity state is authoritative, and the
+financial ledger is accounting history rather than a replay log for all gameplay.
+
+## Change and verification rules
+
+- Domain code cannot depend on processes, storage, transport or wall-clock access;
+  the strict `Boundary` configuration enforces dependency separation.
+- Application workflows depend on domain rules and persistence ports, not Ecto
+  or Phoenix. Infrastructure implements those ports.
+- Preserve command fingerprints and durable receipt results across refactors.
+- Put economic estimates beside the domain rules they reuse or in pure query
+  projections; presentation formats the result.
+- Prove atomicity, replay, failure behavior and privacy with tests, not only module
+  naming. Existing PostgreSQL tests cover conservation, rollback, owner fencing,
+  restart recovery and request replay. Workflow tests inject both replay paths and
+  commit failures; browser tests cover the query-driven UI.
+- This refactor needs no SQL migration, data reset or gameplay rebalance. Existing
+  startup ownership fencing and deployment procedures remain applicable.

@@ -51,171 +51,19 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   def cargo_name(good), do: GameCatalogue.all()["goods"][good]["name"] || good
 
-  def destination_options(definitions, view, ship, destination) do
-    if ship && ship["status"] == "docked" && ship["port"] != destination do
-      space = Game.capacity(ship, definitions.catalogue)
-      class = definitions.classes[ship["class"]]
-      fleet = Map.values(view.private["ships"])
+  defdelegate destination_options(definitions, view, ship, destination),
+    to: TijaraTides.Infrastructure.GameQueries
 
-      for {good, item} <-
-            Enum.sort_by(definitions.catalogue["goods"], fn {good, _} -> cargo_name(good) end),
-          source = view.markets[ship["port"] <> "|" <> good],
-          source["manual"] && source["stock"] > 0 && Game.compatible_cargo?(ship, item) do
-        buyer = view.markets[destination <> "|" <> good]
-        demand = if buyer["manual"], do: buyer["demand"], else: 0
+  defdelegate purchase_total(quote, ship, item, quantity),
+    to: TijaraTides.Infrastructure.GameQueries
 
-        lots =
-          max(
-            0,
-            Enum.min([
-              source["stock"],
-              demand,
-              div(class["weight"] - space.weight, item["weight_kg"]),
-              div(class["volume"] - space.volume, item["volume_l"])
-            ])
-          )
+  defdelegate trade_freshness(quote, ship, side, good, quantity, clock),
+    to: TijaraTides.Infrastructure.GameQueries
 
-        voyage =
-          if lots > 0,
-            do:
-              purchase_voyage(
-                ship,
-                item,
-                lots,
-                destination,
-                view.private["ships"],
-                view.public["clock_ms"]
-              )
+  defdelegate trade_limits(view, ship, destination), to: TijaraTides.Infrastructure.GameQueries
 
-        profit =
-          if voyage do
-            unloading_upkeep =
-              Enum.sum(
-                Enum.map(fleet, fn s ->
-                  div(
-                    Game.handling_ms(lots) * definitions.classes[s["class"]]["crew"] * 2 + 119_999,
-                    120_000
-                  )
-                end)
-              )
-
-            lots * (buyer["bid"] - buyer["handling_fee"]) -
-              Game.purchase_total(source, ship, item, lots) - voyage["required"] -
-              unloading_upkeep
-          end
-
-        %{
-          good: good,
-          item: item,
-          source: source,
-          buyer: buyer,
-          demand: demand,
-          lots: lots,
-          profit: profit
-        }
-      end
-    else
-      []
-    end
-  end
-
-  def purchase_total(quote, ship, item, quantity),
-    do: Game.purchase_total(quote, ship, item, quantity)
-
-  def trade_limits(view, ship, destination) do
-    if ship && ship["status"] == "docked" && view.private do
-      catalogue = GameCatalogue.all()
-      space = Game.capacity(ship, catalogue)
-      class = Game.classes()[ship["class"]]
-      company = view.private["company"]
-      cash = company["cash"] - company["reserved"]
-
-      Map.new(
-        for {good, item} <- catalogue["goods"], side <- ["buy", "sell"] do
-          q = view.markets[ship["port"] <> "|" <> good]
-
-          limit =
-            cond do
-              !q["manual"] ->
-                0
-
-              side == "sell" ->
-                aboard =
-                  Enum.sum(
-                    for batch <- ship["cargo"], batch["good"] == good, do: batch["quantity"]
-                  )
-
-                Enum.min([10_000, aboard, q["demand"], div(q["buyer_budget"], max(1, q["bid"]))])
-
-              company["unpaid"] > 0 || !Game.compatible_cargo?(ship, item) ->
-                0
-
-              true ->
-                capacity =
-                  max(
-                    0,
-                    Enum.min([
-                      10_000,
-                      q["stock"],
-                      div(class["weight"] - space.weight, item["weight_kg"]),
-                      div(class["volume"] - space.volume, item["volume_l"])
-                    ])
-                  )
-
-                largest_trade(0, capacity, fn quantity ->
-                  voyage =
-                    purchase_voyage(
-                      ship,
-                      item,
-                      quantity,
-                      destination,
-                      view.private["ships"],
-                      view.public["clock_ms"]
-                    )
-
-                  voyage &&
-                    Game.purchase_total(q, ship, item, quantity) + voyage["required"] <= cash
-                end)
-            end
-
-          {{side, good}, max(0, limit)}
-        end
-      )
-    else
-      %{}
-    end
-  end
-
-  defp largest_trade(low, high, _feasible) when low == high, do: low
-
-  defp largest_trade(low, high, feasible) do
-    mid = div(low + high + 1, 2)
-
-    if feasible.(mid),
-      do: largest_trade(mid, high, feasible),
-      else: largest_trade(low, mid - 1, feasible)
-  end
-
-  def purchase_voyage(ship, item, quantity, destination, fleet, clock),
-    do:
-      Game.purchase_voyage(
-        ship,
-        item,
-        quantity,
-        destination,
-        Map.values(fleet),
-        clock,
-        GameCatalogue.all()
-      )
-
-  def trade_freshness(quote, ship, side, good, quantity, clock) do
-    batches =
-      if side == "buy",
-        do: quote["freshness_batches"],
-        else: Enum.filter(ship["cargo"], &(&1["good"] == good))
-
-    Game.freshness(batches, quantity, clock, Game.handling_ms(quantity))
-  end
+  defdelegate purchase_voyage(ship, item, quantity, destination, fleet, clock),
+    to: TijaraTides.Infrastructure.GameQueries
 
   def hash(token) when is_binary(token),
     do: :crypto.hash(:sha256, token) |> Base.encode16(case: :lower)
@@ -234,6 +82,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
       world_id: Keyword.get(opts, :world_id, "ocean"),
       status: :not_configured,
       game: nil,
+      projection: nil,
       catalogue: GameCatalogue.all(),
       active: false,
       last_mono: System.monotonic_time(:millisecond),
@@ -252,7 +101,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
                timeout: 120_000
              ) do
           {:ok, :ok} ->
-            {:ok, %{state | game: TijaraTides.Domain.Journal.clear(initialized), status: :ready}}
+            {:ok,
+             accept_game(%{state | status: :ready}, TijaraTides.Domain.Journal.clear(initialized))}
 
           _ ->
             {:ok, %{state | status: :unavailable}}
@@ -273,53 +123,12 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def handle_call({:snapshot, token}, _from, state) do
     view =
       if state.status == :ready do
-        private =
-          case account(state, token) do
-            {:ok, a} ->
-              private = Game.private(state.game, a)
-
-              compatible =
-                Map.new(private["ships"], fn {id, ship} ->
-                  goods =
-                    for {good, item} <- state.catalogue["goods"],
-                        Game.compatible_cargo?(ship, item),
-                        do: good
-
-                  {id, goods}
-                end)
-
-              underway =
-                Map.new(private["ships"], fn {id, ship} ->
-                  estimates =
-                    if ship["status"] == "sailing",
-                      do:
-                        Game.voyage_freshness(
-                          ship,
-                          state.game.clock_ms,
-                          max(0, ship["arrive_ms"] - state.game.clock_ms)
-                        ),
-                      else: []
-
-                  {id, estimates}
-                end)
-
-              private
-              |> Map.put("compatible_cargo", compatible)
-              |> Map.put("voyage_freshness", underway)
-
-            _ ->
-              nil
-          end
-
-        %{
-          status: :ready,
-          public: Game.public(state.game, state.catalogue),
-          private: private,
-          markets:
-            Map.new(Game.entities(state.game, "markets"), fn {id, m} ->
-              {id, Game.quote(state.game, state.catalogue, m["port"], m["good"])}
-            end)
-        }
+        TijaraTides.UseCases.GameQueries.snapshot(
+          state.game,
+          state.catalogue,
+          state.projection,
+          account(state, token)
+        )
       else
         %{status: state.status, public: nil, private: nil, markets: %{}}
       end
@@ -329,25 +138,13 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   def handle_call({:preview, token, id, destination}, _from, %{status: :ready} = state) do
     result =
-      with true <- is_binary(destination),
-           {:ok, account} <- account(state, token),
-           %{"company_id" => owner, "status" => "docked"} = ship <-
-             Game.get(state.game, "ships", id),
-           true <- owner == account["company_id"] do
-        case Game.voyage_quote(ship, destination, state.catalogue) do
-          nil ->
-            nil
-
-          quote ->
-            Map.put(
-              quote,
-              "freshness",
-              Game.voyage_freshness(ship, state.game.clock_ms, quote["duration_ms"])
-            )
-        end
-      else
-        _ -> nil
-      end
+      TijaraTides.UseCases.GameQueries.preview(
+        state.game,
+        state.catalogue,
+        account(state, token),
+        id,
+        destination
+      )
 
     {:reply, result, state}
   end
@@ -400,33 +197,29 @@ defmodule TijaraTides.Infrastructure.GameServer do
   end
 
   def handle_call({:sign_out, token}, _from, %{status: :ready} = state) do
-    game = Game.delete(state.game, "sessions", hash(token))
+    game = TijaraTides.Domain.Accounts.sign_out(state.game, hash(token))
     finish(state, game, %{}, nil, fn _ -> :ok end)
   end
 
   def handle_call({:command, token, request, command}, _from, %{status: :ready} = state)
       when is_binary(request) and byte_size(request) in 1..128 and is_map(command) do
-    with {:ok, a} <- account(state, token),
-         true <- map_size(command) <= 12,
-         true <- byte_size(:erlang.term_to_binary(command)) <= 4096 do
-      fingerprint = hash(:erlang.term_to_binary(command))
+    request = %TijaraTides.UseCases.CommandRequest{
+      id: request,
+      payload: command,
+      fingerprint: hash(:erlang.term_to_binary(command))
+    }
 
+    invitation = fn account_id, request_id ->
       invite =
-        :crypto.mac(
-          :hmac,
-          :sha256,
-          invite_key(),
-          "invite:" <> a["id"] <> ":" <> request
-        )
+        :crypto.mac(:hmac, :sha256, invite_key(), "invite:" <> account_id <> ":" <> request_id)
         |> Base.url_encode64(padding: false)
 
       decorate = fn result ->
         if command["action"] == "invite" do
-          # Receipts issued before subkey derivation must replay the same code.
           code =
             if result["invitation"] == hash(invite),
               do: invite,
-              else: legacy_invite(a["id"], request)
+              else: legacy_invite(account_id, request_id)
 
           Map.put(result, "code", code)
         else
@@ -434,43 +227,47 @@ defmodule TijaraTides.Infrastructure.GameServer do
         end
       end
 
-      # Receipts contain public results only, never plaintext credentials.
-      try do
-        case GameStore.receipt(state.repo, state.world_id, a["id"], request, fingerprint) do
-          {:replay, result} ->
-            {:reply, {:ok, decorate.(result)}, state}
+      %{hash: hash(invite), decorate: decorate}
+    end
 
-          {:error, error} ->
-            {:reply, {:error, error}, state}
+    try do
+      case TijaraTides.UseCases.GameCommands.run(
+             state.game,
+             hash(token),
+             request,
+             context(state),
+             {TijaraTides.Infrastructure.Persistence.CommandStore,
+              %{repo: state.repo, world_id: state.world_id}},
+             invitation
+           ) do
+        {:ok, outcome} ->
+          next =
+            if outcome.committed? do
+              next = accept_game(state, outcome.game)
 
-          :new ->
-            ctx = Map.put(context(state), :invite_hash, hash(invite))
+              Phoenix.PubSub.broadcast(
+                TijaraTides.PubSub,
+                @topic,
+                {:game_changed, outcome.game.revision}
+              )
 
-            case TijaraTides.UseCases.GameCommands.execute(
-                   state.game,
-                   a,
-                   command,
-                   ctx,
-                   state.catalogue
-                 ) do
-              {:ok, game, result} ->
-                receipt = {a["id"], request, fingerprint, result}
-
-                finish(state, game, result, receipt, fn result ->
-                  {:ok, decorate.(result)}
-                end)
-
-              error ->
-                {:reply, error, state}
+              next
+            else
+              state
             end
-        end
-      rescue
-        error ->
-          reason = log_failure("command", error, __STACKTRACE__)
-          {:reply, {:error, reason}, %{state | status: :unavailable, active: false}}
+
+          {:reply, {:ok, outcome.reply}, next}
+
+        {:error, error} ->
+          {:reply, {:error, error}, state}
+
+        {:halt, error} ->
+          {:reply, {:error, error}, %{state | status: :unavailable, active: false}}
       end
-    else
-      _ -> {:reply, {:error, :invalid_session}, state}
+    rescue
+      error ->
+        reason = log_failure("command", error, __STACKTRACE__)
+        {:reply, {:error, reason}, %{state | status: :unavailable, active: false}}
     end
   end
 
@@ -561,13 +358,19 @@ defmodule TijaraTides.Infrastructure.GameServer do
     end
   end
 
+  defp accept_game(state, game) do
+    projection = TijaraTides.UseCases.WorldProjection.build(game, state.catalogue)
+    %{state | game: game, projection: projection}
+  end
+
   defp persist(state, game, receipt) do
     game = %{game | revision: state.game.revision + 1}
 
     case GameStore.commit(state.repo, state.world_id, game.epoch, state.game, game, receipt) do
       {:ok, :ok} ->
+        next = accept_game(state, TijaraTides.Domain.Journal.clear(game))
         Phoenix.PubSub.broadcast(TijaraTides.PubSub, @topic, {:game_changed, game.revision})
-        {:ok, %{state | game: TijaraTides.Domain.Journal.clear(game)}}
+        {:ok, next}
 
       error ->
         error

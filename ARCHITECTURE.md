@@ -7,17 +7,35 @@ rules proposal.
 
 ## Layers
 
+The authoritative module responsibilities, transaction invariants, and CQRS
+contracts live in [domain boundaries and command/query architecture](docs/architecture.md).
+This entry point provides the dependency overview and operating context; update
+the linked specification when changing those contracts.
+
 ```text
 Browser / native webview
   → TijaraTidesWeb.GameLive and GameSessionController
-  → Infrastructure.GameServer
-  → UseCases.GameCommands
-  → Domain.Game
+  → Infrastructure.GameServer (transport and world ownership)
+  → UseCases.GameCommands (authenticated command workflow)
+  → Domain.Commands → Domain.Accounts / Domain.Trading / Domain.Fleet
+
+UseCases.GameCommands → UseCases.CommandStore (persistence port)
+Infrastructure.Persistence.CommandStore implements UseCases.CommandStore
+  → Infrastructure.Persistence.GameStore (atomic PostgreSQL transaction)
+
+Infrastructure.GameQueries → UseCases.GameQueries (pure read calculations)
+Infrastructure.GameServer → UseCases.WorldProjection (committed public cache)
 ```
+
+The application depends on the persistence port; the infrastructure adapter
+implements it. Application code has no dependency on the PostgreSQL adapter.
+`Domain.Game` is a compatibility facade, not a home for new rules.
 
 `boundary` enforces dependencies during compilation. The domain purity test
 inspects BEAM imports for process and framework calls. Domain operations receive
 explicit time, identifiers, and static catalogue data; they perform no I/O.
+`Domain.ReadState` exposes reads across the boundary; `Domain.State` mutators
+remain internal, with no generic mutation delegates on the public facade.
 Infrastructure owns PostgreSQL, credential hashing, scheduling, and publication.
 The original `WorldServer` / `WorldCommands` / `Domain.World` path still serves
 only the temporary guest lobby.

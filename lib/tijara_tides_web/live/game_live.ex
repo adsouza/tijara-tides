@@ -1,6 +1,6 @@
 defmodule TijaraTidesWeb.GameLive do
   use TijaraTidesWeb, :live_view
-  alias TijaraTides.Infrastructure.GameServer
+  alias TijaraTides.Infrastructure.{GameServer, GameQueries}
   alias TijaraTidesWeb.WorldMap
 
   @impl true
@@ -324,7 +324,7 @@ defmodule TijaraTidesWeb.GameLive do
         do: assign(socket, :selected_port, ship["port"]),
         else: socket
 
-    limits = GameServer.trade_limits(view, ship, socket.assigns.destination)
+    limits = GameQueries.trade_limits(view, ship, socket.assigns.destination)
     context = {ship && ship["id"], ship && ship["port"], socket.assigns.destination}
 
     previous =
@@ -371,141 +371,22 @@ defmodule TijaraTidesWeb.GameLive do
   # Keep persisted good IDs stable when their player-facing names change.
   defp cargo_name(good), do: GameServer.cargo_name(good)
 
-  defp route_distance(definitions, ship, destination) do
-    if ship && ship["status"] == "docked" do
-      if ship["port"] == destination,
-        do: 0,
-        else:
-          get_in(definitions.catalogue, [
-            "routes",
-            ship["port"] <> "|" <> destination,
-            "nautical_miles"
-          ])
-    end
-  end
+  defp route_distance(definitions, ship, destination),
+    do: GameQueries.route_distance(definitions, ship, destination)
 
-  defp cargo_markets(_definitions, _view, nil, _side, _sort, _ship), do: []
-
-  defp cargo_markets(definitions, view, good, side, {column, direction}, ship) do
-    rows =
-      for {port, definition} <- definitions.catalogue["ports"],
-          String.contains?(
-            definition["roles"][good],
-            if(side == "supply", do: "exp", else: "imp")
-          ),
-          quote = view.markets[port <> "|" <> good],
-          quote["manual"],
-          quote[if(side == "supply", do: "stock", else: "demand")] > 0,
-          do:
-            Map.merge(quote, %{
-              "port" => port,
-              "distance" => route_distance(definitions, ship, port)
-            })
-
-    if column in ["ask", "bid"] do
-      quantity_key = if side == "supply", do: "stock", else: "demand"
-
-      Enum.sort_by(rows, fn quote ->
-        price = if direction == :asc, do: quote[column], else: -quote[column]
-
-        {price, -quote[quantity_key],
-         if(side == "demand", do: quote["distance"] || 1_000_000_000, else: 0), quote["port"]}
-      end)
-    else
-      {known, unknown} = Enum.split_with(rows, &(not is_nil(&1[column])))
-
-      Enum.sort_by(known, &{&1[column], &1["port"]}, direction) ++
-        Enum.sort_by(unknown, & &1["port"])
-    end
-  end
+  defp cargo_markets(definitions, view, good, side, sort, ship),
+    do: GameQueries.cargo_markets(definitions, view, good, side, sort, ship)
 
   defp cargo_roi(nil), do: "—"
   defp cargo_roi(roi), do: :erlang.float_to_binary(roi * 100, decimals: 2) <> "%"
 
-  defp cargo_price_range(definitions, view, good) do
-    ask = List.first(cargo_markets(definitions, view, good, "supply", {"ask", :asc}, nil))
-    bid = List.first(cargo_markets(definitions, view, good, "demand", {"bid", :desc}, nil))
+  defp visible_market_rows(definitions, view, ship, port),
+    do: GameQueries.visible_market_rows(definitions, view, ship, port)
 
-    if bid || ask do
-      %{
-        label:
-          "bid #{if bid, do: money(bid["bid"]), else: "—"} / " <>
-            "ask #{if ask, do: money(ask["ask"]), else: "—"}",
-        roi: if(bid && ask && ask["ask"] > 0, do: (bid["bid"] - ask["ask"]) / ask["ask"])
-      }
-    end
-  end
+  defp cargo_aboard(ship, good), do: GameQueries.cargo_aboard(ship, good)
+  defp sorted_manifest(cargo, goods, sort), do: GameQueries.sorted_manifest(cargo, goods, sort)
 
-  defp visible_market_rows(definitions, view, ship, port) do
-    definitions.catalogue["goods"]
-    |> Enum.sort_by(fn {good, _} -> cargo_name(good) end)
-    |> Enum.filter(fn {good, _item} ->
-      quote = view.markets[port <> "|" <> good]
-
-      # Handling does not turn a local market into a remote-port preview.
-      quote["manual"] and
-        (is_nil(ship) or good in view.private["compatible_cargo"][ship["id"]]) and
-        if ship && ship["port"] == port && ship["status"] != "sailing" do
-          available_to_trade("buy", quote, ship, good) > 0 or
-            available_to_trade("sell", quote, ship, good) > 0
-        else
-          quote["stock"] > 0 or quote["demand"] > 0
-        end
-    end)
-  end
-
-  defp available_to_trade("buy", quote, _ship, _good), do: quote["stock"]
-
-  defp available_to_trade("sell", quote, ship, good),
-    do: min(cargo_aboard(ship, good), quote["demand"])
-
-  defp cargo_aboard(ship, good) do
-    (ship["cargo"] || [])
-    |> Enum.filter(&(&1["good"] == good))
-    |> Enum.map(& &1["quantity"])
-    |> Enum.sum()
-  end
-
-  defp sorted_manifest(cargo, goods, {column, direction}) do
-    rows = manifest(cargo)
-    # Non-perishable cargo always follows dated cargo when sorting by expiry.
-    {undated, dated} =
-      Enum.split_with(rows, &(column == "expires_ms" && is_nil(&1["expires_ms"])))
-
-    Enum.sort_by(
-      dated,
-      fn row ->
-        value =
-          case column do
-            "good" -> cargo_name(row["good"])
-            "weight" -> row["quantity"] * goods[row["good"]]["weight_kg"]
-            "volume" -> row["quantity"] * goods[row["good"]]["volume_l"]
-            _ -> row[column]
-          end
-
-        {value, cargo_name(row["good"])}
-      end,
-      direction
-    ) ++ undated
-  end
-
-  defp manifest(cargo) do
-    cargo
-    |> Enum.group_by(& &1["good"])
-    |> Enum.sort_by(fn {good, _} -> cargo_name(good) end)
-    |> Enum.map(fn {good, batches} ->
-      quantity = Enum.sum(Enum.map(batches, & &1["quantity"]))
-      cost = Enum.sum(Enum.map(batches, &(&1["quantity"] * &1["unit_cost"])))
-      expiries = batches |> Enum.map(& &1["expires_ms"]) |> Enum.reject(&is_nil/1)
-
-      %{
-        "good" => good,
-        "quantity" => quantity,
-        "average_cost" => cost / quantity,
-        "expires_ms" => Enum.min(expiries, fn -> nil end)
-      }
-    end)
-  end
+  defp manifest(cargo), do: GameQueries.manifest(cargo)
 
   defp cubic_meters(litres) do
     whole = Integer.to_string(div(litres, 1000))
@@ -612,6 +493,10 @@ defmodule TijaraTidesWeb.GameLive do
 
   def error_message(reason) do
     %{
+      invalid_command_payload: "The command payload must be an object.",
+      too_many_command_fields: "The command contains too many fields (maximum 12).",
+      command_payload_too_large: "The command payload is too large (maximum 4096 bytes).",
+      invalid_session: "Your session is invalid or has expired. Please sign in again.",
       internal_error: "The world paused after an internal error. Please contact the operator.",
       storage_unavailable: "The database is unavailable. Please try again later.",
       insufficient_cash: "Not enough available cash. Check reserved fuel and unpaid costs.",
@@ -695,20 +580,12 @@ defmodule TijaraTidesWeb.GameLive do
       end)
 
     cargo_options =
-      for {good, _} <-
-            Enum.sort_by(assigns.definitions.catalogue["goods"], fn {good, _} ->
-              cargo_name(good)
-            end),
-          range = cargo_price_range(assigns.definitions, assigns.view, good),
-          do: {good, range}
+      for {good, quote} <-
+            GameQueries.cargo_options(assigns.definitions, assigns.view, assigns.cargo_sort_roi) do
+        label =
+          "bid #{if quote.bid, do: money(quote.bid), else: "—"} / ask #{if quote.ask, do: money(quote.ask), else: "—"}"
 
-    cargo_options =
-      if assigns.cargo_sort_roi do
-        Enum.sort_by(cargo_options, fn {good, quote} ->
-          {is_nil(quote.roi), -(quote.roi || 0), cargo_name(good)}
-        end)
-      else
-        cargo_options
+        {good, Map.put(quote, :label, label)}
       end
 
     market_good =
@@ -930,7 +807,7 @@ defmodule TijaraTidesWeb.GameLive do
                         Cargo available at {@ship["port"]}. Profit estimates use the listed load, current prices, handling, cleaning, fuel, canals, and estimated fleet upkeep. Cash affordability and spoilage are not included; prices and demand can change.
                       </p>
                       <% options =
-                        GameServer.destination_options(@definitions, @view, @ship, @selected_port) %>
+                        GameQueries.destination_options(@definitions, @view, @ship, @selected_port) %>
                       <p :if={options == []} class="text-sm text-slate-400">
                         No compatible cargo available at the current port.
                       </p>
@@ -1044,7 +921,7 @@ defmodule TijaraTidesWeb.GameLive do
                       <% {good, item} = purchase %>
                       <% quantity = Map.get(@trade_quantities, {"buy", good}, 0) %>
                       <% voyage =
-                        GameServer.purchase_voyage(
+                        GameQueries.purchase_voyage(
                           @ship,
                           item,
                           quantity,
@@ -1174,7 +1051,7 @@ defmodule TijaraTidesWeb.GameLive do
                                     do: Map.get(@trade_quantities, {side, good}, available),
                                     else: 0 %>
                                 <% freshness =
-                                  GameServer.trade_freshness(
+                                  GameQueries.trade_freshness(
                                     q,
                                     @ship,
                                     side,
@@ -1229,9 +1106,9 @@ defmodule TijaraTidesWeb.GameLive do
                                   class="rounded bg-teal-700 px-3 py-1 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:opacity-60"
                                 >{String.capitalize(side)}</button>
                                 <%= if side == "buy" and available > 0 and quantity > 0 do %>
-                                  <% total = GameServer.purchase_total(q, @ship, item, quantity) %>
+                                  <% total = GameQueries.purchase_total(q, @ship, item, quantity) %>
                                   <% voyage =
-                                    GameServer.purchase_voyage(
+                                    GameQueries.purchase_voyage(
                                       @ship,
                                       item,
                                       quantity,

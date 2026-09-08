@@ -63,12 +63,18 @@ defmodule TijaraTides.Domain.GameTest do
     assert {:error, :departure_ship_unavailable} =
              run.(state, %{command | "ship" => "missing"}, catalogue)
 
-    foreign = Game.put(state, "ships", ship["id"], %{ship | "company_id" => "other"})
+    foreign =
+      TijaraTides.Domain.State.put(state, "ships", ship["id"], %{ship | "company_id" => "other"})
+
     assert {:error, :departure_ship_unavailable} = run.(foreign, command, catalogue)
 
     for status <- ["loading", "unloading", "sailing"] do
       busy =
-        Game.put(state, "ships", ship["id"], %{ship | "status" => status, "arrive_ms" => 5000})
+        TijaraTides.Domain.State.put(state, "ships", ship["id"], %{
+          ship
+          | "status" => status,
+            "arrive_ms" => 5000
+        })
 
       assert {:error, {:departure_busy, ^status, 5000}} = run.(busy, command, catalogue)
     end
@@ -90,9 +96,18 @@ defmodule TijaraTides.Domain.GameTest do
     assert {:error, {:departure_fuel_limit, ^fuel, 0}} =
              run.(state, %{command | "fuel_limit" => 0}, catalogue)
 
-    unpaid = Game.put(state, "companies", "company", %{company | "unpaid" => 1250})
+    unpaid =
+      TijaraTides.Domain.State.put(state, "companies", "company", %{company | "unpaid" => 1250})
+
     assert {:error, {:departure_unpaid, 1250}} = run.(unpaid, command, catalogue)
-    poor = Game.put(state, "companies", "company", %{company | "cash" => 500, "reserved" => 400})
+
+    poor =
+      TijaraTides.Domain.State.put(state, "companies", "company", %{
+        company
+        | "cash" => 500,
+          "reserved" => 400
+      })
+
     assert {:error, {:departure_funds, ^fuel, 0, 100}} = run.(poor, command, catalogue)
     canal = put_in(catalogue, ["routes", "Jakarta|Singapore", "passages"], ["suez"])
     assert {:error, {:departure_funds, ^fuel, 25_000, 100}} = run.(poor, command, canal)
@@ -139,7 +154,7 @@ defmodule TijaraTides.Domain.GameTest do
     {state, account, catalogue} = setup_game()
 
     assert_raise ArgumentError, ~r/retire or transfer ships/, fn ->
-      Game.delete(state, "companies", account["company_id"])
+      TijaraTides.Domain.State.delete(state, "companies", account["company_id"])
     end
 
     state = %{state | entities: Map.put(state.entities, "companies", %{})}
@@ -295,7 +310,13 @@ defmodule TijaraTides.Domain.GameTest do
     ship = Game.get(state, "ships", "company:1")
     company = Game.get(state, "companies", "company")
     item = catalogue["goods"]["Lumber"]
-    state = Game.put(state, "companies", company["id"], %{company | "cash" => 100_000_000})
+
+    state =
+      TijaraTides.Domain.State.put(state, "companies", company["id"], %{
+        company
+        | "cash" => 100_000_000
+      })
+
     fleet = Game.entities(state, "ships") |> Map.values()
 
     command = %{
@@ -328,14 +349,22 @@ defmodule TijaraTides.Domain.GameTest do
     required = voyage["required"]
 
     state =
-      Game.put(state, "companies", company["id"], %{company | "cash" => total + required - 1})
+      TijaraTides.Domain.State.put(state, "companies", company["id"], %{
+        company
+        | "cash" => total + required - 1
+      })
 
     assert {:error, {:purchase_voyage_funds, "Singapore", ^required, remaining}} =
              Game.execute(state, account, command, %{}, catalogue)
 
     assert remaining == required - 1
 
-    state = Game.put(state, "companies", company["id"], %{company | "cash" => total + required})
+    state =
+      TijaraTides.Domain.State.put(state, "companies", company["id"], %{
+        company
+        | "cash" => total + required
+      })
+
     assert {:ok, bought, _} = Game.execute(state, account, command, %{}, catalogue)
     bought = Game.advance(bought, Game.handling_ms(500), catalogue)
 
@@ -523,7 +552,7 @@ defmodule TijaraTides.Domain.GameTest do
     {state, account, catalogue} = setup_game()
     state = Game.advance(state, 60_000, catalogue)
     ship = Game.get(state, "ships", "company:1") |> Map.put("class", "reefer")
-    state = Game.put(state, "ships", ship["id"], ship)
+    state = TijaraTides.Domain.State.put(state, "ships", ship["id"], ship)
     expiry = hd(Game.get(state, "markets", "Jakarta|Fruit")["batches"])["expires_ms"]
 
     command = %{
@@ -549,8 +578,12 @@ defmodule TijaraTides.Domain.GameTest do
 
     state =
       state
-      |> Game.put("markets", "Jakarta|Lumber", %{supplier | "stock" => 490})
-      |> Game.put("markets", "Singapore|Lumber", %{buyer | "demand" => 490, "budget" => 0})
+      |> TijaraTides.Domain.State.put("markets", "Jakarta|Lumber", %{supplier | "stock" => 490})
+      |> TijaraTides.Domain.State.put("markets", "Singapore|Lumber", %{
+        buyer
+        | "demand" => 490,
+          "budget" => 0
+      })
 
     before = Enum.reduce(1..29, state, fn _, acc -> Game.advance(acc, 5_000, catalogue) end)
     assert Game.get(before, "markets", "Jakarta|Lumber")["stock"] == 490
@@ -574,7 +607,7 @@ defmodule TijaraTides.Domain.GameTest do
     {state, _, catalogue} = setup_game()
     market = Game.get(state, "markets", "Jakarta|Fruit")
     market = %{market | "batches" => [%{"quantity" => 500, "expires_ms" => 1}]}
-    state = Game.put(state, "markets", "Jakarta|Fruit", market)
+    state = TijaraTides.Domain.State.put(state, "markets", "Jakarta|Fruit", market)
     state = Game.advance(state, 1, catalogue)
     assert Game.get(state, "markets", "Jakarta|Fruit")["stock"] == 0
     assert Game.quote(state, catalogue, "Jakarta", "Fruit")["stock"] == 0
