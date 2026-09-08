@@ -5,7 +5,15 @@ defmodule TijaraTidesWeb.PortTrafficTest do
 
   test "status and company totals count present ships, including queued ships, but never voyages" do
     ship = fn id, owner, port, status ->
-      {id, %{"id" => id, "name" => id, "company_id" => owner, "port" => port, "status" => status}}
+      {id,
+       %{
+         "id" => id,
+         "name" => id,
+         "company_id" => owner,
+         "port" => port,
+         "status" => status,
+         "class" => if(id == "Four", do: "tanker", else: "freighter")
+       }}
     end
 
     public = %{
@@ -40,6 +48,20 @@ defmodule TijaraTidesWeb.PortTrafficTest do
     assert companies =~ "Alpha · 2 ships"
     assert companies =~ "Beta · 2 ships"
     assert companies =~ "Three"
+
+    kinds =
+      render_component(&PortTraffic.traffic/1,
+        public: public,
+        port: "Singapore",
+        grouping: "kind",
+        classes: %{"freighter" => %{"name" => "Freighter"}, "tanker" => %{"name" => "Tanker"}}
+      )
+
+    assert kinds =~ "Freighter · 3 ships"
+    assert kinds =~ "Tanker · 1 ship"
+    assert kinds =~ "Unloading"
+    refute kinds =~ "Departed"
+    refute kinds =~ "Elsewhere"
     empty = render_component(&PortTraffic.traffic/1, public: public, port: "Tokyo")
     assert empty =~ "Port traffic · 0 ships"
     assert empty =~ "No ships at this port."

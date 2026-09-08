@@ -3,6 +3,7 @@ defmodule TijaraTidesWeb.PortTraffic do
   use TijaraTidesWeb, :html
 
   attr :public, :map, required: true
+  attr :classes, :map, default: %{}
   attr :port, :string, required: true
   attr :grouping, :string, default: "status"
 
@@ -14,10 +15,20 @@ defmodule TijaraTidesWeb.PortTraffic do
 
     groups =
       Enum.group_by(ships, fn ship ->
-        if assigns.grouping == "company", do: ship["company_id"], else: status(ship["status"])
+        case assigns.grouping do
+          "company" -> ship["company_id"]
+          "kind" -> ship["class"]
+          _ -> status(ship["status"])
+        end
       end)
       |> Enum.map(fn {key, ships} ->
-        label = if assigns.grouping == "company", do: company(assigns.public, key), else: key
+        label =
+          case assigns.grouping do
+            "company" -> company(assigns.public, key)
+            "kind" -> get_in(assigns.classes, [key, "name"]) || key || "Unknown kind"
+            _ -> key
+          end
+
         %{key: key, label: label, ships: Enum.sort_by(ships, &{&1["name"], &1["id"]})}
       end)
       |> Enum.sort_by(&{&1.label, &1.key})
@@ -38,6 +49,7 @@ defmodule TijaraTidesWeb.PortTraffic do
             >
               <option value="status" selected={@grouping == "status"}>Status</option>
               <option value="company" selected={@grouping == "company"}>Company</option>
+              <option value="kind" selected={@grouping == "kind"}>Kind</option>
             </select>
           </label>
         </form>
@@ -64,6 +76,7 @@ defmodule TijaraTidesWeb.PortTraffic do
             <span class="text-slate-400"> · {if @grouping == "company",
               do: status(ship["status"]),
               else: company(@public, ship["company_id"])}</span>
+            <span :if={@grouping == "kind"} class="text-slate-400"> · {status(ship["status"])}</span>
           </li>
         </ul>
       </details>

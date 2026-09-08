@@ -97,7 +97,7 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   def handle_event("traffic-grouping", %{"grouping" => grouping}, socket)
-      when grouping in ["status", "company"] do
+      when grouping in ["status", "company", "kind"] do
     {:noreply, assign(socket, :traffic_grouping, grouping)}
   end
 
@@ -767,7 +767,8 @@ defmodule TijaraTidesWeb.GameLive do
                 placeholder="Invitation code"
                 aria-label="Invitation code"
                 autocomplete="off"
-                class="rounded bg-slate-800 px-4 py-2"
+                size="48"
+                class="min-w-0 w-full max-w-lg rounded bg-slate-800 px-4 py-2"
               />
               <button class="rounded bg-teal-600 px-4 py-2">Redeem invitation</button>
             </.form>
@@ -981,6 +982,7 @@ defmodule TijaraTidesWeb.GameLive do
                     </section>
                     <TijaraTidesWeb.PortTraffic.traffic
                       public={@view.public}
+                      classes={@definitions.classes}
                       port={@selected_port}
                       grouping={@traffic_grouping}
                     />
