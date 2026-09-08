@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+head=$(git rev-parse HEAD)
+check=false
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ "$local_sha" =~ ^0+$ ]] && continue
+  if [[ "$(git rev-parse "$local_sha^{commit}")" != "$head" ]]; then
+    echo "Pre-push: check out the commit being pushed ($local_ref) so its checks can run." >&2
+    exit 1
+  fi
+  check=true
+done
+if ! "$check"; then exit 0; fi
+if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
+  echo "Pre-push: commit or stash changes first so validation tests exactly the commit being pushed." >&2
+  exit 1
+fi
+exec scripts/check-local.sh

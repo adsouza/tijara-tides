@@ -36,6 +36,25 @@ Use `PORT=4001 mix phx.server` if port 4000 is already occupied.
 mix precommit       # formatting, forced boundary checks, and tests
 ```
 
+Enable the tracked pre-push hook once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The hook runs `scripts/check-local.sh`: generated docs and catalogue checks,
+Elixir validation and disposable PostgreSQL tests, desktop JavaScript tests,
+version checks, Rust formatting/Clippy/tests, and a production server release
+build. It requires Python with venv support, PostgreSQL, Node.js, Rust, and the
+desktop build prerequisites. First runs download dependencies. Run the script
+directly to check work before committing.
+
+Pushes require a clean checkout of the commit being pushed, so uncommitted fixes
+cannot hide failures in that commit. Generated artifacts are checked in a
+temporary directory without rewriting working files. Database tests use only a
+disposable local cluster. Docker smoke tests, native package verification, and
+the alternate Elixir/OTP versions still run in CI.
+
 ## Play locally
 
 Install PostgreSQL in addition to the tools above, then run:
