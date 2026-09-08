@@ -1035,10 +1035,25 @@ defmodule TijaraTides.Domain.Game do
     |> prune_notices()
   end
 
+  # Replace pending invitation notices with company announcements, including
+  # notices persisted before this replacement rule was introduced.
   # Retain the newest 100 notices per account, including across restarts.
   defp prune_notices(state) do
     retained =
       entities(state, "notices")
+      |> Enum.reject(fn
+        {"accepted:" <> invitee_id, _notice} ->
+          case get(state, "accounts", invitee_id) do
+            %{"company_id" => company_id} when is_binary(company_id) ->
+              get(state, "notices", "company:" <> company_id) != nil
+
+            _ ->
+              false
+          end
+
+        _ ->
+          false
+      end)
       |> Enum.group_by(fn {_, notice} -> notice["account_id"] end)
       |> Enum.flat_map(fn {_, notices} ->
         notices

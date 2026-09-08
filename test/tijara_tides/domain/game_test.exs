@@ -221,6 +221,50 @@ defmodule TijaraTides.Domain.GameTest do
     end
   end
 
+  test "company formation replaces its pending invitation notice, including after reload" do
+    {state, account, catalogue} = setup_game()
+
+    state =
+      Enum.reduce(["child", "other"], state, fn id, state ->
+        {:ok, state, _} =
+          Game.execute(state, account, %{"action" => "invite"}, %{invite_hash: id}, catalogue)
+
+        {:ok, state, _} = Game.redeem(state, id, id <> "-session", %{id: id, wall_ms: 0})
+        state
+      end)
+
+    pending = Game.get(state, "notices", "accepted:child")
+    assert pending["text"] == "Your invitation was accepted. Company formation is pending."
+
+    {:ok, state, _} =
+      Game.execute(
+        state,
+        Game.get(state, "accounts", "child"),
+        %{
+          "action" => "company",
+          "name" => "Tygre Trafficking",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        %{id: "child-company", catalogue: catalogue},
+        catalogue
+      )
+
+    assert Game.get(state, "notices", "accepted:child") == nil
+
+    assert Game.get(state, "notices", "company:child-company")["text"] ==
+             "Your invitee now runs Tygre Trafficking."
+
+    assert Game.get(state, "notices", "accepted:other") != nil
+    assert length(state.notices_by_account["account"]) == 2
+
+    # Older saves can contain both stages of the same invitation.
+    state = put_in(state.entities["notices"]["accepted:child"], pending)
+    reloaded = Game.initialize(state, catalogue)
+    assert Game.get(reloaded, "notices", "accepted:child") == nil
+    assert length(reloaded.notices_by_account["account"]) == 2
+  end
+
   test "invitation redemption and expiry cannot both consume and refund quota" do
     {state, account, catalogue} = setup_game()
 

@@ -7,7 +7,7 @@
   <summary>Connect to a multiplayer marine trading world</summary>
   <description>
     <p>A desktop client for Tijara Tides, a multiplayer marine cargo trading game.</p>
-    <p>This foundation preview connects to a server-hosted guest lobby. Gameplay is not available yet. An accessible Tijara Tides server is required.</p>
+    <p>Build your company, manage your fleet, and trade cargo between ports in a shared world. An accessible Tijara Tides server is required.</p>
   </description>
   <launchable type="desktop-id">Tijara Tides.desktop</launchable>
   <url type="homepage">https://github.com/adsouza/tijara-tides</url>
