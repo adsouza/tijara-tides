@@ -47,7 +47,7 @@ defmodule TijaraTidesWeb.WorldMap do
     xs = Enum.map(points, &hd/1)
     ys = Enum.map(points, &List.last/1)
     width = max(40, max((Enum.max(xs) - Enum.min(xs)) * 1.6, (Enum.max(ys) - Enum.min(ys)) * 3.2))
-    height = width / 2
+    height = width
     x = (Enum.min(xs) + Enum.max(xs) - width) / 2
     y = (Enum.min(ys) + Enum.max(ys) - height) / 2
     %{box: "#{x} #{y} #{width} #{height}", scale: width / 1000}
@@ -63,6 +63,9 @@ defmodule TijaraTidesWeb.WorldMap do
   # Place close delta labels on different sides of their harbor markers.
   def label_position("Guangzhou"), do: %{dx: -11, dy: -8, anchor: "end"}
   def label_position("Hong Kong"), do: %{dx: 0, dy: 21, anchor: "middle"}
+  def label_position("Antwerp"), do: %{dx: -11, dy: 18, anchor: "end"}
+  def label_position("Rotterdam"), do: %{dx: -11, dy: -8, anchor: "end"}
+  def label_position("Abu Dhabi"), do: %{dx: -11, dy: 18, anchor: "end"}
   def label_position(_name), do: %{dx: 11, dy: 4, anchor: "start"}
 
   def normalize([lon, lat]), do: [lon - 360 * :math.floor((lon + 180) / 360), lat]

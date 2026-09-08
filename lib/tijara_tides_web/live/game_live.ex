@@ -1280,10 +1280,22 @@ defmodule TijaraTidesWeb.GameLive do
                 <h2 class="panel-title">Ships</h2>
                 <section
                   id="map-panel"
+                  data-regional={to_string(not is_nil(@map_region))}
                   class="overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
                 >
                   <% viewport = WorldMap.viewport(@definitions.catalogue, @map_region) %>
-                  <div class="px-3 py-2">
+                  <div class="map-toolbar px-3 py-2">
+                    <button
+                      id="map-expand"
+                      type="button"
+                      data-map-expand
+                      aria-expanded="false"
+                      aria-controls="map-panel"
+                      class="map-expand rounded border border-slate-600 px-3 py-1 text-xs"
+                    >
+                      <span class="map-expand-label">Expand <span class="map-button-word">map ⛶</span></span>
+                      <span class="map-restore-label">Restore main screen ↙</span>
+                    </button>
                     <button
                       id="map-filter-toggle"
                       phx-click="toggle-map-filters"
@@ -1291,7 +1303,8 @@ defmodule TijaraTidesWeb.GameLive do
                       aria-controls="map-filters"
                       class="rounded border border-slate-600 px-3 py-1 text-xs"
                     >
-                      Ship filters {if @map_filters_open, do: "▴", else: "▾"}
+                      Ship
+                      <span class="map-button-word">filters {if @map_filters_open, do: "▴", else: "▾"}</span>
                     </button>
                     <form
                       :if={@map_filters_open}
@@ -1334,7 +1347,10 @@ defmodule TijaraTidesWeb.GameLive do
                       </label>
                     </form>
                   </div>
-                  <div :if={@map_region} class="flex items-center justify-between px-4 py-3">
+                  <div
+                    :if={@map_region}
+                    class="map-region-heading flex items-center justify-between px-4 py-3"
+                  >
                     <h2 class="text-lg">{@map_region}</h2>
                     <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2">World view</button>
                   </div>
@@ -1436,6 +1452,11 @@ defmodule TijaraTidesWeb.GameLive do
                       </circle>
                       <text
                         :if={@map_region}
+                        data-port-label
+                        data-label-x={hd(marker.center)}
+                        data-label-y={List.last(marker.center)}
+                        data-label-dx={WorldMap.label_position(marker.name).dx}
+                        data-label-dy={WorldMap.label_position(marker.name).dy}
                         x={
                           hd(marker.center) + WorldMap.label_position(marker.name).dx * viewport.scale
                         }
@@ -1506,6 +1527,7 @@ defmodule TijaraTidesWeb.GameLive do
                     <div class="flex flex-wrap gap-3">
                       <button
                         :for={name <- Enum.sort(@definitions.catalogue["clusters"][@map_region])}
+                        title={@definitions.catalogue["ports"][name]["harbor"]}
                         phx-click="port"
                         phx-value-id={name}
                         aria-pressed={if name == @selected_port, do: "true", else: "false"}
