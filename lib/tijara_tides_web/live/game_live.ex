@@ -180,6 +180,17 @@ defmodule TijaraTidesWeb.GameLive do
         socket = if result["code"], do: assign(socket, :invite_code, result["code"]), else: socket
 
         socket =
+          if command["action"] == "buy" do
+            assign(
+              socket,
+              :trade_quantities,
+              Map.put(socket.assigns.trade_quantities, {"buy", command["good"]}, 0)
+            )
+          else
+            socket
+          end
+
+        socket =
           if command["action"] == "company",
             do: assign(socket, :selected_port, command["port"]),
             else: socket

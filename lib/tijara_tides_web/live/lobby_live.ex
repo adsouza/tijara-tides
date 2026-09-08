@@ -93,10 +93,6 @@ defmodule TijaraTidesWeb.LobbyLive do
               </dd>
             </div>
           </dl>
-          <p class="mt-8 border-t border-slate-700 pt-6 text-sm leading-6 text-slate-400">
-            Open another browser or a private window to join as another guest.
-            Tabs in the same browser share a guest session.
-          </p>
         </div>
         <a href="/play" class="mt-8 inline-block rounded-lg bg-teal-700 px-6 py-3 text-white">Explore the trading world</a>
       </section>

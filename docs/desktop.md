@@ -6,6 +6,10 @@ and click **Connect to server**. The last address is remembered locally; the gam
 session is held by the webview's cookies. A browser and a native app normally have
 separate cookie stores and therefore join as separate guests.
 
+The window size, position, and maximized state are saved locally on exit and restored on
+the next launch using Tauri's window-state plugin. The first launch defaults to
+1200 × 800, with a minimum window size of 640 × 480.
+
 There is no embedded Elixir runtime, local simulation, or offline game. Launching
 or closing a desktop client only changes its connection to the shared world.
 
