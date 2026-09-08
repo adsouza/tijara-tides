@@ -69,12 +69,16 @@ player-facing surface.
 Live world updates must preserve expanded ship groups, selected ships, selected
 cargo, regional zoom, table sorting, and in-progress quantity entries.
 
-Transient action notifications stack, dismiss automatically after ten seconds,
-and provide an explicit dismiss button; a new notification must not extend an
-older notification's lifetime.
+Replace the previous transient notification when a new one appears; dismiss
+notifications automatically after ten seconds and provide an explicit dismiss
+button.
 
 Persistent company notices remain separate from transient action notifications,
 so dismissing a toast does not erase company history.
+
+Invitation acceptance and company formation update the same invitation notice,
+replacing its earlier pending message rather than leaving contradictory
+notices together.
 
 ## 2. Accounts, companies, and persistence
 
@@ -188,6 +192,27 @@ far stronger collusion signal than the same activity spread across strangers.
 Repeated confirmed abuse within a subtree reduces the inviter's future issuance.
 Issuance rate, outstanding cap, and expiry are configurable tuning; the
 requirement for an invitation is not.
+
+### Desktop connection and window continuity
+
+The desktop app automatically connects to its last selected server and resumes
+that server's saved account and world session; the first launch defaults to
+https://tijara-tides.onrender.com/.
+
+Connection Settings provides a dropdown of the ten most recent distinct server
+addresses, always includes production, and allows entering another address;
+opening settings suppresses automatic reconnection.
+
+Root server addresses open /play, explicit paths remain intact, and returning
+to a server reuses its persistent session unless it has expired or been signed
+out.
+
+Remember desktop window size, position, and maximized state across launches.
+
+The desktop startup screen describes playable trading and omits obsolete
+foundation-preview and browser-private-window instructions. The invitation
+code field is wide enough for a full code, up to 512 pixels, and shrinks to
+fit narrow screens.
 
 ## 3. Time and competition
 
@@ -401,6 +426,34 @@ the issue and how the addition addresses it. Geographic coverage alone does not
 justify an addition. The user has final approval of any additions and the exact
 set of ports.
 
+### Map controls and expanded inspection
+
+The map's Ship filters dropdown offers checkboxes for every ship kind, all
+checked by default; authenticated players can uncheck Show other companies’
+ships, also checked by default, to see only their own ships.
+
+Ship filters apply to both sailing markers and their route overlays, preserve
+port markers, and survive live updates and regional navigation.
+
+In landscape mode, Expand map fills the UI with the map; Restore main screen
+or Escape restores the original three-panel layout and selections. Switching
+to portrait restores the compact layout.
+
+In a compact regional view, the map is square with controls and all regional
+port buttons beside it, visible without scrolling. Compact port buttons show
+city names and retain harbor names in tooltips.
+
+Expand map and Ship filters use two-line labels, equal available widths, and
+six pixels of vertical padding in the compact regional toolbar.
+
+Regional port labels remain twelve screen pixels high as the map resizes, with
+stable screen-space offsets and separated labels for nearby ports.
+
+Selecting a ship on the expanded map displays a dismissible bottom-left
+overlay with its name, company, kind, status, route, and remaining time; owned
+ships additionally show consolidated cargo, while other companies' cargo
+remains private.
+
 Public information includes ship locations and routes. Selecting another ship
 shows its company and ship class, but never its cargo manifest. Owners can
 inspect their cargo, quantities, costs, freshness, and trading instructions.
@@ -467,7 +520,8 @@ Your fleet and updates its manifest and controls.
 
 The separate public ship inspector is shown for other companies' ships only;
 owned ships use Your fleet and their private detail panel without a duplicate
-summary.
+summary. This applies to the main three-panel screen; the expanded map replaces
+that screen and uses the ship overlay described above.
 
 ## 5. Mixed city economy
 
@@ -951,7 +1005,7 @@ selected view persists through live updates; goods without supply or demand
 for that view are omitted.
 
 Show the total number of ships physically at the inspected port, grouped by
-status or by company, with expandable lists of selectable ships.
+status, company, or kind, with expandable lists of selectable ships.
 
 Port traffic distinguishes queued, berthed or docked, loading, unloading, and
 other applicable operational statuses; sailing ships are excluded.
@@ -973,8 +1027,9 @@ the inspected port; retain remote market browsing.
 The Aboard column shows the selected local ship's total lots of each cargo
 across purchase batches; use a dash when the selected ship is elsewhere.
 
-Show the total purchase amount beside each available Buy button for the entered
-lot quantity, including handling and applicable tanker cleaning fees.
+Show the total purchase amount below each available Buy button and numeric
+field for the entered lot quantity, including handling and applicable tanker
+cleaning fees.
 
 Require a valid destination before buying. Show the purchase total and the cash
 needed for post-purchase fuel, canal fees, and estimated fleet upkeep through
@@ -982,6 +1037,35 @@ loading and arrival. Update both on quantity or destination changes; display the
 total in red if the purchase would leave insufficient voyage funds or unpaid
 costs block purchasing. Reject such purchases on the server with the required
 and remaining amounts.
+
+Loading and Unloading traffic groups start expanded; manual expansion choices
+survive live updates. Kind groups use readable ship-class names and show each
+vessel's company and status.
+
+Keep the Aboard and Cargo columns compact. Place the total cost beneath the
+quantity field and Buy button, and display monetary prices as whole dollars
+while retaining precise accounting values.
+
+Show the missing-destination reminder and journey-funding summary once above
+the Buy table, not on every cargo row.
+
+Cargo names in port markets and ship manifests link to that cargo's comparison
+view; ports in comparison tables link back to the Ports panel.
+
+Choosing a ship destination opens the current port's Buy view for loading, not
+the destination port. While inspecting another port with a docked active ship,
+offer Set as destination without sailing automatically.
+
+At the current port, show the selected destination's bid and per-lot spread
+beside each purchase price only when executable demand exists; identify the
+spread as before operating costs.
+
+Voyage estimates update automatically after destination and cargo changes and
+return after handling completes; retain a separate Sail action and report
+specific departure failures.
+
+After a completed trade, unedited quantity controls default to the new
+feasible maximum; disabled controls show zero.
 
 ### Cross-port cargo comparison
 
@@ -1001,6 +1085,22 @@ visible sort-direction indicators and live quantities and prices.
 
 Omit ports with zero supply from the Supply table and ports with zero demand
 from the Demand table; omit markets whose trading system is not available yet.
+
+The cargo selector omits goods with neither executable supply nor demand ports
+and shows cargo names on the left, best bid and ask right-aligned, and ROI in
+a separate right-aligned column.
+
+Cargo-menu ROI is (highest available bid minus lowest available ask) divided
+by lowest available ask, shown to two decimal places before handling and
+voyage costs; a missing side displays a dash.
+
+Sort by ROI is unchecked by default and visible only when listed cargo ROI
+values differ. When checked, sort by descending unrounded ROI, then cargo
+name, with unavailable ROI last; otherwise sort alphabetically.
+
+Cargo-menu prices, ROI, availability, and sort-control visibility update live.
+Preserve the selected cargo when available; otherwise select an available
+entry, or show No cargo markets available if none remain.
 
 ### Trade settlement and physical handling
 
@@ -1660,6 +1760,9 @@ That matters because the replacement-company path in section 12 is deliberately
 weakened: without a divestment route, bankruptcy would be the only way to shed
 unsuitable tonnage, and the design would be pushing players toward the reset it
 is trying to discourage.
+
+Fleet ship choices wrap into rows instead of requiring horizontal scrolling to
+reach additional ships.
 
 ### Fleet and manifest presentation
 

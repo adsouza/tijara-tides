@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 99
+Heuristic requirement sentences in DESIGN.md at generation: 114
 
 ## Screens
 
@@ -106,7 +106,7 @@ told after the fact, without being asked to approve it.
 | 48 | displayed to the inviter and in emailed invitations | 2 | display | Company and account |
 | 49 | cost shown in the handling estimate | 6 | disclosure | Fleet and ship detail |
 | 50 | Live world updates must preserve expanded ship groups, selected ships, selected cargo, regional zoom, table sorting, and in-progress quantity entries. | 1 | display | Notifications |
-| 51 | Transient action notifications stack, dismiss automatically after ten seconds, and provide an explicit dismiss button; a new notification must not extend an older notification's lifetime. | 1 | display | Notifications |
+| 51 | Replace the previous transient notification when a new one appears; dismiss notifications automatically after ten seconds and provide an explicit dismiss button. | 1 | display | Notifications |
 | 52 | Persistent company notices remain separate from transient action notifications, so dismissing a toast does not erase company history. | 1 | display | Notifications |
 | 53 | The regional groups are Pearl River Delta (Guangzhou, Shenzhen, Hong Kong), Northern Frangistan (Antwerp, Rotterdam, Hamburg), and Strait of Hormuz (Dubai, Abu Dhabi). | 4 | display | World map |
 | 54 | Regional zoom uses detailed coastlines and readable port labels that do not overlap; harbor coordinates remain anchored to the harbor rather than the city center. | 4 | display | World map |
@@ -115,14 +115,14 @@ told after the fact, without being asked to approve it.
 | 57 | Show only ships at sea as individual map markers; ships at port remain selectable through port traffic and must not cover the port marker. | 4 | display | World map |
 | 58 | Selecting an owned ship on the map or in port traffic selects the same ship in Your fleet and updates its manifest and controls. | 4 | display | World map |
 | 59 | The separate public ship inspector is shown for other companies' ships only; owned ships use Your fleet and their private detail panel without a duplicate summary. | 4 | display | World map |
-| 60 | Show the total number of ships physically at the inspected port, grouped by status or by company, with expandable lists of selectable ships. | 7 | display | Port panel |
+| 60 | Show the total number of ships physically at the inspected port, grouped by status, company, or kind, with expandable lists of selectable ships. | 7 | display | Port panel |
 | 61 | Port traffic distinguishes queued, berthed or docked, loading, unloading, and other applicable operational statuses; sailing ships are excluded. | 7 | display | Port panel |
 | 62 | For a selected local ship, hide cargo it cannot carry, including incompatible liquid mixtures, and hide a cargo row when neither buying nor selling is available. | 7 | display | Port panel |
 | 63 | Disable Buy when no supply is available and Sell when no owned cargo or no destination demand is available; a disabled action's quantity field displays zero. | 7 | display | Port panel |
 | 64 | Keep cargo filtering stable during loading, unloading, and live redraws; temporarily busy handling must not flash all cargo rows into view. | 7 | display | Port panel |
 | 65 | Hide both Aboard and Trade columns when the player owns no ship physically at the inspected port; retain remote market browsing. | 7 | display | Port panel |
 | 66 | The Aboard column shows the selected local ship's total lots of each cargo across purchase batches; use a dash when the selected ship is elsewhere. | 7 | display | Port panel |
-| 67 | Show the total purchase amount beside each available Buy button for the entered lot quantity, including handling and applicable tanker cleaning fees. | 7 | display | Port panel |
+| 67 | Show the total purchase amount below each available Buy button and numeric field for the entered lot quantity, including handling and applicable tanker cleaning fees. | 7 | display | Port panel |
 | 68 | Require a valid destination before buying. Show the purchase total and the cash needed for post-purchase fuel, canal fees, and estimated fleet upkeep through loading and arrival. Update both on quantity or destination changes; display the total in red if the purchase would leave insufficient voyage funds or unpaid costs block purchasing. Reject such purchases on the server with the required and remaining amounts. | 7 | display | Port panel |
 | 69 | Provide a cargo selector and two market tables beside each other: Supply on the left and Demand on the right; stack them on narrow screens. | 7 | display | Market |
 | 70 | Each cargo comparison table lists applicable ports, quantity in lots, and its relevant buy or sell price per lot before handling; selecting a port opens its market. | 7 | display | Market |
@@ -145,6 +145,32 @@ told after the fact, without being asked to approve it.
 | 87 | The Cargo demand table includes sea-route distance from that origin in nautical miles. | 1 | display | Market |
 | 88 | Remote-port inspection includes origin purchase prices, compatible stock and volume, destination demand, and estimated profit for a load bounded by supply, demand, and remaining ship capacity. | 1 | display | Port panel |
 | 89 | The Buy and Sell controls default to the maximum feasible whole-lot quantity, with a synchronized slider above the numeric field and action button. | 7 | display | Port panel |
+| 90 | Invitation acceptance and company formation update the same invitation notice, replacing its earlier pending message rather than leaving contradictory notices together. | 1 | display | Notifications |
+| 91 | The desktop app automatically connects to its last selected server and resumes that server's saved account and world session; the first launch defaults to https://tijara-tides.onrender.com/. | 2 | display | Company and account |
+| 92 | Connection Settings provides a dropdown of the ten most recent distinct server addresses, always includes production, and allows entering another address; opening settings suppresses automatic reconnection. | 2 | display | Company and account |
+| 93 | Root server addresses open /play, explicit paths remain intact, and returning to a server reuses its persistent session unless it has expired or been signed out. | 2 | display | Company and account |
+| 94 | Remember desktop window size, position, and maximized state across launches. | 2 | display | Company and account |
+| 95 | The desktop startup screen describes playable trading and omits obsolete foundation-preview and browser-private-window instructions. The invitation code field is wide enough for a full code, up to 512 pixels, and shrinks to fit narrow screens. | 2 | display | Company and account |
+| 96 | The map's Ship filters dropdown offers checkboxes for every ship kind, all checked by default; authenticated players can uncheck Show other companies’ ships, also checked by default, to see only their own ships. | 4 | display | World map |
+| 97 | Ship filters apply to both sailing markers and their route overlays, preserve port markers, and survive live updates and regional navigation. | 4 | display | World map |
+| 98 | In landscape mode, Expand map fills the UI with the map; Restore main screen or Escape restores the original three-panel layout and selections. Switching to portrait restores the compact layout. | 4 | display | World map |
+| 99 | In a compact regional view, the map is square with controls and all regional port buttons beside it, visible without scrolling. Compact port buttons show city names and retain harbor names in tooltips. | 4 | display | World map |
+| 100 | Expand map and Ship filters use two-line labels, equal available widths, and six pixels of vertical padding in the compact regional toolbar. | 4 | display | World map |
+| 101 | Regional port labels remain twelve screen pixels high as the map resizes, with stable screen-space offsets and separated labels for nearby ports. | 4 | display | World map |
+| 102 | Selecting a ship on the expanded map displays a dismissible bottom-left overlay with its name, company, kind, status, route, and remaining time; owned ships additionally show consolidated cargo, while other companies' cargo remains private. | 4 | display | World map |
+| 103 | Loading and Unloading traffic groups start expanded; manual expansion choices survive live updates. Kind groups use readable ship-class names and show each vessel's company and status. | 7 | display | Port panel |
+| 104 | Keep the Aboard and Cargo columns compact. Place the total cost beneath the quantity field and Buy button, and display monetary prices as whole dollars while retaining precise accounting values. | 7 | display | Port panel |
+| 105 | Show the missing-destination reminder and journey-funding summary once above the Buy table, not on every cargo row. | 7 | display | Port panel |
+| 106 | Cargo names in port markets and ship manifests link to that cargo's comparison view; ports in comparison tables link back to the Ports panel. | 7 | display | Port panel |
+| 107 | Choosing a ship destination opens the current port's Buy view for loading, not the destination port. While inspecting another port with a docked active ship, offer Set as destination without sailing automatically. | 7 | display | Port panel |
+| 108 | At the current port, show the selected destination's bid and per-lot spread beside each purchase price only when executable demand exists; identify the spread as before operating costs. | 7 | display | Port panel |
+| 109 | Voyage estimates update automatically after destination and cargo changes and return after handling completes; retain a separate Sail action and report specific departure failures. | 7 | display | Port panel |
+| 110 | After a completed trade, unedited quantity controls default to the new feasible maximum; disabled controls show zero. | 7 | display | Port panel |
+| 111 | The cargo selector omits goods with neither executable supply nor demand ports and shows cargo names on the left, best bid and ask right-aligned, and ROI in a separate right-aligned column. | 7 | display | Market |
+| 112 | Cargo-menu ROI is (highest available bid minus lowest available ask) divided by lowest available ask, shown to two decimal places before handling and voyage costs; a missing side displays a dash. | 7 | display | Market |
+| 113 | Sort by ROI is unchecked by default and visible only when listed cargo ROI values differ. When checked, sort by descending unrounded ROI, then cargo name, with unavailable ROI last; otherwise sort alphabetically. | 7 | display | Market |
+| 114 | Cargo-menu prices, ROI, availability, and sort-control visibility update live. Preserve the selected cargo when available; otherwise select an available entry, or show No cargo markets available if none remain. | 7 | display | Market |
+| 115 | Fleet ship choices wrap into rows instead of requiring horizontal scrolling to reach additional ships. | 9 | display | Fleet and ship detail |
 
 ## Defaults that keep the depth optional
 
@@ -168,7 +194,7 @@ each one is what keeps its mechanic off the path to a first purchase.
 ## Session budget
 
 Section 1 promises check-ins through the day and engaged sessions of up to
-roughly twenty minutes, against a core loop of buy cargo, choose a destination,
+roughly twenty minutes, against a core loop of choose a destination, buy cargo,
 sail, sell, reinvest. Minutes cannot be measured from a document; decisions and
 screens can. This counts only what a player must do when every optional mechanic
 is left at its default.

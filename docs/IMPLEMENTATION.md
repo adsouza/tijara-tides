@@ -29,7 +29,7 @@ query projections, consistency and module responsibilities.
   the server stays awake, including after disconnect. Static catalogue and map
   definitions are versioned source assets, not repeated database writes.
 - Public views contain company names, ships, positions, and routes. Each port
-  shows its present ships grouped by status or company, with expandable ship
+  shows its present ships grouped by status, company or kind, with expandable ship
   lists; ships at sea do not count toward either endpoint. Only an
   authenticated owner receives balances, cargo batches, acquisition costs,
   private notifications, and command results. PubSub announces revisions, not
