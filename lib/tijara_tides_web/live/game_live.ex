@@ -23,15 +23,23 @@ defmodule TijaraTidesWeb.GameLive do
         definitions: GameServer.definitions(),
         selected_port: "Singapore",
         map_region: nil,
+        map_filters_open: false,
+        map_ship_classes: MapSet.new(Map.keys(GameServer.definitions().classes)),
+        map_show_others: true,
         traffic_grouping: "status",
         selected_ship: nil,
         inspected_ship: nil,
         trade_quantities: %{},
+        trade_edited: MapSet.new(),
         purchase_good: nil,
+        fleet_status: "all",
         port_market_side: "buy",
-        trade_resets: %{},
+        trade_limits: %{},
+        trade_context: nil,
         manifest_sort: {"good", :asc},
         market_good: "Lumber",
+        cargo_menu_open: false,
+        cargo_sort_roi: false,
         market_sort: %{"supply" => {"ask", :asc}, "demand" => {"bid", :desc}},
         company_draft: %{"name" => "", "port" => "Singapore", "package" => "general"},
         destination: nil,
@@ -69,15 +77,51 @@ defmodule TijaraTidesWeb.GameLive do
 
   def handle_event("map-world", _params, socket), do: {:noreply, assign(socket, :map_region, nil)}
 
+  def handle_event("toggle-map-filters", _params, socket) do
+    {:noreply, assign(socket, :map_filters_open, !socket.assigns.map_filters_open)}
+  end
+
+  def handle_event("map-filters", params, socket) do
+    classes =
+      params
+      |> Map.get("classes", [])
+      |> List.wrap()
+      |> Enum.filter(&Map.has_key?(socket.assigns.definitions.classes, &1))
+      |> MapSet.new()
+
+    {:noreply,
+     assign(socket,
+       map_ship_classes: classes,
+       map_show_others: is_nil(socket.assigns.view.private) or params["show_others"] == "true"
+     )}
+  end
+
   def handle_event("traffic-grouping", %{"grouping" => grouping}, socket)
       when grouping in ["status", "company"] do
     {:noreply, assign(socket, :traffic_grouping, grouping)}
   end
 
+  def handle_event("cargo-sort-roi", params, socket) do
+    {:noreply, assign(socket, :cargo_sort_roi, params["roi"] == "true")}
+  end
+
+  def handle_event("toggle-cargo-menu", _params, socket) do
+    {:noreply, assign(socket, :cargo_menu_open, !socket.assigns.cargo_menu_open)}
+  end
+
+  def handle_event("close-cargo-menu", _params, socket) do
+    {:noreply, assign(socket, :cargo_menu_open, false)}
+  end
+
   def handle_event("market-good", %{"good" => good}, socket) do
     if socket.assigns.definitions.catalogue["goods"][good],
-      do: {:noreply, assign(socket, :market_good, good)},
+      do: {:noreply, assign(socket, market_good: good, cargo_menu_open: false)},
       else: {:noreply, socket}
+  end
+
+  def handle_event("fleet-status", %{"status" => status}, socket)
+      when status in ["all", "docked", "loading", "unloading", "sailing"] do
+    {:noreply, assign(socket, :fleet_status, status)}
   end
 
   def handle_event("port-market-side", %{"side" => side}, socket) when side in ["buy", "sell"] do
@@ -85,7 +129,8 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   def handle_event("sort-markets", %{"column" => column, "side" => side}, socket)
-      when side in ["supply", "demand"] and column in ["port", "stock", "demand", "ask", "bid"] do
+      when side in ["supply", "demand"] and
+             column in ["port", "stock", "demand", "ask", "bid", "distance"] do
     direction = if socket.assigns.market_sort[side] == {column, :asc}, do: :desc, else: :asc
 
     {:noreply,
@@ -140,8 +185,22 @@ defmodule TijaraTidesWeb.GameLive do
       )
       when side in ["buy", "sell"] do
     if socket.assigns.definitions.catalogue["goods"][good] do
-      quantities = Map.put(socket.assigns.trade_quantities, {side, good}, integer(quantity))
-      socket = assign(socket, :trade_quantities, quantities)
+      quantities =
+        Map.put(
+          socket.assigns.trade_quantities,
+          {side, good},
+          bounded_quantity(
+            integer(quantity),
+            Map.get(socket.assigns.trade_limits, {side, good}, 0)
+          )
+        )
+
+      socket =
+        assign(socket,
+          trade_quantities: quantities,
+          trade_edited: MapSet.put(socket.assigns.trade_edited, {side, good})
+        )
+
       {:noreply, if(side == "buy", do: assign(socket, :purchase_good, good), else: socket)}
     else
       {:noreply, socket}
@@ -178,7 +237,7 @@ defmodule TijaraTidesWeb.GameLive do
         socket
       end
 
-    {:noreply, socket}
+    {:noreply, refresh(socket)}
   end
 
   def handle_event("sail", params, %{assigns: %{preview: %{"fuel" => fuel}}} = socket) do
@@ -201,7 +260,7 @@ defmodule TijaraTidesWeb.GameLive do
           {:noreply, put_flash(socket, :error, "No voyage is available to this port right now.")}
 
         preview ->
-          {:noreply, assign(socket, destination: destination, preview: preview)}
+          {:noreply, socket |> assign(destination: destination, preview: preview) |> refresh()}
       end
     else
       {:noreply, socket}
@@ -218,16 +277,9 @@ defmodule TijaraTidesWeb.GameLive do
         socket = if result["code"], do: assign(socket, :invite_code, result["code"]), else: socket
 
         socket =
-          if command["action"] == "buy" do
-            assign(
-              socket,
-              trade_quantities:
-                Map.put(socket.assigns.trade_quantities, {"buy", command["good"]}, 0),
-              trade_resets: Map.update(socket.assigns.trade_resets, command["good"], 1, &(&1 + 1))
-            )
-          else
-            socket
-          end
+          if command["action"] in ["buy", "sell"],
+            do: assign(socket, trade_quantities: %{}, trade_edited: MapSet.new()),
+            else: socket
 
         socket =
           if command["action"] == "company",
@@ -251,15 +303,58 @@ defmodule TijaraTidesWeb.GameLive do
     ship =
       if view.private do
         view.private["ships"][socket.assigns.selected_ship] ||
-          view.private["ships"] |> Map.values() |> Enum.sort_by(& &1["id"]) |> List.first()
+          view.private["ships"]
+          |> Map.values()
+          |> Enum.sort_by(
+            &{if(&1["status"] == "docked" && &1["cargo"] == [], do: 0, else: 1), &1["id"]}
+          )
+          |> List.first()
       end
 
     preview =
       if socket.assigns.destination not in [nil, ""] && ship && ship["status"] == "docked",
         do: GameServer.preview(socket.assigns.token, ship["id"], socket.assigns.destination)
 
-    assign(socket, view: view, selected_ship: ship && ship["id"], ship: ship, preview: preview)
+    socket =
+      if ship && is_nil(socket.assigns.selected_ship),
+        do: assign(socket, :selected_port, ship["port"]),
+        else: socket
+
+    limits = GameServer.trade_limits(view, ship, socket.assigns.destination)
+    context = {ship && ship["id"], ship && ship["port"], socket.assigns.destination}
+
+    previous =
+      if context == socket.assigns.trade_context, do: socket.assigns.trade_quantities, else: %{}
+
+    edited =
+      if context == socket.assigns.trade_context,
+        do: socket.assigns.trade_edited,
+        else: MapSet.new()
+
+    quantities =
+      Map.new(
+        for {key, maximum} <- limits, maximum > 0 do
+          quantity =
+            if MapSet.member?(edited, key), do: Map.get(previous, key, maximum), else: maximum
+
+          {key, bounded_quantity(quantity, maximum)}
+        end
+      )
+
+    assign(socket,
+      view: view,
+      selected_ship: ship && ship["id"],
+      ship: ship,
+      preview: preview,
+      trade_limits: limits,
+      trade_edited: edited,
+      trade_quantities: quantities,
+      trade_context: context
+    )
   end
+
+  defp bounded_quantity(_quantity, maximum) when maximum < 1, do: 0
+  defp bounded_quantity(quantity, maximum), do: max(1, min(quantity, maximum))
 
   defp owns_ship_at_port?(nil, _port), do: false
 
@@ -272,7 +367,22 @@ defmodule TijaraTidesWeb.GameLive do
   # Keep persisted good IDs stable when their player-facing names change.
   defp cargo_name(good), do: GameServer.cargo_name(good)
 
-  defp cargo_markets(definitions, view, good, side, {column, direction}) do
+  defp route_distance(definitions, ship, destination) do
+    if ship && ship["status"] == "docked" do
+      if ship["port"] == destination,
+        do: 0,
+        else:
+          get_in(definitions.catalogue, [
+            "routes",
+            ship["port"] <> "|" <> destination,
+            "nautical_miles"
+          ])
+    end
+  end
+
+  defp cargo_markets(_definitions, _view, nil, _side, _sort, _ship), do: []
+
+  defp cargo_markets(definitions, view, good, side, {column, direction}, ship) do
     rows =
       for {port, definition} <- definitions.catalogue["ports"],
           String.contains?(
@@ -282,17 +392,43 @@ defmodule TijaraTidesWeb.GameLive do
           quote = view.markets[port <> "|" <> good],
           quote["manual"],
           quote[if(side == "supply", do: "stock", else: "demand")] > 0,
-          do: Map.put(quote, "port", port)
+          do:
+            Map.merge(quote, %{
+              "port" => port,
+              "distance" => route_distance(definitions, ship, port)
+            })
 
     if column in ["ask", "bid"] do
       quantity_key = if side == "supply", do: "stock", else: "demand"
 
       Enum.sort_by(rows, fn quote ->
         price = if direction == :asc, do: quote[column], else: -quote[column]
-        {price, -quote[quantity_key], quote["port"]}
+
+        {price, -quote[quantity_key],
+         if(side == "demand", do: quote["distance"] || 1_000_000_000, else: 0), quote["port"]}
       end)
     else
-      Enum.sort_by(rows, &{&1[column], &1["port"]}, direction)
+      {known, unknown} = Enum.split_with(rows, &(not is_nil(&1[column])))
+
+      Enum.sort_by(known, &{&1[column], &1["port"]}, direction) ++
+        Enum.sort_by(unknown, & &1["port"])
+    end
+  end
+
+  defp cargo_roi(nil), do: "—"
+  defp cargo_roi(roi), do: :erlang.float_to_binary(roi * 100, decimals: 2) <> "%"
+
+  defp cargo_price_range(definitions, view, good) do
+    ask = List.first(cargo_markets(definitions, view, good, "supply", {"ask", :asc}, nil))
+    bid = List.first(cargo_markets(definitions, view, good, "demand", {"bid", :desc}, nil))
+
+    if bid || ask do
+      %{
+        label:
+          "bid #{if bid, do: money(bid["bid"]), else: "—"} / " <>
+            "ask #{if ask, do: money(ask["ask"]), else: "—"}",
+        roi: if(bid && ask && ask["ask"] > 0, do: (bid["bid"] - ask["ask"]) / ask["ask"])
+      }
     end
   end
 
@@ -410,7 +546,8 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   defp integer(_), do: -1
-  defp money(cents), do: "$" <> Integer.to_string(round(cents / 100))
+  defp dollars(whole), do: "$" <> Integer.to_string(whole)
+  defp money(cents), do: dollars(round(cents / 100))
   defp minutes(ms), do: Float.round(ms / 60000, 1)
 
   @doc false
@@ -454,10 +591,19 @@ defmodule TijaraTidesWeb.GameLive do
       "Your company owes #{money(unpaid)} in unpaid operating costs. Sell cargo to settle those costs before departing."
 
   def error_message({:departure_funds, fuel, canal, available}) do
-    required = fuel + canal
+    # Whole dollars must not flatter the player: round each cost up and the cash
+    # they hold down, so a stated shortfall is always enough to cover departure.
+    # Every figure here is derived from the two costs, which keeps the message's
+    # own arithmetic true — a breakdown that did not sum to its total, or a
+    # one-cent gap reported as $0, would each read as a contradiction.
+    fuel_dollars = ceil(fuel / 100)
+    canal_dollars = ceil(canal / 100)
+    needed = fuel_dollars + canal_dollars
+    held = floor(available / 100)
 
-    "Departure requires #{money(required)}: #{money(fuel)} for fuel and #{money(canal)} in canal fees. " <>
-      "You have #{money(available)} available after reservations, leaving a shortfall of #{money(required - available)}."
+    "Departure requires #{dollars(needed)}: #{dollars(fuel_dollars)} for fuel and " <>
+      "#{dollars(canal_dollars)} in canal fees. You have #{dollars(held)} available " <>
+      "after reservations, leaving a shortfall of #{dollars(needed - held)}."
   end
 
   def error_message(reason) do
@@ -536,6 +682,50 @@ defmodule TijaraTidesWeb.GameLive do
 
   @impl true
   def render(assigns) do
+    map_ships =
+      Enum.filter((assigns.view.public && assigns.view.public["ships"]) || %{}, fn {id, ship} ->
+        ship["status"] == "sailing" and
+          MapSet.member?(assigns.map_ship_classes, ship["class"]) and
+          (assigns.map_show_others or is_nil(assigns.view.private) or
+             Map.has_key?(assigns.view.private["ships"], id))
+      end)
+
+    cargo_options =
+      for {good, _} <-
+            Enum.sort_by(assigns.definitions.catalogue["goods"], fn {good, _} ->
+              cargo_name(good)
+            end),
+          range = cargo_price_range(assigns.definitions, assigns.view, good),
+          do: {good, range}
+
+    cargo_options =
+      if assigns.cargo_sort_roi do
+        Enum.sort_by(cargo_options, fn {good, quote} ->
+          {is_nil(quote.roi), -(quote.roi || 0), cargo_name(good)}
+        end)
+      else
+        cargo_options
+      end
+
+    market_good =
+      if Enum.any?(cargo_options, fn {good, _} -> good == assigns.market_good end) do
+        assigns.market_good
+      else
+        case List.first(cargo_options) do
+          {good, _} -> good
+          nil -> nil
+        end
+      end
+
+    assigns =
+      assign(assigns,
+        map_ships: map_ships,
+        cargo_options: cargo_options,
+        cargo_roi_varies:
+          cargo_options |> Enum.map(fn {_, quote} -> quote.roi end) |> Enum.uniq() |> length() > 1,
+        market_good: market_good
+      )
+
     ~H"""
     <Layouts.app flash={@flash}>
       <main class={[
@@ -720,6 +910,75 @@ defmodule TijaraTidesWeb.GameLive do
                         {@definitions.catalogue["ports"][@selected_port]["identity"]}
                       </p>
                     </details>
+                    <section
+                      :if={@ship && @ship["status"] == "docked" && @ship["port"] != @selected_port}
+                      id="destination-planner"
+                      class="my-3 rounded border border-teal-900 p-2"
+                    >
+                      <% distance = route_distance(@definitions, @ship, @selected_port) %>
+                      <h3 class="text-sm text-teal-200">
+                        From {@ship["port"]} · {if distance,
+                          do: "#{round(distance)} nautical miles",
+                          else: "No route available"}
+                      </h3>
+                      <p class="my-2 text-xs text-slate-400">
+                        Cargo available at {@ship["port"]}. Profit estimates use the listed load, current prices, handling, cleaning, fuel, canals, and estimated fleet upkeep. Cash affordability and spoilage are not included; prices and demand can change.
+                      </p>
+                      <% options =
+                        GameServer.destination_options(@definitions, @view, @ship, @selected_port) %>
+                      <p :if={options == []} class="text-sm text-slate-400">
+                        No compatible cargo available at the current port.
+                      </p>
+                      <table
+                        :if={options != []}
+                        class="w-full text-xs"
+                        aria-label="Destination trade opportunities"
+                      >
+                        <thead>
+                          <tr>
+                            <th>Cargo / supply</th><th>Buy / lot</th><th>Bid / demand</th><th>
+                              Load / est. profit
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr
+                            :for={option <- options}
+                            data-good={option.good}
+                            class="border-t border-slate-700"
+                          >
+                            <td>
+                              <button
+                                type="button"
+                                phx-click="market-good"
+                                phx-value-good={option.good}
+                                class="text-left text-teal-300 underline"
+                              >{cargo_name(option.good)}</button><p>
+                                {option.source["stock"]} lots · {cargo_volume(
+                                  option.item,
+                                  option.source["stock"]
+                                )}
+                              </p>
+                            </td>
+                            <td>{money(option.source["ask"])}</td>
+                            <td>
+                              {if option.demand > 0,
+                                do: "#{money(option.buyer["bid"])} / #{option.demand}",
+                                else: "No demand"}
+                            </td>
+                            <td>
+                              {option.lots} lots<p class={
+                                if option.profit && option.profit >= 0,
+                                  do: "text-teal-300",
+                                  else: "text-red-400"
+                              }>
+                                {if is_nil(option.profit), do: "—", else: money(option.profit)}
+                              </p>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </section>
                     <TijaraTidesWeb.PortTraffic.traffic
                       public={@view.public}
                       port={@selected_port}
@@ -769,7 +1028,7 @@ defmodule TijaraTidesWeb.GameLive do
                            @ship["status"] == "docked" do
                         options =
                           Enum.filter(market_rows, fn {good, item} ->
-                            item["manual"] && Map.get(@trade_quantities, {"buy", good}, 1) > 0
+                            item["manual"] && Map.get(@trade_quantities, {"buy", good}, 0) > 0
                           end)
 
                         Enum.find(options, fn {good, _} -> good == @purchase_good end) ||
@@ -777,7 +1036,7 @@ defmodule TijaraTidesWeb.GameLive do
                       end %>
                     <%= if purchase do %>
                       <% {good, item} = purchase %>
-                      <% quantity = Map.get(@trade_quantities, {"buy", good}, 1) %>
+                      <% quantity = Map.get(@trade_quantities, {"buy", good}, 0) %>
                       <% voyage =
                         GameServer.purchase_voyage(
                           @ship,
@@ -898,12 +1157,15 @@ defmodule TijaraTidesWeb.GameLive do
                                 id={"trade-#{side}-#{String.replace(good, " ", "-")}"}
                                 phx-submit="trade"
                                 phx-change="trade-preview"
-                                class="flex flex-wrap gap-2"
+                                class="trade-controls flex flex-wrap gap-2"
+                                phx-hook="TradeQuantity"
+                                data-quantity={Map.get(@trade_quantities, {side, good}, 0)}
+                                data-max={Map.get(@trade_limits, {side, good}, 0)}
                               >
-                                <% available = available_to_trade(side, q, @ship, good) %>
+                                <% available = Map.get(@trade_limits, {side, good}, 0) %>
                                 <% quantity =
                                   if available > 0,
-                                    do: Map.get(@trade_quantities, {side, good}, 1),
+                                    do: Map.get(@trade_quantities, {side, good}, available),
                                     else: 0 %>
                                 <% freshness =
                                   GameServer.trade_freshness(
@@ -925,8 +1187,19 @@ defmodule TijaraTidesWeb.GameLive do
                                   value={if(side == "buy", do: q["ask"], else: q["bid"])}
                                 />
                                 <input
+                                  type="range"
+                                  name="quantity_slider"
+                                  min={if available > 0, do: 1, else: 0}
+                                  max={available}
+                                  step="1"
+                                  value={quantity}
+                                  disabled={available < 1}
+                                  aria-label={"#{String.capitalize(side)} #{cargo_name(good)} quantity slider"}
+                                  class="w-full basis-full accent-teal-400"
+                                />
+                                <input
                                   type="number"
-                                  id={"quantity-#{side}-#{String.replace(good, " ", "-")}-#{if side == "buy", do: Map.get(@trade_resets, good, 0), else: 0}"}
+                                  id={"quantity-#{side}-#{String.replace(good, " ", "-")}"}
                                   name="quantity"
                                   min={if available > 0, do: 1, else: 0}
                                   max={max(0, min(10_000, available))}
@@ -941,8 +1214,10 @@ defmodule TijaraTidesWeb.GameLive do
                                     if available <= 0,
                                       do:
                                         if(side == "buy",
-                                          do: "No stock available at this port",
-                                          else: "No cargo aboard or no demand at this port"
+                                          do:
+                                            "No feasible purchase: check destination, funds, stock, and capacity",
+                                          else:
+                                            "No feasible sale: check cargo, demand, and buyer funds"
                                         )
                                   }
                                   class="rounded bg-teal-700 px-3 py-1 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:opacity-60"
@@ -1008,6 +1283,57 @@ defmodule TijaraTidesWeb.GameLive do
                   class="overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
                 >
                   <% viewport = WorldMap.viewport(@definitions.catalogue, @map_region) %>
+                  <div class="px-3 py-2">
+                    <button
+                      id="map-filter-toggle"
+                      phx-click="toggle-map-filters"
+                      aria-expanded={to_string(@map_filters_open)}
+                      aria-controls="map-filters"
+                      class="rounded border border-slate-600 px-3 py-1 text-xs"
+                    >
+                      Ship filters {if @map_filters_open, do: "▴", else: "▾"}
+                    </button>
+                    <form
+                      :if={@map_filters_open}
+                      id="map-filters"
+                      phx-change="map-filters"
+                      class="mt-2 rounded border border-slate-600 bg-slate-900 p-3 text-xs"
+                    >
+                      <fieldset>
+                        <legend class="mb-2 text-slate-400">Ship types</legend>
+                        <input type="hidden" name="classes[]" value="" />
+                        <div class="grid grid-cols-2 gap-2">
+                          <label
+                            :for={
+                              {id, ship_class} <-
+                                Enum.sort_by(@definitions.classes, fn {_, c} -> c["name"] end)
+                            }
+                            class="flex items-center gap-2"
+                          >
+                            <input
+                              type="checkbox"
+                              name="classes[]"
+                              value={id}
+                              checked={MapSet.member?(@map_ship_classes, id)}
+                            />
+                            {ship_class["name"]}
+                          </label>
+                        </div>
+                      </fieldset>
+                      <label
+                        :if={@view.private}
+                        class="mt-3 flex items-center gap-2 border-t border-slate-700 pt-2"
+                      >
+                        <input type="hidden" name="show_others" value="false" />
+                        <input
+                          type="checkbox"
+                          name="show_others"
+                          value="true"
+                          checked={@map_show_others}
+                        /> Show other companies’ ships
+                      </label>
+                    </form>
+                  </div>
                   <div :if={@map_region} class="flex items-center justify-between px-4 py-3">
                     <h2 class="text-lg">{@map_region}</h2>
                     <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2">World view</button>
@@ -1043,7 +1369,7 @@ defmodule TijaraTidesWeb.GameLive do
                       fill="none"
                       stroke="#1e293b"
                     />
-                    <g :for={{_, s} <- @view.public["ships"]} :if={s["status"] == "sailing"}>
+                    <g :for={{id, s} <- @map_ships} data-map-route={id}>
                       <% route =
                         @definitions.catalogue["routes"][s["port"] <> "|" <> s["destination"]][
                           "coordinates"
@@ -1141,7 +1467,7 @@ defmodule TijaraTidesWeb.GameLive do
                         {length(marker.ports)}
                       </text>
                     </g>
-                    <g :for={{id, s} <- @view.public["ships"]} :if={s["status"] == "sailing"}>
+                    <g :for={{id, s} <- @map_ships} data-map-ship={id}>
                       <% [px, py] =
                         WorldMap.project(
                           ship_coordinates(s, @view.public["clock_ms"], @definitions.catalogue)
@@ -1221,9 +1547,44 @@ defmodule TijaraTidesWeb.GameLive do
                   </section>
                   <section :if={@view.private && @view.private["company"]} class="my-6">
                     <h2 class="mb-3 text-xl">Your fleet</h2>
+                    <form id="fleet-filter" phx-change="fleet-status" class="mb-3 text-sm">
+                      <label for="fleet-status">Ship status</label>
+                      <select
+                        id="fleet-status"
+                        name="status"
+                        class="ml-2 rounded bg-slate-800 px-2 py-1"
+                      >
+                        <option
+                          :for={
+                            {value, label} <- [
+                              {"all", "All ships"},
+                              {"docked", "Docked"},
+                              {"loading", "Loading"},
+                              {"unloading", "Unloading"},
+                              {"sailing", "Sailing"}
+                            ]
+                          }
+                          value={value}
+                          selected={@fleet_status == value}
+                        >
+                          {label}
+                        </option>
+                      </select>
+                    </form>
+                    <p
+                      :if={
+                        !Enum.any?(@view.private["ships"], fn {_, s} ->
+                          @fleet_status == "all" || s["status"] == @fleet_status
+                        end)
+                      }
+                      class="mb-3 text-sm text-slate-400"
+                    >
+                      No ships with this status.
+                    </p>
                     <div class="fleet-list">
                       <button
                         :for={{id, s} <- Enum.sort(@view.private["ships"])}
+                        :if={@fleet_status == "all" || s["status"] == @fleet_status}
                         phx-click="ship"
                         phx-value-id={id}
                         aria-pressed={if id == @selected_ship, do: "true", else: "false"}
@@ -1414,26 +1775,77 @@ defmodule TijaraTidesWeb.GameLive do
                   <section id="cargo-markets" class="my-6 rounded-xl border border-slate-700 p-5">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                       <h2 class="text-2xl">Markets by cargo</h2>
-                      <form id="cargo-market-selector" phx-change="market-good">
-                        <label for="market-good" class="mr-2">Cargo</label>
-                        <select id="market-good" name="good" class="rounded bg-slate-800 px-3 py-2">
-                          <option
-                            :for={
-                              {good, _} <-
-                                Enum.sort_by(@definitions.catalogue["goods"], fn {good, _} ->
-                                  cargo_name(good)
-                                end)
-                            }
-                            value={good}
-                            selected={good == @market_good}
+                      <div
+                        id="cargo-market-selector"
+                        class="cargo-picker"
+                        phx-click-away="close-cargo-menu"
+                        phx-keydown="close-cargo-menu"
+                        phx-key="Escape"
+                      >
+                        <button
+                          id="market-good"
+                          type="button"
+                          phx-click="toggle-cargo-menu"
+                          aria-expanded={to_string(@cargo_menu_open)}
+                          aria-controls="cargo-options"
+                          class="cargo-choice rounded bg-slate-800 px-3 py-2"
+                        >
+                          <span>{if @market_good,
+                            do: cargo_name(@market_good),
+                            else: "No cargo markets available"}</span>
+                          <span class="cargo-spread">{if @market_good,
+                            do: (List.keyfind(@cargo_options, @market_good, 0) |> elem(1)).label} ▾</span>
+                        </button>
+                        <div
+                          :if={@cargo_menu_open}
+                          id="cargo-options"
+                          class="cargo-options"
+                          role="group"
+                          aria-label="Choose cargo"
+                        >
+                          <div class="cargo-menu-row cargo-menu-heading px-3 py-2" aria-hidden="true">
+                            <span>Cargo</span><span class="cargo-spread">Bid / ask</span><span class="cargo-roi">ROI</span>
+                          </div>
+                          <button
+                            :for={{good, range} <- @cargo_options}
+                            type="button"
+                            phx-click="market-good"
+                            phx-value-good={good}
+                            aria-pressed={to_string(good == @market_good)}
+                            class="cargo-choice cargo-menu-row px-3 py-2"
                           >
-                            {cargo_name(good)}
-                          </option>
-                        </select>
-                      </form>
+                            <span>{cargo_name(good)}</span>
+                            <span class="cargo-spread">{range.label}</span>
+                            <span class="cargo-roi" aria-label={"ROI " <> cargo_roi(range.roi)}>{cargo_roi(
+                              range.roi
+                            )}</span>
+                          </button>
+                          <p :if={@cargo_options == []} class="p-3">No cargo markets available</p>
+                        </div>
+                      </div>
                     </div>
+                    <form
+                      :if={@cargo_roi_varies}
+                      id="cargo-sort"
+                      phx-change="cargo-sort-roi"
+                      class="mt-2 text-sm"
+                    >
+                      <label class="flex items-center gap-2">
+                        <input type="hidden" name="roi" value="false" />
+                        <input type="checkbox" name="roi" value="true" checked={@cargo_sort_roi} />
+                        Sort by ROI
+                      </label>
+                      <p class="mt-1 text-xs text-slate-400">
+                        Highest first: (best bid − best ask) ÷ best ask, before handling and voyage costs.
+                      </p>
+                    </form>
                     <p class="my-3 text-sm text-slate-400">
-                      Supply and demand in lots · prices per lot, before handling · updated live. Select a port to inspect its market.
+                      Supply and demand in lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market.
+                    </p>
+                    <p class="mb-2 text-xs text-slate-400">
+                      {if @ship && @ship["status"] == "docked",
+                        do: "Sea-route distances from #{@ship["port"]} in nautical miles.",
+                        else: "Select a docked ship to compare sea-route distances."}
                     </p>
                     <div class="cargo-comparison grid gap-2 md:grid-cols-2">
                       <div
@@ -1446,7 +1858,7 @@ defmodule TijaraTidesWeb.GameLive do
                         class="min-w-0 overflow-x-auto"
                       >
                         <% sort = @market_sort[side] %>
-                        <% rows = cargo_markets(@definitions, @view, @market_good, side, sort) %>
+                        <% rows = cargo_markets(@definitions, @view, @market_good, side, sort, @ship) %>
                         <h3 class="mb-2 text-lg font-medium">{heading}</h3>
                         <table
                           id={"cargo-#{side}"}
@@ -1457,12 +1869,17 @@ defmodule TijaraTidesWeb.GameLive do
                             <tr>
                               <th
                                 :for={
-                                  {column, label} <- [
-                                    {"port", "Port"},
-                                    {quantity_key, heading},
-                                    {price_key,
-                                     if(side == "supply", do: "Buy price", else: "Sell price")}
-                                  ]
+                                  {column, label} <-
+                                    [
+                                      {"port", "Port"},
+                                      {quantity_key, if(side == "demand", do: "Lots", else: heading)},
+                                      {price_key,
+                                       if(side == "supply", do: "Buy price", else: "Sell price")}
+                                    ] ++
+                                      if(side == "demand",
+                                        do: [{"distance", "nm"}],
+                                        else: []
+                                      )
                                 }
                                 scope="col"
                                 class={
@@ -1524,9 +1941,15 @@ defmodule TijaraTidesWeb.GameLive do
                                   Trading not available yet
                                 </td>
                               <% end %>
+                              <td :if={side == "demand"} class="text-right tabular-nums">
+                                {if is_nil(quote["distance"]), do: "—", else: round(quote["distance"])}
+                              </td>
                             </tr>
                             <tr :if={rows == []}>
-                              <td colspan="3" class="py-3 text-slate-400">
+                              <td
+                                colspan={if(side == "demand", do: 4, else: 3)}
+                                class="py-3 text-slate-400"
+                              >
                                 No ports for this cargo.
                               </td>
                             </tr>

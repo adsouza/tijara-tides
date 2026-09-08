@@ -5,6 +5,7 @@ defmodule TijaraTides.Domain.Game do
   @asset_value 20_000_000
   @voyage_speedup 600
   @minimum_voyage_ms 6_000
+  @market_replenishment_ms 150_000
 
   def classes do
     %{
@@ -375,6 +376,7 @@ defmodule TijaraTides.Domain.Game do
         "freshness_batches" => market["batches"],
         "stock" => market["stock"],
         "demand" => market["demand"],
+        "buyer_budget" => market["budget"],
         "manual" => item["manual"] and not market["merchant"]
       }
     end
@@ -996,7 +998,7 @@ defmodule TijaraTides.Domain.Game do
 
     state =
       Enum.reduce(entities(state, "markets"), state, fn {id, market}, state ->
-        minutes = div(now - market["last_production"], 60_000)
+        replenished = div(now - market["last_production"], @market_replenishment_ms)
         item = catalogue["goods"][market["good"]]
         batches = Enum.reject(market["batches"], &(&1["expires_ms"] <= now))
 
@@ -1008,14 +1010,14 @@ defmodule TijaraTides.Domain.Game do
         market = %{market | "batches" => batches, "stock" => stock}
         state = put(state, "markets", id, market)
 
-        if minutes > 0 do
+        if replenished > 0 do
           # Manufactured supply is a finite initial allocation until input purchasing
           # and recipes are implemented. Never synthesize re-export merchant stock.
           raw = market["good"] in raw_goods()
 
           produced =
             if raw and market["seller"] and not market["merchant"],
-              do: min(max(0, 500 - stock), minutes * 4),
+              do: min(max(0, 500 - stock), replenished),
               else: 0
 
           {state, batches} =
@@ -1036,11 +1038,12 @@ defmodule TijaraTides.Domain.Game do
                 min(
                   item["reference_cents"] * 1000,
                   market["budget"] +
-                    if(market["buyer"], do: minutes * 4 * item["reference_cents"], else: 0)
+                    if(market["buyer"], do: replenished * item["reference_cents"], else: 0)
                 ),
               "demand" =>
-                min(500, market["demand"] + if(market["buyer"], do: minutes * 4, else: 0)),
-              "last_production" => market["last_production"] + minutes * 60_000
+                min(500, market["demand"] + if(market["buyer"], do: replenished, else: 0)),
+              "last_production" =>
+                market["last_production"] + replenished * @market_replenishment_ms
           }
 
           put(state, "markets", id, market)

@@ -35,6 +35,16 @@ without scrolling the page or displacing the map. Panel selection survives live
 updates and orientation changes. Account details and invitations open from a
 compact menu above the workspace.
 
+An empty docked ship is preferred on startup, with its current port selected;
+subsequent updates preserve the player's selection. The fleet has an optional
+status filter. Destination planning starts with that ship and its current port.
+The Cargo demand table includes sea-route distance from that origin in nautical
+miles. Remote-port inspection includes origin purchase prices, compatible stock
+and volume, destination demand, and estimated profit for a load bounded by
+supply, demand, and remaining ship capacity. The estimate includes handling,
+cleaning, fuel, canals, and fleet upkeep; cash affordability, changing prices,
+and perishable losses remain separate considerations.
+
 The interface follows progressive disclosure, and this is what protects the
 session length above. Every deep mechanic in the sections that follow is
 optional and has a stated default: earmarked purchase budgets, advance stock
@@ -927,6 +937,13 @@ rules are specified separately below.
 
 ### Port traffic and manual trading interface
 
+The Buy and Sell controls default to the maximum feasible whole-lot quantity,
+with a synchronized slider above the numeric field and action button. The range
+is one through that maximum, or zero with disabled controls when no lot is
+feasible. Purchase bounds include capacity, available stock, handling, cleaning,
+available cash, and voyage funding; sale bounds include cargo aboard, demand,
+and buyer funding. Live updates clamp explicit quantities to the current bounds.
+
 The port market separates Buy / supply and Sell / demand into selectable views.
 Each view contains only its relevant price, available quantity, and trade
 controls, alongside cargo details and the local ship's aboard quantity. The
@@ -976,7 +993,8 @@ relevant buy or sell price per lot before handling; selecting a port opens its
 market.
 
 Default Supply to ascending buy price, then descending supply; default Demand
-to descending sell price, then descending demand.
+to descending sell price, then descending demand, then ascending sea-route
+distance from the selected docked ship.
 
 Allow independent sorting by port, quantity, or price in each table, with
 visible sort-direction indicators and live quantities and prices.

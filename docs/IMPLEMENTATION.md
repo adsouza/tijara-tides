@@ -51,17 +51,45 @@ new fleet activity. This check does not earmark funds: subsequent spending or
 waiting can change affordability, and departure still rechecks funding. It does
 not provide recovery for companies already stranded without cash.
 
+Port trade controls share a bounded lot quantity between a slider and number
+field. Purchases default to the largest affordable load after capacity, stock,
+handling, cleaning, and voyage-funding checks. Sales default to the smaller of
+cargo aboard, demand, and the buyer's funded quantity. Both obey the 10,000-lot
+command limit. Zero feasible lots disables both controls and the trade button.
+Explicit choices survive live updates within the new bounds; changing ship or
+destination and completing handling restores maximum defaults. The slider sits
+above the numeric field and action button, with the purchase total below.
+
 The current port's Buy view includes the chosen destination's current bid and
 demand when an executable buyer exists there. The per-lot spread compares that
 bid with the local ask before handling and voyage costs; it is not guaranteed
 profit or a reservation of destination demand. These quotes update live.
+
+On startup, an empty docked ship is preferred, with its current port selected.
+Later updates preserve the player's ship selection. Fleet status filtering does
+not silently change that selection. The Cargo demand table adds sea-route
+distance in nautical miles from the selected docked ship, after price and demand
+as the third default sort key. Unknown distances remain last.
+
+Inspecting another port with a docked ship opens a destination comparison using
+compatible stock at the ship's current port. Each candidate load is capped by
+source supply, destination demand, and remaining weight and volume capacity.
+Estimated profit deducts purchase and sale handling, tanker cleaning, loaded
+fuel, canal fees, fleet upkeep through arrival, and a conservative unloading
+upkeep allowance. It assumes current prices and immediate dispatch; available
+cash and spoilage are not modeled in this planning estimate. Goods without an
+executable destination buyer remain visible with no profit estimate.
 
 Sea routes are precomputed from a maritime network and displayed on an
 Equal Earth map. The world overview groups the Pearl River Delta, Northern
 Frangistan, and Strait of Hormuz ports into numbered markers. Selecting a group
 zooms to its labeled harbors with more detailed 1:10m coastlines and provides a
 port list; World view restores the overview with lightweight 1:110m coastlines.
-Northern Frangistan includes Antwerp, Hamburg, and Rotterdam. Routing is for game
+Northern Frangistan includes Antwerp, Hamburg, and Rotterdam. The map’s Ship
+filters dropdown offers ship-class checkboxes, all enabled initially. Authenticated
+players can uncheck “Show other companies’ ships” (enabled initially) to see only
+their own fleet. Filters affect sailing markers and their routes, preserve port
+markers, and survive world updates and regional navigation. Routing is for game
 visualization, not real navigation. Voyage
 estimates show duration, reserved fuel, canal fees, and crew costs. Port handling
 costs vary with the port cost tier; load/unload operations take time.
@@ -76,7 +104,9 @@ initial allocation until input-consuming production is implemented. Re-export
 merchants remain unavailable until their warehouse-backed inventory exists.
 Major and minor trade roles currently share the same provisional rate; role-weighted
 production remains part of the full economy. Consumer demand and spending budgets
-replenish and are capped. This is a manual
+replenish and are capped. Supply and demand recover one lot every 150 seconds
+of active world time (0.4 lots per minute); buyer budgets recover one lot’s
+reference value on the same interval. Partial intervals carry across ticks. This is a manual
 NPC market adapter, not the eventual central limit order book. Berth capacity,
 ship purchases, warehouses, automated trading, annual invite entitlements, and
 leaderboard periods are not yet exposed. Operating shortfalls accumulate as unpaid

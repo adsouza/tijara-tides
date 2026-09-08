@@ -44,6 +44,10 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 .cargo-comparison th:first-child { width: 38%; }
 .cargo-comparison th:nth-child(2) { width: 26%; }
 .cargo-comparison th:nth-child(3) { width: 36%; }
+#cargo-demand th:first-child { width: 32%; }
+#cargo-demand th:nth-child(2) { width: 20%; }
+#cargo-demand th:nth-child(3) { width: 25%; }
+#cargo-demand th:nth-child(4) { width: 23%; }
 #map-panel { flex: none; border: 0; border-bottom: 1px solid #334155; border-radius: 0; max-height: 38%; overflow: auto; }
 #map-panel #world-map { display: block; width: 100%; max-height: 24dvh; }
 #map-panel > p { font-size: 10px; padding: 4px 10px; }
@@ -80,3 +84,16 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
   stroke: white;
   stroke-width: 2px;
 }
+
+/* A disclosure menu allows aligned prices across platforms' native select styles. */
+.cargo-picker { position: relative; width: 100%; min-width: 0; font-size: 12px; }
+.cargo-choice { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; }
+.cargo-spread { margin-left: auto; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cargo-options { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; max-height: 45dvh; overflow-y: auto; border: 1px solid #475569; border-radius: 8px; background: #0f172a; box-shadow: 0 8px 24px #0008; }
+.cargo-options button:hover, .cargo-options button:focus-visible { background: #334155; }
+.cargo-options button[aria-pressed=true] { background: #134e4a; }
+
+.cargo-menu-row { display: grid; grid-template-columns: minmax(0, 1fr) max-content 7ch; gap: 8px; align-items: center; }
+.cargo-menu-row > span:first-child { overflow-wrap: anywhere; }
+.cargo-roi { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cargo-menu-heading { position: sticky; top: 0; background: #0f172a; color: #94a3b8; border-bottom: 1px solid #475569; }

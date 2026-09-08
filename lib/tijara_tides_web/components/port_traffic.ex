@@ -49,6 +49,7 @@ defmodule TijaraTidesWeb.PortTraffic do
       <details
         :for={group <- @groups}
         id={group_id(@port, @grouping, group.key)}
+        open={@grouping == "status" and group.key in ["Loading", "Unloading"]}
         phx-mounted={JS.ignore_attributes("open")}
         class="mt-3 rounded border border-slate-700 px-3 py-2"
       >

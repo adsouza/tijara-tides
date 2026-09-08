@@ -542,6 +542,34 @@ defmodule TijaraTides.Domain.GameTest do
     assert Game.advance(expired, 0, catalogue) == expired
   end
 
+  test "market recovery is one lot per 150 seconds and preserves partial intervals" do
+    {state, _account, catalogue} = setup_game()
+    supplier = Game.get(state, "markets", "Jakarta|Lumber")
+    buyer = Game.get(state, "markets", "Singapore|Lumber")
+
+    state =
+      state
+      |> Game.put("markets", "Jakarta|Lumber", %{supplier | "stock" => 490})
+      |> Game.put("markets", "Singapore|Lumber", %{buyer | "demand" => 490, "budget" => 0})
+
+    before = Enum.reduce(1..29, state, fn _, acc -> Game.advance(acc, 5_000, catalogue) end)
+    assert Game.get(before, "markets", "Jakarta|Lumber")["stock"] == 490
+    assert Game.get(before, "markets", "Singapore|Lumber")["demand"] == 490
+    after_tick = Game.advance(before, 5_000, catalogue)
+    assert Game.get(after_tick, "markets", "Jakarta|Lumber")["stock"] == 491
+    assert Game.get(after_tick, "markets", "Singapore|Lumber")["demand"] == 491
+
+    assert Game.get(after_tick, "markets", "Singapore|Lumber")["budget"] ==
+             catalogue["goods"]["Lumber"]["reference_cents"]
+
+    ten_minutes = Game.advance(after_tick, 450_000, catalogue)
+    assert Game.get(ten_minutes, "markets", "Jakarta|Lumber")["stock"] == 494
+    assert Game.get(ten_minutes, "markets", "Singapore|Lumber")["demand"] == 494
+    capped = Game.advance(ten_minutes, 86_400_000, catalogue)
+    assert Game.get(capped, "markets", "Jakarta|Lumber")["stock"] == 500
+    assert Game.get(capped, "markets", "Singapore|Lumber")["demand"] == 500
+  end
+
   test "market freshness expires between production boundaries" do
     {state, _, catalogue} = setup_game()
     market = Game.get(state, "markets", "Jakarta|Fruit")

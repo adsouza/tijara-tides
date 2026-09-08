@@ -101,7 +101,7 @@ REQUIREMENTS = [
     (68, 'Require a valid destination before buying. Show the purchase total and the cash needed for post-purchase fuel, canal fees, and estimated fleet upkeep through loading and arrival. Update both on quantity or destination changes; display the total in red if the purchase would leave insufficient voyage funds or unpaid costs block purchasing. Reject such purchases on the server with the required and remaining amounts.', 7, 'display', 'Port panel'),
     (69, 'Provide a cargo selector and two market tables beside each other: Supply on the left and Demand on the right; stack them on narrow screens.', 7, 'display', 'Market'),
     (70, 'Each cargo comparison table lists applicable ports, quantity in lots, and its relevant buy or sell price per lot before handling; selecting a port opens its market.', 7, 'display', 'Market'),
-    (71, 'Default Supply to ascending buy price, then descending supply; default Demand to descending sell price, then descending demand.', 7, 'display', 'Market'),
+    (71, 'Default Supply to ascending buy price, then descending supply; default Demand to descending sell price, then descending demand, then ascending sea-route distance from the selected docked ship.', 7, 'display', 'Market'),
     (72, 'Allow independent sorting by port, quantity, or price in each table, with visible sort-direction indicators and live quantities and prices.', 7, 'display', 'Market'),
     (73, 'Omit ports with zero supply from the Supply table and ports with zero demand from the Demand table; omit markets whose trading system is not available yet.', 7, 'display', 'Market'),
     (74, 'The private ship manifest is a table with aligned columns for cargo, lots, weight, volume, average cost per lot, and first expiry.', 9, 'display', 'Fleet and ship detail'),
@@ -115,6 +115,11 @@ REQUIREMENTS = [
     (82, "Landscape windows display all three panels together; portrait windows display one panel at a time with horizontal swipe navigation and keyboard-accessible panel buttons.", 1, "display", "World map"),
     (83, "Long lists scroll inside their panels without scrolling the page or displacing the map.", 1, "display", "World map"),
     (84, "Panel selection survives live updates and orientation changes.", 1, "display", "World map"),
+    (85, "An empty docked ship is preferred on startup, with its current port selected; subsequent updates preserve the player's selection.", 1, "display", "Fleet and ship detail"),
+    (86, "The fleet has an optional status filter.", 1, "display", "Fleet and ship detail"),
+    (87, "The Cargo demand table includes sea-route distance from that origin in nautical miles.", 1, "display", "Market"),
+    (88, "Remote-port inspection includes origin purchase prices, compatible stock and volume, destination demand, and estimated profit for a load bounded by supply, demand, and remaining ship capacity.", 1, "display", "Port panel"),
+    (89, "The Buy and Sell controls default to the maximum feasible whole-lot quantity, with a synchronized slider above the numeric field and action button.", 7, "display", "Port panel"),
 ]
 
 # Every mechanically deep feature in sections 7 and 8 is opt-in with a stated

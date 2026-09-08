@@ -1,9 +1,15 @@
 # Desktop clients
 
 Tauri 2 wraps the same remote Phoenix LiveView interface used by browsers. The
-bundled connection screen works before a server is reachable. Enter a server URL
-and click **Connect to server**. The last address is remembered locally; the game
-session is held by the webview's cookies. A browser and a native app normally have
+client automatically opens the last selected server on startup, defaulting to
+https://tijara-tides.onrender.com/ on first launch. Root addresses open directly
+at /play; explicitly entered paths are preserved. Each server currently hosts one
+world. The game session is held by the webview's persistent cookies, so returning
+to a server resumes the same account and company unless signed out or expired.
+Connection Settings remembers the ten most recent distinct addresses in a
+dropdown and always includes production. Select one or enter a new URL, then
+click **Connect to server**. Addresses are stored locally when connecting; the
+list may include an unreachable server. A browser and a native app normally have
 separate cookie stores and therefore join as separate guests.
 
 The window size, position, and maximized state are saved locally on exit and restored on
@@ -56,7 +62,8 @@ Linux ARM packaging is not part of the current CI matrix.
 connection screen even if the remote server fails to load. **Reload**
 (`Cmd/Ctrl+R`) retries the current page. The native Edit menu supports copy/paste.
 These menu actions are implemented in Rust and do not depend on the server UI.
-There is no public game-server address configured yet.
+Opening Connection Settings suppresses automatic reconnection so you can change
+servers even when the previous server is unavailable.
 
 The launcher accepts HTTPS, plus HTTP on loopback (`localhost`, `127.0.0.1`,
 `[::1]`) for development. It rejects credentials embedded in URLs, query strings,

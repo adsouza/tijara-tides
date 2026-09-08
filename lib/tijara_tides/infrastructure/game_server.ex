@@ -51,8 +51,150 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   def cargo_name(good), do: GameCatalogue.all()["goods"][good]["name"] || good
 
+  def destination_options(definitions, view, ship, destination) do
+    if ship && ship["status"] == "docked" && ship["port"] != destination do
+      space = Game.capacity(ship, definitions.catalogue)
+      class = definitions.classes[ship["class"]]
+      fleet = Map.values(view.private["ships"])
+
+      for {good, item} <-
+            Enum.sort_by(definitions.catalogue["goods"], fn {good, _} -> cargo_name(good) end),
+          source = view.markets[ship["port"] <> "|" <> good],
+          source["manual"] && source["stock"] > 0 && Game.compatible_cargo?(ship, item) do
+        buyer = view.markets[destination <> "|" <> good]
+        demand = if buyer["manual"], do: buyer["demand"], else: 0
+
+        lots =
+          max(
+            0,
+            Enum.min([
+              source["stock"],
+              demand,
+              div(class["weight"] - space.weight, item["weight_kg"]),
+              div(class["volume"] - space.volume, item["volume_l"])
+            ])
+          )
+
+        voyage =
+          if lots > 0,
+            do:
+              purchase_voyage(
+                ship,
+                item,
+                lots,
+                destination,
+                view.private["ships"],
+                view.public["clock_ms"]
+              )
+
+        profit =
+          if voyage do
+            unloading_upkeep =
+              Enum.sum(
+                Enum.map(fleet, fn s ->
+                  div(
+                    Game.handling_ms(lots) * definitions.classes[s["class"]]["crew"] * 2 + 119_999,
+                    120_000
+                  )
+                end)
+              )
+
+            lots * (buyer["bid"] - buyer["handling_fee"]) -
+              Game.purchase_total(source, ship, item, lots) - voyage["required"] -
+              unloading_upkeep
+          end
+
+        %{
+          good: good,
+          item: item,
+          source: source,
+          buyer: buyer,
+          demand: demand,
+          lots: lots,
+          profit: profit
+        }
+      end
+    else
+      []
+    end
+  end
+
   def purchase_total(quote, ship, item, quantity),
     do: Game.purchase_total(quote, ship, item, quantity)
+
+  def trade_limits(view, ship, destination) do
+    if ship && ship["status"] == "docked" && view.private do
+      catalogue = GameCatalogue.all()
+      space = Game.capacity(ship, catalogue)
+      class = Game.classes()[ship["class"]]
+      company = view.private["company"]
+      cash = company["cash"] - company["reserved"]
+
+      Map.new(
+        for {good, item} <- catalogue["goods"], side <- ["buy", "sell"] do
+          q = view.markets[ship["port"] <> "|" <> good]
+
+          limit =
+            cond do
+              !q["manual"] ->
+                0
+
+              side == "sell" ->
+                aboard =
+                  Enum.sum(
+                    for batch <- ship["cargo"], batch["good"] == good, do: batch["quantity"]
+                  )
+
+                Enum.min([10_000, aboard, q["demand"], div(q["buyer_budget"], max(1, q["bid"]))])
+
+              company["unpaid"] > 0 || !Game.compatible_cargo?(ship, item) ->
+                0
+
+              true ->
+                capacity =
+                  max(
+                    0,
+                    Enum.min([
+                      10_000,
+                      q["stock"],
+                      div(class["weight"] - space.weight, item["weight_kg"]),
+                      div(class["volume"] - space.volume, item["volume_l"])
+                    ])
+                  )
+
+                largest_trade(0, capacity, fn quantity ->
+                  voyage =
+                    purchase_voyage(
+                      ship,
+                      item,
+                      quantity,
+                      destination,
+                      view.private["ships"],
+                      view.public["clock_ms"]
+                    )
+
+                  voyage &&
+                    Game.purchase_total(q, ship, item, quantity) + voyage["required"] <= cash
+                end)
+            end
+
+          {{side, good}, max(0, limit)}
+        end
+      )
+    else
+      %{}
+    end
+  end
+
+  defp largest_trade(low, high, _feasible) when low == high, do: low
+
+  defp largest_trade(low, high, feasible) do
+    mid = div(low + high + 1, 2)
+
+    if feasible.(mid),
+      do: largest_trade(mid, high, feasible),
+      else: largest_trade(low, mid - 1, feasible)
+  end
 
   def purchase_voyage(ship, item, quantity, destination, fleet, clock),
     do:

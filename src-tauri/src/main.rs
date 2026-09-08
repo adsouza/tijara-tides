@@ -38,7 +38,9 @@ fn main() {
                     .min_inner_size(640.0, 480.0)
                     .on_navigation(allowed_navigation)
                     .build()?;
-            let launcher_url = window.url()?;
+            let mut launcher_url = window.url()?;
+            // Settings must not trigger the launcher’s automatic reconnection.
+            launcher_url.set_fragment(Some("settings"));
             let settings = MenuItemBuilder::with_id("connection", "Connection Settings…")
                 .accelerator("CmdOrCtrl+Shift+C")
                 .build(app)?;
