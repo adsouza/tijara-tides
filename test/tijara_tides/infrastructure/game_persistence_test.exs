@@ -436,6 +436,15 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     |> render_submit()
 
     assert render(view) =~ "Browser Shipping"
+    render_change(view, "market-good", %{"good" => "Spices"})
+    refute has_element?(view, "#cargo-supply tr[data-port=Dubai]")
+    render_change(view, "market-good", %{"good" => "Appliances"})
+    refute has_element?(view, "#cargo-demand tr[data-port='Colón']")
+    refute has_element?(view, "#cargo-supply tr[data-port='Colón']")
+    refute has_element?(view, "#cargo-markets", "Trading not available yet")
+    assert has_element?(view, "#ports-panel #port-selector")
+    assert has_element?(view, "#ships-panel #world-map")
+    assert has_element?(view, "#cargo-panel #cargo-markets")
     view |> form("#cargo-market-selector", %{"good" => "Scrap aluminium"}) |> render_change()
     assert has_element?(view, "#market-good option[selected]", "Aluminium scrap")
     assert has_element?(view, "#cargo-supply th[aria-sort=ascending]", "Buy price")
@@ -449,6 +458,17 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#cargo-supply th[aria-sort=ascending]", "Supply")
     view |> element("#cargo-markets button[phx-value-id='Singapore']") |> render_click()
     assert has_element?(view, "#port-selector option[selected]", "Singapore")
+    view |> element("#set-port-destination") |> render_click()
+    assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
+    assert has_element?(view, "#port-selector option[selected]", "Singapore")
+    assert has_element?(view, "#set-port-destination[disabled]", "Selected destination")
+    assert has_element?(view, "button[phx-click=sail]", "Reserve fuel and sail")
+
+    assert Enum.all?(GameServer.snapshot(token, server).private["ships"], fn {_, ship} ->
+             ship["status"] == "docked"
+           end)
+
+    render_change(view, "preview", %{"destination" => ""})
     view |> form("#cargo-market-selector", %{"good" => "Lumber"}) |> render_change()
 
     snapshot = GameServer.snapshot(token, server)
@@ -500,13 +520,39 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(view, "td", "Fruit")
     assert has_element?(view, "td", "Lumber")
     assert has_element?(view, "#aboard-Lumber", "0")
+    refute has_element?(view, "#set-port-destination")
+    render_change(view, "market-good", %{"good" => "Grain"})
+
+    view
+    |> element("#port-market-table button[phx-click=market-good][phx-value-good=Lumber]")
+    |> render_click()
+
+    assert has_element?(view, "#market-good option[selected]", "Lumber")
+    assert has_element?(view, "#cargo-supply tr[data-port=Jakarta]")
+    assert has_element?(view, "#cargo-demand tr[data-port=Singapore]")
+    assert has_element?(view, "#port-market-table th", "Buy / supply")
+    refute has_element?(view, "#port-market-table th", "Sell / demand")
+    refute has_element?(view, "#port-market-table form[phx-submit=trade] input[value=sell]")
     view |> form("#trade-buy-Lumber", %{"quantity" => "1"}) |> render_submit()
     assert render(view) =~ "Choose a purchase destination"
     assert has_element?(view, "#aboard-Lumber", "0")
     render_change(view, "preview", %{"destination" => "Singapore"})
-    assert has_element?(view, "#trade-buy-Lumber .purchase-voyage", "Singapore")
-    assert has_element?(view, "#trade-buy-Lumber .purchase-voyage", "estimated fleet upkeep")
-    assert has_element?(view, "#trade-buy-Lumber .purchase-total", "$227.00 total")
+    assert has_element?(view, "#port-selector option[selected]", "Jakarta")
+    assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
+
+    assert has_element?(
+             view,
+             "button[phx-click=port-market-side][phx-value-side=buy][aria-pressed=true]"
+           )
+
+    assert_push_event(view, "workspace-panel", %{panel: 0})
+    assert has_element?(view, "#purchase-voyage-summary", "Singapore")
+    assert has_element?(view, "#purchase-voyage-summary", "estimated fleet upkeep")
+    assert has_element?(view, "#trade-buy-Lumber .purchase-total", "$227 total")
+    assert has_element?(view, "#destination-market-note", "Singapore")
+    assert has_element?(view, ".destination-bid[data-good=Lumber]", "$275 bid")
+    assert has_element?(view, ".destination-bid[data-good=Lumber]", "+$50 spread")
+    refute has_element?(view, ".destination-bid[data-good='Iron ore']")
 
     render_change(view, "trade-preview", %{
       "action" => "buy",
@@ -518,7 +564,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(
              view,
              "#trade-buy-Lumber .purchase-total.text-red-400",
-             "$113500.00 total"
+             "$113500 total"
            )
 
     render_change(view, "trade-preview", %{
@@ -528,7 +574,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "quantity" => "10"
     })
 
-    assert has_element?(view, "#trade-buy-Lumber .purchase-total", "$2270.00 total")
+    assert has_element?(view, "#trade-buy-Lumber .purchase-total", "$2270 total")
+    assert has_element?(view, "#purchase-voyage-summary", "For 10 lots of Lumber")
+    refute has_element?(view, "#port-market-table .purchase-voyage")
     refute has_element?(view, "#trade-buy-Lumber .purchase-total.text-red-400")
 
     assert render(view) =~ "900 m³"
@@ -544,6 +592,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     })
 
     assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["status"] == "loading"
+    refute has_element?(view, "#set-port-destination")
     assert has_element?(view, "#aboard-Lumber", "10")
     assert render(view) =~ "16 m³"
     refute has_element?(view, "td", "Appliances")
@@ -563,10 +612,13 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     })
 
     assert has_element?(view, "#manifest-Lumber td", "11")
+    render_change(view, "market-good", %{"good" => "Grain"})
+    view |> element("#manifest-Lumber button[phx-click=market-good]") |> render_click()
+    assert has_element?(view, "#market-good option[selected]", "Lumber")
     assert has_element?(view, "#manifest-Lumber", "17.6 m³")
     assert has_element?(view, "#ship-capacity", "5500 / 500000 kg")
     assert has_element?(view, "#ship-capacity", "17.6 m³ / 900 m³")
-    assert has_element?(view, "#manifest-Lumber td", "$225.00")
+    assert has_element?(view, "#manifest-Lumber td", "$225")
 
     view
     |> element("button[phx-click=sort-manifest][phx-value-column=quantity]")
@@ -600,6 +652,15 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
            )
 
     advance(server, estimate["duration_ms"] + 1000)
+
+    render_change(view, "port", %{"id" => "Singapore"})
+    view |> element("button[phx-click=port-market-side][phx-value-side=sell]") |> render_click()
+    assert has_element?(view, "#port-market-table th", "Sell / demand")
+    refute has_element?(view, "#port-market-table th", "Buy / supply")
+    assert has_element?(view, "#trade-sell-Lumber")
+    refute has_element?(view, "#trade-buy-Lumber")
+    send(view.pid, {:game_changed, 0})
+    assert has_element?(view, "button[phx-value-side=sell][aria-pressed=true]")
 
     render_submit(view, "trade", %{
       "action" => "sell",
@@ -644,6 +705,15 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     |> render_submit()
 
     render_change(view, "preview", %{"destination" => "Singapore"})
+    assert has_element?(view, "#port-selector option[selected]", "Jakarta")
+    assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
+
+    assert has_element?(
+             view,
+             "button[phx-click=port-market-side][phx-value-side=buy][aria-pressed=true]"
+           )
+
+    assert_push_event(view, "workspace-panel", %{panel: 0})
     view |> form("#trade-buy-Fruit", %{"quantity" => "20"}) |> render_change()
     assert has_element?(view, "#trade-buy-Fruit", "20 lots: first expiry")
     assert has_element?(view, "#trade-buy-Fruit", "0.2 min handling")

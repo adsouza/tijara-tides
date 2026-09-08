@@ -51,6 +51,11 @@ new fleet activity. This check does not earmark funds: subsequent spending or
 waiting can change affordability, and departure still rechecks funding. It does
 not provide recovery for companies already stranded without cash.
 
+The current port's Buy view includes the chosen destination's current bid and
+demand when an executable buyer exists there. The per-lot spread compares that
+bid with the local ask before handling and voyage costs; it is not guaranteed
+profit or a reservation of destination demand. These quotes update live.
+
 Sea routes are precomputed from a maritime network and displayed on an
 Equal Earth map. The world overview groups the Pearl River Delta, Northern
 Frangistan, and Strait of Hormuz ports into numbered markers. Selecting a group

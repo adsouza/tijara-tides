@@ -128,7 +128,7 @@ told after the fact, without being asked to approve it.
 | 70 | Each cargo comparison table lists applicable ports, quantity in lots, and its relevant buy or sell price per lot before handling; selecting a port opens its market. | 7 | display | Market |
 | 71 | Default Supply to ascending buy price, then descending supply; default Demand to descending sell price, then descending demand. | 7 | display | Market |
 | 72 | Allow independent sorting by port, quantity, or price in each table, with visible sort-direction indicators and live quantities and prices. | 7 | display | Market |
-| 73 | Keep exhausted applicable markets visible with zero quantity and no executable price; clearly label markets whose trading system is not available yet. | 7 | display | Market |
+| 73 | Omit ports with zero supply from the Supply table and ports with zero demand from the Demand table; omit markets whose trading system is not available yet. | 7 | display | Market |
 | 74 | The private ship manifest is a table with aligned columns for cargo, lots, weight, volume, average cost per lot, and first expiry. | 9 | display | Fleet and ship detail |
 | 75 | Consolidate purchase batches into one manifest row per cargo type, summing quantity, weight, and volume, using quantity-weighted average acquisition cost and the earliest remaining expiry; preserve separate batches for accounting and freshness. | 9 | display | Fleet and ship detail |
 | 76 | Make every manifest column sortable in either direction, using numeric values rather than formatted text; non-perishable cargo follows dated cargo when sorting by expiry. | 9 | display | Fleet and ship detail |
@@ -136,6 +136,10 @@ told after the fact, without being asked to approve it.
 | 78 | Use cubic meters for solid cargo volume and ship volume capacity, liters for liquid cargo volume, and kilograms for weight. | 9 | display | Fleet and ship detail |
 | 79 | Use material-first scrap names consistently: Aluminium scrap and Copper scrap. | 9 | display | Fleet and ship detail |
 | 80 | Cargo-name sorting uses the displayed names, with ascending cargo name as the initial manifest order. | 9 | display | Fleet and ship detail |
+| 81 | The active company workspace has three equal-width, viewport-height panels: Ports on the left, Ships in the center, and Cargo on the right, with the map fixed at the top of Ships. | 1 | display | World map |
+| 82 | Landscape windows display all three panels together; portrait windows display one panel at a time with horizontal swipe navigation and keyboard-accessible panel buttons. | 1 | display | World map |
+| 83 | Long lists scroll inside their panels without scrolling the page or displacing the map. | 1 | display | World map |
+| 84 | Panel selection survives live updates and orientation changes. | 1 | display | World map |
 
 ## Defaults that keep the depth optional
 

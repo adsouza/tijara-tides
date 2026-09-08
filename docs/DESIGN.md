@@ -23,8 +23,17 @@ roughly 20 minutes. Voyages progress unattended; meaningful activity comes from
 comparing markets, managing port cargo, bidding, arranging finance and storage,
 and planning several ships. Manual ocean navigation is not required.
 
-The initial loop is buy cargo → choose a destination → sail → sell → reinvest.
+The initial loop is choose a destination → buy cargo → sail → sell → reinvest.
 Remote trading, arrival instructions, and repeatable routes extend this loop.
+
+The active company workspace has three equal-width, viewport-height panels:
+Ports on the left, Ships in the center, and Cargo on the right, with the map
+fixed at the top of Ships. Landscape windows display all three panels together;
+portrait windows display one panel at a time with horizontal swipe navigation
+and keyboard-accessible panel buttons. Long lists scroll inside their panels
+without scrolling the page or displacing the map. Panel selection survives live
+updates and orientation changes. Account details and invitations open from a
+compact menu above the workspace.
 
 The interface follows progressive disclosure, and this is what protects the
 session length above. Every deep mechanic in the sections that follow is
@@ -918,6 +927,12 @@ rules are specified separately below.
 
 ### Port traffic and manual trading interface
 
+The port market separates Buy / supply and Sell / demand into selectable views.
+Each view contains only its relevant price, available quantity, and trade
+controls, alongside cargo details and the local ship's aboard quantity. The
+selected view persists through live updates; goods without supply or demand
+for that view are omitted.
+
 Show the total number of ships physically at the inspected port, grouped by
 status or by company, with expandable lists of selectable ships.
 
@@ -966,8 +981,8 @@ to descending sell price, then descending demand.
 Allow independent sorting by port, quantity, or price in each table, with
 visible sort-direction indicators and live quantities and prices.
 
-Keep exhausted applicable markets visible with zero quantity and no executable
-price; clearly label markets whose trading system is not available yet.
+Omit ports with zero supply from the Supply table and ports with zero demand
+from the Demand table; omit markets whose trading system is not available yet.
 
 ### Trade settlement and physical handling
 

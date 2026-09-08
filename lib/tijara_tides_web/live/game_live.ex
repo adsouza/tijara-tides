@@ -27,6 +27,8 @@ defmodule TijaraTidesWeb.GameLive do
         selected_ship: nil,
         inspected_ship: nil,
         trade_quantities: %{},
+        purchase_good: nil,
+        port_market_side: "buy",
         trade_resets: %{},
         manifest_sort: {"good", :asc},
         market_good: "Lumber",
@@ -76,6 +78,10 @@ defmodule TijaraTidesWeb.GameLive do
     if socket.assigns.definitions.catalogue["goods"][good],
       do: {:noreply, assign(socket, :market_good, good)},
       else: {:noreply, socket}
+  end
+
+  def handle_event("port-market-side", %{"side" => side}, socket) when side in ["buy", "sell"] do
+    {:noreply, assign(socket, :port_market_side, side)}
   end
 
   def handle_event("sort-markets", %{"column" => column, "side" => side}, socket)
@@ -135,7 +141,8 @@ defmodule TijaraTidesWeb.GameLive do
       when side in ["buy", "sell"] do
     if socket.assigns.definitions.catalogue["goods"][good] do
       quantities = Map.put(socket.assigns.trade_quantities, {side, good}, integer(quantity))
-      {:noreply, assign(socket, :trade_quantities, quantities)}
+      socket = assign(socket, :trade_quantities, quantities)
+      {:noreply, if(side == "buy", do: assign(socket, :purchase_good, good), else: socket)}
     else
       {:noreply, socket}
     end
@@ -159,7 +166,19 @@ defmodule TijaraTidesWeb.GameLive do
 
   def handle_event("preview", %{"destination" => dest}, socket) do
     preview = GameServer.preview(socket.assigns.token, socket.assigns.selected_ship, dest)
-    {:noreply, assign(socket, destination: dest, preview: preview)}
+    socket = assign(socket, destination: dest, preview: preview)
+
+    socket =
+      if is_binary(dest) && socket.assigns.definitions.catalogue["ports"][dest] &&
+           socket.assigns.ship do
+        socket
+        |> assign(selected_port: socket.assigns.ship["port"], port_market_side: "buy")
+        |> push_event("workspace-panel", %{panel: 0})
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("sail", params, %{assigns: %{preview: %{"fuel" => fuel}}} = socket) do
@@ -170,6 +189,23 @@ defmodule TijaraTidesWeb.GameLive do
       "request_id" => params["request_id"] || socket.assigns.request_id,
       "fuel_limit" => fuel
     })
+  end
+
+  def handle_event("port-destination", _params, socket) do
+    ship = socket.assigns.ship
+    destination = socket.assigns.selected_port
+
+    if ship && ship["status"] == "docked" && ship["port"] != destination do
+      case GameServer.preview(socket.assigns.token, ship["id"], destination) do
+        nil ->
+          {:noreply, put_flash(socket, :error, "No voyage is available to this port right now.")}
+
+        preview ->
+          {:noreply, assign(socket, destination: destination, preview: preview)}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event(_event, _params, socket), do: {:noreply, socket}
@@ -244,23 +280,20 @@ defmodule TijaraTidesWeb.GameLive do
             if(side == "supply", do: "exp", else: "imp")
           ),
           quote = view.markets[port <> "|" <> good],
+          quote["manual"],
+          quote[if(side == "supply", do: "stock", else: "demand")] > 0,
           do: Map.put(quote, "port", port)
 
-    {available, unavailable} = Enum.split_with(rows, & &1["manual"])
+    if column in ["ask", "bid"] do
+      quantity_key = if side == "supply", do: "stock", else: "demand"
 
-    sorted =
-      if column in ["ask", "bid"] do
-        quantity_key = if side == "supply", do: "stock", else: "demand"
-
-        Enum.sort_by(available, fn quote ->
-          price = if direction == :asc, do: quote[column], else: -quote[column]
-          {price, -quote[quantity_key], quote["port"]}
-        end)
-      else
-        Enum.sort_by(available, &{&1[column], &1["port"]}, direction)
-      end
-
-    sorted ++ Enum.sort_by(unavailable, & &1["port"])
+      Enum.sort_by(rows, fn quote ->
+        price = if direction == :asc, do: quote[column], else: -quote[column]
+        {price, -quote[quantity_key], quote["port"]}
+      end)
+    else
+      Enum.sort_by(rows, &{&1[column], &1["port"]}, direction)
+    end
   end
 
   defp visible_market_rows(definitions, view, ship, port) do
@@ -377,7 +410,7 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   defp integer(_), do: -1
-  defp money(cents), do: "$" <> :erlang.float_to_binary(cents / 100, decimals: 2)
+  defp money(cents), do: "$" <> Integer.to_string(round(cents / 100))
   defp minutes(ms), do: Float.round(ms / 60000, 1)
 
   @doc false
@@ -505,14 +538,16 @@ defmodule TijaraTidesWeb.GameLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <main class="mx-auto max-w-7xl p-6 text-slate-100">
-        <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
+      <main class={[
+        "game-screen text-slate-100",
+        @view.private && @view.private["company"] && "game-screen-playing"
+      ]}>
+        <header class="game-header flex items-center justify-between gap-3">
           <div>
-            <a href="/" class="text-sm text-teal-300">Tijara Tides</a><h1 class="mt-2 text-3xl font-semibold">
+            <a href="/" class="text-sm text-teal-300">Tijara Tides</a><h1 class="game-tagline text-sm font-semibold">
               Build a company. Trade the world.
             </h1>
           </div>
-          <span class="rounded-full border border-teal-800 px-4 py-2 text-sm text-teal-200">First playable milestone</span>
         </header>
         <div
           :if={@view.status != :ready}
@@ -525,7 +560,7 @@ defmodule TijaraTidesWeb.GameLive do
           </p>
           <a href="/" class="mt-4 inline-block underline">Return to lobby</a>
         </div>
-        <div :if={@view.status == :ready}>
+        <div :if={@view.status == :ready} class="game-body">
           <section
             :if={!@view.private}
             class="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6"
@@ -589,15 +624,31 @@ defmodule TijaraTidesWeb.GameLive do
               <button class="rounded bg-teal-600 px-4 py-2">Establish company</button>
             </.form>
           </section>
-          <section
-            :if={@view.private}
-            class="mb-6 rounded-xl border border-amber-800 p-4 text-sm text-amber-100"
-          >
-            Keep this device session: identity linking is not included in this first milestone. Losing the session permanently loses access to this account. Invitations cannot be reused to sign in.
-          </section>
+          <details :if={@view.private} id="company-menu" class="company-menu">
+            <summary>Account &amp; invitations</summary>
+            <div class="company-menu-body">
+              <p class="text-sm text-amber-100">
+                Keep this device session: identity linking is not included in this first milestone. Losing the session permanently loses access to this account. Invitations cannot be reused to sign in.
+              </p>
+              <section class="my-6 rounded-xl bg-slate-900 p-5">
+                <h2 class="text-xl">Invitations & notices</h2><p class="my-2">
+                  Available entitlements: {@view.private["account"]["invite_quota"]}
+                </p>
+                <button
+                  phx-click="invite"
+                  phx-value-request_id={@request_id}
+                  class="rounded border border-teal-700 px-4 py-2"
+                >Generate shareable invitation</button>
+                <p :if={@invite_code} class="mt-3 break-all font-mono text-teal-200">
+                  {@invite_code}
+                </p>
+                <p :for={notice <- @view.private["notices"]} class="mt-3">{notice["text"]}</p>
+              </section>
+            </div>
+          </details>
           <section
             :if={@view.private && @view.private["company"]}
-            class="mb-6 grid gap-4 md:grid-cols-4"
+            class="company-summary"
           >
             <div>
               <h2 class="text-2xl">{@view.private["company"]["name"]}</h2><p class="text-slate-400">
@@ -621,681 +672,873 @@ defmodule TijaraTidesWeb.GameLive do
               </p>
             </div>
           </section>
-          <section class="overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
-            <% viewport = WorldMap.viewport(@definitions.catalogue, @map_region) %>
-            <div :if={@map_region} class="flex items-center justify-between px-4 py-3">
-              <h2 class="text-lg">{@map_region}</h2>
-              <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2">World view</button>
-            </div>
-            <svg
-              id="world-map"
-              viewBox={viewport.box}
-              role="group"
-              aria-label="World ports and public ship positions on a Equal Earth map"
-              class="w-full"
-            >
-              <polygon
-                :for={ring <- Map.get(@definitions.regional_land, @map_region, @definitions.land)}
-                vector-effect="non-scaling-stroke"
-                points={WorldMap.points(ring)}
-                fill="#172f39"
-                stroke="#294551"
-                stroke-width="0.4"
-              />
-              <polyline
-                :for={lon <- -180..180//30}
-                vector-effect="non-scaling-stroke"
-                points={WorldMap.points(for lat <- -90..90//2, do: [lon, lat])}
-                fill="none"
-                stroke="#1e293b"
-              />
-              <polyline
-                :for={lat <- -60..60//30}
-                vector-effect="non-scaling-stroke"
-                points={WorldMap.points(for lon <- -180..180//2, do: [lon, lat])}
-                fill="none"
-                stroke="#1e293b"
-              />
-              <g :for={{_, s} <- @view.public["ships"]} :if={s["status"] == "sailing"}>
-                <% route =
-                  @definitions.catalogue["routes"][s["port"] <> "|" <> s["destination"]][
-                    "coordinates"
-                  ] %>
-                <path
-                  vector-effect="non-scaling-stroke"
-                  d={WorldMap.path(route)}
-                  fill="none"
-                  stroke="#155e75"
-                  stroke-width="1"
-                />
-                <path
-                  :for={arrow <- WorldMap.route_arrows(route, viewport.scale)}
-                  d="M -4 -3 L 3 0 L -4 3"
-                  transform={"translate(#{arrow.x} #{arrow.y}) rotate(#{arrow.angle}) scale(#{viewport.scale})"}
-                  fill="none"
-                  stroke="#38b8cf"
-                  stroke-width="1.5"
-                  vector-effect="non-scaling-stroke"
-                  pointer-events="none"
-                  aria-hidden="true"
-                />
-              </g>
-              <g
-                :for={marker <- WorldMap.markers(@definitions.catalogue, @map_region)}
-                role="button"
-                tabindex="0"
-                aria-label={
-                  if length(marker.ports) > 1,
-                    do: "#{marker.name}: #{length(marker.ports)} ports",
-                    else: "Select #{marker.name}"
-                }
-                phx-click={if length(marker.ports) > 1, do: "map-region", else: "port"}
-                phx-keydown={if length(marker.ports) > 1, do: "map-region", else: "port"}
-                phx-key="Enter"
-                phx-value-id={marker.name}
-                class="cursor-pointer"
-              >
-                <circle
-                  cx={hd(marker.center)}
-                  cy={List.last(marker.center)}
-                  r={16 * viewport.scale}
-                  fill="transparent"
-                />
-                <circle
-                  cx={hd(marker.center)}
-                  cy={List.last(marker.center)}
-                  r={
-                    if(length(marker.ports) > 1,
-                      do: 11,
-                      else: if(marker.name == @selected_port, do: 7, else: 5)
-                    ) * viewport.scale
-                  }
-                  class="port-marker-dot"
-                  fill="#2dd4bf"
-                  stroke="#0f172a"
-                  vector-effect="non-scaling-stroke"
-                >
-                  <title>
-                    {marker.name} — {if length(marker.ports) > 1,
-                      do: Enum.join(marker.ports, ", "),
-                      else: @definitions.catalogue["ports"][marker.name]["harbor"]}
-                  </title>
-                </circle>
-                <text
-                  :if={@map_region}
-                  x={hd(marker.center) + WorldMap.label_position(marker.name).dx * viewport.scale}
-                  y={
-                    List.last(marker.center) +
-                      WorldMap.label_position(marker.name).dy * viewport.scale
-                  }
-                  text-anchor={WorldMap.label_position(marker.name).anchor}
-                  font-size={12 * viewport.scale}
-                  fill="#e2e8f0"
-                  stroke="#020617"
-                  stroke-width={3 * viewport.scale}
-                  paint-order="stroke"
-                  pointer-events="none"
-                >
-                  {marker.name}
-                </text>
-                <text
-                  :if={length(marker.ports) > 1}
-                  x={hd(marker.center)}
-                  y={List.last(marker.center)}
-                  text-anchor="middle"
-                  dominant-baseline="central"
-                  font-size={12 * viewport.scale}
-                  font-weight="bold"
-                  fill="#0f172a"
-                  pointer-events="none"
-                >
-                  {length(marker.ports)}
-                </text>
-              </g>
-              <g :for={{id, s} <- @view.public["ships"]} :if={s["status"] == "sailing"}>
-                <% [px, py] =
-                  WorldMap.project(
-                    ship_coordinates(s, @view.public["clock_ms"], @definitions.catalogue)
-                  ) %>
-                <circle
-                  cx={px}
-                  cy={py}
-                  r={4 * viewport.scale}
-                  vector-effect="non-scaling-stroke"
-                  fill="#fbbf24"
-                  stroke="#0f172a"
-                  role="button"
-                  tabindex="0"
-                  class="cursor-pointer"
-                  aria-label={"Inspect #{s["name"]}"}
-                  phx-click="inspect-ship"
-                  phx-value-id={id}
-                  phx-keydown="inspect-ship"
-                  phx-key="Enter"
-                >
-                  <title>
-                    {s["name"]} · {@view.public["companies"][s["company_id"]]["name"]} · {@definitions.classes[
-                      s["class"]
-                    ]["name"]}
-                  </title>
-                </circle>
-              </g>
-            </svg>
-            <p class="px-4 pb-3 text-xs text-slate-400">
-              Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic
-            </p>
-            <div :if={@map_region} id="region-ports" class="border-t border-slate-700 p-4">
-              <p class="mb-3 text-sm text-slate-300">
-                Choose a port in {@map_region} to inspect its market.
-              </p>
-              <div class="flex flex-wrap gap-3">
-                <button
-                  :for={name <- Enum.sort(@definitions.catalogue["clusters"][@map_region])}
-                  phx-click="port"
-                  phx-value-id={name}
-                  aria-pressed={if name == @selected_port, do: "true", else: "false"}
-                  class={[
-                    "rounded border px-4 py-3 text-left",
-                    if(name == @selected_port,
-                      do: "border-teal-400 bg-slate-800",
-                      else: "border-slate-600 hover:border-teal-600"
-                    )
-                  ]}
-                >
-                  <strong>{name}</strong><span class="block text-sm text-slate-400">{@definitions.catalogue[
-                    "ports"
-                  ][name]["harbor"]}</span>
-                </button>
-              </div>
-            </div>
-          </section>
-          <section
-            :if={
-              @inspected_ship && @view.public["ships"][@inspected_ship] &&
-                !(@view.private && @view.private["ships"][@inspected_ship])
-            }
-            id="public-ship-inspector"
-            class="my-6 rounded-xl border border-slate-700 p-5"
-          >
-            <% inspected = @view.public["ships"][@inspected_ship] %>
-            <h2 class="text-xl">{inspected["name"]}</h2>
-            <p>Company: {@view.public["companies"][inspected["company_id"]]["name"]}</p>
-            <p>Class: {@definitions.classes[inspected["class"]]["name"]}</p>
-            <p>
-              Status: {inspected["status"]} · {inspected["port"]}<span :if={inspected["destination"]}> → {inspected[
-                "destination"
-              ]}</span>
-            </p>
-          </section>
-          <section :if={@view.private && @view.private["company"]} class="my-6">
-            <h2 class="mb-3 text-xl">Your fleet</h2>
-            <div class="grid gap-3 md:grid-cols-3">
-              <button
-                :for={{id, s} <- Enum.sort(@view.private["ships"])}
-                phx-click="ship"
-                phx-value-id={id}
-                aria-pressed={if id == @selected_ship, do: "true", else: "false"}
-                class={[
-                  "rounded-xl border p-4 text-left",
-                  if(id == @selected_ship,
-                    do: "border-teal-400 bg-slate-800",
-                    else: "border-slate-700"
-                  )
-                ]}
-              >
-                <strong>{s["name"]}</strong><p>
-                  {@definitions.classes[s["class"]]["name"]} · {s["status"]}
-                </p><p>{s["port"]}<span :if={s["destination"]}> → {s["destination"]}</span></p>
-                <p :if={s["arrive_ms"]} class="text-teal-300">
-                  {minutes(max(0, s["arrive_ms"] - @view.public["clock_ms"]))} min remaining
-                </p>
-              </button>
-            </div>
-            <div :if={@ship} class="mt-4 rounded-xl bg-slate-900 p-5">
-              <h3 class="text-lg">{@ship["name"]} — private manifest</h3>
-              <% occupied =
-                Enum.reduce(@ship["cargo"], %{weight: 0, volume: 0}, fn batch, used ->
-                  good = @definitions.catalogue["goods"][batch["good"]]
-
-                  %{
-                    weight: used.weight + batch["quantity"] * good["weight_kg"],
-                    volume: used.volume + batch["quantity"] * good["volume_l"]
-                  }
-                end) %>
-              <p id="ship-capacity" class="text-sm text-slate-400 tabular-nums">
-                Capacity used: {occupied.weight} / {@definitions.classes[@ship["class"]]["weight"]} kg · {cubic_meters(
-                  occupied.volume
-                )} / {cubic_meters(@definitions.classes[@ship["class"]]["volume"])}
-              </p>
-              <p :if={@ship["cargo"] == []} class="mt-2 text-slate-400">Empty hold</p>
-              <div :if={@ship["cargo"] != []} class="mt-3 overflow-x-auto">
-                <table class="w-full text-sm" aria-label="Ship cargo manifest">
-                  <thead class="border-b border-slate-700 text-slate-400">
-                    <tr>
-                      <th
-                        :for={
-                          {column, label} <- [
-                            {"good", "Cargo"},
-                            {"quantity", "Lots"},
-                            {"weight", "Weight"},
-                            {"volume", "Volume"},
-                            {"average_cost", "Average cost / lot"},
-                            {"expires_ms", "First expiry"}
-                          ]
-                        }
-                        scope="col"
-                        aria-sort={
-                          if elem(@manifest_sort, 0) == column,
-                            do:
-                              if(elem(@manifest_sort, 1) == :asc, do: "ascending", else: "descending"),
-                            else: "none"
-                        }
-                        class={
-                          if column == "good", do: "py-2 pr-4 text-left", else: "px-4 py-2 text-right"
-                        }
+          <div id="game-workspace" phx-hook="Workspace" class="game-workspace">
+            <nav class="workspace-tabs" aria-label="Game panels">
+              <button type="button" data-panel="0" aria-controls="ports-panel" aria-current="false">Ports</button>
+              <button type="button" data-panel="1" aria-controls="ships-panel" aria-current="true">Ships</button>
+              <button type="button" data-panel="2" aria-controls="cargo-panel" aria-current="false">Cargo</button>
+            </nav>
+            <div class="workspace-panels">
+              <section id="ports-panel" class="workspace-panel" aria-label="Ports">
+                <h2 class="panel-title">Ports</h2>
+                <div class="panel-content" tabindex="0" aria-label="Port details and trading">
+                  <section class="my-6 rounded-xl border border-slate-700 p-5">
+                    <div class="flex flex-wrap justify-between gap-3">
+                      <h2 class="text-2xl">{@selected_port}</h2><form
+                        id="port-selector"
+                        phx-change="port"
                       >
-                        <button
-                          type="button"
-                          phx-click="sort-manifest"
-                          phx-value-column={column}
-                          class="whitespace-nowrap rounded hover:text-teal-300 focus-visible:outline-2 focus-visible:outline-teal-300"
+                        <select
+                          aria-label="Inspect port"
+                          name="id"
+                          class="rounded bg-slate-800 px-3 py-2"
+                        ><option
+                          :for={name <- Enum.sort(Map.keys(@definitions.catalogue["ports"]))}
+                          value={name}
+                          selected={name == @selected_port}
                         >
-                          {label}<span aria-hidden="true" class="ml-1">{if elem(@manifest_sort, 0) ==
-                                                                             column,
-                                                                           do:
-                                                                             if(
-                                                                               elem(@manifest_sort, 1) ==
-                                                                                 :asc,
-                                                                               do: "↑",
-                                                                               else: "↓"
-                                                                             ),
-                                                                           else: "↕"}</span>
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      :for={
-                        b <-
-                          sorted_manifest(
-                            @ship["cargo"],
-                            @definitions.catalogue["goods"],
-                            @manifest_sort
-                          )
-                      }
-                      id={"manifest-#{String.replace(b["good"], " ", "-")}"}
-                      class="border-b border-slate-800 last:border-0"
+                          {name}
+                        </option></select>
+                      </form>
+                    </div>
+                    <button
+                      :if={@ship && @ship["status"] == "docked" && @ship["port"] != @selected_port}
+                      id="set-port-destination"
+                      type="button"
+                      phx-click="port-destination"
+                      disabled={@destination == @selected_port}
+                      title={"Set #{@selected_port} as the destination for #{@ship["name"]}"}
+                      class="my-2 rounded border border-teal-700 px-3 py-2 text-sm text-teal-200 disabled:opacity-60"
                     >
-                      <th scope="row" class="py-3 pr-4 text-left font-medium">
-                        {cargo_name(b["good"])}
-                      </th>
-                      <td class="px-4 py-3 text-right tabular-nums">{b["quantity"]}</td>
-                      <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">
-                        {b["quantity"] * @definitions.catalogue["goods"][b["good"]]["weight_kg"]} kg
-                      </td>
-                      <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">
-                        {cargo_volume(@definitions.catalogue["goods"][b["good"]], b["quantity"])}
-                      </td>
-                      <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">
-                        {money(b["average_cost"])}
-                      </td>
-                      <td class="whitespace-nowrap py-3 pl-4 text-right tabular-nums">
-                        <%= if b["expires_ms"] do %>
-                          {minutes(max(0, b["expires_ms"] - @view.public["clock_ms"]))} min
-                        <% else %>
-                          <span aria-label="Does not expire">—</span>
-                        <% end %>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <.form
-                :if={@ship["status"] == "docked"}
-                for={%{}}
-                id="voyage-preview"
-                phx-submit="preview"
-                phx-change="preview"
-                class="mt-4 flex gap-3"
-              >
-                <select
-                  name="destination"
-                  aria-label="Destination"
-                  class="rounded bg-slate-800 px-3 py-2"
-                ><option value="" selected={is_nil(@destination) or @destination == ""}>
-                  Choose a destination before buying
-                </option><option
-                  :for={
-                    name <- Enum.sort(Map.keys(@definitions.catalogue["ports"])) -- [@ship["port"]]
-                  }
-                  value={name}
-                  selected={name == @destination}
-                >
-                  {name}
-                </option></select>
-              </.form>
-              <div :if={@preview} class="mt-3 flex flex-wrap items-center gap-3">
-                <span>{minutes(@preview["duration_ms"])} min · fuel {money(@preview["fuel"])} · estimated crew {money(
-                  @preview["crew_estimate"]
-                )} · canals {money(@preview["canal_fees"])}</span><button
-                  phx-click="sail"
-                  phx-value-request_id={@request_id}
-                  class="rounded bg-teal-600 px-4 py-2"
-                >Reserve fuel and sail</button>
-                <.voyage_freshness estimates={@preview["freshness"]} />
-              </div>
-              <.voyage_freshness estimates={@view.private["voyage_freshness"][@ship["id"]]} />
-            </div>
-          </section>
-          <section id="cargo-markets" class="my-6 rounded-xl border border-slate-700 p-5">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <h2 class="text-2xl">Markets by cargo</h2>
-              <form id="cargo-market-selector" phx-change="market-good">
-                <label for="market-good" class="mr-2">Cargo</label>
-                <select id="market-good" name="good" class="rounded bg-slate-800 px-3 py-2">
-                  <option
-                    :for={
-                      {good, _} <-
-                        Enum.sort_by(@definitions.catalogue["goods"], fn {good, _} ->
-                          cargo_name(good)
-                        end)
-                    }
-                    value={good}
-                    selected={good == @market_good}
-                  >
-                    {cargo_name(good)}
-                  </option>
-                </select>
-              </form>
-            </div>
-            <p class="my-3 text-sm text-slate-400">
-              Supply and demand in lots · prices per lot, before handling · updated live. Select a port to inspect its market.
-            </p>
-            <div class="grid gap-6 md:grid-cols-2">
-              <div
-                :for={
-                  {side, heading, quantity_key, price_key} <- [
-                    {"supply", "Supply", "stock", "ask"},
-                    {"demand", "Demand", "demand", "bid"}
-                  ]
-                }
-                class="min-w-0 overflow-x-auto"
-              >
-                <% sort = @market_sort[side] %>
-                <% rows = cargo_markets(@definitions, @view, @market_good, side, sort) %>
-                <h3 class="mb-2 text-lg font-medium">{heading}</h3>
-                <table
-                  id={"cargo-#{side}"}
-                  class="w-full text-sm"
-                  aria-label={heading <> " for selected cargo"}
-                >
-                  <thead class="border-b border-slate-700 text-slate-400">
-                    <tr>
-                      <th
-                        :for={
-                          {column, label} <- [
-                            {"port", "Port"},
-                            {quantity_key, heading},
-                            {price_key, if(side == "supply", do: "Buy price", else: "Sell price")}
-                          ]
-                        }
-                        scope="col"
-                        class={
-                          if column == "port", do: "py-2 text-left", else: "px-3 py-2 text-right"
-                        }
-                        aria-sort={
-                          if elem(sort, 0) == column,
-                            do: if(elem(sort, 1) == :asc, do: "ascending", else: "descending"),
-                            else: "none"
-                        }
-                      >
-                        <button
-                          type="button"
-                          phx-click="sort-markets"
-                          phx-value-side={side}
-                          phx-value-column={column}
-                          class="whitespace-nowrap rounded hover:text-teal-300 focus-visible:outline-2 focus-visible:outline-teal-300"
-                        >
-                          {label}<span aria-hidden="true" class="ml-1">{if elem(sort, 0) == column,
-                            do: if(elem(sort, 1) == :asc, do: "↑", else: "↓"),
-                            else: "↕"}</span>
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      :for={quote <- rows}
-                      data-port={quote["port"]}
-                      class="border-b border-slate-800 last:border-0"
-                    >
-                      <th scope="row" class="py-2 text-left font-medium">
-                        <button
-                          type="button"
-                          phx-click="port"
-                          phx-value-id={quote["port"]}
-                          class="text-teal-300 underline decoration-teal-800 underline-offset-4"
-                        >{quote["port"]}</button>
-                      </th>
-                      <%= if quote["manual"] do %>
-                        <td class="px-3 py-2 text-right tabular-nums">{quote[quantity_key]}</td>
-                        <td class="px-3 py-2 text-right tabular-nums">
-                          {if quote[quantity_key] > 0, do: money(quote[price_key]), else: "—"}
-                        </td>
-                      <% else %>
-                        <td colspan="2" class="px-3 py-2 text-right text-slate-400">
-                          Trading not available yet
-                        </td>
-                      <% end %>
-                    </tr>
-                    <tr :if={rows == []}>
-                      <td colspan="3" class="py-3 text-slate-400">No ports for this cargo.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-          <section class="my-6 rounded-xl border border-slate-700 p-5">
-            <div class="flex flex-wrap justify-between gap-3">
-              <h2 class="text-2xl">{@selected_port}</h2><form id="port-selector" phx-change="port">
-                <select aria-label="Inspect port" name="id" class="rounded bg-slate-800 px-3 py-2"><option
-                  :for={name <- Enum.sort(Map.keys(@definitions.catalogue["ports"]))}
-                  value={name}
-                  selected={name == @selected_port}
-                >
-                  {name}
-                </option></select>
-              </form>
-            </div>
-            <p class="my-3 text-slate-300">
-              {@definitions.catalogue["ports"][@selected_port]["identity"]}
-            </p>
-            <TijaraTidesWeb.PortTraffic.traffic
-              public={@view.public}
-              port={@selected_port}
-              grouping={@traffic_grouping}
-            />
-            <p class="mb-3 text-sm text-slate-400">
-              Whole lots · finite local supply and demand · trades require your selected ship to be docked here. Handling takes time.
-            </p>
-            <% market_rows = visible_market_rows(@definitions, @view, @ship, @selected_port) %>
-            <% show_ship_columns = owns_ship_at_port?(@view.private, @selected_port) %>
-            <% selected_ship_here =
-              @ship && @ship["port"] == @selected_port && @ship["status"] != "sailing" %>
-            <p :if={market_rows == []} class="py-4 text-slate-400">
-              No cargo is available to trade here right now.
-            </p>
-            <div :if={market_rows != []} class="overflow-x-auto">
-              <table class="w-full text-left text-sm">
-                <thead class="text-slate-400">
-                  <tr>
-                    <th class="py-2">Cargo / lot size</th><th>Buy / supply</th><th>Sell / demand</th><th :if={
-                      show_ship_columns
-                    }>
-                      Aboard (lots)
-                    </th><th :if={show_ship_columns}>
-                      Trade
-                    </th>
-                  </tr>
-                </thead><tbody>
-                  <tr
-                    :for={{good, item} <- market_rows}
-                    class="border-t border-slate-800"
-                  >
-                    <% q = @view.markets[@selected_port <> "|" <> good] %>
-                    <td class="py-3">
-                      {cargo_name(good)}
-                      <p class="text-xs text-slate-400">
-                        {item["weight_kg"]} kg · {cargo_volume(item, 1)}
-                        <span :if={q["manual"]}> · handling {money(q["handling_fee"])} / lot</span>
+                      {if @destination == @selected_port,
+                        do: "Selected destination",
+                        else: "Set as destination"}
+                    </button>
+                    <details class="my-2 text-sm text-slate-400">
+                      <summary class="cursor-pointer">About this port</summary>
+                      <p class="mt-2">
+                        {@definitions.catalogue["ports"][@selected_port]["identity"]}
                       </p>
-                    </td>
-                    <td>{money(q["ask"])} / {q["stock"]}</td><td>
-                      {money(q["bid"])} / {q["demand"]}
-                    </td>
-                    <td
-                      :if={show_ship_columns}
-                      id={"aboard-#{String.replace(good, " ", "-")}"}
-                      class="font-semibold text-teal-200"
+                    </details>
+                    <TijaraTidesWeb.PortTraffic.traffic
+                      public={@view.public}
+                      port={@selected_port}
+                      grouping={@traffic_grouping}
+                    />
+                    <p class="mb-3 text-sm text-slate-400">
+                      Whole lots · finite local supply and demand · trades require your selected ship to be docked here. Handling takes time.
+                    </p>
+                    <div class="mb-3 flex gap-2" role="group" aria-label="Port market side">
+                      <button
+                        :for={{side, label} <- [{"buy", "Buy / supply"}, {"sell", "Sell / demand"}]}
+                        type="button"
+                        phx-click="port-market-side"
+                        phx-value-side={side}
+                        aria-pressed={to_string(@port_market_side == side)}
+                        class={[
+                          "flex-1 rounded px-3 py-2 text-sm",
+                          if(@port_market_side == side,
+                            do: "bg-teal-800 text-teal-100",
+                            else: "bg-slate-800 text-slate-400"
+                          )
+                        ]}
+                      >{label}</button>
+                    </div>
+                    <% market_rows =
+                      visible_market_rows(@definitions, @view, @ship, @selected_port)
+                      |> Enum.filter(fn {good, _} ->
+                        quote = @view.markets[@selected_port <> "|" <> good]
+                        quote[if(@port_market_side == "buy", do: "stock", else: "demand")] > 0
+                      end) %>
+                    <% show_ship_columns = owns_ship_at_port?(@view.private, @selected_port) %>
+                    <% selected_ship_here =
+                      @ship && @ship["port"] == @selected_port && @ship["status"] != "sailing" %>
+                    <% compare_destination =
+                      @port_market_side == "buy" && selected_ship_here && is_binary(@destination) &&
+                        @destination != @selected_port &&
+                        @definitions.catalogue["ports"][@destination] %>
+                    <p
+                      :if={compare_destination}
+                      id="destination-market-note"
+                      class="mb-3 text-xs text-slate-400"
                     >
-                      {if selected_ship_here, do: cargo_aboard(@ship, good), else: "—"}
-                    </td>
-                    <td :if={show_ship_columns}>
-                      <span :if={!q["manual"]} class="text-slate-500">Available in a later market milestone</span>
-                      <.form
-                        :for={side <- ["buy", "sell"]}
-                        :if={
-                          q["manual"] && @ship && @ship["port"] == @selected_port &&
-                            @ship["status"] == "docked"
-                        }
-                        for={%{}}
-                        id={"trade-#{side}-#{String.replace(good, " ", "-")}"}
-                        phx-submit="trade"
-                        phx-change="trade-preview"
-                        class="flex flex-wrap gap-2"
+                      Destination bids: {@destination}. Spread is per lot before handling and voyage costs; demand and prices may change before arrival.
+                    </p>
+                    <% purchase =
+                      if @port_market_side == "buy" && selected_ship_here &&
+                           @ship["status"] == "docked" do
+                        options =
+                          Enum.filter(market_rows, fn {good, item} ->
+                            item["manual"] && Map.get(@trade_quantities, {"buy", good}, 1) > 0
+                          end)
+
+                        Enum.find(options, fn {good, _} -> good == @purchase_good end) ||
+                          List.first(options)
+                      end %>
+                    <%= if purchase do %>
+                      <% {good, item} = purchase %>
+                      <% quantity = Map.get(@trade_quantities, {"buy", good}, 1) %>
+                      <% voyage =
+                        GameServer.purchase_voyage(
+                          @ship,
+                          item,
+                          quantity,
+                          @destination,
+                          @view.private["ships"],
+                          @view.public["clock_ms"]
+                        ) %>
+                      <p
+                        :if={voyage}
+                        id="purchase-voyage-summary"
+                        class="mb-3 text-sm text-slate-300"
+                        role="status"
                       >
-                        <% available = available_to_trade(side, q, @ship, good) %>
-                        <% quantity =
-                          if available > 0, do: Map.get(@trade_quantities, {side, good}, 1), else: 0 %>
-                        <% freshness =
-                          GameServer.trade_freshness(
-                            q,
-                            @ship,
-                            side,
-                            good,
-                            quantity,
-                            @view.public["clock_ms"]
-                          ) %>
-                        <input type="hidden" name="request_id" value={@request_id} />
-                        <input type="hidden" name="action" value={side} /><input
-                          type="hidden"
-                          name="good"
-                          value={good}
-                        /><input
-                          type="hidden"
-                          name="limit"
-                          value={if(side == "buy", do: q["ask"], else: q["bid"])}
-                        />
-                        <input
-                          type="number"
-                          id={"quantity-#{side}-#{String.replace(good, " ", "-")}-#{if side == "buy", do: Map.get(@trade_resets, good, 0), else: 0}"}
-                          name="quantity"
-                          min={if available > 0, do: 1, else: 0}
-                          max={max(0, min(10_000, available))}
-                          disabled={available <= 0}
-                          value={quantity}
-                          aria-label={"#{cargo_name(good)} quantity"}
-                          class="w-16 rounded bg-slate-800 px-2"
-                        />
-                        <button
-                          disabled={available <= 0}
-                          title={
-                            if available <= 0,
-                              do:
-                                if(side == "buy",
-                                  do: "No stock available at this port",
-                                  else: "No cargo aboard or no demand at this port"
-                                )
-                          }
-                          class="rounded bg-teal-700 px-3 py-1 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:opacity-60"
-                        >{String.capitalize(side)}</button>
-                        <%= if side == "buy" and available > 0 and quantity > 0 do %>
-                          <% total = GameServer.purchase_total(q, @ship, item, quantity) %>
-                          <% voyage =
-                            GameServer.purchase_voyage(
-                              @ship,
-                              item,
-                              quantity,
-                              @destination,
-                              @view.private["ships"],
-                              @view.public["clock_ms"]
-                            ) %>
-                          <% unaffordable =
-                            is_nil(voyage) or
-                              total + voyage["required"] >
-                                @view.private["company"]["cash"] -
-                                  @view.private["company"]["reserved"] or
-                              @view.private["company"]["unpaid"] > 0 %>
-                          <span
-                            class={[
-                              "purchase-total self-center whitespace-nowrap text-sm tabular-nums",
-                              if(unaffordable, do: "text-red-400", else: "text-slate-300")
-                            ]}
-                            title={
-                              if unaffordable,
-                                do:
-                                  "Choose a valid destination and leave enough cash for fuel, canal fees, and estimated fleet upkeep after purchasing. Includes handling and any tanker cleaning fee.",
-                                else: "Includes handling and any tanker cleaning fee."
-                            }
-                            role="status"
+                        For {quantity} lots of {cargo_name(good)}, keep {money(voyage["required"])} for {@destination}: fuel {money(
+                          voyage["fuel"]
+                        )}, canals {money(voyage["canal_fees"])}, estimated fleet upkeep {money(
+                          voyage["upkeep"]
+                        )} through loading and arrival.
+                      </p>
+                    <% end %>
+                    <p
+                      :if={
+                        @port_market_side == "buy" && selected_ship_here &&
+                          @ship["status"] == "docked" && !@preview
+                      }
+                      id="purchase-destination-reminder"
+                      class="mb-3 text-sm text-amber-200"
+                    >
+                      Choose a valid destination in the Ships panel before buying.
+                    </p>
+                    <p :if={market_rows == []} class="py-4 text-slate-400">
+                      No cargo is available to {@port_market_side} here right now.
+                    </p>
+                    <div :if={market_rows != []} class="overflow-x-auto">
+                      <table
+                        id="port-market-table"
+                        class="w-full text-left text-sm"
+                        aria-label={
+                          if(@port_market_side == "buy", do: "Port supply", else: "Port demand")
+                        }
+                      >
+                        <thead class="text-slate-400">
+                          <tr>
+                            <th class="cargo-description-column py-2">Cargo / lot size</th><th class="market-price-column">
+                              {if @port_market_side == "buy",
+                                do: "Buy / supply",
+                                else: "Sell / demand"}
+                            </th><th :if={show_ship_columns} class="aboard-column">
+                              Aboard<br /><span class="font-normal">(lots)</span>
+                            </th><th :if={show_ship_columns}>
+                              Trade
+                            </th>
+                          </tr>
+                        </thead><tbody>
+                          <tr
+                            :for={{good, item} <- market_rows}
+                            class="border-t border-slate-800"
                           >
-                            {money(total)} total<span :if={unaffordable} class="sr-only"> — insufficient available funds</span>
-                          </span>
-                          <span class="purchase-voyage text-sm text-slate-300">
-                            <%= if voyage do %>
-                              Keep {money(voyage["required"])} for {@destination}: fuel {money(
-                                voyage["fuel"]
-                              )}, canals {money(voyage["canal_fees"])}, estimated fleet upkeep {money(
-                                voyage["upkeep"]
-                              )} through loading and arrival.
-                            <% else %>
-                              Choose a valid destination above before buying.
-                            <% end %>
-                          </span>
-                        <% end %>
-                        <p
-                          :if={freshness && available > 0}
-                          class="w-full text-xs text-amber-200"
-                          role="status"
-                        >
-                          {quantity} lots: first expiry in {minutes(freshness["remaining_ms"])} min now;
-                          estimated {minutes(freshness["after_ms"])} min remaining after {minutes(
-                            freshness["handling_ms"]
-                          )} min handling.
-                          <strong :if={freshness["after_ms"] == 0}>Expected to expire during handling.</strong>
-                          Estimates may change before settlement.
+                            <% q = @view.markets[@selected_port <> "|" <> good] %>
+                            <% destination_quote =
+                              if compare_destination, do: @view.markets[@destination <> "|" <> good] %>
+                            <td class="cargo-description-column py-3">
+                              <button
+                                type="button"
+                                phx-click="market-good"
+                                phx-value-good={good}
+                                aria-label={"View markets for #{cargo_name(good)}"}
+                                class="rounded text-left text-teal-300 underline decoration-teal-700 underline-offset-2 hover:text-teal-100 focus-visible:outline-2 focus-visible:outline-teal-300"
+                              >{cargo_name(good)}</button>
+                              <p class="text-xs text-slate-400">
+                                {item["weight_kg"]} kg · {cargo_volume(item, 1)}
+                                <span :if={q["manual"]}> · handling {money(q["handling_fee"])} / lot</span>
+                              </p>
+                            </td>
+                            <td class="market-price-column">
+                              {money(q[if(@port_market_side == "buy", do: "ask", else: "bid")])} / {q[
+                                if(@port_market_side == "buy", do: "stock", else: "demand")
+                              ]}
+                              <div
+                                :if={
+                                  destination_quote && destination_quote["manual"] &&
+                                    destination_quote["demand"] > 0
+                                }
+                                class="destination-bid mt-1 text-xs"
+                                data-good={good}
+                              >
+                                <span class="block text-slate-300">{money(destination_quote["bid"])} bid</span>
+                                <span class={
+                                  if destination_quote["bid"] >= q["ask"],
+                                    do: "text-teal-300",
+                                    else: "text-red-400"
+                                }>
+                                  {if destination_quote["bid"] > q["ask"], do: "+"}{money(
+                                    destination_quote["bid"] - q["ask"]
+                                  )} spread
+                                </span>
+                                <span class="block text-slate-400">{destination_quote["demand"]} lots demand</span>
+                              </div>
+                            </td>
+                            <td
+                              :if={show_ship_columns}
+                              id={"aboard-#{String.replace(good, " ", "-")}"}
+                              class="aboard-column font-semibold text-teal-200"
+                            >
+                              {if selected_ship_here, do: cargo_aboard(@ship, good), else: "—"}
+                            </td>
+                            <td :if={show_ship_columns}>
+                              <span :if={!q["manual"]} class="text-slate-500">Available in a later market milestone</span>
+                              <.form
+                                :for={side <- [@port_market_side]}
+                                :if={
+                                  q["manual"] && @ship && @ship["port"] == @selected_port &&
+                                    @ship["status"] == "docked"
+                                }
+                                for={%{}}
+                                id={"trade-#{side}-#{String.replace(good, " ", "-")}"}
+                                phx-submit="trade"
+                                phx-change="trade-preview"
+                                class="flex flex-wrap gap-2"
+                              >
+                                <% available = available_to_trade(side, q, @ship, good) %>
+                                <% quantity =
+                                  if available > 0,
+                                    do: Map.get(@trade_quantities, {side, good}, 1),
+                                    else: 0 %>
+                                <% freshness =
+                                  GameServer.trade_freshness(
+                                    q,
+                                    @ship,
+                                    side,
+                                    good,
+                                    quantity,
+                                    @view.public["clock_ms"]
+                                  ) %>
+                                <input type="hidden" name="request_id" value={@request_id} />
+                                <input type="hidden" name="action" value={side} /><input
+                                  type="hidden"
+                                  name="good"
+                                  value={good}
+                                /><input
+                                  type="hidden"
+                                  name="limit"
+                                  value={if(side == "buy", do: q["ask"], else: q["bid"])}
+                                />
+                                <input
+                                  type="number"
+                                  id={"quantity-#{side}-#{String.replace(good, " ", "-")}-#{if side == "buy", do: Map.get(@trade_resets, good, 0), else: 0}"}
+                                  name="quantity"
+                                  min={if available > 0, do: 1, else: 0}
+                                  max={max(0, min(10_000, available))}
+                                  disabled={available <= 0}
+                                  value={quantity}
+                                  aria-label={"#{cargo_name(good)} quantity"}
+                                  class="w-16 rounded bg-slate-800 px-2"
+                                />
+                                <button
+                                  disabled={available <= 0}
+                                  title={
+                                    if available <= 0,
+                                      do:
+                                        if(side == "buy",
+                                          do: "No stock available at this port",
+                                          else: "No cargo aboard or no demand at this port"
+                                        )
+                                  }
+                                  class="rounded bg-teal-700 px-3 py-1 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:opacity-60"
+                                >{String.capitalize(side)}</button>
+                                <%= if side == "buy" and available > 0 and quantity > 0 do %>
+                                  <% total = GameServer.purchase_total(q, @ship, item, quantity) %>
+                                  <% voyage =
+                                    GameServer.purchase_voyage(
+                                      @ship,
+                                      item,
+                                      quantity,
+                                      @destination,
+                                      @view.private["ships"],
+                                      @view.public["clock_ms"]
+                                    ) %>
+                                  <% unaffordable =
+                                    is_nil(voyage) or
+                                      total + voyage["required"] >
+                                        @view.private["company"]["cash"] -
+                                          @view.private["company"]["reserved"] or
+                                      @view.private["company"]["unpaid"] > 0 %>
+                                  <span
+                                    class={[
+                                      "purchase-total self-center whitespace-nowrap text-sm tabular-nums",
+                                      if(unaffordable, do: "text-red-400", else: "text-slate-300")
+                                    ]}
+                                    title={
+                                      if unaffordable,
+                                        do:
+                                          "Choose a valid destination and leave enough cash for fuel, canal fees, and estimated fleet upkeep after purchasing. Includes handling and any tanker cleaning fee.",
+                                        else: "Includes handling and any tanker cleaning fee."
+                                    }
+                                    role="status"
+                                  >
+                                    {money(total)} total<span :if={unaffordable} class="sr-only"> — insufficient available funds</span>
+                                  </span>
+                                <% end %>
+                                <p
+                                  :if={freshness && available > 0}
+                                  class="w-full text-xs text-amber-200"
+                                  role="status"
+                                >
+                                  {quantity} lots: first expiry in {minutes(freshness["remaining_ms"])} min now;
+                                  estimated {minutes(freshness["after_ms"])} min remaining after {minutes(
+                                    freshness["handling_ms"]
+                                  )} min handling.
+                                  <strong :if={freshness["after_ms"] == 0}>Expected to expire during handling.</strong>
+                                  Estimates may change before settlement.
+                                </p>
+                              </.form>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                </div>
+              </section>
+              <section id="ships-panel" class="workspace-panel" aria-label="Ships">
+                <h2 class="panel-title">Ships</h2>
+                <section
+                  id="map-panel"
+                  class="overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
+                >
+                  <% viewport = WorldMap.viewport(@definitions.catalogue, @map_region) %>
+                  <div :if={@map_region} class="flex items-center justify-between px-4 py-3">
+                    <h2 class="text-lg">{@map_region}</h2>
+                    <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2">World view</button>
+                  </div>
+                  <svg
+                    id="world-map"
+                    viewBox={viewport.box}
+                    role="group"
+                    aria-label="World ports and public ship positions on a Equal Earth map"
+                    class="w-full"
+                  >
+                    <polygon
+                      :for={
+                        ring <- Map.get(@definitions.regional_land, @map_region, @definitions.land)
+                      }
+                      vector-effect="non-scaling-stroke"
+                      points={WorldMap.points(ring)}
+                      fill="#172f39"
+                      stroke="#294551"
+                      stroke-width="0.4"
+                    />
+                    <polyline
+                      :for={lon <- -180..180//30}
+                      vector-effect="non-scaling-stroke"
+                      points={WorldMap.points(for lat <- -90..90//2, do: [lon, lat])}
+                      fill="none"
+                      stroke="#1e293b"
+                    />
+                    <polyline
+                      :for={lat <- -60..60//30}
+                      vector-effect="non-scaling-stroke"
+                      points={WorldMap.points(for lon <- -180..180//2, do: [lon, lat])}
+                      fill="none"
+                      stroke="#1e293b"
+                    />
+                    <g :for={{_, s} <- @view.public["ships"]} :if={s["status"] == "sailing"}>
+                      <% route =
+                        @definitions.catalogue["routes"][s["port"] <> "|" <> s["destination"]][
+                          "coordinates"
+                        ] %>
+                      <path
+                        vector-effect="non-scaling-stroke"
+                        d={WorldMap.path(route)}
+                        fill="none"
+                        stroke="#155e75"
+                        stroke-width="1"
+                      />
+                      <path
+                        :for={arrow <- WorldMap.route_arrows(route, viewport.scale)}
+                        d="M -4 -3 L 3 0 L -4 3"
+                        transform={"translate(#{arrow.x} #{arrow.y}) rotate(#{arrow.angle}) scale(#{viewport.scale})"}
+                        fill="none"
+                        stroke="#38b8cf"
+                        stroke-width="1.5"
+                        vector-effect="non-scaling-stroke"
+                        pointer-events="none"
+                        aria-hidden="true"
+                      />
+                    </g>
+                    <g
+                      :for={marker <- WorldMap.markers(@definitions.catalogue, @map_region)}
+                      role="button"
+                      tabindex="0"
+                      aria-label={
+                        if length(marker.ports) > 1,
+                          do: "#{marker.name}: #{length(marker.ports)} ports",
+                          else: "Select #{marker.name}"
+                      }
+                      phx-click={if length(marker.ports) > 1, do: "map-region", else: "port"}
+                      phx-keydown={if length(marker.ports) > 1, do: "map-region", else: "port"}
+                      phx-key="Enter"
+                      phx-value-id={marker.name}
+                      class="cursor-pointer"
+                    >
+                      <circle
+                        cx={hd(marker.center)}
+                        cy={List.last(marker.center)}
+                        r={16 * viewport.scale}
+                        fill="transparent"
+                      />
+                      <circle
+                        cx={hd(marker.center)}
+                        cy={List.last(marker.center)}
+                        r={
+                          if(length(marker.ports) > 1,
+                            do: 11,
+                            else: if(marker.name == @selected_port, do: 7, else: 5)
+                          ) * viewport.scale
+                        }
+                        class="port-marker-dot"
+                        fill="#2dd4bf"
+                        stroke="#0f172a"
+                        vector-effect="non-scaling-stroke"
+                      >
+                        <title>
+                          {marker.name} — {if length(marker.ports) > 1,
+                            do: Enum.join(marker.ports, ", "),
+                            else: @definitions.catalogue["ports"][marker.name]["harbor"]}
+                        </title>
+                      </circle>
+                      <text
+                        :if={@map_region}
+                        x={
+                          hd(marker.center) + WorldMap.label_position(marker.name).dx * viewport.scale
+                        }
+                        y={
+                          List.last(marker.center) +
+                            WorldMap.label_position(marker.name).dy * viewport.scale
+                        }
+                        text-anchor={WorldMap.label_position(marker.name).anchor}
+                        font-size={12 * viewport.scale}
+                        fill="#e2e8f0"
+                        stroke="#020617"
+                        stroke-width={3 * viewport.scale}
+                        paint-order="stroke"
+                        pointer-events="none"
+                      >
+                        {marker.name}
+                      </text>
+                      <text
+                        :if={length(marker.ports) > 1}
+                        x={hd(marker.center)}
+                        y={List.last(marker.center)}
+                        text-anchor="middle"
+                        dominant-baseline="central"
+                        font-size={12 * viewport.scale}
+                        font-weight="bold"
+                        fill="#0f172a"
+                        pointer-events="none"
+                      >
+                        {length(marker.ports)}
+                      </text>
+                    </g>
+                    <g :for={{id, s} <- @view.public["ships"]} :if={s["status"] == "sailing"}>
+                      <% [px, py] =
+                        WorldMap.project(
+                          ship_coordinates(s, @view.public["clock_ms"], @definitions.catalogue)
+                        ) %>
+                      <circle
+                        cx={px}
+                        cy={py}
+                        r={4 * viewport.scale}
+                        vector-effect="non-scaling-stroke"
+                        fill="#fbbf24"
+                        stroke="#0f172a"
+                        role="button"
+                        tabindex="0"
+                        class="cursor-pointer"
+                        aria-label={"Inspect #{s["name"]}"}
+                        phx-click="inspect-ship"
+                        phx-value-id={id}
+                        phx-keydown="inspect-ship"
+                        phx-key="Enter"
+                      >
+                        <title>
+                          {s["name"]} · {@view.public["companies"][s["company_id"]]["name"]} · {@definitions.classes[
+                            s["class"]
+                          ]["name"]}
+                        </title>
+                      </circle>
+                    </g>
+                  </svg>
+                  <p class="px-4 pb-3 text-xs text-slate-400">
+                    Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic
+                  </p>
+                  <div :if={@map_region} id="region-ports" class="border-t border-slate-700 p-4">
+                    <p class="mb-3 text-sm text-slate-300">
+                      Choose a port in {@map_region} to inspect its market.
+                    </p>
+                    <div class="flex flex-wrap gap-3">
+                      <button
+                        :for={name <- Enum.sort(@definitions.catalogue["clusters"][@map_region])}
+                        phx-click="port"
+                        phx-value-id={name}
+                        aria-pressed={if name == @selected_port, do: "true", else: "false"}
+                        class={[
+                          "rounded border px-4 py-3 text-left",
+                          if(name == @selected_port,
+                            do: "border-teal-400 bg-slate-800",
+                            else: "border-slate-600 hover:border-teal-600"
+                          )
+                        ]}
+                      >
+                        <strong>{name}</strong><span class="block text-sm text-slate-400">{@definitions.catalogue[
+                          "ports"
+                        ][name]["harbor"]}</span>
+                      </button>
+                    </div>
+                  </div>
+                </section>
+                <div class="panel-content" tabindex="0" aria-label="Fleet and ship details">
+                  <section
+                    :if={
+                      @inspected_ship && @view.public["ships"][@inspected_ship] &&
+                        !(@view.private && @view.private["ships"][@inspected_ship])
+                    }
+                    id="public-ship-inspector"
+                    class="my-6 rounded-xl border border-slate-700 p-5"
+                  >
+                    <% inspected = @view.public["ships"][@inspected_ship] %>
+                    <h2 class="text-xl">{inspected["name"]}</h2>
+                    <p>Company: {@view.public["companies"][inspected["company_id"]]["name"]}</p>
+                    <p>Class: {@definitions.classes[inspected["class"]]["name"]}</p>
+                    <p>
+                      Status: {inspected["status"]} · {inspected["port"]}<span :if={
+                        inspected["destination"]
+                      }> → {inspected[
+                        "destination"
+                      ]}</span>
+                    </p>
+                  </section>
+                  <section :if={@view.private && @view.private["company"]} class="my-6">
+                    <h2 class="mb-3 text-xl">Your fleet</h2>
+                    <div class="fleet-list">
+                      <button
+                        :for={{id, s} <- Enum.sort(@view.private["ships"])}
+                        phx-click="ship"
+                        phx-value-id={id}
+                        aria-pressed={if id == @selected_ship, do: "true", else: "false"}
+                        class={[
+                          "min-w-0 rounded-xl border p-3 text-left break-words",
+                          if(id == @selected_ship,
+                            do: "border-teal-400 bg-slate-800",
+                            else: "border-slate-700"
+                          )
+                        ]}
+                      >
+                        <strong>{s["name"]}</strong><p>
+                          {@definitions.classes[s["class"]]["name"]} · {s["status"]}
+                        </p><p>
+                          {s["port"]}<span :if={s["destination"]}> → {s["destination"]}</span>
                         </p>
+                        <p :if={s["arrive_ms"]} class="text-teal-300">
+                          {minutes(max(0, s["arrive_ms"] - @view.public["clock_ms"]))} min remaining
+                        </p>
+                      </button>
+                    </div>
+                    <div :if={@ship} class="mt-4 rounded-xl bg-slate-900 p-5">
+                      <h3 class="text-lg">{@ship["name"]} — private manifest</h3>
+                      <% occupied =
+                        Enum.reduce(@ship["cargo"], %{weight: 0, volume: 0}, fn batch, used ->
+                          good = @definitions.catalogue["goods"][batch["good"]]
+
+                          %{
+                            weight: used.weight + batch["quantity"] * good["weight_kg"],
+                            volume: used.volume + batch["quantity"] * good["volume_l"]
+                          }
+                        end) %>
+                      <p id="ship-capacity" class="text-sm text-slate-400 tabular-nums">
+                        Capacity used: {occupied.weight} / {@definitions.classes[@ship["class"]][
+                          "weight"
+                        ]} kg · {cubic_meters(occupied.volume)} / {cubic_meters(
+                          @definitions.classes[@ship["class"]]["volume"]
+                        )}
+                      </p>
+                      <p :if={@ship["cargo"] == []} class="mt-2 text-slate-400">Empty hold</p>
+                      <div :if={@ship["cargo"] != []} class="mt-3 overflow-x-auto">
+                        <table class="w-full text-sm" aria-label="Ship cargo manifest">
+                          <thead class="border-b border-slate-700 text-slate-400">
+                            <tr>
+                              <th
+                                :for={
+                                  {column, label} <- [
+                                    {"good", "Cargo"},
+                                    {"quantity", "Lots"},
+                                    {"weight", "Weight"},
+                                    {"volume", "Volume"},
+                                    {"average_cost", "Average cost / lot"},
+                                    {"expires_ms", "First expiry"}
+                                  ]
+                                }
+                                scope="col"
+                                aria-sort={
+                                  if elem(@manifest_sort, 0) == column,
+                                    do:
+                                      if(elem(@manifest_sort, 1) == :asc,
+                                        do: "ascending",
+                                        else: "descending"
+                                      ),
+                                    else: "none"
+                                }
+                                class={
+                                  if column == "good",
+                                    do: "py-2 pr-4 text-left",
+                                    else: "px-4 py-2 text-right"
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  phx-click="sort-manifest"
+                                  phx-value-column={column}
+                                  class="whitespace-nowrap rounded hover:text-teal-300 focus-visible:outline-2 focus-visible:outline-teal-300"
+                                >
+                                  {label}<span aria-hidden="true" class="ml-1">{if elem(
+                                                                                     @manifest_sort,
+                                                                                     0
+                                                                                   ) ==
+                                                                                     column,
+                                                                                   do:
+                                                                                     if(
+                                                                                       elem(
+                                                                                         @manifest_sort,
+                                                                                         1
+                                                                                       ) ==
+                                                                                         :asc,
+                                                                                       do: "↑",
+                                                                                       else: "↓"
+                                                                                     ),
+                                                                                   else: "↕"}</span>
+                                </button>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr
+                              :for={
+                                b <-
+                                  sorted_manifest(
+                                    @ship["cargo"],
+                                    @definitions.catalogue["goods"],
+                                    @manifest_sort
+                                  )
+                              }
+                              id={"manifest-#{String.replace(b["good"], " ", "-")}"}
+                              class="border-b border-slate-800 last:border-0"
+                            >
+                              <th scope="row" class="py-3 pr-4 text-left font-medium">
+                                <button
+                                  type="button"
+                                  phx-click="market-good"
+                                  phx-value-good={b["good"]}
+                                  aria-label={"View markets for #{cargo_name(b["good"])}"}
+                                  class="rounded text-left text-teal-300 underline decoration-teal-700 underline-offset-2 hover:text-teal-100 focus-visible:outline-2 focus-visible:outline-teal-300"
+                                >{cargo_name(b["good"])}</button>
+                              </th>
+                              <td class="px-4 py-3 text-right tabular-nums">{b["quantity"]}</td>
+                              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                                {b["quantity"] *
+                                  @definitions.catalogue["goods"][b["good"]]["weight_kg"]} kg
+                              </td>
+                              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                                {cargo_volume(
+                                  @definitions.catalogue["goods"][b["good"]],
+                                  b["quantity"]
+                                )}
+                              </td>
+                              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                                {money(b["average_cost"])}
+                              </td>
+                              <td class="whitespace-nowrap py-3 pl-4 text-right tabular-nums">
+                                <%= if b["expires_ms"] do %>
+                                  {minutes(max(0, b["expires_ms"] - @view.public["clock_ms"]))} min
+                                <% else %>
+                                  <span aria-label="Does not expire">—</span>
+                                <% end %>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <.form
+                        :if={@ship["status"] == "docked"}
+                        for={%{}}
+                        id="voyage-preview"
+                        phx-submit="preview"
+                        phx-change="preview"
+                        class="mt-4 flex gap-3"
+                      >
+                        <select
+                          name="destination"
+                          aria-label="Destination"
+                          class="rounded bg-slate-800 px-3 py-2"
+                        ><option value="" selected={is_nil(@destination) or @destination == ""}>
+                          Choose a destination before buying
+                        </option><option
+                          :for={
+                            name <-
+                              Enum.sort(Map.keys(@definitions.catalogue["ports"])) -- [@ship["port"]]
+                          }
+                          value={name}
+                          selected={name == @destination}
+                        >
+                          {name}
+                        </option></select>
                       </.form>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                      <div :if={@preview} class="mt-3 flex flex-wrap items-center gap-3">
+                        <span>{minutes(@preview["duration_ms"])} min · fuel {money(@preview["fuel"])} · estimated crew {money(
+                          @preview["crew_estimate"]
+                        )} · canals {money(@preview["canal_fees"])}</span><button
+                          phx-click="sail"
+                          phx-value-request_id={@request_id}
+                          class="rounded bg-teal-600 px-4 py-2"
+                        >Reserve fuel and sail</button>
+                        <.voyage_freshness estimates={@preview["freshness"]} />
+                      </div>
+                      <.voyage_freshness estimates={@view.private["voyage_freshness"][@ship["id"]]} />
+                    </div>
+                  </section>
+                </div>
+              </section>
+              <section id="cargo-panel" class="workspace-panel" aria-label="Cargo">
+                <h2 class="panel-title">Cargo</h2>
+                <div class="panel-content" tabindex="0" aria-label="Cargo markets">
+                  <section id="cargo-markets" class="my-6 rounded-xl border border-slate-700 p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                      <h2 class="text-2xl">Markets by cargo</h2>
+                      <form id="cargo-market-selector" phx-change="market-good">
+                        <label for="market-good" class="mr-2">Cargo</label>
+                        <select id="market-good" name="good" class="rounded bg-slate-800 px-3 py-2">
+                          <option
+                            :for={
+                              {good, _} <-
+                                Enum.sort_by(@definitions.catalogue["goods"], fn {good, _} ->
+                                  cargo_name(good)
+                                end)
+                            }
+                            value={good}
+                            selected={good == @market_good}
+                          >
+                            {cargo_name(good)}
+                          </option>
+                        </select>
+                      </form>
+                    </div>
+                    <p class="my-3 text-sm text-slate-400">
+                      Supply and demand in lots · prices per lot, before handling · updated live. Select a port to inspect its market.
+                    </p>
+                    <div class="cargo-comparison grid gap-2 md:grid-cols-2">
+                      <div
+                        :for={
+                          {side, heading, quantity_key, price_key} <- [
+                            {"supply", "Supply", "stock", "ask"},
+                            {"demand", "Demand", "demand", "bid"}
+                          ]
+                        }
+                        class="min-w-0 overflow-x-auto"
+                      >
+                        <% sort = @market_sort[side] %>
+                        <% rows = cargo_markets(@definitions, @view, @market_good, side, sort) %>
+                        <h3 class="mb-2 text-lg font-medium">{heading}</h3>
+                        <table
+                          id={"cargo-#{side}"}
+                          class="w-full text-sm"
+                          aria-label={heading <> " for selected cargo"}
+                        >
+                          <thead class="border-b border-slate-700 text-slate-400">
+                            <tr>
+                              <th
+                                :for={
+                                  {column, label} <- [
+                                    {"port", "Port"},
+                                    {quantity_key, heading},
+                                    {price_key,
+                                     if(side == "supply", do: "Buy price", else: "Sell price")}
+                                  ]
+                                }
+                                scope="col"
+                                class={
+                                  if column == "port",
+                                    do: "py-2 text-left",
+                                    else: "px-3 py-2 text-right"
+                                }
+                                aria-sort={
+                                  if elem(sort, 0) == column,
+                                    do:
+                                      if(elem(sort, 1) == :asc, do: "ascending", else: "descending"),
+                                    else: "none"
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  phx-click="sort-markets"
+                                  phx-value-side={side}
+                                  phx-value-column={column}
+                                  class="whitespace-nowrap rounded hover:text-teal-300 focus-visible:outline-2 focus-visible:outline-teal-300"
+                                >
+                                  {label}<span aria-hidden="true" class="ml-1">{if elem(sort, 0) ==
+                                                                                     column,
+                                                                                   do:
+                                                                                     if(
+                                                                                       elem(sort, 1) ==
+                                                                                         :asc,
+                                                                                       do: "↑",
+                                                                                       else: "↓"
+                                                                                     ),
+                                                                                   else: "↕"}</span>
+                                </button>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr
+                              :for={quote <- rows}
+                              data-port={quote["port"]}
+                              class="border-b border-slate-800 last:border-0"
+                            >
+                              <th scope="row" class="py-2 text-left font-medium">
+                                <button
+                                  type="button"
+                                  phx-click="port"
+                                  phx-value-id={quote["port"]}
+                                  class="text-teal-300 underline decoration-teal-800 underline-offset-4"
+                                >{quote["port"]}</button>
+                              </th>
+                              <%= if quote["manual"] do %>
+                                <td class="px-3 py-2 text-right tabular-nums">
+                                  {quote[quantity_key]}
+                                </td>
+                                <td class="px-3 py-2 text-right tabular-nums">
+                                  {if quote[quantity_key] > 0, do: money(quote[price_key]), else: "—"}
+                                </td>
+                              <% else %>
+                                <td colspan="2" class="px-3 py-2 text-right text-slate-400">
+                                  Trading not available yet
+                                </td>
+                              <% end %>
+                            </tr>
+                            <tr :if={rows == []}>
+                              <td colspan="3" class="py-3 text-slate-400">
+                                No ports for this cargo.
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </section>
             </div>
-          </section>
-          <section :if={@view.private} class="my-6 rounded-xl bg-slate-900 p-5">
-            <h2 class="text-xl">Invitations & notices</h2><p class="my-2">
-              Available entitlements: {@view.private["account"]["invite_quota"]}
-            </p>
-            <button
-              phx-click="invite"
-              phx-value-request_id={@request_id}
-              class="rounded border border-teal-700 px-4 py-2"
-            >Generate shareable invitation</button>
-            <p :if={@invite_code} class="mt-3 break-all font-mono text-teal-200">{@invite_code}</p>
-            <p :for={notice <- @view.private["notices"]} class="mt-3">{notice["text"]}</p>
-          </section>
+          </div>
         </div>
       </main>
     </Layouts.app>

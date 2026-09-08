@@ -9,6 +9,67 @@
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 body { background-image: radial-gradient(ellipse at top right, #123a46 0%, transparent 65%); }
 
+.game-screen { padding: 12px; }
+.game-header { min-height: 32px; margin-bottom: 8px; padding-right: 170px; }
+.game-header > div { display: flex; align-items: baseline; gap: 16px; }
+.game-screen-playing { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+.game-screen-playing .game-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.company-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; margin-bottom: 10px; border: 1px solid #334155; border-radius: 10px; font-size: 12px; }
+.company-summary h2, .company-summary .text-2xl { font-size: 16px; line-height: 1.4; }
+.company-summary > div { min-width: 0; }
+.company-summary h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.company-summary > div:first-child { max-width: 35%; }
+.game-workspace { min-height: 0; display: flex; flex-direction: column; flex: 1; }
+.workspace-panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-height: 0; flex: 1; }
+.workspace-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; border: 1px solid #334155; background: #0f172acc; border-radius: 12px; overflow: hidden; }
+.panel-title { flex: none; padding: 10px 12px; font-weight: 600; color: #5eead4; border-bottom: 1px solid #334155; }
+.panel-content { overflow: auto; overscroll-behavior-y: contain; min-height: 0; flex: 1; padding: 10px; scrollbar-width: thin; }
+.panel-content > section { margin: 0; padding: 0; border: 0; background: transparent; }
+.panel-content > section + section { margin-top: 12px; }
+.panel-content h2 { font-size: 18px; }
+.panel-content h3 { font-size: 16px; }
+.panel-content table { font-size: 12px; }
+.panel-content th, .panel-content td { padding: 6px; }
+#port-market-table .aboard-column { width: 1%; white-space: nowrap; padding-inline: 4px; text-align: right; }
+#port-market-table .cargo-description-column { width: 25%; max-width: 7rem; overflow-wrap: anywhere; }
+#port-market-table .market-price-column { width: 32%; }
+#port-market-table .destination-bid > span { white-space: nowrap; }
+.panel-content select { max-width: 100%; min-width: 0; }
+.fleet-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 8px; }
+.panel-content .purchase-voyage { font-size: 11px; }
+.panel-content .purchase-total { flex-basis: 100%; white-space: normal; font-size: 12px; }
+.cargo-comparison table { table-layout: fixed; font-size: 11px; }
+.cargo-comparison th, .cargo-comparison td { padding: 5px 3px; overflow-wrap: anywhere; }
+.cargo-comparison th button { white-space: normal; }
+.cargo-comparison th:first-child { width: 38%; }
+.cargo-comparison th:nth-child(2) { width: 26%; }
+.cargo-comparison th:nth-child(3) { width: 36%; }
+#map-panel { flex: none; border: 0; border-bottom: 1px solid #334155; border-radius: 0; max-height: 38%; overflow: auto; }
+#map-panel #world-map { display: block; width: 100%; max-height: 24dvh; }
+#map-panel > p { font-size: 10px; padding: 4px 10px; }
+#map-panel #region-ports { padding: 8px; }
+.workspace-tabs { display: none; }
+.company-menu { position: absolute; top: 16px; right: 16px; z-index: 40; font-size: 12px; }
+.company-menu summary { cursor: pointer; padding: 4px 8px; color: #99f6e4; }
+.company-menu-body { position: absolute; right: 0; width: min(380px, calc(100vw - 32px)); max-height: 75dvh; overflow: auto; padding: 16px; border: 1px solid #475569; border-radius: 12px; background: #0f172a; box-shadow: 0 12px 40px #0008; }
+.company-menu-body section { margin: 12px 0 0; padding: 0; }
+
+@media (orientation: portrait) {
+  .game-screen { padding: 8px; }
+  .game-tagline { display: none; }
+  .company-summary { gap: 6px; padding: 8px; font-size: 10px; }
+  .company-summary h2, .company-summary .text-2xl { font-size: 12px; }
+  .company-summary > div:first-child p { display: none; }
+  .workspace-tabs { display: flex; gap: 4px; flex: none; padding-bottom: 8px; }
+  .workspace-tabs button { flex: 1; padding: 10px; border-radius: 8px; color: #94a3b8; background: #0f172a; }
+  .workspace-tabs button[aria-current=true] { color: #99f6e4; background: #134e4a; }
+  .workspace-panels { display: flex; gap: 0; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .workspace-panels::-webkit-scrollbar { display: none; }
+  .workspace-panel { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+  .panel-title { display: none; }
+  #map-panel #world-map { max-height: 26dvh; }
+}
+
 /* Browser SVG focus outlines grow with the viewBox zoom. Use the marker's
    non-scaling stroke to retain a compact keyboard focus indicator instead. */
 #world-map [role="button"]:focus {

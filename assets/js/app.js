@@ -25,12 +25,13 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/tijara_tides"
 import topbar from "../vendor/topbar"
 import {Flash} from "./flash"
+import {Workspace} from "./workspace"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Flash},
+  hooks: {...colocatedHooks, Flash, Workspace},
 })
 
 // Show progress bar on live navigation and form submits
