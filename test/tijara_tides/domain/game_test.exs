@@ -290,11 +290,80 @@ defmodule TijaraTides.Domain.GameTest do
              Game.redeem(expired, "child", "other", %{id: "other", wall_ms: 0})
   end
 
+  test "purchases require a route and preserve loaded voyage costs plus fleet upkeep" do
+    {state, account, catalogue} = setup_game()
+    ship = Game.get(state, "ships", "company:1")
+    company = Game.get(state, "companies", "company")
+    item = catalogue["goods"]["Lumber"]
+    state = Game.put(state, "companies", company["id"], %{company | "cash" => 100_000_000})
+    fleet = Game.entities(state, "ships") |> Map.values()
+
+    command = %{
+      "action" => "buy",
+      "ship" => ship["id"],
+      "good" => "Lumber",
+      "quantity" => 500,
+      "limit" => 100_000
+    }
+
+    for destination <- [nil, "Jakarta", "unknown", %{}] do
+      assert {:error, :purchase_destination_required} =
+               Game.execute(
+                 state,
+                 account,
+                 Map.put(command, "destination", destination),
+                 %{},
+                 catalogue
+               )
+    end
+
+    command = Map.put(command, "destination", "Singapore")
+    voyage = Game.purchase_voyage(ship, item, 500, "Singapore", fleet, state.clock_ms, catalogue)
+    assert voyage["fuel"] > Game.voyage_quote(ship, "Singapore", catalogue)["fuel"]
+    assert voyage["upkeep"] > voyage["crew_estimate"]
+
+    total =
+      Game.purchase_total(Game.quote(state, catalogue, "Jakarta", "Lumber"), ship, item, 500)
+
+    required = voyage["required"]
+
+    state =
+      Game.put(state, "companies", company["id"], %{company | "cash" => total + required - 1})
+
+    assert {:error, {:purchase_voyage_funds, "Singapore", ^required, remaining}} =
+             Game.execute(state, account, command, %{}, catalogue)
+
+    assert remaining == required - 1
+
+    state = Game.put(state, "companies", company["id"], %{company | "cash" => total + required})
+    assert {:ok, bought, _} = Game.execute(state, account, command, %{}, catalogue)
+    bought = Game.advance(bought, Game.handling_ms(500), catalogue)
+
+    assert {:ok, sailing, _} =
+             Game.execute(
+               bought,
+               account,
+               %{
+                 "action" => "sail",
+                 "ship" => ship["id"],
+                 "destination" => "Singapore",
+                 "fuel_limit" => voyage["fuel"]
+               },
+               %{},
+               catalogue
+             )
+
+    arrived = Game.advance(sailing, voyage["duration_ms"], catalogue)
+    assert Game.get(arrived, "companies", company["id"])["unpaid"] == 0
+    assert Game.get(arrived, "ships", ship["id"])["port"] == "Singapore"
+  end
+
   test "buying reserves actual capacity and cannot bypass ownership, funds, limits or handling" do
     {state, account, catalogue} = setup_game()
 
     buy = %{
       "action" => "buy",
+      "destination" => "Singapore",
       "ship" => "company:1",
       "good" => "Lumber",
       "quantity" => 10,
@@ -328,6 +397,7 @@ defmodule TijaraTides.Domain.GameTest do
         account,
         %{
           "action" => "buy",
+          "destination" => "Singapore",
           "ship" => "company:1",
           "good" => "Lumber",
           "quantity" => 10,
@@ -458,6 +528,7 @@ defmodule TijaraTides.Domain.GameTest do
 
     command = %{
       "action" => "buy",
+      "destination" => "Singapore",
       "ship" => ship["id"],
       "good" => "Fruit",
       "quantity" => 2,

@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 98
+Heuristic requirement sentences in DESIGN.md at generation: 99
 
 ## Screens
 
@@ -123,7 +123,7 @@ told after the fact, without being asked to approve it.
 | 65 | Hide both Aboard and Trade columns when the player owns no ship physically at the inspected port; retain remote market browsing. | 7 | display | Port panel |
 | 66 | The Aboard column shows the selected local ship's total lots of each cargo across purchase batches; use a dash when the selected ship is elsewhere. | 7 | display | Port panel |
 | 67 | Show the total purchase amount beside each available Buy button for the entered lot quantity, including handling and applicable tanker cleaning fees. | 7 | display | Port panel |
-| 68 | Update the purchase total when quantity changes and display it in red when available unreserved cash is insufficient or unpaid costs block purchasing, with an accessible explanation. | 7 | display | Port panel |
+| 68 | Require a valid destination before buying. Show the purchase total and the cash needed for post-purchase fuel, canal fees, and estimated fleet upkeep through loading and arrival. Update both on quantity or destination changes; display the total in red if the purchase would leave insufficient voyage funds or unpaid costs block purchasing. Reject such purchases on the server with the required and remaining amounts. | 7 | display | Port panel |
 | 69 | Provide a cargo selector and two market tables beside each other: Supply on the left and Demand on the right; stack them on narrow screens. | 7 | display | Market |
 | 70 | Each cargo comparison table lists applicable ports, quantity in lots, and its relevant buy or sell price per lot before handling; selecting a port opens its market. | 7 | display | Market |
 | 71 | Default Supply to ascending buy price, then descending supply; default Demand to descending sell price, then descending demand. | 7 | display | Market |

@@ -27,11 +27,12 @@ defmodule TijaraTidesWeb.GameLive do
         selected_ship: nil,
         inspected_ship: nil,
         trade_quantities: %{},
+        trade_resets: %{},
         manifest_sort: {"good", :asc},
         market_good: "Lumber",
         market_sort: %{"supply" => {"ask", :asc}, "demand" => {"bid", :desc}},
         company_draft: %{"name" => "", "port" => "Singapore", "package" => "general"},
-        destination: "Shanghai",
+        destination: nil,
         invite_code: nil,
         request_id: GameServer.request_id(),
         preview: nil
@@ -149,6 +150,7 @@ defmodule TijaraTidesWeb.GameLive do
     params =
       params
       |> Map.put("ship", socket.assigns.selected_ship)
+      |> Map.put("destination", socket.assigns.destination)
       |> Map.update("quantity", 0, &integer/1)
       |> Map.update("limit", 0, &integer/1)
 
@@ -183,8 +185,9 @@ defmodule TijaraTidesWeb.GameLive do
           if command["action"] == "buy" do
             assign(
               socket,
-              :trade_quantities,
-              Map.put(socket.assigns.trade_quantities, {"buy", command["good"]}, 0)
+              trade_quantities:
+                Map.put(socket.assigns.trade_quantities, {"buy", command["good"]}, 0),
+              trade_resets: Map.update(socket.assigns.trade_resets, command["good"], 1, &(&1 + 1))
             )
           else
             socket
@@ -216,7 +219,7 @@ defmodule TijaraTidesWeb.GameLive do
       end
 
     preview =
-      if socket.assigns.preview && ship && ship["status"] == "docked",
+      if socket.assigns.destination not in [nil, ""] && ship && ship["status"] == "docked",
         do: GameServer.preview(socket.assigns.token, ship["id"], socket.assigns.destination)
 
     assign(socket, view: view, selected_ship: ship && ship["id"], ship: ship, preview: preview)
@@ -397,6 +400,10 @@ defmodule TijaraTidesWeb.GameLive do
   def error_message({:departure_already_here, port}),
     do: "This ship is already at #{port}. Choose a different destination."
 
+  def error_message({:purchase_voyage_funds, destination, required, remaining}),
+    do:
+      "This purchase would leave #{money(remaining)}, but the voyage to #{destination} needs #{money(required)} for fuel, canal fees, and estimated fleet upkeep. Buy fewer lots."
+
   def error_message({:departure_no_route, from, destination}),
     do:
       "There is no available sea route from #{from} to #{destination}. Choose another destination."
@@ -439,6 +446,8 @@ defmodule TijaraTidesWeb.GameLive do
       no_invitation_quota: "No invitation entitlement is available.",
       departure_ship_unavailable: "Select a ship owned by your company before departing.",
       departure_destination_invalid: "Choose a valid destination port.",
+      purchase_destination_required:
+        "Choose a purchase destination in the voyage selector before buying cargo. It must have a valid route within the 24-hour voyage limit.",
       departure_fuel_limit_invalid:
         "The fuel limit is invalid. Review the voyage estimate and confirm again."
     }[reason] || "The action could not be completed. Please refresh and try again."
@@ -947,13 +956,16 @@ defmodule TijaraTidesWeb.GameLive do
                 for={%{}}
                 id="voyage-preview"
                 phx-submit="preview"
+                phx-change="preview"
                 class="mt-4 flex gap-3"
               >
                 <select
                   name="destination"
                   aria-label="Destination"
                   class="rounded bg-slate-800 px-3 py-2"
-                ><option
+                ><option value="" selected={is_nil(@destination) or @destination == ""}>
+                  Choose a destination before buying
+                </option><option
                   :for={
                     name <- Enum.sort(Map.keys(@definitions.catalogue["ports"])) -- [@ship["port"]]
                   }
@@ -962,7 +974,6 @@ defmodule TijaraTidesWeb.GameLive do
                 >
                   {name}
                 </option></select>
-                <button class="rounded border border-teal-600 px-4">Estimate voyage</button>
               </.form>
               <div :if={@preview} class="mt-3 flex flex-wrap items-center gap-3">
                 <span>{minutes(@preview["duration_ms"])} min · fuel {money(@preview["fuel"])} · estimated crew {money(
@@ -1189,6 +1200,7 @@ defmodule TijaraTidesWeb.GameLive do
                         />
                         <input
                           type="number"
+                          id={"quantity-#{side}-#{String.replace(good, " ", "-")}-#{if side == "buy", do: Map.get(@trade_resets, good, 0), else: 0}"}
                           name="quantity"
                           min={if available > 0, do: 1, else: 0}
                           max={max(0, min(10_000, available))}
@@ -1211,9 +1223,20 @@ defmodule TijaraTidesWeb.GameLive do
                         >{String.capitalize(side)}</button>
                         <%= if side == "buy" and available > 0 and quantity > 0 do %>
                           <% total = GameServer.purchase_total(q, @ship, item, quantity) %>
+                          <% voyage =
+                            GameServer.purchase_voyage(
+                              @ship,
+                              item,
+                              quantity,
+                              @destination,
+                              @view.private["ships"],
+                              @view.public["clock_ms"]
+                            ) %>
                           <% unaffordable =
-                            total >
-                              @view.private["company"]["cash"] - @view.private["company"]["reserved"] or
+                            is_nil(voyage) or
+                              total + voyage["required"] >
+                                @view.private["company"]["cash"] -
+                                  @view.private["company"]["reserved"] or
                               @view.private["company"]["unpaid"] > 0 %>
                           <span
                             class={[
@@ -1223,12 +1246,23 @@ defmodule TijaraTidesWeb.GameLive do
                             title={
                               if unaffordable,
                                 do:
-                                  "Insufficient available funds. Includes handling and any tanker cleaning fee.",
+                                  "Choose a valid destination and leave enough cash for fuel, canal fees, and estimated fleet upkeep after purchasing. Includes handling and any tanker cleaning fee.",
                                 else: "Includes handling and any tanker cleaning fee."
                             }
                             role="status"
                           >
                             {money(total)} total<span :if={unaffordable} class="sr-only"> — insufficient available funds</span>
+                          </span>
+                          <span class="purchase-voyage text-sm text-slate-300">
+                            <%= if voyage do %>
+                              Keep {money(voyage["required"])} for {@destination}: fuel {money(
+                                voyage["fuel"]
+                              )}, canals {money(voyage["canal_fees"])}, estimated fleet upkeep {money(
+                                voyage["upkeep"]
+                              )} through loading and arrival.
+                            <% else %>
+                              Choose a valid destination above before buying.
+                            <% end %>
                           </span>
                         <% end %>
                         <p

@@ -43,6 +43,14 @@ six-second minimum (10× faster than the initial playtest). Existing voyages are
 retimed on their next tick, preserving progress and fuel already spent. Starter packages have equal total value and three
 ships; comparative earning balance still requires playtesting.
 
+Manual purchases require a destination with a valid voyage. After paying for
+cargo, handling, and any tanker cleaning, available cash must cover fuel for the
+loaded ship, canal fees, and estimated upkeep for the whole fleet through loading
+and arrival. Estimates assume departure immediately after loading and no other
+new fleet activity. This check does not earmark funds: subsequent spending or
+waiting can change affordability, and departure still rechecks funding. It does
+not provide recovery for companies already stranded without cash.
+
 Sea routes are precomputed from a maritime network and displayed on an
 Equal Earth map. The world overview groups the Pearl River Delta, Northern
 Frangistan, and Strait of Hormuz ports into numbered markers. Selecting a group

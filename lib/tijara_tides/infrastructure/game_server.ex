@@ -54,6 +54,18 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def purchase_total(quote, ship, item, quantity),
     do: Game.purchase_total(quote, ship, item, quantity)
 
+  def purchase_voyage(ship, item, quantity, destination, fleet, clock),
+    do:
+      Game.purchase_voyage(
+        ship,
+        item,
+        quantity,
+        destination,
+        Map.values(fleet),
+        clock,
+        GameCatalogue.all()
+      )
+
   def trade_freshness(quote, ship, side, good, quantity, clock) do
     batches =
       if side == "buy",

@@ -500,10 +500,17 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(view, "td", "Fruit")
     assert has_element?(view, "td", "Lumber")
     assert has_element?(view, "#aboard-Lumber", "0")
+    view |> form("#trade-buy-Lumber", %{"quantity" => "1"}) |> render_submit()
+    assert render(view) =~ "Choose a purchase destination"
+    assert has_element?(view, "#aboard-Lumber", "0")
+    render_change(view, "preview", %{"destination" => "Singapore"})
+    assert has_element?(view, "#trade-buy-Lumber .purchase-voyage", "Singapore")
+    assert has_element?(view, "#trade-buy-Lumber .purchase-voyage", "estimated fleet upkeep")
     assert has_element?(view, "#trade-buy-Lumber .purchase-total", "$227.00 total")
 
     render_change(view, "trade-preview", %{
       "action" => "buy",
+      "destination" => "Singapore",
       "good" => "Lumber",
       "quantity" => "500"
     })
@@ -516,6 +523,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     render_change(view, "trade-preview", %{
       "action" => "buy",
+      "destination" => "Singapore",
       "good" => "Lumber",
       "quantity" => "10"
     })
@@ -525,9 +533,11 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert render(view) =~ "900 m³"
     assert render(view) =~ "1.6 m³"
+    assert has_element?(view, "#quantity-buy-Lumber-0[value='10']")
 
     render_submit(view, "trade", %{
       "action" => "buy",
+      "destination" => "Singapore",
       "good" => "Lumber",
       "quantity" => "10",
       "limit" => "30000"
@@ -539,9 +549,14 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(view, "td", "Appliances")
     advance(server, 6000)
     refute has_element?(view, "td", "Appliances")
+    assert has_element?(view, "#quantity-buy-Lumber-1[value='0']")
+    assert has_element?(view, "button[phx-click=sail]", "Reserve fuel and sail")
+    assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
+    refute has_element?(view, "#quantity-buy-Lumber-0")
 
     render_submit(view, "trade", %{
       "action" => "buy",
+      "destination" => "Singapore",
       "good" => "Lumber",
       "quantity" => "1",
       "limit" => "30000"
@@ -628,13 +643,14 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     })
     |> render_submit()
 
+    render_change(view, "preview", %{"destination" => "Singapore"})
     view |> form("#trade-buy-Fruit", %{"quantity" => "20"}) |> render_change()
     assert has_element?(view, "#trade-buy-Fruit", "20 lots: first expiry")
     assert has_element?(view, "#trade-buy-Fruit", "0.2 min handling")
     assert has_element?(view, "#trade-buy-Fruit", "Estimates may change")
     view |> form("#trade-buy-Fruit", %{"quantity" => "20"}) |> render_submit()
     advance(server, 11_000)
-    view |> form("#voyage-preview", %{"destination" => "Singapore"}) |> render_submit()
+    view |> form("#voyage-preview", %{"destination" => "Singapore"}) |> render_change()
     assert has_element?(view, ".voyage-freshness", "Fruit: estimated time to first expiry")
     assert has_element?(view, ".voyage-freshness", "after unloading")
     render_click(view, "sail")
@@ -679,6 +695,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     buy = %{
       "action" => "buy",
+      "destination" => "Singapore",
       "ship" => ship["id"],
       "good" => "Fruit",
       "quantity" => 2,

@@ -158,7 +158,17 @@ defmodule TijaraTides.Domain.Game do
         "limit" => limit
       }
       when action in ["buy", "sell"] ->
-        trade(state, account, action, ship_id, good, quantity, limit, catalogue)
+        trade(
+          state,
+          account,
+          action,
+          ship_id,
+          good,
+          quantity,
+          limit,
+          command["destination"],
+          catalogue
+        )
 
       %{"action" => "sail", "ship" => id, "destination" => destination, "fuel_limit" => limit} ->
         sail(state, account, id, destination, limit, catalogue)
@@ -381,7 +391,7 @@ defmodule TijaraTides.Domain.Game do
     end)
   end
 
-  defp trade(state, account, action, ship_id, good, quantity, limit, catalogue) do
+  defp trade(state, account, action, ship_id, good, quantity, limit, destination, catalogue) do
     with %{} = company <- get(state, "companies", account["company_id"]),
          %{"company_id" => owner, "status" => "docked"} = ship <- get(state, "ships", ship_id),
          true <- owner == company["id"],
@@ -395,7 +405,20 @@ defmodule TijaraTides.Domain.Game do
       handling = quantity * handling_rate(catalogue["ports"][ship["port"]])
 
       if action == "buy",
-        do: buy(state, company, ship, item, quantity, limit, market, quote, handling, catalogue),
+        do:
+          buy(
+            state,
+            company,
+            ship,
+            item,
+            quantity,
+            limit,
+            market,
+            quote,
+            handling,
+            destination,
+            catalogue
+          ),
         else: sell(state, company, ship, good, quantity, limit, market, quote, handling)
     else
       _ -> {:error, :invalid_trade}
@@ -414,6 +437,42 @@ defmodule TijaraTides.Domain.Game do
 
   def purchase_total(_quote, _ship, _item, _quantity), do: 0
 
+  # Estimate from the loaded ship, including this purchase. This is an affordability
+  # check, not a cash reservation or an instruction to sail automatically.
+  def purchase_voyage(ship, item, quantity, destination, fleet, clock, catalogue) do
+    loaded =
+      Map.update!(ship, "cargo", &(&1 ++ [%{"good" => item["id"], "quantity" => quantity}]))
+
+    with true <- is_binary(destination) and destination != ship["port"],
+         %{} = voyage <- voyage_quote(loaded, destination, catalogue),
+         true <- voyage["duration_ms"] <= 86_400_000 do
+      loading = handling_ms(quantity) + if(cleaning_cost(ship, item) > 0, do: 60_000, else: 0)
+      horizon = loading + voyage["duration_ms"]
+
+      upkeep =
+        Enum.reduce(fleet, 0, fn vessel, total ->
+          sailing =
+            cond do
+              vessel["id"] == ship["id"] -> voyage["duration_ms"]
+              vessel["status"] == "sailing" -> min(horizon, max(0, vessel["arrive_ms"] - clock))
+              true -> 0
+            end
+
+          numerator =
+            (horizon + sailing) * classes()[vessel["class"]]["crew"] + vessel["crew_remainder"]
+
+          total + div(numerator + 119_999, 120_000)
+        end)
+
+      Map.merge(voyage, %{
+        "upkeep" => upkeep,
+        "required" => voyage["fuel"] + voyage["canal_fees"] + upkeep
+      })
+    else
+      _ -> nil
+    end
+  end
+
   defp cleaning_cost(ship, item) do
     if classes()[ship["class"]]["hold"] == "liquid" and
          ship["last_liquid"] not in [nil, item["id"]],
@@ -421,13 +480,32 @@ defmodule TijaraTides.Domain.Game do
        else: 0
   end
 
-  defp buy(state, company, ship, item, quantity, limit, market, quote, handling, catalogue) do
+  defp buy(
+         state,
+         company,
+         ship,
+         item,
+         quantity,
+         limit,
+         market,
+         quote,
+         handling,
+         destination,
+         catalogue
+       ) do
     class = classes()[ship["class"]]
     space = capacity(ship, catalogue)
 
     cleaning = cleaning_cost(ship, item)
 
     cost = quote["ask"] * quantity
+
+    fleet =
+      entities(state, "ships")
+      |> Map.values()
+      |> Enum.filter(&(&1["company_id"] == company["id"]))
+
+    voyage = purchase_voyage(ship, item, quantity, destination, fleet, state.clock_ms, catalogue)
 
     cond do
       not compatible_cargo?(ship, item) ->
@@ -445,6 +523,14 @@ defmodule TijaraTides.Domain.Game do
 
       company["cash"] - company["reserved"] < cost + handling + cleaning or company["unpaid"] > 0 ->
         {:error, :insufficient_cash}
+
+      is_nil(voyage) ->
+        {:error, :purchase_destination_required}
+
+      company["cash"] - company["reserved"] - cost - handling - cleaning < voyage["required"] ->
+        {:error,
+         {:purchase_voyage_funds, destination, voyage["required"],
+          company["cash"] - company["reserved"] - cost - handling - cleaning}}
 
       true ->
         {state, batches, remaining} =

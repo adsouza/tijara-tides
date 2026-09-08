@@ -944,9 +944,12 @@ across purchase batches; use a dash when the selected ship is elsewhere.
 Show the total purchase amount beside each available Buy button for the entered
 lot quantity, including handling and applicable tanker cleaning fees.
 
-Update the purchase total when quantity changes and display it in red when
-available unreserved cash is insufficient or unpaid costs block purchasing,
-with an accessible explanation.
+Require a valid destination before buying. Show the purchase total and the cash
+needed for post-purchase fuel, canal fees, and estimated fleet upkeep through
+loading and arrival. Update both on quantity or destination changes; display the
+total in red if the purchase would leave insufficient voyage funds or unpaid
+costs block purchasing. Reject such purchases on the server with the required
+and remaining amounts.
 
 ### Cross-port cargo comparison
 
