@@ -44,7 +44,7 @@ defmodule TijaraTidesWeb.GameLive do
         cargo_sort_roi: false,
         cargo_filter_ship: false,
         market_sort: %{"supply" => {"ask", :asc}, "demand" => {"bid", :desc}},
-        company_draft: %{"name" => "", "port" => "Singapore", "package" => "general"},
+        company_draft: %{"name" => "", "port" => "Singapore"},
         destination: nil,
         invite_code: nil,
         request_id: GameServer.request_id(),
@@ -180,13 +180,17 @@ defmodule TijaraTidesWeb.GameLive do
     end
   end
 
-  def handle_event("company-preview", params, socket) do
-    if socket.assigns.definitions.catalogue["ports"][params["port"]] do
-      draft = Map.take(params, ["name", "port", "package"])
-      {:noreply, assign(socket, company_draft: draft, selected_port: params["port"])}
-    else
-      {:noreply, socket}
-    end
+  def handle_event("company-preview", params, socket),
+    do: {:noreply, assign(socket, company_draft: Map.take(params, ["name"]))}
+
+  def handle_event("purchase-ship", params, socket) do
+    run(socket, %{
+      "action" => "purchase_ship",
+      "class" => params["class"],
+      "port" => socket.assigns.selected_port,
+      "price_limit" => integer(params["price_limit"]),
+      "request_id" => params["request_id"]
+    })
   end
 
   def handle_event(
@@ -358,11 +362,6 @@ defmodule TijaraTidesWeb.GameLive do
         socket =
           if command["action"] in ["buy", "sell"],
             do: assign(socket, trade_quantities: %{}, trade_edited: MapSet.new()),
-            else: socket
-
-        socket =
-          if command["action"] == "company",
-            do: assign(socket, :selected_port, command["port"]),
             else: socket
 
         {:noreply,
@@ -619,6 +618,12 @@ defmodule TijaraTidesWeb.GameLive do
 
   def error_message(reason) do
     %{
+      ship_company_unavailable: "Create an active company before buying a ship.",
+      ship_class_invalid: "Choose an available ship class.",
+      ship_price_changed: "The ship price has changed. Review it before buying.",
+      ship_purchase_funds:
+        "Not enough unreserved cash to buy this ship. Borrow first and retain funds for cargo and voyages.",
+      ship_id_conflict: "This ship purchase has already been processed.",
       bankruptcy_cash_covers_debts:
         "Available cash covers all loan principal, accrued interest and unpaid operating bills. Bankruptcy is unavailable.",
       instruction_ship_not_owned: "Select a ship owned by your company.",
@@ -808,9 +813,9 @@ defmodule TijaraTidesWeb.GameLive do
             :if={@view.private && !@view.private["company"]}
             class="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6"
           >
-            <h2 class="text-xl">Name your company and choose a starting port</h2>
+            <h2 class="text-xl">Name your company</h2>
             <p class="my-3 text-slate-300">
-              Starter packages have equivalent combined fleet and cash value. Prior bankruptcies reduce replacement packages; the choices below show your current entitlement.
+              Start with $0 and no ships. Borrow up to {money(@view.private["finance"]["limit"])} to buy ships and fund cargo and voyages. Interest accrues while the world runs; prior bankruptcies reduce your credit limit.
             </p>
             <.form
               for={%{}}
@@ -829,20 +834,6 @@ defmodule TijaraTidesWeb.GameLive do
                 aria-label="Company name"
                 class="rounded bg-slate-800 px-3 py-2"
               />
-              <select name="port" aria-label="Starting port" class="rounded bg-slate-800 px-3 py-2"><option
-                :for={name <- Enum.sort(Map.keys(@definitions.catalogue["ports"]))}
-                value={name}
-                selected={name == @company_draft["port"]}
-              >
-                {name}
-              </option></select>
-              <select name="package" aria-label="Starter fleet" class="rounded bg-slate-800 px-3 py-2"><option
-                :for={{id, starter} <- Enum.sort(@view.private["finance"]["packages"])}
-                value={id}
-                selected={id == @company_draft["package"]}
-              >
-                {id} · {Enum.join(starter.ships, ", ")} · {money(starter.cash)} cash
-              </option></select>
               <button
                 disabled={@view.private["finance"]["restart_ms"] > @view.public["clock_ms"]}
                 class="rounded bg-teal-600 px-4 py-2 disabled:opacity-40"
@@ -912,7 +903,24 @@ defmodule TijaraTidesWeb.GameLive do
                       max(0, @view.private["finance"]["deadline"] - @view.public["clock_ms"])
                     )} active-world minutes. World suspension pauses this countdown.
                   </p>
-                  <.form for={%{}} id="loan-form" phx-submit="borrow" class="flex gap-2">
+                  <.form
+                    for={%{}}
+                    id="loan-form"
+                    phx-submit="borrow"
+                    phx-hook="LoanAmount"
+                    data-max={div(@view.private["finance"]["available"], 100)}
+                    class="flex flex-wrap items-center gap-2"
+                  >
+                    <input
+                      type="range"
+                      aria-label="Loan amount in $10,000 steps"
+                      min="0"
+                      max={ceil(div(@view.private["finance"]["available"], 100) / 10_000)}
+                      step="1"
+                      value={ceil(div(@view.private["finance"]["available"], 100) / 10_000)}
+                      disabled={@view.private["finance"]["available"] < 100}
+                      class="w-full accent-teal-500"
+                    />
                     <input type="hidden" name="request_id" value={@request_id} />
                     <input
                       type="number"
@@ -975,7 +983,7 @@ defmodule TijaraTidesWeb.GameLive do
                   <.form
                     for={%{}}
                     phx-submit="bankruptcy"
-                    data-confirm="Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a reduced replacement package."
+                    data-confirm="Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a new company starting with no cash or ships."
                   >
                     <input type="hidden" name="request_id" value={@request_id} /><button
                       phx-disable-with="Declaring…"
@@ -1781,6 +1789,46 @@ defmodule TijaraTidesWeb.GameLive do
                   </section>
                   <section :if={@view.private && @view.private["company"]} class="my-6">
                     <h2 class="mb-3 text-xl">Your fleet</h2>
+                    <details
+                      id="shipyard"
+                      phx-mounted={JS.ignore_attributes("open")}
+                      open={map_size(@view.private["ships"]) == 0}
+                      class="mb-3 rounded border border-slate-600 p-3"
+                    >
+                      <summary class="cursor-pointer">Buy a ship at {@selected_port}</summary>
+                      <p class="my-2 text-sm">
+                        Choose a port in the Ports panel to buy there. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew.
+                      </p>
+                      <button
+                        type="button"
+                        phx-click={JS.set_attribute({"open", ""}, to: "#company-menu")}
+                        class="mb-2 rounded border border-teal-600 px-3 py-1"
+                      >Arrange a loan</button>
+                      <.form
+                        :for={{class, spec} <- Enum.sort(@definitions.classes)}
+                        for={%{}}
+                        id={"shipyard-" <> class}
+                        phx-submit="purchase-ship"
+                        class="my-2 flex flex-wrap items-center justify-between gap-2"
+                      >
+                        <input type="hidden" name="request_id" value={@request_id} />
+                        <input type="hidden" name="class" value={class} />
+                        <input type="hidden" name="price_limit" value={spec["price"]} />
+                        <span>{spec["name"]} · {money(spec["price"])}<br /><small>{div(
+                          spec["weight"],
+                          1000
+                        )} tonnes · {div(spec["volume"], 1000)} m³ capacity</small></span>
+                        <button
+                          disabled={
+                            spec["price"] >
+                              @view.private["company"]["cash"] - @view.private["company"]["reserved"]
+                          }
+                          phx-disable-with="Buying…"
+                          class="rounded bg-teal-700 px-3 py-1 disabled:opacity-40"
+                        >Buy ship</button>
+                      </.form>
+                    </details>
+
                     <form id="fleet-filter" phx-change="fleet-status" class="mb-3 text-sm">
                       <label for="fleet-status">Ship status</label>
                       <select

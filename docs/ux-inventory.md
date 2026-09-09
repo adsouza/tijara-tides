@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 139
+Heuristic requirement sentences in DESIGN.md at generation: 137
 
 ## Screens
 
@@ -84,7 +84,7 @@ told after the fact, without being asked to approve it.
 | 24 | The notification reports the completed action and does not require approval to carry it out. | 8 | notification | Notifications |
 | 25 | Finish committed handling and notify the loading shortfall before continuing under the departure funding rules. | 8 | notification | Notifications |
 | 26 | Before confirmation, show the revised route, arrival estimate, and additional fuel requirement. | 8 | disclosure | Route planner |
-| 27 | Show local trading opportunities before the player confirms their selection. | 9 | disclosure | Company and account |
+| 27 | The selected port in the Ports panel is the purchase location. | 9 | disclosure | Company and account |
 | 28 | Show known delays before dispatch and revised arrival estimates underway. | 10 | display | Fleet and ship detail |
 | 29 | Show the estimate and reserve the necessary cash before dispatch | 10 | disclosure | Fleet and ship detail |
 | 30 | show projected maintenance for coming periods | 10 | display | Fleet and ship detail |
@@ -93,7 +93,7 @@ told after the fact, without being asked to approve it.
 | 33 | a visible repayment schedule | 12 | display | Finance |
 | 34 | Show the arrears, deadline, and warnings. | 12 | display | Finance |
 | 35 | Show the remaining time; inspecting the world remains available. | 12 | display | Company and account |
-| 36 | the lifetime count remains permanently visible on the account and in the rankings | 12 | display | Company and account |
+| 36 | the lifetime count remains visible on the account and rankings | 12 | display | Company and account |
 | 37 | Rankings show the player's lifetime bankruptcy count. | 3 | display | Finance |
 | 38 | partial-period company results are labelled provisional and unranked | 13 | display | Finance |
 | 39 | display ROI as unavailable, never infinite or ranked | 13 | display | Finance |
@@ -184,14 +184,14 @@ told after the fact, without being asked to approve it.
 | 124 | On arrival, suggest the saved onward destination in the voyage controls when no other destination is selected. | 8 | display | Fleet and ship detail |
 | 125 | all player-facing cargo labels use the display name, including instruction selectors, order summaries, and notifications. | 9 | display | Fleet and ship detail |
 | 137 | Installment countdowns use HH:MM:SS of remaining active-world time, with hours allowed to exceed 23 rather than wrapping at midnight. | 12 | display | Finance |
-| 136 | This selection only positions the initial fleet; the company has no stored or displayed permanent home city. | 10 | display | Company and account |
+| 136 | The company has no permanent home city. | 10 | display | Company and account |
 | 135 | The account overlay trigger uses a hamburger icon beside its label instead of a disclosure triangle. | 12 | display | Finance |
 | 133 | Keep the overlay open across world updates until explicitly dismissed, with a Close button that remains visible while scrolling. | 12 | display | Finance |
 | 134 | Omit accumulated trade and notification history from this overlay; immediate notifications remain separate. | 12 | display | Finance |
 | 129 | Keep finance controls in the account overlay, preserving the three-column layout. | 12 | display | Finance |
 | 130 | Show available credit, outstanding principal, installment schedules, accrued arrears and the active-world deadline, with borrowing and full repayment actions. | 12 | display | Finance |
 | 131 | Require confirmation before voluntary bankruptcy. | 12 | input | Finance |
-| 132 | Show the replacement-company cooldown and the actual reduced starter packages before company formation. | 12 | display | Company and account |
+| 132 | Show the replacement-company cooldown and available credit limit before company formation. | 12 | display | Company and account |
 | 126 | Provide a per-visit automatic-departure checkbox, off by default, saved together with the onward destination. | 8 | input | Fleet and ship detail |
 
 ## Defaults that keep the depth optional

@@ -68,7 +68,7 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     account = Game.get(state, "accounts", "account")
 
     {:ok, state, _} =
-      Game.execute(
+      TijaraTides.CompanyFixture.execute(
         state,
         account,
         %{"action" => "company", "name" => "Limits", "port" => "Jakarta", "package" => "general"},

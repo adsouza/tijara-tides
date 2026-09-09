@@ -1,7 +1,7 @@
 # First playable milestone
 
 The first playtest covers invitation-based accounts, one lasting company per
-account, the four starter fleets, manual port trading, and automatic voyages.
+account, loan-funded ship purchases, manual port trading, and automatic voyages.
 The approved design remains authoritative. This milestone does not expose
 auctions, remote orders, warehouses, loans, bankruptcy, or player industry before
 their settlement and recovery rules are implemented.
@@ -43,8 +43,8 @@ in the catalogue but cannot bypass their future auction mechanisms. Quantities,
 reference prices, production rates, ship prices, and travel scaling are explicit
 provisional tuning values. Voyages currently run at 600× sailing speed with a
 six-second minimum (10× faster than the initial playtest). Existing voyages are
-retimed on their next tick, preserving progress and fuel already spent. Starter packages have equal total value and three
-ships; comparative earning balance still requires playtesting.
+retimed on their next tick, preserving progress and fuel already spent. New companies start with no cash or ships; players borrow up to $250,000 and buy
+ships at any port. Existing companies retain their assets.
 
 Manual purchases require a destination with a valid voyage. After paying for
 cargo, handling, and any tanker cleaning, available cash must cover fuel for the
@@ -129,12 +129,12 @@ are deferred.
 ## Verification gates
 
 1. Pure rules: conservation, integer arithmetic, private projections, capacity,
-   stale quotes, costs, freshness, and equal starter value.
+   stale quotes, costs, freshness, and zero-asset onboarding and ship purchases.
 2. Disposable PostgreSQL: concurrent invitation redemption and command replay,
    transaction rollback, ownership fencing, account/session isolation, and
    restart recovery. Never use shared Neon for tests.
 3. Browser flow: redeem an invitation, establish a persistent session, choose a
-   company and starter package, buy cargo, sail, arrive, sell, and reconnect.
+   company, borrow, buy ships and cargo, sail, arrive, sell, and reconnect.
 4. Full precommit, generator consistency, assets, and release smoke checks.
 
 ## Following milestones
@@ -154,7 +154,7 @@ executable quotes.
 
 ## Accounting and lot foundations
 
-Financial events use an append-only double-entry ledger. Starter capital,
+Financial events use an append-only double-entry ledger. Historical capital grants,
 purchases, sales and cost of goods, handling, cleaning, canal fees, fuel
 reservations/consumption, crew costs/arrears, and spoilage post atomically with
 state changes and receipts. Company summaries reconcile with ledger balances;
@@ -173,6 +173,6 @@ The account overlay supports bank borrowing, repayment schedules, full early
 repayment and confirmed voluntary bankruptcy. Domain finance settles oldest-due
 installments and operating bills without using reserved voyage funds. One
 24-active-hour grace period leads to forced bankruptcy; suspension pauses it.
-Bankruptcy history, a 20-active-minute restart cooldown and reduced starter
-packages survive database reloads. Closed companies retain their assets for
+Bankruptcy history, a 20-active-minute restart cooldown and reduced credit
+limits survive database reloads. Closed companies retain their assets for
 future receivership auctions, which are not implemented in this milestone.

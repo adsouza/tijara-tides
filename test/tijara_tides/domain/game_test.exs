@@ -12,7 +12,7 @@ defmodule TijaraTides.Domain.GameTest do
     ctx = %{id: "company", catalogue: catalogue}
 
     {:ok, state, _} =
-      Game.execute(
+      TijaraTides.CompanyFixture.execute(
         state,
         account,
         %{
@@ -246,16 +246,6 @@ defmodule TijaraTides.Domain.GameTest do
            ) == []
   end
 
-  test "starter packages contain three ships and equal total capital" do
-    for {package, fleet} <- Game.packages() do
-      assert length(fleet) == 3
-      assert Game.package_cash(package) > 0
-
-      assert Game.package_cash(package) + Enum.sum(Enum.map(fleet, &Game.classes()[&1]["price"])) ==
-               20_000_000
-    end
-  end
-
   test "company formation replaces its pending invitation notice, including after reload" do
     {state, account, catalogue} = setup_game()
 
@@ -272,7 +262,7 @@ defmodule TijaraTides.Domain.GameTest do
     assert pending["text"] == "Your invitation was accepted. Company formation is pending."
 
     {:ok, state, _} =
-      Game.execute(
+      TijaraTides.CompanyFixture.execute(
         state,
         Game.get(state, "accounts", "child"),
         %{

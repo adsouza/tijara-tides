@@ -44,9 +44,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
       catalogue: GameCatalogue.all(),
       land: GameCatalogue.land(),
       regional_land: GameCatalogue.regional_land(),
-      classes: Game.classes(),
-      packages: Game.packages(),
-      package_cash: Map.new(Game.packages(), fn {id, _} -> {id, Game.package_cash(id)} end)
+      classes: Game.classes()
     }
 
   def cargo_name(good), do: GameCatalogue.all()["goods"][good]["name"] || good

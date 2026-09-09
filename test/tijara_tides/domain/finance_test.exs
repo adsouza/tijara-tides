@@ -9,7 +9,7 @@ defmodule TijaraTides.Domain.FinanceTest do
     {:ok, state, _} = Accounts.redeem(state, "invite", "session", %{id: "account", wall_ms: 0})
 
     {:ok, state, _} =
-      Accounts.create_company(
+      TijaraTides.CompanyFixture.create_company(
         state,
         Game.get(state, "accounts", "account"),
         "Loan test",
@@ -182,7 +182,7 @@ defmodule TijaraTides.Domain.FinanceTest do
     assert map_size(state.entities["ships"]) == 3
 
     assert {:error, :bankruptcy_cooldown} =
-             Accounts.create_company(state, account, "New", "Jakarta", "general", %{
+             Accounts.create_company(state, account, "New", %{
                id: "new",
                catalogue: c.catalogue
              })
@@ -191,7 +191,7 @@ defmodule TijaraTides.Domain.FinanceTest do
     state = %{state | clock_ms: state.clock_ms + Finance.terms().cooldown_ms}
 
     {:ok, new, _} =
-      Accounts.create_company(state, account, "New", "Jakarta", "general", %{
+      Accounts.create_company(state, account, "New", %{
         id: "new",
         catalogue: c.catalogue
       })
@@ -252,7 +252,7 @@ defmodule TijaraTides.Domain.FinanceTest do
     assert Finance.can_declare_bankruptcy?(accrued, c.account)
   end
 
-  test "counted bankruptcies age out and replacement packages retain a recovery floor", c do
+  test "counted bankruptcies age out and credit limits recover", c do
     troubled =
       put_in(
         c.state,
@@ -263,10 +263,10 @@ defmodule TijaraTides.Domain.FinanceTest do
     {:ok, state, _} = Finance.bankrupt(troubled, c.account)
     a = state.entities["accounts"]["account"]
     assert Finance.counted(state, a) == 1
-    assert Finance.starter(state, a, "general").value == 16_000_000
+    assert Finance.summary(state, a)["limit"] == 12_500_000
     restored = %{state | clock_ms: state.clock_ms + Finance.terms().history_ms}
     assert Finance.counted(restored, a) == 0
-    assert Finance.starter(restored, a, "general").value == 20_000_000
+    assert Finance.summary(restored, a)["limit"] == 25_000_000
     assert a["bankruptcies"] == 1
   end
 end

@@ -2,7 +2,6 @@ defmodule TijaraTides.Domain.Fleet do
   @moduledoc "Ship definitions, capacity, departure funding, voyages, and operating-cost settlement."
   import TijaraTides.Domain.State
   alias TijaraTides.Domain.Journal
-  @asset_value 20_000_000
   @voyage_speedup 600
   @minimum_voyage_ms 6_000
 
@@ -56,17 +55,72 @@ defmodule TijaraTides.Domain.Fleet do
     }
   end
 
-  def packages do
-    %{
-      "general" => ["freighter", "freighter", "freighter"],
-      "bulk" => ["bulk", "bulk", "small_freighter"],
-      "fresh" => ["reefer", "reefer", "freighter"],
-      "oil" => ["tanker", "tanker", "freighter"]
-    }
-  end
+  def purchase(state, account, class_id, port, price_limit, context) do
+    state = TijaraTides.Domain.Finance.settle(state)
+    company = get(state, "companies", account["company_id"])
+    class = classes()[class_id]
 
-  def package_cash(package),
-    do: @asset_value - Enum.sum(Enum.map(packages()[package], &classes()[&1]["price"]))
+    cond do
+      is_nil(company) or company["account_id"] != account["id"] or company["bankruptcy_ms"] != nil ->
+        {:error, :ship_company_unavailable}
+
+      is_nil(class) ->
+        {:error, :ship_class_invalid}
+
+      not Map.has_key?(context.catalogue["ports"], port) ->
+        {:error, :invalid_port}
+
+      not is_integer(price_limit) or price_limit < class["price"] ->
+        {:error, :ship_price_changed}
+
+      company["cash"] - company["reserved"] < class["price"] ->
+        {:error, :ship_purchase_funds}
+
+      get(state, "ships", context.id) != nil ->
+        {:error, :ship_id_conflict}
+
+      true ->
+        count =
+          Enum.count(entities(state, "ships"), fn {_, ship} ->
+            ship["company_id"] == company["id"]
+          end)
+
+        ship = %{
+          "id" => context.id,
+          "company_id" => company["id"],
+          "name" => "#{company["name"]} #{count + 1}",
+          "class" => class_id,
+          "book_value" => class["price"],
+          "port" => port,
+          "cargo" => [],
+          "status" => "docked",
+          "arrive_ms" => nil,
+          "destination" => nil,
+          "depart_ms" => nil,
+          "fuel_total" => 0,
+          "fuel_burned" => 0,
+          "crew_remainder" => 0,
+          "last_cost_ms" => state.clock_ms,
+          "last_liquid" => nil
+        }
+
+        state =
+          state
+          |> put("ships", ship["id"], ship)
+          |> put("companies", company["id"], %{
+            company
+            | "cash" => company["cash"] - class["price"]
+          })
+          |> Journal.post(
+            company["id"],
+            "ship_purchase",
+            [{"fleet", class["price"]}, {"cash_available", -class["price"]}],
+            %{ship: ship["id"]}
+          )
+
+        {:ok, state, %{"ship_id" => ship["id"], "spent" => class["price"]}}
+    end
+  end
 
   def capacity(ship, catalogue) do
     Enum.reduce(ship["cargo"], %TijaraTides.Domain.Capacity{}, fn batch, totals ->

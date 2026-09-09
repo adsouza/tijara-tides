@@ -752,7 +752,7 @@ player companies, including reserved cash, and changes only when cash crosses
 the boundary between those companies and the simulated economy. Moving cash
 into or out of a reservation does not change the stock.
 
-Cash sources include cash starter grants, loan disbursements, payments from
+Cash sources include loan disbursements, payments from
 simulated buyers, and shipyard buybacks. Cash sinks include purchases from
 simulated sellers, operating payments to simulated actors, loan principal and
 interest repayments, and estate cash removal. Ordinary player-to-player payments
@@ -763,7 +763,7 @@ credited to a company as another cash removal.
 
 Buying a ship removes cash without an immediate operating loss. Depreciation
 reduces profit without removing cash, and loan disbursements add cash without
-profit. Starter ships likewise add assets without creating cash. A profitable
+profit. A profitable
 player base can maintain a static cash stock by reinvesting its earnings.
 Treat cash stock as an observable, not a target, and instrument sources and sinks
 separately from accounting profit.
@@ -861,9 +861,8 @@ move from tropical producers toward the same industrial and populous regions
 that buy refined fuel, so a tanker can discharge fuel and load oil for the
 return leg. That does not make every leg loaded: a tanker delivering fuel to a
 port that exports no liquid sails back in ballast, which is both realistic and
-intended. Ballast legs are why the oil trader starter package includes a general
-freighter, and they are not a defect to be fixed by relaxing the liquid-hold
-rule.
+intended. Players may buy a general freighter alongside tankers to diversify
+their routes; ballast legs do not justify relaxing the liquid-hold rule.
 
 The launch roster must retain at least one two- or three-port liquid trading
 cycle containing vegetable oil and either crude oil or refined fuel. Two-port
@@ -891,8 +890,7 @@ Some launch perishables are effectively refrigerated-only. Seafood and meat cann
 credibly hold a usable shelf life in an unrefrigerated hold across even a short
 voyage, so their unrefrigerated shelf lives must be short enough to be plausible,
 which makes ordinary holds impractical for them in nearly every case. That is
-intended, and it is what gives refrigerated capacity and the fresh produce starter
-package a purpose. Treat it as a constraint on tuning rather than a free choice,
+intended, and it is what gives refrigerated capacity a purpose. Treat it as a constraint on tuning rather than a free choice,
 and do not read "ordinary holds can carry perishables" as a promise that every
 perishable travels viably unrefrigerated. Fruit is the launch perishable expected
 to tolerate ordinary holds on shorter routes. Because real fruit shelf lives span
@@ -1779,39 +1777,31 @@ collection-stop cancellation rules. Completed purchases remain company-owned.
 Retaining a stop preserves its instructions and linked reservations, subject to
 their normal expiry and eligibility rules.
 
-## 9. Ships, starter packages, and purchases
+## 9. Ships and purchases
 
-Players choose among starter packages of equivalent total value, balancing fleet
-value against working cash. Each provides three ships and sufficient cash for
-initial cargo and voyages. No package permanently restricts later specialization.
+New and replacement companies start with zero cash and no ships. Company
+formation grants no capital and asks only for a name. Borrowing is an explicit
+player action: choose an amount within the credit limit, then buy ships and
+retain working cash for cargo, fuel and crew. No loan is taken automatically.
+Existing companies keep their current assets when this policy ships.
 
-| Package                  | Starting fleet                                           | Focus                                                      |
-|--------------------------|----------------------------------------------------------|------------------------------------------------------------|
-| General trader           | Three balanced freighters                                | Flexible consumer-goods routes and experimentation.        |
-| Bulk hauler              | Two larger, slower bulk carriers and one small freighter | Commodities, scrap, and efficient round trips.             |
-| Fresh produce specialist | Two small refrigerated ships and one standard freighter  | Perishables with conventional freight as a fallback.       |
-| Oil trader               | Two small tankers and one general freighter              | Crude-oil trading with conventional freight as a fallback. |
+The Ships panel provides a shipyard showing every class, its price and capacity,
+and an Arrange a loan action opening the finance overlay. The selected port in
+the Ports panel is the purchase location. All ship classes are available at every
+launch port at the same fixed prices initially. Ships are delivered immediately,
+empty and docked. Disable purchases that exceed unreserved cash and revalidate
+the price, funds, ownership and port on the server. Repeated delivery of one
+purchase request creates only one ship and one ledger transaction.
 
-Adjust the oil trader's starting cash to maintain equivalent total package value
-and sufficient working capital for initial cargo and voyages.
-
-Equal asset value alone does not guarantee fair earning potential. Balance risk,
-working capital, and compatibility with the starting port. Players may choose
-any launch port as their starting port, with all three starter ships placed there.
-This selection only positions the initial fleet; the company has no stored or
-displayed permanent home city.
-Show local trading opportunities before the player confirms their selection.
-Compare the four starter packages using fleet value, starting cash, cargo
-capabilities, and operating costs. Validate comparable earning opportunities
-through simulations across starting ports, accounting for risk and working capital;
-equivalent packages do not guarantee equal profits.
+The company has no permanent home city. Its ship purchase location determines
+where that ship starts. Regional shipyard availability, regional prices and
+construction delays remain later possibilities.
 
 Ships have weight and volume limits and hold capabilities. Mixed cargo is
 allowed when both limits and hold requirements are satisfied. Bulk goods may
 fill weight capacity first; consumer products may fill volume first.
 
-Additional ships are available immediately at fixed prices from designated
-shipyards. The launch catalogue includes tankers for crude oil and refined fuel.
+The launch catalogue includes tankers for crude oil and refined fuel.
 Both goods require liquid-compatible ship capacity and cannot use ordinary
 dry-cargo holds. Capacity, size class, speed, operating costs, and cargo
 compatibility distinguish ship classes. Size class governs eligibility for
@@ -2196,11 +2186,12 @@ not lend money. Assets, earnings, existing debt, and account bankruptcy history
 inform borrowing limits and terms. Successful repayment should improve access
 over time; past bankruptcy must not make recovery impossible.
 
-Initial borrowing limits are based on a conservative fraction of fleet value.
-Sustained profits unlock additional credit as the company establishes an
-earnings history. Existing debt reduces remaining borrowing capacity, and account
-bankruptcy history affects limits and terms. The valuation method, lending
-fractions, and earnings thresholds remain configurable tuning parameters.
+A company without assets can borrow up to $250,000 initially. Existing principal
+reduces unused borrowing capacity; repaying principal restores it. Divide the
+$250,000 ceiling by one plus counted bankruptcies, with a $100,000 floor to keep
+recovery viable. The initial policy does not increase this ceiling when ships
+are purchased or loans are repaid. Asset- and earnings-based lending may be
+introduced later. These limits remain source-configured tuning parameters.
 
 Installments and operating bills are collected automatically. Overdue bills and
 loan installments are paid oldest due first from available unreserved cash,
@@ -2235,13 +2226,8 @@ splitting the same duration into more ticks does not increase the charge.
 Suspension pauses accrual, and overdue principal continues accruing interest
 until repayment or bankruptcy, without compounding. Existing loans begin this
 accrual policy at the upgrade clock without retroactive charges. Loans have a $1 minimum and at most eight
-may be open per company. Initial credit is 25% of fleet book value, less existing
-debt. After one period, positive cumulative operating profit adds twice its value
-to the limit. Each loan repaid through its scheduled final installment adds 2.5
-percentage points of fleet value, capped at four such improvements; immediate
-early repayment does not earn this bonus. Divide the resulting limit by one plus
-the number of counted bankruptcies. These are provisional source-configured
-balance parameters, not promised permanent rates.
+may be open per company. Credit is limited by the policy above; loan proceeds
+are liabilities rather than profit or free capital.
 
 Keep finance controls in the account overlay, preserving the three-column layout.
 Keep the overlay open across world updates until explicitly dismissed, with a
@@ -2258,12 +2244,10 @@ within the viewport in portrait.
 Show available credit, outstanding principal, installment schedules, accrued
 arrears and the active-world deadline, with borrowing and full repayment actions.
 Require confirmation before voluntary bankruptcy. Show the replacement-company
-cooldown and the actual reduced starter packages before company formation.
+cooldown and available credit limit before company formation.
 
-The initial replacement package is multiplied by 0.8 per counted bankruptcy,
-with a floor of 50% of its original combined fleet and cash value. Remove ships
-as necessary and return the remaining entitlement as cash. Bankruptcies count
-for 112 active-world days; the lifetime count remains permanent.
+Bankruptcies count against credit access for 112 active-world days; the lifetime
+count remains permanent. Replacement companies receive neither cash nor ships.
 
 For this milestone, receivership retains assets under the closed old company
 pending future asset auctions. Ordinary instructions and visit plans are cancelled.
@@ -2283,24 +2267,16 @@ buyers, whose payment and receiving reservations are released. Already-settled
 sales finish handling. There are no player-buyer procurement contracts initially.
 A 20-active-world-minute cooldown begins when bankruptcy is declared, voluntarily or
 through default. After it expires, the player may create a replacement company
-and receive a starter package without waiting for liquidation to finish. The
+without waiting for liquidation to finish. The
 cooldown survives sign-out or restart and is not bypassed through another account.
 Show the remaining time; inspecting the world remains available. No old assets or
 auction proceeds pass to that replacement company; bankruptcy count and company
 history persist.
 
-The replacement package shrinks with the number of counted prior bankruptcies,
-down to a configured floor that keeps recovery possible as required above. A
-geometric reduction toward a floor near half the base package is the provisional
-shape; ratio and floor are tuning parameters. Voluntary and forced bankruptcy
-count alike, or the distinction itself becomes the exploit.
-
-Counted bankruptcies age out after a configured number of game years and stop
-reducing the package, while the lifetime count remains permanently visible on the
-account and in the rankings. Sustained solvent operation therefore restores full
-onboarding, consistent with the lending rule that past bankruptcy must not make
-recovery impossible. Dormant closures under section 5 are recorded separately and
-never reduce the package.
+Voluntary and forced bankruptcies reduce credit access alike. Counted bankruptcies
+age out after the configured period, restoring access to the full credit ceiling;
+the lifetime count remains visible on the account and rankings. Dormant closures
+under section 5 are recorded separately and do not reduce credit access.
 
 Assets enter auctions as separate lots: individual ships, cargo batches at their
 ports, and eventually complete facilities. Purchases of cargo do not move it.
@@ -2340,7 +2316,7 @@ label specified in section 4 throughout estate ownership.
 
 Loan-funded value transfers followed by bankruptcy must not be an easy source of
 money for accomplices. Each player may operate one active company; alternate
-accounts cannot collect extra starter grants or evade bankruptcy history and
+accounts cannot obtain extra initial credit or evade bankruptcy history and
 cooldowns. The invitation requirement in section 2 is what makes that limit
 enforceable: accounts are rate-limited by invites earned through sustained play,
 and the recorded invitation tree localizes any surviving alternate accounts to
@@ -2350,7 +2326,7 @@ on a player's own consignments or former company's liquidation. Log suspicious
 reciprocal trades and unusual prices for review without automatically penalizing
 legitimate bargains, weighting activity concentrated within one invitation
 subtree most heavily. Track repeated resets and apply the agreed
-bankruptcy-history effects on lending and on replacement starter packages.
+bankruptcy-history effects on lending.
 Identity enforcement and review procedures are implementation and operations
 work; these rules do not imply detection is already implemented.
 
@@ -2360,8 +2336,7 @@ Period ROI = period net profit / average capital employed during that period.
 
 Capital employed includes cash, inventory, ships, and eventually facilities,
 including assets funded through loans and the unexpired prepaid value of leases.
-Borrowing does not shrink the denominator to shareholder equity. Starter grants
-and loan proceeds are not profit.
+Borrowing does not shrink the denominator to shareholder equity. Historical capital grants and loan proceeds are not profit.
 
 Trading profit is recognized when goods sell, accounting for their purchase
 cost. Unsold cargo stays at purchase cost rather than rising with quoted prices;
@@ -2477,7 +2452,7 @@ alongside the goods.
 ## 15. Implementation boundary and invariants
 
 The first playable milestone implements invitation-based device accounts,
-persistent starter companies, manual immediate trades, and timed sea voyages.
+persistent companies, manual immediate trades, and timed sea voyages.
 The home page shows a live Players online count of signed-in browsers with
 the play page open. Multiple play tabs in one browser count once; home-page
 visitors and spectators do not count. Closing the last play tab or signing out
@@ -2506,7 +2481,7 @@ Implementation must preserve these gameplay invariants:
   Observable physical facts are public by design and do not breach this; section
   4 enumerates them.
 - Disconnecting does not reset obligations; retries or recovery do not duplicate
-  trades, production, loan charges, auctions, or starter grants.
+  trades, production, loan charges, auctions, or historical capital grants.
 - Bankruptcy resets the company, not the account's history, and does not transfer
   old assets into the replacement company.
 - Every economic timer uses a defined clock and an explicit offline/recovery rule.
@@ -2581,8 +2556,8 @@ change the list.
    prohibited bids, suspicious-trade review, and a 20-real-minute bankruptcy
    restart cooldown. Account creation consumes an earned, non-transferable,
    expiring invitation, and the recorded invitation tree both rate-limits new
-   accounts and localizes collusion review to subtrees. Replacement starter
-   packages shrink with counted bankruptcies down to a floor, with counts aging
+   accounts and localizes collusion review to subtrees. Borrowing limits
+   shrink with counted bankruptcies down to a floor, with counts aging
    out while the lifetime total stays visible. Procurement deposits use buyer
    maximum/awarded payment. Concrete detection and review mechanisms remain
    implementation work.
@@ -2666,13 +2641,11 @@ change the list.
     closed to the largest class. City economic identities are assigned in the
     launch port roster. Additions may be proposed only for important gameplay
     balance needs and require the user's approval.
-19. **Complete — Initial fleet and onboarding:** any launch port may be
-    selected as starting port, with all three starter ships placed there and local
-    trading opportunities shown before confirmation. Four starter packages include
-    an oil trader with two small tankers and one general freighter, with adjusted
-    working cash for equivalent total value. Compare fleet value, starting cash,
-    cargo capabilities, and operating costs; validate comparable opportunities
-    through simulations across starting ports without guaranteeing equal profits.
+19. **Complete — Initial fleet and onboarding:** new and replacement companies
+    start with no cash or ships. Players choose an explicit loan up to $250,000,
+    subject to bankruptcy history, and purchase ships at any launch port. All
+    classes are available at the same fixed prices initially. Existing companies
+    retain their assets; no automatic loan or capital grant is created.
 20. **Complete — Simulated economy:** gradual production and consumption, capped
     buyer-budget replenishment, and bounded price responses to surplus and
     shortages. Factories consume inputs and start with inventories; raw-resource
@@ -2733,7 +2706,7 @@ port capacities and handling speeds, warehouse block sizes and curve parameters,
 reference values and band widths, the activity decay constant, owner-absence and
 dormancy-warning intervals, departure accumulation windows and retry cooldowns,
 the shipyard buyback fraction, the maintenance escalation curve,
-invitation issuance rate and expiry, starter-package reduction ratio and floor,
+invitation issuance rate and expiry, initial credit ceiling and bankruptcy credit floor,
 the post-settlement storage grace period for won auction cargo, ship size classes
 with per-berth-group and per-waterway limits, port capacity expansion thresholds,
 measurement windows, lead times and increments, regional pricing responses and

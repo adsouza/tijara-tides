@@ -66,7 +66,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
       Game.redeem(state, "seed-hash", "session-hash", %{id: "account", wall_ms: 0})
 
     {:ok, state, _} =
-      Game.execute(
+      TijaraTides.CompanyFixture.execute(
         state,
         Game.get(state, "accounts", "account"),
         %{

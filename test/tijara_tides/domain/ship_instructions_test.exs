@@ -11,7 +11,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     ctx = %{id: "company", catalogue: catalogue}
 
     {:ok, state, _} =
-      Game.execute(
+      TijaraTides.CompanyFixture.execute(
         state,
         account,
         %{

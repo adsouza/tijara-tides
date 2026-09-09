@@ -39,6 +39,50 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "loan-funded ship purchases replay once and survive reload", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "company",
+               %{"action" => "company", "name" => "Ship Buyer"},
+               c.server
+             )
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "loan",
+               %{"action" => "borrow", "amount" => 10_000_000},
+               c.server
+             )
+
+    command = %{
+      "action" => "purchase_ship",
+      "class" => "freighter",
+      "port" => "Jakarta",
+      "price_limit" => 4_000_000
+    }
+
+    assert {:ok, result} = GameServer.command(token, "purchase", command, c.server)
+    assert {:ok, ^result} = GameServer.command(token, "purchase", command, c.server)
+    saved = GameServer.snapshot(token, c.server).private
+    assert map_size(saved["ships"]) == 1
+    assert saved["company"]["cash"] == 6_000_000
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :purchase_replacement
+      )
+
+    assert GameServer.snapshot(token, replacement).private["ships"] == saved["ships"]
+    assert {:ok, ^result} = GameServer.command(token, "purchase", command, replacement)
+    assert GameServer.snapshot(token, replacement).private["company"]["cash"] == 6_000_000
+  end
+
   test "finance UI, receipts, installments and bankruptcy survive durable reload", c do
     Application.put_env(:tijara_tides, :game_server, c.server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
@@ -49,7 +93,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     token = Plug.Conn.get_session(conn, :account_token)
 
     {:ok, %{"company_id" => company}} =
-      GameServer.command(
+      TijaraTides.CompanyFixture.command(
         token,
         "formation",
         %{
@@ -209,7 +253,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     token = Plug.Conn.get_session(conn, :account_token)
 
     {:ok, %{"company_id" => company}} =
-      GameServer.command(
+      TijaraTides.CompanyFixture.command(
         token,
         "company",
         %{
@@ -495,7 +539,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
 
       {:ok, %{"company_id" => company}} =
-        GameServer.command(
+        TijaraTides.CompanyFixture.command(
           token,
           "company",
           %{
@@ -592,7 +636,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     {:ok, %{"session" => token}} = GameServer.redeem(code, server)
 
     {:ok, %{"company_id" => company}} =
-      GameServer.command(
+      TijaraTides.CompanyFixture.command(
         token,
         "company",
         %{
@@ -770,7 +814,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     {:ok, %{"session" => token}} = GameServer.redeem(code, server)
 
     {:ok, _} =
-      GameServer.command(
+      TijaraTides.CompanyFixture.command(
         token,
         "create",
         %{
@@ -848,10 +892,11 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :sys.get_state(server).timer != repaired
   end
 
-  test "command retries grant one fleet, preserve balances, and reject request conflicts", %{
-    server: server,
-    code: code
-  } do
+  test "command retries create one empty company, preserve balances, and reject request conflicts",
+       %{
+         server: server,
+         code: code
+       } do
     {:ok, %{"session" => token}} = GameServer.redeem(code, server)
 
     command = %{
@@ -866,7 +911,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     before = GameServer.snapshot(token, server)
     assert {:ok, ^result} = GameServer.command(token, request, command, server)
     assert GameServer.snapshot(token, server) == before
-    assert map_size(before.private["ships"]) == 3
+    assert map_size(before.private["ships"]) == 0
 
     assert {:error, :request_conflict} =
              GameServer.command(token, request, %{command | "name" => "Different"}, server)
@@ -897,7 +942,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     {:ok, %{"session" => token}} = GameServer.redeem(code, server)
 
     {:ok, _} =
-      GameServer.command(
+      TijaraTides.CompanyFixture.command(
         token,
         "company",
         %{
@@ -962,24 +1007,18 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert is_binary(token)
     {:ok, view, _} = conn |> recycle() |> live("/play")
 
-    view
-    |> form("#company-form", %{
-      "name" => "Browser Shipping",
-      "port" => "Jakarta",
-      "package" => "general"
-    })
-    |> render_change()
-
-    assert has_element?(view, "#port-selector option[selected]", "Jakarta")
+    view |> form("#company-form", %{"name" => "Browser Shipping"}) |> render_change()
     assert has_element?(view, "#company-form input[name=name][value='Browser Shipping']")
-
-    view
-    |> form("form[phx-submit=company]", %{
-      "name" => "Browser Shipping",
-      "port" => "Jakarta",
-      "package" => "general"
-    })
-    |> render_submit()
+    view |> form("#company-form", %{"name" => "Browser Shipping"}) |> render_submit()
+    empty = GameServer.snapshot(token, server)
+    assert empty.private["ships"] == %{}
+    assert empty.private["company"]["cash"] == 0
+    assert empty.private["finance"]["available"] == 25_000_000
+    assert has_element?(view, "#shipyard-freighter button[disabled]")
+    view |> form("#loan-form", %{"amount" => "200000"}) |> render_submit()
+    render_change(view, "port", %{"id" => "Jakarta"})
+    for _ <- 1..3, do: view |> form("#shipyard-freighter") |> render_submit()
+    assert map_size(GameServer.snapshot(token, server).private["ships"]) == 3
 
     assert render(view) =~ "Browser Shipping"
     render_change(view, "market-good", %{"good" => "spices"})
@@ -1423,13 +1462,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     token = Plug.Conn.get_session(conn, :account_token)
     {:ok, view, _} = conn |> recycle() |> live("/play")
 
-    view
-    |> form("#company-form", %{
-      "name" => "Cold Shipping",
-      "port" => "Jakarta",
-      "package" => "fresh"
-    })
-    |> render_submit()
+    view |> form("#company-form", %{"name" => "Cold Shipping"}) |> render_submit()
+    view |> form("#loan-form", %{"amount" => "200000"}) |> render_submit()
+    render_change(view, "port", %{"id" => "Jakarta"})
+
+    for class <- ["reefer", "reefer", "freighter"],
+        do: view |> form("#shipyard-" <> class) |> render_submit()
 
     render_change(view, "preview", %{"destination" => "Singapore"})
     assert has_element?(view, "#port-selector option[selected]", "Jakarta")
@@ -1469,7 +1507,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     :ok = GameServer.connect(token, server)
 
     {:ok, _} =
-      GameServer.command(
+      TijaraTides.CompanyFixture.command(
         token,
         "starter",
         %{

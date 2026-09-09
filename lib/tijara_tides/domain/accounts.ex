@@ -1,9 +1,8 @@
 defmodule TijaraTides.Domain.Accounts do
-  @moduledoc "Accounts, invitation entitlements, device-session authentication, and starter-company formation."
+  @moduledoc "Accounts, invitation entitlements, device-session authentication, and company formation."
   import TijaraTides.Domain.State
-  import TijaraTides.Domain.Fleet, only: [classes: 0, packages: 0]
   import TijaraTides.Domain.Notices, only: [notice: 4]
-  alias TijaraTides.Domain.{Finance, Journal}
+  alias TijaraTides.Domain.Finance
   @invite_ms 3 * 86_400_000
 
   def sign_out(state, session_hash), do: delete(state, "sessions", session_hash)
@@ -89,7 +88,7 @@ defmodule TijaraTides.Domain.Accounts do
     end
   end
 
-  def create_company(state, account, name, port, package, context) do
+  def create_company(state, account, name, context) do
     name = if is_binary(name), do: String.trim(name), else: ""
 
     cond do
@@ -102,12 +101,6 @@ defmodule TijaraTides.Domain.Accounts do
       name == "" or String.length(name) > 60 ->
         {:error, :invalid_name}
 
-      not Map.has_key?(context.catalogue["ports"], port) ->
-        {:error, :invalid_port}
-
-      not Map.has_key?(packages(), package) ->
-        {:error, :invalid_package}
-
       Enum.any?(entities(state, "companies"), fn {_, c} ->
         String.downcase(c["name"]) == String.downcase(name)
       end) ->
@@ -115,13 +108,12 @@ defmodule TijaraTides.Domain.Accounts do
 
       true ->
         id = context.id
-        starter = Finance.starter(state, account, package)
 
         company = %{
           "id" => id,
           "account_id" => account["id"],
           "name" => name,
-          "cash" => starter.cash,
+          "cash" => 0,
           "reserved" => 0,
           "profit" => 0,
           "unpaid" => 0,
@@ -138,44 +130,7 @@ defmodule TijaraTides.Domain.Accounts do
           |> put("accounts", account["id"], %{account | "company_id" => id})
 
         state =
-          starter.ships
-          |> Enum.with_index(1)
-          |> Enum.reduce(state, fn {class, index}, state ->
-            ship_id = id <> ":" <> to_string(index)
-
-            ship = %{
-              "id" => ship_id,
-              "company_id" => id,
-              "name" => "#{name} #{index}",
-              "class" => class,
-              "book_value" => classes()[class]["price"],
-              "port" => port,
-              "cargo" => [],
-              "status" => "docked",
-              "arrive_ms" => nil,
-              "destination" => nil,
-              "depart_ms" => nil,
-              "fuel_total" => 0,
-              "fuel_burned" => 0,
-              "crew_remainder" => 0,
-              "last_cost_ms" => state.clock_ms,
-              "last_liquid" => nil
-            }
-
-            put(state, "ships", ship_id, ship)
-          end)
-
-        state =
           notice(state, account["inviter"], "company:" <> id, "Your invitee now runs #{name}.")
-
-        fleet = Enum.sum(Enum.map(starter.ships, &classes()[&1]["price"]))
-
-        state =
-          Journal.post(state, id, "starter_grant", [
-            {"cash_available", starter.cash},
-            {"fleet", fleet},
-            {"capital", -starter.cash - fleet}
-          ])
 
         {:ok, state, %{"company_id" => id}}
     end

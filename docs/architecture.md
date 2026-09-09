@@ -10,7 +10,7 @@ not independently deployed services or independently committed aggregates.
 
 | Area | Owner | Invariants |
 |---|---|---|
-| Identity and company formation | `Domain.Accounts` | Valid durable sessions; one active company per account; invitation entitlement lifecycle; equal-value starter packages. |
+| Identity and company formation | `Domain.Accounts` | Valid durable sessions; one active company per account; invitation entitlement lifecycle; zero-asset formation and explicit borrowing. |
 | Ship operation | `Domain.Fleet` | Ownership and handling status before departure; fuel funding and reservation; capacity measured in kg/litres; fuel and crew costs settled once. |
 | Cargo | `Domain.CargoRules`, `CargoLots` | Hold compatibility, liquid mixing restrictions, freshness, stable lot identity and split lineage. |
 | Trading | `Domain.Trading` | Atomic cash, cargo, liquidity and accounting changes; destination funding rechecked before purchase. |

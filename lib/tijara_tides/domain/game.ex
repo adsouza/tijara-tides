@@ -1,8 +1,6 @@
 defmodule TijaraTides.Domain.Game do
   @moduledoc "Compatibility facade. Rules belong to the focused domain modules."
   defdelegate classes(), to: TijaraTides.Domain.Fleet
-  defdelegate packages(), to: TijaraTides.Domain.Fleet
-  defdelegate package_cash(arg0), to: TijaraTides.Domain.Fleet
   defdelegate entities(arg0, arg1), to: TijaraTides.Domain.ReadState
   defdelegate get(arg0, arg1, arg2), to: TijaraTides.Domain.ReadState
   defdelegate initialize(arg0, arg1), to: TijaraTides.Domain.Simulation

@@ -1,18 +1,17 @@
 defmodule TijaraTides.Domain.Finance do
   @moduledoc "Bank credit, active-clock installments, arrears and company receivership. All settlement is pure."
   import TijaraTides.Domain.State
-  alias TijaraTides.Domain.{Fleet, Journal, Notices}
+  alias TijaraTides.Domain.{Journal, Notices}
   # Provisional lending policy; amounts are cents, durations are active-world ms.
   @terms %{
     period_ms: 86_400_000,
     installments: 4,
     rate_bps: 800,
-    fleet_bps: 2500,
+    credit_limit: 25_000_000,
+    credit_floor: 10_000_000,
     grace_ms: 86_400_000,
     cooldown_ms: 1_200_000,
-    history_ms: 112 * 86_400_000,
-    replacement_bps: 8000,
-    replacement_floor_bps: 5000
+    history_ms: 112 * 86_400_000
   }
   def terms, do: @terms
 
@@ -32,35 +31,6 @@ defmodule TijaraTides.Domain.Finance do
   def restart_at(state, account),
     do: history(state, account) |> Enum.map(& &1["restart_ms"]) |> Enum.max(fn -> 0 end)
 
-  def starter(state, account, package) do
-    classes = Fleet.packages()[package]
-
-    original =
-      Fleet.package_cash(package) + Enum.sum(Enum.map(classes, &Fleet.classes()[&1]["price"]))
-
-    factor =
-      Enum.reduce(List.duplicate(nil, min(counted(state, account), 10)), 10_000, fn _, n ->
-        max(@terms.replacement_floor_bps, div(n * @terms.replacement_bps, 10_000))
-      end)
-
-    budget = div(original * factor, 10_000)
-    ships = trim_fleet(classes, budget - div(Fleet.package_cash(package) * factor, 10_000))
-
-    %{
-      ships: ships,
-      cash: budget - Enum.sum(Enum.map(ships, &Fleet.classes()[&1]["price"])),
-      value: budget
-    }
-  end
-
-  defp trim_fleet([_] = ships, _budget), do: ships
-
-  defp trim_fleet(ships, budget) do
-    if Enum.sum(Enum.map(ships, &Fleet.classes()[&1]["price"])) <= budget,
-      do: ships,
-      else: trim_fleet(Enum.drop(ships, -1), budget)
-  end
-
   def loans(state, company),
     do:
       entities(state, "loans")
@@ -71,27 +41,9 @@ defmodule TijaraTides.Domain.Finance do
   def summary(state, account) do
     company = get(state, "companies", account["company_id"])
 
-    fleet =
-      entities(state, "ships")
-      |> Map.values()
-      |> Enum.filter(&(&1["company_id"] == account["company_id"]))
-      |> Enum.map(& &1["book_value"])
-      |> Enum.sum()
-
     loans = loans(state, account["company_id"])
     debt = Enum.sum(Enum.map(loans, & &1["remaining"]))
-    repaid = Enum.count(loans, &(&1["status"] == "repaid" and &1["periods_left"] == 0))
-
-    earnings =
-      if company && state.clock_ms - company["created_ms"] >= @terms.period_ms,
-        do: max(0, company["profit"]) * 2,
-        else: 0
-
-    limit =
-      div(
-        div(fleet * (@terms.fleet_bps + min(repaid, 4) * 250), 10_000) + earnings,
-        1 + counted(state, account)
-      )
+    limit = max(@terms.credit_floor, div(@terms.credit_limit, 1 + counted(state, account)))
 
     arrears =
       Enum.sum(for l <- loans, l["status"] == "open", do: l["principal_due"] + l["interest_due"]) +
@@ -114,8 +66,7 @@ defmodule TijaraTides.Domain.Finance do
       "rate_bps" => @terms.rate_bps,
       "period_ms" => @terms.period_ms,
       "installments" => @terms.installments,
-      "loans" => Enum.map(loans, &Map.put(&1, "schedule", schedule(&1))),
-      "packages" => Map.new(Fleet.packages(), fn {id, _} -> {id, starter(state, account, id)} end)
+      "loans" => Enum.map(loans, &Map.put(&1, "schedule", schedule(&1)))
     }
   end
 

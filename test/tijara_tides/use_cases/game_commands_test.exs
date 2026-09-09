@@ -33,13 +33,14 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
     %{game: game, request: request, context: context, invitation: invitation}
   end
 
-  test "commits ledger and receipt before exposing a clean result", c do
+  test "commits empty company and receipt before exposing a clean result", c do
     ops = %{
       receipt: fn "account", "request", "fingerprint" -> :new end,
       commit: fn before, changed, receipt ->
         assert before == c.game
         assert changed.revision == before.revision + 1
-        assert changed.journal != []
+        assert Map.get(changed, :journal, []) == []
+        assert changed.entities["companies"]["company"]["cash"] == 0
         assert receipt == {"account", "request", "fingerprint", %{"company_id" => "company"}}
         send(self(), :committed)
         {:ok, :ok}
