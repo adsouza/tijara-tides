@@ -192,6 +192,55 @@ defmodule TijaraTides.Domain.Finance do
     end
   end
 
+  def recast(state, account, id, amount) do
+    state = settle(state)
+    company = get(state, "companies", account["company_id"])
+    loan = get(state, "loans", id)
+
+    cond do
+      is_nil(company) or company["account_id"] != account["id"] or is_nil(loan) or
+        loan["company_id"] != company["id"] or loan["status"] != "open" or
+          company["bankruptcy_ms"] != nil ->
+        {:error, :loan_not_owned}
+
+      loan["periods_left"] < 1 or loan["principal_due"] > 0 or loan["interest_due"] > 0 or
+          company["unpaid"] > 0 ->
+        {:error, :loan_recast_unavailable}
+
+      not is_integer(amount) or amount < loan["interest_accrued"] + 100 or
+          amount > loan["remaining"] + loan["interest_accrued"] ->
+        {:error, :loan_recast_amount}
+
+      amount > company["cash"] - company["reserved"] ->
+        {:error, :loan_repayment_funds}
+
+      amount == loan["remaining"] + loan["interest_accrued"] ->
+        repay(state, account, id)
+
+      true ->
+        principal = amount - loan["interest_accrued"]
+
+        state =
+          pay_loan(
+            state,
+            %{
+              loan
+              | "principal_due" => principal,
+                "interest_due" => loan["interest_accrued"],
+                "interest_accrued" => 0
+            },
+            amount
+          )
+
+        loan = get(state, "loans", id)
+        installment = div(loan["remaining"] + loan["periods_left"] - 1, loan["periods_left"])
+        state = put(state, "loans", id, %{loan | "installment" => installment})
+
+        {:ok, state,
+         %{"paid" => amount, "principal_reduction" => principal, "installment" => installment}}
+    end
+  end
+
   def settle(state) do
     state =
       Enum.reduce(entities(state, "loans"), state, fn {_, loan}, state -> accrue(state, loan) end)

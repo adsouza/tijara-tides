@@ -39,6 +39,79 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "full repayment is shown only when unreserved cash covers principal and interest", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "formation",
+        %{"action" => "company", "name" => "Repayment UI"},
+        c.server
+      )
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "borrow",
+        %{"action" => "borrow", "amount" => 10_000_000},
+        c.server
+      )
+
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    assert has_element?(view, "form[phx-submit=repay]")
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "purchase",
+        %{
+          "action" => "purchase_ship",
+          "class" => "freighter",
+          "port" => "Jakarta",
+          "price_limit" => 4_000_000
+        },
+        c.server
+      )
+
+    send(view.pid, {:game_changed, 0})
+    refute has_element?(view, "form[phx-submit=repay]")
+    assert has_element?(view, "form[phx-submit=recast][phx-hook=LoanAmount][data-max='60000']")
+    assert has_element?(view, "form[phx-submit=recast] input[type=range][max='6']")
+    assert has_element?(view, "form[phx-submit=recast] input[type=number][max='60000']")
+    view |> form("form[phx-submit=recast]", %{"amount" => "20000"}) |> render_submit()
+    private = GameServer.snapshot(token, c.server).private
+    assert private["company"]["cash"] == 4_000_000
+
+    assert [%{"remaining" => 8_000_000, "installment" => 2_000_000} = loan] =
+             private["finance"]["loans"]
+
+    command = %{"action" => "recast", "loan" => loan["id"], "amount" => 100_000}
+    assert {:ok, result} = GameServer.command(token, "recast-retry", command, c.server)
+    assert {:ok, ^result} = GameServer.command(token, "recast-retry", command, c.server)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :recast_replacement
+      )
+
+    assert {:ok, ^result} = GameServer.command(token, "recast-retry", command, replacement)
+    restored = GameServer.snapshot(token, replacement).private
+    assert restored["company"]["cash"] == 3_900_000
+
+    assert [%{"remaining" => 7_900_000, "installment" => 1_975_000}] =
+             restored["finance"]["loans"]
+
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "loan-funded ship purchases replay once and survive reload", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
 

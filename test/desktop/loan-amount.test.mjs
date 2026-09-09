@@ -34,6 +34,11 @@ test('loan controls clamp amounts, link slider steps, and follow changing credit
   number.value = '-10'
   listeners.get('input')({target: number})
   assert.equal(number.value, 1)
+  number.min = '4201'
+  number.value = '2'
+  listeners.get('input')({target: number})
+  assert.equal(number.value, 4201)
+  assert.equal(range['aria-valuetext'], '$4,201')
   el.dataset.max = '0'
   LoanAmount.updated.call(hook)
   assert.equal(number.value, 0)

@@ -10,7 +10,8 @@ export const LoanAmount = {
     }
     this.renderAmount = () => {
       const maximum = Number(this.el.dataset.max)
-      this.amount = maximum < 1 ? 0 : Math.max(1, Math.min(maximum, Math.trunc(this.amount) || 0))
+      const minimum = Number(this.el.querySelector('input[type="number"]').min) || 1
+      this.amount = maximum < minimum ? 0 : Math.max(minimum, Math.min(maximum, Math.trunc(this.amount) || 0))
       this.el.querySelector('input[type="number"]').value = this.amount
       const slider = this.el.querySelector('input[type="range"]')
       slider.value = this.amount === maximum ? Math.ceil(maximum / 10000) : Math.round(this.amount / 10000)

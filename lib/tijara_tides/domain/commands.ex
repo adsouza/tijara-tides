@@ -18,6 +18,9 @@ defmodule TijaraTides.Domain.Commands do
       %{"action" => "repay", "loan" => id} ->
         Finance.repay(state, account, id)
 
+      %{"action" => "recast", "loan" => id, "amount" => amount} ->
+        Finance.recast(state, account, id, amount)
+
       %{"action" => "bankruptcy"} ->
         Finance.bankrupt(state, account)
 

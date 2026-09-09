@@ -270,6 +270,15 @@ defmodule TijaraTidesWeb.GameLive do
     })
   end
 
+  def handle_event("recast", params, socket) do
+    run(socket, %{
+      "action" => "recast",
+      "loan" => params["loan"],
+      "amount" => integer(params["amount"]) * 100,
+      "request_id" => params["request_id"]
+    })
+  end
+
   def handle_event("repay", params, socket),
     do:
       run(socket, %{
@@ -618,6 +627,10 @@ defmodule TijaraTidesWeb.GameLive do
 
   def error_message(reason) do
     %{
+      loan_recast_unavailable:
+        "Clear overdue bills before recasting. The loan must still have scheduled payments remaining.",
+      loan_recast_amount:
+        "Pay accrued interest plus at least $1 of principal, up to the outstanding balance. Review the current amounts and try again.",
       ship_company_unavailable: "Create an active company before buying a ship.",
       ship_class_invalid: "Choose an available ship class.",
       ship_price_changed: "The ship price has changed. Review it before buying.",
@@ -969,7 +982,62 @@ defmodule TijaraTidesWeb.GameLive do
                         </tr>
                       </tbody>
                     </table>
-                    <.form :if={loan["status"] == "open"} for={%{}} phx-submit="repay">
+                    <% recast_min = div(loan["interest_accrued"] + 199, 100) %>
+                    <% recast_max =
+                      div(
+                        min(
+                          @view.private["company"]["cash"] - @view.private["company"]["reserved"],
+                          loan["remaining"] + loan["interest_accrued"]
+                        ),
+                        100
+                      ) %>
+                    <.form
+                      :if={
+                        loan["periods_left"] > 0 && loan["principal_due"] == 0 &&
+                          loan["interest_due"] == 0 && @view.private["company"]["unpaid"] == 0 &&
+                          recast_max >= recast_min
+                      }
+                      for={%{}}
+                      id={"recast-" <> loan["id"]}
+                      phx-submit="recast"
+                      phx-hook="LoanAmount"
+                      data-max={recast_max}
+                      class="my-3 space-y-2"
+                    >
+                      <p class="text-sm">
+                        Recast: pay accrued interest first, then principal. Smaller remaining installments, same payoff date and interest rate. Keep cash for trading.
+                      </p>
+                      <input type="hidden" name="request_id" value={@request_id} />
+                      <input type="hidden" name="loan" value={loan["id"]} />
+                      <input
+                        type="range"
+                        aria-label="Recast payment in $10,000 steps"
+                        min={div(recast_min, 10_000)}
+                        max={ceil(recast_max / 10_000)}
+                        step="1"
+                        value={ceil(min(recast_max, max(recast_min, 10_000)) / 10_000)}
+                        class="w-full accent-teal-500"
+                      />
+                      <input
+                        type="number"
+                        name="amount"
+                        aria-label="Recast payment in dollars"
+                        min={recast_min}
+                        max={recast_max}
+                        value={min(recast_max, max(recast_min, 10_000))}
+                        class="w-32 rounded bg-slate-800 p-2"
+                      />
+                      <button phx-disable-with="Recasting…" class="rounded border p-2">Recast loan</button>
+                    </.form>
+                    <.form
+                      :if={
+                        loan["status"] == "open" &&
+                          @view.private["company"]["cash"] - @view.private["company"]["reserved"] >=
+                            loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
+                      }
+                      for={%{}}
+                      phx-submit="repay"
+                    >
                       <input type="hidden" name="request_id" value={@request_id} /><input
                         type="hidden"
                         name="loan"

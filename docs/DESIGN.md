@@ -2221,6 +2221,16 @@ The initial policy offers four installments spaced 24 active-world hours apart,
 with 8% interest per period on outstanding principal, accrued continuously as
 active-world time advances. Interest becomes due at installment boundaries;
 early repayment pays principal plus all interest accrued through that moment.
+The full repayment action appears only when unreserved cash covers that amount.
+A partial recast payment covers accrued interest first, then reduces principal.
+The remaining principal is redistributed over the remaining original payment dates;
+the interest rate and final payoff date stay unchanged. Future interest accrues
+on the smaller balance, with no recast fee. Recasting requires cleared overdue
+bills and at least one scheduled payment remaining. Each recast reduces principal
+by at least $1. Its linked slider and numeric field are capped at the lesser of
+outstanding principal plus accrued interest and unreserved cash. The slider uses
+$10,000 steps with an exact final stop at the cap. Paying the full balance closes
+the loan.
 Fractional cents carry between ticks; cumulative charges round up to a cent so
 splitting the same duration into more ticks does not increase the charge.
 Suspension pauses accrual, and overdue principal continues accruing interest

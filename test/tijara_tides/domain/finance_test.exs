@@ -86,6 +86,58 @@ defmodule TijaraTides.Domain.FinanceTest do
     assert Finance.summary(state, c.account)["debt"] == 0
   end
 
+  test "recast pays accrued interest and reduces installments without extending maturity", c do
+    {:ok, state, _} = loan(c)
+    state = tick(state, div(Finance.terms().period_ms, 2))
+    before = state.entities["loans"]["loan"]
+    cash = state.entities["companies"]["company"]["cash"]
+    {:ok, state, result} = Finance.recast(Journal.clear(state), c.account, "loan", 54_000)
+    assert result == %{"paid" => 54_000, "principal_reduction" => 50_000, "installment" => 12_500}
+    after_loan = state.entities["loans"]["loan"]
+    assert after_loan["remaining"] == 50_000
+    assert after_loan["interest_accrued"] == 0
+    assert after_loan["next_due_ms"] == before["next_due_ms"]
+    assert after_loan["periods_left"] == before["periods_left"]
+    assert state.entities["companies"]["company"]["cash"] == cash - 54_000
+
+    assert [
+             %{
+               entries: [
+                 {"loan_principal", 50_000},
+                 {"loan_interest", 4_000},
+                 {"cash_available", -54_000}
+               ]
+             }
+           ] = state.journal
+
+    assert hd(Finance.summary(state, c.account)["loans"])["schedule"]
+           |> hd()
+           |> Map.fetch!("interest") == 2_000
+
+    final = tick(state, 4 * Finance.terms().period_ms)
+    assert final.entities["loans"]["loan"]["status"] == "repaid"
+    assert final.entities["loans"]["loan"]["remaining"] == 0
+  end
+
+  test "recasts reject invalid amounts, protected cash, other owners and overdue loans", c do
+    {:ok, state, _} = loan(c)
+
+    assert {:error, :loan_not_owned} =
+             Finance.recast(state, %{c.account | "id" => "other"}, "loan", 50_000)
+
+    for amount <- [nil, "50000", 0, 99, 100_001] do
+      assert {:error, :loan_recast_amount} = Finance.recast(state, c.account, "loan", amount)
+    end
+
+    assert {:ok, closed, _} = Finance.recast(state, c.account, "loan", 100_000)
+    assert closed.entities["loans"]["loan"]["status"] == "repaid"
+    cash = state.entities["companies"]["company"]["cash"]
+    locked = put_in(state, [:entities, "companies", "company", "reserved"], cash)
+    assert {:error, :loan_repayment_funds} = Finance.recast(locked, c.account, "loan", 50_000)
+    overdue = tick(locked, Finance.terms().period_ms)
+    assert {:error, :loan_recast_unavailable} = Finance.recast(overdue, c.account, "loan", 50_000)
+  end
+
   test "early repayment waives future interest and cannot farm credit increases", c do
     limit = Finance.summary(c.state, c.account)["limit"]
     {:ok, state, _} = loan(c)
