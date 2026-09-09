@@ -262,6 +262,15 @@ defmodule TijaraTidesWeb.GameLive do
     )
   end
 
+  def handle_event("sell-ship", params, socket) do
+    run(socket, %{
+      "action" => "sell_ship",
+      "ship" => params["ship"],
+      "minimum" => integer(params["minimum"]),
+      "request_id" => params["request_id"]
+    })
+  end
+
   def handle_event("borrow", params, socket) do
     run(socket, %{
       "action" => "borrow",
@@ -631,6 +640,10 @@ defmodule TijaraTidesWeb.GameLive do
         "Clear overdue bills before recasting. The loan must still have scheduled payments remaining.",
       loan_recast_amount:
         "Pay accrued interest plus at least $1 of principal, up to the outstanding balance. Review the current amounts and try again.",
+      ship_sale_unavailable:
+        "Dock and empty the ship, then clear pending cargo instructions and onward plans before selling.",
+      ship_sale_price_changed:
+        "The shipyard offer has changed. Review the current value and try again.",
       ship_company_unavailable: "Create an active company before buying a ship.",
       ship_class_invalid: "Choose an available ship class.",
       ship_price_changed: "The ship price has changed. Review it before buying.",
@@ -1958,6 +1971,30 @@ defmodule TijaraTidesWeb.GameLive do
                     </div>
                     <div :if={@ship} class="mt-4 rounded-xl bg-slate-900 p-5">
                       <h3 class="text-lg">{@ship["name"]} — private manifest</h3>
+                      <% ship_value = GameQueries.ship_sale_value(@ship, @view.public["clock_ms"]) %>
+                      <p class="text-sm">
+                        Book value: {finance_money(ship_value.book)} · Shipyard offer: {finance_money(
+                          ship_value.proceeds
+                        )}
+                      </p>
+                      <p class="text-xs text-slate-400">
+                        90% of book value. Depreciates over 28 active-world days to 20% of build value.
+                      </p>
+                      <.form
+                        :if={@ship["status"] == "docked" && @ship["cargo"] == []}
+                        for={%{}}
+                        id="sell-ship-form"
+                        phx-submit="sell-ship"
+                        data-confirm="Sell this ship to the shipyard? The ship will leave your fleet."
+                        class="my-2"
+                      >
+                        <input type="hidden" name="request_id" value={@request_id} />
+                        <input type="hidden" name="ship" value={@ship["id"]} />
+                        <input type="hidden" name="minimum" value={ship_value.proceeds} />
+                        <button class="rounded border px-3 py-1" phx-disable-with="Selling…">Sell ship for {finance_money(
+                          ship_value.proceeds
+                        )}</button>
+                      </.form>
                       <% occupied =
                         Enum.reduce(@ship["cargo"], %{weight: 0, volume: 0}, fn batch, used ->
                           good = @definitions.catalogue["goods"][batch["good"]]

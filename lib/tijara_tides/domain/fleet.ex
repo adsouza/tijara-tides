@@ -5,6 +5,77 @@ defmodule TijaraTides.Domain.Fleet do
   @voyage_speedup 600
   @minimum_voyage_ms 6_000
 
+  @useful_life_ms 28 * 86_400_000
+  @residual_bps 2000
+  @buyback_bps 9000
+
+  def sale_value(ship, now) do
+    basis = ship["build_value"] || ship["book_value"]
+    age = max(0, now - (ship["built_ms"] || now))
+    residual = div(basis * @residual_bps, 10_000)
+    book = basis - div((basis - residual) * min(age, @useful_life_ms), @useful_life_ms)
+
+    %{
+      book: min(ship["book_value"], book),
+      proceeds: div(min(ship["book_value"], book) * @buyback_bps, 10_000)
+    }
+  end
+
+  def sell(state, account, id, minimum) do
+    ship = get(state, "ships", id)
+    company = get(state, "companies", account["company_id"])
+
+    committed =
+      Enum.any?(entities(state, "ship_instructions"), fn {_, order} ->
+        order["ship_id"] == id and order["status"] in ["planned", "waiting"]
+      end) or Enum.any?(entities(state, "visit_plans"), fn {_, plan} -> plan["ship_id"] == id end)
+
+    cond do
+      is_nil(ship) or is_nil(company) or ship["company_id"] != company["id"] or
+        company["account_id"] != account["id"] or company["bankruptcy_ms"] != nil ->
+        {:error, :ship_not_owned}
+
+      ship["status"] != "docked" or ship["cargo"] != [] or committed ->
+        {:error, :ship_sale_unavailable}
+
+      not is_integer(minimum) or minimum < 0 or
+          sale_value(ship, state.clock_ms).proceeds < minimum ->
+        {:error, :ship_sale_price_changed}
+
+      true ->
+        value = sale_value(ship, state.clock_ms)
+        loss = ship["book_value"] - value.proceeds
+
+        state =
+          state
+          |> delete("ships", id)
+          |> put("companies", company["id"], %{
+            company
+            | "cash" => company["cash"] + value.proceeds,
+              "profit" => company["profit"] - loss
+          })
+          |> Journal.post(
+            company["id"],
+            "ship_sale",
+            [
+              {"cash_available", value.proceeds},
+              {"fleet", -ship["book_value"]},
+              {"depreciation_expense", ship["book_value"] - value.book},
+              {"ship_disposal_expense", value.book - value.proceeds}
+            ],
+            %{ship: id}
+          )
+
+        state =
+          Enum.reduce(entities(state, "ship_instructions"), state, fn {key, order}, acc ->
+            if order["ship_id"] == id, do: delete(acc, "ship_instructions", key), else: acc
+          end)
+
+        {:ok, TijaraTides.Domain.Finance.settle(state),
+         %{"sold" => id, "proceeds" => value.proceeds}}
+    end
+  end
+
   def classes do
     %{
       "freighter" => %{
@@ -91,6 +162,8 @@ defmodule TijaraTides.Domain.Fleet do
           "name" => "#{company["name"]} #{count + 1}",
           "class" => class_id,
           "book_value" => class["price"],
+          "build_value" => class["price"],
+          "built_ms" => state.clock_ms,
           "port" => port,
           "cargo" => [],
           "status" => "docked",
@@ -296,6 +369,20 @@ defmodule TijaraTides.Domain.Fleet do
             ArgumentError,
             "ship #{id} has no owning company; retire or transfer ships before removing a company"
           )
+
+      value = sale_value(ship, now)
+      depreciation = ship["book_value"] - value.book
+      ship = Map.put(ship, "book_value", value.book)
+      company = %{company | "profit" => company["profit"] - depreciation}
+
+      state =
+        Journal.post(
+          state,
+          company["id"],
+          "ship_depreciation",
+          [{"depreciation_expense", depreciation}, {"fleet", -depreciation}],
+          %{ship: id}
+        )
 
       class = classes()[ship["class"]]
       end_ms = ship["arrive_ms"] || now

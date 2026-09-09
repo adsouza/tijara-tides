@@ -4,6 +4,8 @@ defmodule TijaraTides.UseCases.GameQueries do
   @moduledoc "Pure read-side planning projections. Reads never mutate domain state."
   alias TijaraTides.Domain.{Fleet, Trading, CargoRules, Visibility}
 
+  def ship_sale_value(ship, clock), do: Fleet.sale_value(ship, clock)
+
   def preview(game, catalogue, authenticated, id, destination) do
     with true <- is_binary(destination),
          {:ok, account} <- authenticated,

@@ -112,6 +112,49 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "selling removes the ship while preserving audited history and replay after reload", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      GameServer.command(token, "company", %{"action" => "company", "name" => "Seller"}, c.server)
+
+    {:ok, _} =
+      GameServer.command(token, "loan", %{"action" => "borrow", "amount" => 10_000_000}, c.server)
+
+    {:ok, %{"ship_id" => ship}} =
+      GameServer.command(
+        token,
+        "purchase",
+        %{
+          "action" => "purchase_ship",
+          "class" => "freighter",
+          "port" => "Jakarta",
+          "price_limit" => 4_000_000
+        },
+        c.server
+      )
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 60_000)
+    owned = GameServer.snapshot(token, c.server).private["ships"][ship]
+    assert owned["book_value"] < owned["build_value"]
+    command = %{"action" => "sell_ship", "ship" => ship, "minimum" => 0}
+    assert {:ok, result} = GameServer.command(token, "sale", command, c.server)
+    assert {:ok, ^result} = GameServer.command(token, "sale", command, c.server)
+    assert result["proceeds"] < 3_600_000
+    assert GameServer.snapshot(token, c.server).private["ships"] == %{}
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :sale_replacement
+      )
+
+    assert {:ok, ^result} = GameServer.command(token, "sale", command, replacement)
+    assert GameServer.snapshot(token, replacement).private["ships"] == %{}
+  end
+
   test "loan-funded ship purchases replay once and survive reload", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
 

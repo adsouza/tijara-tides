@@ -12,6 +12,9 @@ defmodule TijaraTides.Domain.Commands do
     catalogue = context.catalogue
 
     case command do
+      %{"action" => "sell_ship", "ship" => id, "minimum" => minimum} ->
+        TijaraTides.Domain.Fleet.sell(state, account, id, minimum)
+
       %{"action" => "borrow", "amount" => amount} ->
         Finance.borrow(state, account, amount, context.id)
 

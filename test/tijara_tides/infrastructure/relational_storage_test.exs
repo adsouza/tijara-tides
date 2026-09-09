@@ -158,7 +158,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
   defp legacy_data("ships", data),
     do:
       data
-      |> Map.delete("book_value")
+      |> Map.drop(["book_value", "built_ms", "build_value"])
       |> Map.update!("cargo", &Enum.map(&1, fn row -> Map.delete(row, "lot_id") end))
 
   defp legacy_data("markets", data),

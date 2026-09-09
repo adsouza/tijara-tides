@@ -52,6 +52,46 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
              Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
   end
 
+  test "depreciation is linear, bottoms at residual, and selling records the loss", c do
+    {:ok, state, _} = Finance.borrow(c.state, c.account, 10_000_000, "loan")
+
+    {:ok, state, _} =
+      Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
+
+    ship = Game.get(state, "ships", "ship")
+    assert Fleet.sale_value(ship, 0) == %{book: 4_000_000, proceeds: 3_600_000}
+    assert Fleet.sale_value(ship, 14 * 86_400_000) == %{book: 2_400_000, proceeds: 2_160_000}
+    assert Fleet.sale_value(ship, 100 * 86_400_000) == %{book: 800_000, proceeds: 720_000}
+    assert {:error, :ship_sale_price_changed} = Fleet.sell(state, c.account, "ship", 3_600_001)
+
+    assert {:error, :ship_not_owned} =
+             Fleet.sell(state, %{c.account | "id" => "other"}, "ship", 0)
+
+    busy = put_in(state, [:entities, "ships", "ship", "status"], "loading")
+    assert {:error, :ship_sale_unavailable} = Fleet.sell(busy, c.account, "ship", 0)
+    loaded = put_in(state, [:entities, "ships", "ship", "cargo"], [%{"good" => "lumber"}])
+    assert {:error, :ship_sale_unavailable} = Fleet.sell(loaded, c.account, "ship", 0)
+    planned = put_in(state, [:entities, "visit_plans"], %{"plan" => %{"ship_id" => "ship"}})
+    assert {:error, :ship_sale_unavailable} = Fleet.sell(planned, c.account, "ship", 0)
+
+    {:ok, sold, %{"proceeds" => 3_600_000}} =
+      Fleet.sell(Journal.clear(state), c.account, "ship", 3_600_000)
+
+    assert Game.get(sold, "ships", "ship") == nil
+    assert Game.get(sold, "companies", "company")["cash"] == 9_600_000
+    assert Game.get(sold, "companies", "company")["profit"] == -400_000
+
+    assert [
+             %{
+               entries: [
+                 {"cash_available", 3_600_000},
+                 {"fleet", -4_000_000},
+                 {"ship_disposal_expense", 400_000}
+               ]
+             }
+           ] = sold.journal
+  end
+
   test "ship purchases validate class, port, quote, ownership and reserved cash", c do
     {:ok, state, _} = Finance.borrow(c.state, c.account, 10_000_000, "loan")
 

@@ -96,6 +96,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"name", "name"},
       {"class", "class_id"},
       {"book_value", "book_value_cents"},
+      {"built_ms", "built_ms"},
+      {"build_value", "build_value_cents"},
       {"port", "port_id"},
       {"status", "status"},
       {"arrive_ms", "arrive_ms"},

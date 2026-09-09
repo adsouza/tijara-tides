@@ -1810,7 +1810,14 @@ Construction lead times and a general player-to-player used-ship market are
 later possibilities; bankruptcy auctions already provide a separate source of
 existing ships.
 
-Shipyards buy ships back at a published fraction of current book value. One
+Shipyards buy ships back at a published fraction of current book value.
+The initial buyback fraction is 90%. Ships depreciate linearly over 28
+active-world days to 20% of their original build value; suspension pauses aging.
+The Ships panel shows current book value and the sale offer, with a confirmed
+sale action for an empty docked ship. Pending cargo instructions and onward
+plans must be cleared before selling. Sales preserve the ship identity in the
+financial history. Existing ships start aging at the deployment clock using
+their existing book value as their build value, without a retrospective loss. One
 mechanism serves both voluntary divestment and end-of-life scrapping: book value
 declines under the straight-line schedule in section 13 toward its published
 residual, so the buyback offer converges on scrap value without a separate rule.
