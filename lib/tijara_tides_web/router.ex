@@ -29,6 +29,7 @@ defmodule TijaraTidesWeb.Router do
     live "/", LobbyLive
     live "/play", GameLive
     post "/email/request", EmailSessionController, :request
+    post "/email/open", EmailSessionController, :open_link
     get "/email/verify", EmailSessionController, :prepare
     get "/email/confirm", EmailSessionController, :confirm
     post "/email/redeem", EmailSessionController, :redeem

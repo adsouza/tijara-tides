@@ -132,4 +132,43 @@ defmodule TijaraTidesWeb.EmailSessionControllerTest do
     filtered = Phoenix.Logger.filter_values(params)
     assert Enum.all?(filtered, fn {_, value} -> value == "[FILTERED]" end)
   end
+
+  test "pasted link signs in on this device only after confirmation", %{conn: conn} do
+    token = String.duplicate("a", 43)
+    reply_with({:ok, %{"session" => String.duplicate("s", 43)}})
+
+    prepared =
+      post(conn, "/email/open", email_link: "http://www.example.com/email/verify?token=#{token}")
+
+    assert redirected_to(prepared) == "/email/confirm"
+    assert get_session(prepared, :email_token) == token
+    refute_received {:email_call, _}
+    signed_in = prepared |> recycle() |> post("/email/redeem")
+    assert get_session(signed_in, :account_token) == String.duplicate("s", 43)
+    assert redirected_to(signed_in) == "/play"
+  end
+
+  test "pasted links reject other servers and malformed input", %{conn: conn} do
+    for link <- [
+          "https://evil.example/email/verify?token=" <> String.duplicate("a", 43),
+          "javascript:alert(1)",
+          "http://www.example.com/email/verify?token=short",
+          "http://www.example.com/other?token=" <> String.duplicate("a", 43)
+        ] do
+      rejected = post(conn, "/email/open", email_link: link)
+      assert redirected_to(rejected) == "/play"
+      refute get_session(rejected, :email_token)
+    end
+
+    refute_received {:email_call, _}
+  end
+
+  test "raw email token prepares confirmation without redeeming", %{conn: conn} do
+    token = String.duplicate("b", 43)
+    prepared = post(conn, "/email/open", email_link: "  #{token}\n")
+    assert redirected_to(prepared) == "/email/confirm"
+    assert get_session(prepared, :email_token) == token
+    refute get_session(prepared, :account_token)
+    refute_received {:email_call, _}
+  end
 end

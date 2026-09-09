@@ -116,7 +116,10 @@ defmodule TijaraTides.Infrastructure.EmailDeliveryTest do
     assert message.from == {"Tijara Tides", "game@example.com"}
     assert message.subject == "Your Tijara Tides invitation"
     assert message.text_body =~ "three days of active world time"
-    assert message.text_body =~ "https://game.example.com/email/verify?token="
+    token = TijaraTides.Infrastructure.GameServer.email_token("invite")
+    assert message.text_body =~ "https://game.example.com/email/verify?token=#{token}"
+    assert message.text_body =~ "instead:\n\n#{token}\n\n"
+    assert message.text_body =~ "only once, on one device"
     assert_receive {:outbox_update, {:email_delivered, "invite"}}
     refute_received {:outbox_update, {:email_failed, _}}
   end

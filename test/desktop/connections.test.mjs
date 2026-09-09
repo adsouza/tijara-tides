@@ -9,7 +9,7 @@ function storage(initial = {}) {
 
 test("first launch uses production and opens the playing world", () => {
   assert.deepEqual(loadConnections(storage()), {last: DEFAULT_SERVER, recent: [DEFAULT_SERVER]});
-  assert.equal(playUrl(DEFAULT_SERVER), "https://tijara-tides.onrender.com/play");
+  assert.equal(playUrl(DEFAULT_SERVER), "https://tijara.adsouza.net/play");
   assert.equal(playUrl("http://localhost:4017"), "http://localhost:4017/play");
   assert.equal(playUrl("https://game.example/world/ocean"), "https://game.example/world/ocean");
   assert.equal(shouldAutoConnect(""), true);
@@ -41,4 +41,9 @@ test("corrupt or unavailable storage cannot prevent connecting safely", () => {
   assert.equal(rememberConnection(undefined, DEFAULT_SERVER), DEFAULT_SERVER);
   assert.throws(() => rememberConnection(store, "https://user:secret@example.com"));
   assert.equal(loadConnections(store).last, "https://safe.example/");
+});
+
+ test("preserves saved legacy production sessions", () => {
+  const old = "https://tijara-tides.onrender.com/";
+  assert.equal(loadConnections(storage({"tijara-tides:server": old})).last, old);
 });

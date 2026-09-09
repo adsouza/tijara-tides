@@ -423,3 +423,13 @@ exception class or call-exit category, never the raw exception/call payload, whi
 may contain credentials. Phoenix parameter filtering includes password, secret,
 token, code, and email. Reopening a verification URL preserves an existing pending
 device credential, so a committed redemption can recover after a lost response.
+
+### Desktop email sign-in
+
+Desktop and browser cookies are separate. On the desktop sign-in screen, request
+an email link, expand "Use an emailed token on this device", and paste the
+sign-in token from the email. Full links are also accepted. Confirm inside the app to create its session. Do not redeem
+the link in a separate browser first; request a fresh link if already consumed.
+Tokens are validated by the current world. Only links for the current server or its configured email origin are accepted.
+This flow uses the existing CSRF-protected confirmation and single-use credentials;
+it does not navigate to pasted URLs or require OS custom protocol registration.

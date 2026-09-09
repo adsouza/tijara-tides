@@ -37,7 +37,8 @@ defmodule TijaraTides.Infrastructure.EmailDelivery do
         case GameServer.email_pending() do
           [row | _] ->
             base = Application.fetch_env!(:tijara_tides, :email_base_url)
-            url = base <> "/email/verify?token=" <> GameServer.email_token(row["id"])
+            token = GameServer.email_token(row["id"])
+            url = base <> "/email/verify?token=" <> token
 
             message =
               new()
@@ -50,7 +51,7 @@ defmodule TijaraTides.Infrastructure.EmailDelivery do
                 )
               )
               |> text_body(
-                "Open this link to verify your email and continue to Tijara Tides:\n\n#{url}\n\n#{if row["purpose"] == "invite", do: "This invitation expires after three days of active world time.", else: "This link expires in 15 minutes."}\n\nDo not forward this link. If you did not request it, ignore this email."
+                "Open this link to verify your email and continue to Tijara Tides:\n\n#{url}\n\nUsing the desktop app? Paste this sign-in token into the app instead:\n\n#{token}\n\nThe link and token can be used only once, on one device.\n\n#{if row["purpose"] == "invite", do: "This invitation expires after three days of active world time.", else: "This link expires in 15 minutes."}\n\nDo not share this link or token. If you did not request it, ignore this email."
               )
 
             case deliver(message) do

@@ -2,7 +2,9 @@ defmodule TijaraTides.Infrastructure.EmailConfigTest do
   use ExUnit.Case, async: false
 
   setup do
-    keys = ~w(RESEND_API_KEY SMTP_HOST EMAIL_FROM EMAIL_BASE_URL SECRET_KEY_BASE DATABASE_URL)
+    keys =
+      ~w(RESEND_API_KEY SMTP_HOST EMAIL_FROM EMAIL_BASE_URL SECRET_KEY_BASE DATABASE_URL PHX_HOST RENDER_EXTERNAL_HOSTNAME)
+
     previous = Map.new(keys, &{&1, System.get_env(&1)})
     Enum.each(keys, &System.delete_env/1)
     System.put_env("SECRET_KEY_BASE", String.duplicate("test", 16))
@@ -48,5 +50,18 @@ defmodule TijaraTides.Infrastructure.EmailConfigTest do
     assert_raise System.EnvError, fn ->
       Config.Reader.read!("config/runtime.exs", env: :prod, target: :host)
     end
+  end
+
+  test "custom host and Render hostname are the only allowed production origins" do
+    System.put_env("PHX_HOST", "tijara.adsouza.net")
+    System.put_env("RENDER_EXTERNAL_HOSTNAME", "tijara-tides.onrender.com")
+    config = Config.Reader.read!("config/runtime.exs", env: :prod, target: :host)
+    endpoint = get_in(config, [:tijara_tides, TijaraTidesWeb.Endpoint])
+    assert endpoint[:url][:host] == "tijara.adsouza.net"
+
+    assert endpoint[:check_origin] == [
+             "https://tijara.adsouza.net",
+             "https://tijara-tides.onrender.com"
+           ]
   end
 end

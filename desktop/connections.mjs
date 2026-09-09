@@ -1,6 +1,6 @@
 import {serverUrl} from "./server-url.mjs";
 
-export const DEFAULT_SERVER = "https://tijara-tides.onrender.com/";
+export const DEFAULT_SERVER = "https://tijara.adsouza.net/";
 export const HISTORY_LIMIT = 10;
 const LAST_KEY = "tijara-tides:server";
 const HISTORY_KEY = "tijara-tides:servers";

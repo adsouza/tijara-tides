@@ -955,6 +955,37 @@ defmodule TijaraTidesWeb.GameLive do
               />
               <button class="rounded border p-2">Email me a sign-in link</button>
             </.form>
+            <details
+              :if={Application.get_env(:tijara_tides, :email_enabled, false)}
+              id="email-token-disclosure"
+              phx-mounted={JS.ignore_attributes("open")}
+              class="mb-4"
+            >
+              <summary class="cursor-pointer">Use an emailed token on this device</summary>
+              <p class="my-2 text-sm text-slate-300">
+                In the desktop app, copy the sign-in token from your email and paste it here. Do not use the email link in a browser first.
+              </p>
+              <.form
+                for={%{}}
+                action={~p"/email/open"}
+                id="email-open-form"
+                class="flex flex-wrap gap-2"
+              >
+                <input
+                  name="email_link"
+                  type="text"
+                  spellcheck="false"
+                  autocapitalize="none"
+                  required
+                  maxlength="2048"
+                  autocomplete="off"
+                  aria-label="Emailed sign-in token"
+                  placeholder="Paste your sign-in token"
+                  class="min-w-0 flex-1 rounded bg-slate-800 p-2"
+                />
+                <button class="rounded border p-2">Continue on this device</button>
+              </.form>
+            </details>
             <h2 class="text-xl">Start with an invitation</h2>
             <p class="my-3 text-slate-300">
               You can explore the world without an account. Redeem a shareable invitation to establish your company on this device.

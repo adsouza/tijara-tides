@@ -23,6 +23,50 @@ defmodule TijaraTidesWeb.EmailSessionController do
 
   def request(conn, _), do: redirect(conn, to: ~p"/play")
 
+  # Import only the credential, never navigate to a user-supplied URL.
+  def open_link(conn, %{"email_link" => link}) when is_binary(link) and byte_size(link) <= 2048 do
+    token = String.trim(link)
+
+    if Regex.match?(~r/\A[A-Za-z0-9_-]{43}\z/, token) do
+      prepare(conn, %{"token" => token})
+    else
+      open_url(conn, token)
+    end
+  end
+
+  def open_link(conn, _), do: invalid_link(conn)
+
+  defp open_url(conn, link) do
+    uri = URI.parse(link)
+    base = URI.parse(Application.get_env(:tijara_tides, :email_base_url, ""))
+
+    allowed = [
+      {base.scheme, base.host, base.port},
+      {Atom.to_string(conn.scheme), conn.host, conn.port}
+    ]
+
+    with true <- {uri.scheme, uri.host, uri.port} in allowed,
+         true <- uri.path == "/email/verify" and is_nil(uri.userinfo) and is_nil(uri.fragment),
+         %{"token" => token} <- URI.decode_query(uri.query || ""),
+         true <- is_binary(token) and byte_size(token) == 43 do
+      prepare(conn, %{"token" => token})
+    else
+      _ -> invalid_link(conn)
+    end
+  rescue
+    ArgumentError -> invalid_link(conn)
+  end
+
+  defp invalid_link(conn) do
+    conn
+    |> private_response()
+    |> put_flash(
+      :error,
+      "Paste the sign-in token from your email for this server. Request a fresh link if it was already used in another browser."
+    )
+    |> redirect(to: ~p"/play")
+  end
+
   # GET does not consume the token: email scanners cannot redeem invitations.
   def prepare(conn, %{"token" => token}) when is_binary(token) and byte_size(token) == 43 do
     device =

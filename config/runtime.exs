@@ -84,7 +84,15 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || System.get_env("RENDER_EXTERNAL_HOSTNAME") || "example.com"
 
+  # Keep existing desktop sessions on Render's original hostname working.
+  origins =
+    [host, System.get_env("RENDER_EXTERNAL_HOSTNAME")]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.map(&("https://" <> &1))
+
   config :tijara_tides, TijaraTidesWeb.Endpoint,
+    check_origin: origins,
     url: [host: host, port: 443, scheme: "https"],
     http: [ip: {0, 0, 0, 0}],
     secret_key_base: secret_key_base
