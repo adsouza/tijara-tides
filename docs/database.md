@@ -81,8 +81,10 @@ The seed command validates and announces its target before starting an applicati
 owner and printing a single-use launch invitation. The `--no-start` flag is
 required: without it, Mix would boot and claim the world before the script can
 validate the environment. Run it while the normal server is stopped; it claims
-ownership just like any other application startup. It never sends email. Normal startup neither
-migrates nor creates launch invitations. Back up PostgreSQL before schema changes.
+ownership just like any other application startup. It never sends email. Container
+startup applies pending migrations automatically but never creates launch
+invitations. Direct `mix phx.server` still requires prior migration. Back up
+PostgreSQL before schema changes.
 
 ## Release operations
 
@@ -128,7 +130,7 @@ bin/tijara_tides eval 'TijaraTides.Release.seed()'
 
 This last command starts a temporary world owner: keep the deployed server
 stopped, unset `PHX_SERVER` in that process, and deploy or restart only after it
-exits. Normal startup never seeds or migrates automatically.
+exits. Container startup migrates automatically but never seeds.
 
 ## Relational game schema
 
@@ -196,7 +198,7 @@ preserved. A failed migration rolls back; returning to the legacy application
 after a successful migration requires restoring the pre-migration backup.
 
 Run the migration command above, then restart the game owner. The local launcher
-runs migrations before starting its server; production startup does not.
+and production container startup both run migrations before starting the server.
 Migration tests cover legacy round trips, rollback, references, invalid values,
 and isolated batch writes. Full tests use a disposable local PostgreSQL cluster,
 never the shared Neon database.
@@ -340,3 +342,30 @@ clock, fractional-cent carry and interest accrued but not yet due. Existing
 loans start accruing at the migration world clock, preserving posted interest.
 The ledger reconciles both accrued and due interest; installment rows contain
 only due interest. Stop the server before migration and restart afterward.
+
+## Automatic container migrations
+
+The Docker startup command runs `TijaraTides.Release.migrate_if_configured/0`
+before starting the application. It skips storage only when no database is
+configured. This works on Render's free Docker plan, where pre-deploy commands
+are unavailable; no laptop or separate migration command is needed on normal
+future deploys after this startup change ships.
+
+Migrations run under a PostgreSQL advisory lock also acquired by world claims.
+Only when migrations are pending, the migrator increments world epochs before
+DDL, preventing existing instances from committing stale state. New world
+claims wait for migration completion. The migration process never boots the
+game or seeds invitations. A current schema is a no-op and does not fence a
+running world. Existing ledger/entity checks run when the new server claims it.
+
+A failed migration stops startup. Once fencing has occurred, the old instance
+cannot resume writes automatically; fix the migration and redeploy. This is a
+brief maintenance transition, not a promise of zero downtime. The startup check
+rejects a release missing any migration already applied to the database, so
+rolling back code across a schema change requires an explicit recovery plan.
+Arbitrary destructive or long-running migrations still need review.
+
+Keep Render's Docker Command override empty so it uses the versioned Dockerfile
+command. The first rollout from a release without the claim-lock protocol must
+be coordinated if it also introduces schema changes; the current production
+finance migrations were applied with the service suspended.

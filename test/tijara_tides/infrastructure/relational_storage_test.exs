@@ -9,6 +9,11 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     use Ecto.Repo, otp_app: :tijara_tides, adapter: Ecto.Adapters.Postgres
   end
 
+  defmodule FailingStartupMigration do
+    use Ecto.Migration
+    def up, do: raise("deliberate migration failure")
+  end
+
   setup do
     port = System.fetch_env!("TIJARA_TEST_DB_PORT") |> String.to_integer()
     schema = "migration_" <> String.replace(Ecto.UUID.generate(), "-", "")
@@ -29,7 +34,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
        port: port,
        username: "postgres",
        database: "postgres",
-       pool_size: 2,
+       pool_size: 4,
        parameters: [search_path: schema]}
     )
 
@@ -166,6 +171,64 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
       Map.new(entities, fn {kind, rows} ->
         {kind, Map.new(rows, fn {id, data} -> {id, legacy_data(kind, data)} end)}
       end)
+
+  test "startup migration fences writers, is idempotent and rejects older releases", %{
+    migrations: migrations
+  } do
+    state = legacy_state()
+    store_legacy(state)
+    assert [_ | _] = TijaraTides.Release.migrate_repo(MigrationRepo, migrations)
+    assert [[epoch]] = MigrationRepo.query!("SELECT epoch FROM game_worlds WHERE id='ocean'").rows
+    assert epoch == state.epoch + 1
+    assert [] == TijaraTides.Release.migrate_repo(MigrationRepo, migrations)
+
+    assert [[^epoch]] =
+             MigrationRepo.query!("SELECT epoch FROM game_worlds WHERE id='ocean'").rows
+
+    assert {:error, :ownership_lost} =
+             GameStore.commit(MigrationRepo, "ocean", state.epoch, state, state)
+
+    assert_raise RuntimeError, ~r/absent from this release/, fn ->
+      TijaraTides.Release.migrate_repo(MigrationRepo, Enum.drop(migrations, -1))
+    end
+
+    # Both successful and rejected migrations release the advisory lock.
+    assert {:ok, loaded} = GameStore.claim(MigrationRepo)
+    assert loaded.epoch == epoch + 1
+
+    assert_raise RuntimeError, "deliberate migration failure", fn ->
+      TijaraTides.Release.migrate_repo(
+        MigrationRepo,
+        migrations ++ [{20_269_999_000_000, FailingStartupMigration}]
+      )
+    end
+
+    assert {:error, :ownership_lost} =
+             GameStore.commit(MigrationRepo, "ocean", loaded.epoch, loaded, loaded)
+
+    assert [] == TijaraTides.Release.migrate_repo(MigrationRepo, migrations)
+    assert {:ok, _} = GameStore.claim(MigrationRepo)
+  end
+
+  test "world claims wait for the migration lock", %{migrations: migrations} do
+    TijaraTides.Release.migrate_repo(MigrationRepo, migrations)
+    parent = self()
+
+    holder =
+      Task.async(fn ->
+        TijaraTides.Infrastructure.Persistence.SchemaMaintenance.with_lock(MigrationRepo, fn ->
+          send(parent, :migration_locked)
+          receive do: (:release_migration -> :ok)
+        end)
+      end)
+
+    assert_receive :migration_locked
+    claimant = Task.async(fn -> GameStore.claim(MigrationRepo) end)
+    assert Task.yield(claimant, 100) == nil
+    send(holder.pid, :release_migration)
+    assert :ok = Task.await(holder)
+    assert {:ok, _} = Task.await(claimant)
+  end
 
   test "migration preserves all domain data, batches, and receipts; typed constraints reject invalid edits",
        %{migrations: migrations} do

@@ -4,13 +4,38 @@ defmodule TijaraTides.Release do
     top_level?: true,
     deps: [TijaraTides.Infrastructure, Ecto, Ecto.Repo, Ecto.Adapters.SQL, Ecto.Migrator]
 
-  alias TijaraTides.Infrastructure.Persistence.Repo
+  alias TijaraTides.Infrastructure.Persistence.{Repo, SchemaMaintenance}
+
+  @doc "Container startup: migrate configured storage before starting the application."
+  def migrate_if_configured do
+    Application.load(:tijara_tides)
+    if Application.get_env(:tijara_tides, :start_repo, false), do: migrate(), else: :ok
+  end
 
   def migrate do
-    with_repo("Migration", fn repo ->
-      Ecto.Migrator.run(repo, Application.app_dir(:tijara_tides, "priv/repo/migrations"), :up,
-        all: true
-      )
+    with_repo("Migration", fn repo -> migrate_repo(repo) end)
+  end
+
+  @doc false
+  def migrate_repo(repo, source \\ Application.app_dir(:tijara_tides, "priv/repo/migrations")) do
+    SchemaMaintenance.with_lock(repo, fn ->
+      migrations = Ecto.Migrator.migrations(repo, source)
+
+      if Enum.any?(migrations, fn {status, _, name} ->
+           status == :up and name == "** FILE NOT FOUND **"
+         end),
+         do:
+           raise(
+             "Database contains migrations absent from this release; refusing a schema-incompatible rollback"
+           )
+
+      if Enum.any?(migrations, fn {status, _, _} -> status == :down end) do
+        SchemaMaintenance.fence_writers(repo)
+        Ecto.Migrator.run(repo, source, :up, all: true)
+      else
+        IO.puts("Database schema is current. No migration needed.")
+        []
+      end
     end)
   end
 
@@ -51,7 +76,7 @@ defmodule TijaraTides.Release do
 
   defp with_repo(operation, fun) do
     prepare_target(operation)
-    {:ok, result, _} = Ecto.Migrator.with_repo(Repo, fun)
+    {:ok, result, _} = Ecto.Migrator.with_repo(Repo, fun, pool_size: 4)
     result
   end
 

@@ -22,7 +22,8 @@ unprivileged user, and includes no desktop toolchain or local environment files.
    create a launch invitation using [database operations](database.md), with the
    intended database and stable signing secret configured. Keep any existing
    game server stopped while running the seed command.
-5. Create the Blueprint. Render builds the Dockerfile and starts its release.
+5. Create the Blueprint. Render builds the Dockerfile, applies pending database
+   migrations, then starts its release.
    The initial creation deploys immediately; subsequent automatic deployments
    are configured to wait for passing CI checks.
 6. Open the assigned HTTPS URL and `/statusz`, then open the lobby in two browser
@@ -80,22 +81,27 @@ Never pass database credentials or the production signing secret as build args.
 
 ## Current limitations
 
-Apply game migrations explicitly before enabling this milestone. The source
-commands are documented in [database operations](database.md); do not launch the server against an unmigrated database.
-No migration or seed command runs during image build or ordinary startup.
+The container automatically runs pending migrations before starting the server;
+leave Render's **Docker Command** override empty to use the versioned startup
+command. A failed migration prevents application startup. No migration or seed
+runs during image build, and startup never creates invitations.
 
-The image supports explicit release migrations:
+Render Free has no pre-deploy commands, so migrations run in the container start
+phase. The migration lock serializes upgrades with world claims, and pending
+migrations fence the previous writer before changing the schema. A current
+schema is a no-op. There may be a brief maintenance interruption during schema
+upgrades; failure after fencing requires fixing the migration and redeploying.
+See [automatic migration safeguards](database.md#automatic-container-migrations)
+and [Render deploy steps](https://render.com/docs/deploys).
+
+The explicit maintenance command remains available:
 
 ```sh
 /app/bin/tijara_tides eval 'TijaraTides.Release.migrate()'
 ```
 
-Render Free provides neither dashboard/SSH shell access nor pre-deploy commands.
-Run a one-off container using the production image from a trusted runner, or use
-the checkout scripts. A paid service can use its shell or a pre-deploy command
-for migrations compatible with the previous running version. See
-[Render shell access](https://render.com/docs/ssh) and
-[deploy steps](https://render.com/docs/deploys).
+Do not roll back to an image that predates an applied migration. Startup rejects
+such a rollback because the old code may be incompatible with the schema.
 Never put database credentials into image build arguments.
 
 The image also disables Erlang distribution by default. Live-node invitation

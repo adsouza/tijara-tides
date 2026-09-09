@@ -33,4 +33,6 @@ COPY --from=builder --chown=nobody:root /app/_build/prod/rel/tijara_tides ./
 USER nobody
 EXPOSE 10000
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/app/bin/tijara_tides", "start"]
+# Free Render services have no pre-deploy command. Fail closed before the
+# application starts if migration fails; exec preserves signal handling.
+CMD ["/bin/sh", "-c", "/app/bin/tijara_tides eval 'TijaraTides.Release.migrate_if_configured()' && exec /app/bin/tijara_tides start"]

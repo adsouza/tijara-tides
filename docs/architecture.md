@@ -163,3 +163,9 @@ apply. Departure, plan consumption, ledger entries and notices commit together;
 failed persistence cannot publish or retain a departure. Failed departure checks
 keep the plan for retry and emit a notice only when the reason changes. No cash
 or cargo moves merely by saving a plan.
+
+Container startup migrates configured storage before booting the supervision
+tree. `Release` coordinates `Ecto.Migrator` through `SchemaMaintenance`: schema
+changes serialize with world claims and fence earlier world epochs. Migration
+failure prevents startup; migration-free restarts do not change world epochs
+until the normal world claim.

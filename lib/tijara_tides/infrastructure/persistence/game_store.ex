@@ -4,6 +4,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
 
   def claim(repo \\ Repo, world_id \\ "ocean") do
     repo.transaction(fn ->
+      TijaraTides.Infrastructure.Persistence.SchemaMaintenance.lock_claim(repo)
       repo.query!("INSERT INTO game_worlds(id) VALUES ($1) ON CONFLICT DO NOTHING", [world_id])
 
       %{rows: [[epoch, clock, revision, next_lot_id]]} =

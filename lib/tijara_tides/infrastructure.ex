@@ -15,6 +15,7 @@ defmodule TijaraTides.Infrastructure do
       GameQueries,
       GameCatalogue,
       Persistence.GameStore,
+      Persistence.SchemaMaintenance,
       WorldServer,
       Persistence.Repo,
       Persistence.DatabaseConfig,
