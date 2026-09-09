@@ -381,13 +381,23 @@ Development captures messages without sending them: open `/dev/mailbox` on the
 local server to follow verification and invitation links. This route is compiled
 out of production. Link URLs use the development `PORT`, defaulting to 4000.
 
-Production email is disabled until SMTP is configured. Set `SMTP_HOST`,
-`SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_PORT` (default 587), `EMAIL_FROM` (a plain
-sender email address authorized by the provider), and `EMAIL_BASE_URL` (the public
-HTTPS origin, for example `https://tijara-tides.onrender.com`). SMTP requires TLS
-and certificate verification. Store credentials in the hosting service's secret
-environment, not in source control. Keep the existing application secret stable:
-queued email credentials are derived from it. Confirm provider delivery with an
+Production uses Resend's HTTPS API. In the Render service's environment, set:
+
+- `RESEND_API_KEY`: a Resend sending API key, stored as a secret.
+- `EMAIL_FROM`: a sender address on a domain verified in Resend.
+- `EMAIL_BASE_URL`: `https://tijara-tides.onrender.com` (or the public HTTPS origin).
+
+Deploy the configuration and code together. Email linking, sign-in, and email
+invitations become available when delivery is configured. Without configuration,
+the UI explains that email linking is unavailable and retains device access.
+Resend takes precedence if both Resend and SMTP credentials are configured.
+Render's free plan blocks standard SMTP ports, so use the HTTPS integration there.
+
+Other hosts may use `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_PORT`
+(default 587), together with the same sender and base URL settings. SMTP requires
+TLS and certificate verification. Store credentials in the hosting service's
+secret environment, not in source control. Keep the existing application secret
+stable: queued email credentials are derived from it. Confirm delivery with an
 operator-owned address before inviting players; local and automated tests never
 send real mail. No production provider credentials are installed by this change.
 

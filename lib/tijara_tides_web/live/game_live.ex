@@ -1054,7 +1054,11 @@ defmodule TijaraTidesWeb.GameLive do
                 >Close ✕</button>
               </div>
               <p :if={is_nil(@view.private["account"]["email"])} class="text-sm text-amber-100">
-                Link an email to sign in on another device. Until an email is verified, keep this device session to retain access. Invitations cannot be reused to sign in.
+                <%= if Application.get_env(:tijara_tides, :email_enabled, false) do %>
+                  Link an email to sign in on another device. Until an email is verified, keep this device session to retain access. Invitations cannot be reused to sign in.
+                <% else %>
+                  Email linking is not available on this server yet. Keep this device session to retain access. Invitations cannot be reused to sign in.
+                <% end %>
               </p>
               <section class="my-6 rounded-xl bg-slate-900 p-5">
                 <section

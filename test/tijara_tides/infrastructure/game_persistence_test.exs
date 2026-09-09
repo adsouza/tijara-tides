@@ -1377,14 +1377,14 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#market-good", "Aluminium scrap")
     assert has_element?(view, "#cargo-supply th[aria-sort=ascending]", "Supply")
     view |> element("#cargo-markets button[phx-value-id='Singapore']") |> render_click()
-    assert has_element?(view, "#port-selector option[selected]", "Singapore")
+    assert has_element?(view, "#port-selector[data-selected='Singapore']")
     assert has_element?(view, "#destination-planner", "From Jakarta")
     assert has_element?(view, "#destination-planner tr[data-good=lumber]", "$225")
     assert has_element?(view, "#destination-planner tr[data-good=lumber]", "$275")
     assert has_element?(view, "#destination-planner tr[data-good='iron_ore']", "No demand")
     view |> element("#set-port-destination") |> render_click()
     assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
-    assert has_element?(view, "#port-selector option[selected]", "Singapore")
+    assert has_element?(view, "#port-selector[data-selected='Singapore']")
     assert has_element?(view, "#set-port-destination[disabled]", "Selected destination")
     assert has_element?(view, "button[phx-click=sail]", "Reserve fuel and sail")
 
@@ -1450,7 +1450,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#region-ports button", "Shenzhen")
     refute has_element?(view, "#world-map[viewBox='0 0 1000 500']")
     render_click(view, "port", %{"id" => "Hong Kong"})
-    assert has_element?(view, "#port-selector option[selected]", "Hong Kong")
+    assert has_element?(view, "#port-selector[data-selected='Hong Kong']")
     assert has_element?(view, "#region-ports button[aria-pressed=true]", "Hong Kong")
     send(view.pid, {:game_changed, 0})
     assert has_element?(view, "#region-ports", "Pearl River Delta")
@@ -1486,7 +1486,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#quantity-buy-lumber[value='0'][max='0'][disabled]")
     assert has_element?(view, "#aboard-lumber", "0")
     render_change(view, "preview", %{"destination" => "Singapore"})
-    assert has_element?(view, "#port-selector option[selected]", "Jakarta")
+    assert has_element?(view, "#port-selector[data-selected='Jakarta']")
     assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
 
     assert has_element?(
@@ -1565,7 +1565,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
            )
 
     assert has_element?(fresh_view, ".fleet-list button[aria-pressed=true]", "docked")
-    assert has_element?(fresh_view, "#port-selector option[selected]", "Jakarta")
+    assert has_element?(fresh_view, "#port-selector[data-selected='Jakarta']")
     GenServer.stop(fresh_view.pid)
     render_change(view, "fleet-status", %{"status" => "all"})
     refute has_element?(view, "#set-port-destination")
@@ -1749,7 +1749,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         do: view |> form("#shipyard-" <> class) |> render_submit()
 
     render_change(view, "preview", %{"destination" => "Singapore"})
-    assert has_element?(view, "#port-selector option[selected]", "Jakarta")
+    assert has_element?(view, "#port-selector[data-selected='Jakarta']")
     assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
 
     assert has_element?(
@@ -2013,6 +2013,11 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              )
 
     [row] = GameServer.email_pending(c.server)
+    {:ok, disabled_email_view, html} = conn |> recycle() |> live("/play")
+    assert html =~ "Email linking is not available on this server yet."
+    refute html =~ "Link an email to sign in on another device."
+    refute has_element?(disabled_email_view, "#email-link-form")
+
     old_mailer = Application.get_env(:tijara_tides, TijaraTides.Infrastructure.Mailer)
     Application.put_env(:tijara_tides, :email_enabled, true)
     Application.put_env(:tijara_tides, :email_base_url, "https://game.example.com")

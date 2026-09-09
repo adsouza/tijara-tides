@@ -70,6 +70,7 @@ defmodule TijaraTides.MixProject do
       {:jason, "~> 1.2"},
       {:remote_ip, "~> 1.2"},
       {:swoosh, "~> 1.28"},
+      {:req, "~> 0.5"},
       {:gen_smtp, "~> 1.3"},
       {:boundary, "~> 0.10", runtime: false},
       {:bandit, "~> 1.5"}

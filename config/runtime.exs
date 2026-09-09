@@ -123,7 +123,8 @@ if config_env() == :prod do
 end
 
 # Explicit production email configuration; development uses a local mailbox.
-if config_env() == :prod and System.get_env("SMTP_HOST") do
+if config_env() == :prod and
+     (System.get_env("RESEND_API_KEY") || System.get_env("SMTP_HOST")) do
   config :tijara_tides, :email_enabled, true
   base = System.fetch_env!("EMAIL_BASE_URL") |> String.trim_trailing("/")
   uri = URI.parse(base)
@@ -136,19 +137,27 @@ if config_env() == :prod and System.get_env("SMTP_HOST") do
   config :tijara_tides, :email_base_url, base
   config :tijara_tides, :email_from, System.fetch_env!("EMAIL_FROM")
 
-  config :tijara_tides, TijaraTides.Infrastructure.Mailer,
-    adapter: Swoosh.Adapters.SMTP,
-    relay: System.fetch_env!("SMTP_HOST"),
-    username: System.fetch_env!("SMTP_USERNAME"),
-    password: System.fetch_env!("SMTP_PASSWORD"),
-    port: String.to_integer(System.get_env("SMTP_PORT") || "587"),
-    tls: :always,
-    auth: :always,
-    tls_options: [
-      verify: :verify_peer,
-      cacerts: :public_key.cacerts_get(),
-      server_name_indication: String.to_charlist(System.fetch_env!("SMTP_HOST"))
-    ]
+  if api_key = System.get_env("RESEND_API_KEY") do
+    config :swoosh, :api_client, Swoosh.ApiClient.Req
+
+    config :tijara_tides, TijaraTides.Infrastructure.Mailer,
+      adapter: Swoosh.Adapters.Resend,
+      api_key: api_key
+  else
+    config :tijara_tides, TijaraTides.Infrastructure.Mailer,
+      adapter: Swoosh.Adapters.SMTP,
+      relay: System.fetch_env!("SMTP_HOST"),
+      username: System.fetch_env!("SMTP_USERNAME"),
+      password: System.fetch_env!("SMTP_PASSWORD"),
+      port: String.to_integer(System.get_env("SMTP_PORT") || "587"),
+      tls: :always,
+      auth: :always,
+      tls_options: [
+        verify: :verify_peer,
+        cacerts: :public_key.cacerts_get(),
+        server_name_indication: String.to_charlist(System.fetch_env!("SMTP_HOST"))
+      ]
+  end
 end
 
 if config_env() == :dev do
