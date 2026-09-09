@@ -68,6 +68,9 @@ defmodule TijaraTides.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
+      {:remote_ip, "~> 1.2"},
+      {:swoosh, "~> 1.28"},
+      {:gen_smtp, "~> 1.3"},
       {:boundary, "~> 0.10", runtime: false},
       {:bandit, "~> 1.5"}
     ]

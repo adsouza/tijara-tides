@@ -225,6 +225,34 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event("company", params, socket),
     do: run(socket, Map.put(params, "action", "company"))
 
+  def handle_event("email-request", params, socket) do
+    if Application.get_env(:tijara_tides, :email_enabled, false) do
+      case GameServer.email_request(
+             socket.assigns.token,
+             params["purpose"],
+             params["email"],
+             socket.assigns.request_id,
+             socket.assigns.browser_id
+           ) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(request_id: GameServer.request_id())
+           |> put_flash(
+             :info,
+             "Email queued. Check the recipient's inbox for the verification link."
+           )
+           |> refresh()}
+
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, error_message(reason))}
+      end
+    else
+      {:noreply,
+       put_flash(socket, :error, "Email delivery has not been configured on this server.")}
+    end
+  end
+
   def handle_event("invite", params, socket), do: run(socket, Map.put(params, "action", "invite"))
 
   def handle_event("edit-instruction", params, socket) do
@@ -616,6 +644,27 @@ defmodule TijaraTidesWeb.GameLive do
 
   defp minutes(ms), do: Float.round(ms / 60000, 1)
 
+  defp invitation_time_remaining(ms) do
+    seconds = div(max(0, ms), 1000)
+
+    cond do
+      seconds >= 86_400 ->
+        days = div(seconds, 86_400)
+        "~#{days} #{if days == 1, do: "day", else: "days"}"
+
+      seconds >= 3600 ->
+        hours = div(seconds, 3600)
+        "~#{hours} #{if hours == 1, do: "hour", else: "hours"}"
+
+      seconds >= 60 ->
+        minutes = div(seconds, 60)
+        "#{minutes} #{if minutes == 1, do: "min", else: "mins"}"
+
+      true ->
+        "#{seconds} #{if seconds == 1, do: "sec", else: "secs"}"
+    end
+  end
+
   defp active_countdown(ms) do
     seconds = div(max(0, ms) + 999, 1000)
 
@@ -709,6 +758,10 @@ defmodule TijaraTidesWeb.GameLive do
       instruction_ship_not_owned: "Select a ship owned by your company.",
       instruction_destination_invalid:
         "Choose the ship's next destination; a sailing ship can only use its current destination.",
+      email_invalid: "Enter a valid email address.",
+      email_unavailable:
+        "That email cannot be linked or invited. Its owner can use email sign-in instead.",
+      email_rate_limited: "Too many email requests. Please try again later.",
       instruction_duplicate_sell:
         "An active sell instruction already exists for this ship and cargo. Cancel it before adding another.",
       instruction_cargo_invalid: "Choose compatible cargo with a market at the visit port.",
@@ -873,6 +926,28 @@ defmodule TijaraTidesWeb.GameLive do
             :if={!@view.private}
             class="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6"
           >
+            <h2 :if={Application.get_env(:tijara_tides, :email_enabled, false)} class="text-xl">
+              Sign in with email
+            </h2>
+            <.form
+              :if={Application.get_env(:tijara_tides, :email_enabled, false)}
+              for={%{}}
+              action={~p"/email/request"}
+              id="email-login-form"
+              class="my-3 flex flex-wrap gap-2"
+            >
+              <input type="hidden" name="request_id" value={@request_id} />
+              <input
+                type="email"
+                name="email"
+                required
+                maxlength="254"
+                autocomplete="email"
+                aria-label="Sign-in email"
+                class="rounded bg-slate-800 p-2"
+              />
+              <button class="rounded border p-2">Email me a sign-in link</button>
+            </.form>
             <h2 class="text-xl">Start with an invitation</h2>
             <p class="my-3 text-slate-300">
               You can explore the world without an account. Redeem a shareable invitation to establish your company on this device.
@@ -954,6 +1029,13 @@ defmodule TijaraTidesWeb.GameLive do
             </summary>
             <div class="company-menu-body">
               <div class="company-menu-dismiss">
+                <h3
+                  :if={@view.private["account"]["email"]}
+                  id="verified-email"
+                  class="min-w-0 flex-1 break-words"
+                >
+                  Verified Email identity: {@view.private["account"]["email"]}
+                </h3>
                 <button
                   type="button"
                   phx-click={
@@ -961,43 +1043,155 @@ defmodule TijaraTidesWeb.GameLive do
                     |> JS.focus(to: "#company-menu > summary")
                   }
                   aria-label="Close account, finance and invitations"
-                  class="rounded border border-slate-500 px-3 py-1"
+                  class="shrink-0 rounded border border-slate-500 px-3 py-1"
                 >Close ✕</button>
               </div>
-              <p class="text-sm text-amber-100">
-                Keep this device session: identity linking is not included in this first milestone. Losing the session permanently loses access to this account. Invitations cannot be reused to sign in.
+              <p :if={is_nil(@view.private["account"]["email"])} class="text-sm text-amber-100">
+                Link an email to sign in on another device. Until an email is verified, keep this device session to retain access. Invitations cannot be reused to sign in.
               </p>
               <section class="my-6 rounded-xl bg-slate-900 p-5">
-                <h2 class="text-xl">Invitations</h2><p class="my-2">
-                  Available entitlements: {@view.private["account"]["invite_quota"]}
-                </p>
-                <button
-                  phx-click="invite"
-                  phx-value-request_id={@request_id}
-                  class="rounded border border-teal-700 px-4 py-2"
-                >Generate shareable invitation</button>
-                <p :if={@invite_code} class="mt-3 break-all font-mono text-teal-200">
-                  {@invite_code}
-                </p>
-                <section id="sponsor-guarantees" class="my-4 space-y-3">
-                  <h3>Sponsor guarantees</h3>
+                <section
+                  :if={
+                    Application.get_env(:tijara_tides, :email_enabled, false) and
+                      is_nil(@view.private["account"]["email"])
+                  }
+                  id="email-identity"
+                  class="my-4 space-y-2"
+                >
+                  <h3 :if={is_nil(@view.private["account"]["email"])}>Email identity</h3>
+                  <div :if={is_nil(@view.private["account"]["email"])} id="email-verification">
+                    <.form
+                      for={%{}}
+                      id="email-link-form"
+                      phx-submit="email-request"
+                      class="flex flex-wrap gap-2"
+                    >
+                      <input type="hidden" name="purpose" value="link" />
+                      <input
+                        type="email"
+                        name="email"
+                        required
+                        maxlength="254"
+                        aria-label="Email to link"
+                        class="rounded bg-slate-800 p-2"
+                      />
+                      <div class="flex items-center gap-2">
+                        <button class="shrink-0 rounded border p-2">Send verification link</button>
+                        <p class="text-sm">Verify your email using the link we send.</p>
+                      </div>
+                    </.form>
+                    <p class="text-sm">
+                      Addresses already linked to another account cannot be used.
+                    </p>
+                    <ul class="text-xs space-y-1">
+                      <li
+                        :for={delivery <- @view.private["email_deliveries"] || []}
+                        :if={delivery["purpose"] == "link"}
+                      >
+                        {delivery["email"]}: {if delivery["verified"],
+                          do: "verified",
+                          else: delivery["delivery"]}
+                      </li>
+                    </ul>
+                  </div>
+                </section>
+                <section
+                  :if={@view.private["account"]["email"]}
+                  id="invitations"
+                  class="my-4 space-y-2"
+                >
+                  <h2 class="text-xl">Invitations</h2>
+                  <p :if={@view.private["account"]["invite_quota"] < 1}>Available invitations: 0</p>
+                  <div
+                    :if={@view.private["account"]["invite_quota"] > 0}
+                    class="flex flex-wrap items-end gap-3"
+                  >
+                    <div class="min-w-0 flex-[1_1_16rem] space-y-1">
+                      <p>Available invitations: {@view.private["account"]["invite_quota"]}</p>
+                      <.form
+                        :if={Application.get_env(:tijara_tides, :email_enabled, false)}
+                        for={%{}}
+                        id="email-invite-form"
+                        phx-submit="email-request"
+                        class="flex flex-wrap gap-2"
+                      >
+                        <input type="hidden" name="purpose" value="invite" />
+                        <input
+                          type="email"
+                          name="email"
+                          required
+                          maxlength="254"
+                          aria-label="Invitee email"
+                          placeholder="Invitee email"
+                          class="min-w-0 flex-1 rounded bg-slate-800 p-2"
+                        />
+                        <button
+                          disabled={
+                            @view.private["account"]["invite_quota"] < 1 or
+                              not is_nil(@view.private["account"]["suspended_ms"])
+                          }
+                          class="rounded border p-2 disabled:opacity-40"
+                        >Send invitation</button>
+                      </.form>
+                    </div>
+                    <span
+                      :if={Application.get_env(:tijara_tides, :email_enabled, false)}
+                      class="py-2 text-slate-400"
+                    >or</span>
+                    <button
+                      phx-click="invite"
+                      phx-value-request_id={@request_id}
+                      class="rounded border border-teal-700 px-4 py-2"
+                    >Generate shareable<br />invitation code</button>
+                  </div>
+                  <p :if={@invite_code} class="mt-3 break-all font-mono text-teal-200">
+                    {@invite_code}
+                  </p>
+                  <p
+                    :if={
+                      @view.private["account"]["invite_quota"] > 0 and
+                        Application.get_env(:tijara_tides, :email_enabled, false)
+                    }
+                    class="text-sm"
+                  >
+                    Uses one invitation. The recipient verifies the email when redeeming the link. You will not receive their sign-in credential.
+                  </p>
+                  <ul class="text-xs space-y-1">
+                    <li
+                      :for={delivery <- @view.private["email_deliveries"] || []}
+                      :if={delivery["purpose"] == "invite"}
+                    >
+                      {delivery["email"]}: {if delivery["verified"],
+                        do: "verified",
+                        else: delivery["delivery"]}
+                      <span :if={delivery["purpose"] == "invite" and not delivery["verified"]}>
+                        · expires in {invitation_time_remaining(
+                          max(0, delivery["expires_ms"] - @view.public["clock_ms"])
+                        )}
+                      </span>
+                    </li>
+                  </ul>
+                </section>
+                <section
+                  :if={
+                    @view.private["guarantees"]["active"] != nil or
+                      @view.private["guarantees"]["pending"] != [] or
+                      Enum.any?(@view.private["guarantees"]["pledges"], &(&1["status"] == "pledged"))
+                  }
+                  id="sponsor-guarantees"
+                  class="my-4 space-y-3"
+                >
+                  <h3 class="text-lg">Sponsor guarantees</h3>
                   <p :if={not @view.private["guarantees"]["eligible"]}>
                     To sponsor a player, clear overdue bills and hold at least as much unreserved cash as your own outstanding loan principal and interest.
                   </p>
-                  <p>
-                    New loan rate: {@view.private["finance"]["rate_bps"] / 100}% per 24 active-world hours. Recent bankruptcies raise rates: 8%, 9%, 10%, 12%, 14%, then 16%. Existing loans keep their rate.
-                  </p>
+
                   <p :if={@view.private["guarantees"]["active"]}>
                     Your borrowing is backed by a {money(
                       @view.private["guarantees"]["active"]["amount"]
                     )} sponsor pledge.
                   </p>
-                  <p :if={
-                    @view.private["finance"]["rate_bps"] == 1600 &&
-                      is_nil(@view.private["guarantees"]["active"])
-                  }>
-                    New borrowing requires your original sponsor's cash pledge, even after earlier guaranteed loans were repaid.
-                  </p>
+
                   <div
                     :for={g <- @view.private["guarantees"]["pledges"]}
                     :if={g["status"] == "pledged"}
@@ -1052,17 +1246,33 @@ defmodule TijaraTidesWeb.GameLive do
                   class="mt-4 space-y-3 border-t border-slate-600 pt-3"
                 >
                   <h3 class="text-lg">Loans and repayments</h3>
-                  <p>Lifetime bankruptcies: {@view.private["account"]["bankruptcies"]}</p>
+
+                  <p :if={
+                    @view.private["finance"]["rate_bps"] == 1600 &&
+                      is_nil(@view.private["guarantees"]["active"])
+                  }>
+                    New borrowing requires your original sponsor's cash pledge, even after earlier guaranteed loans were repaid.
+                  </p>
                   <p>
                     Debt: {money(@view.private["finance"]["debt"])} · Available credit: {money(
                       @view.private["finance"]["available"]
-                    )}
+                    )} · Lifetime bankruptcies: {@view.private["account"]["bankruptcies"]}
                   </p>
-                  <p>
-                    {@view.private["finance"]["installments"]} installments, {@view.private["finance"][
-                      "rate_bps"
-                    ] / 100}% interest every {div(@view.private["finance"]["period_ms"], 3_600_000)} hours on outstanding principal, accruing continuously while the world runs. Early repayment has no penalty; future interest is avoided. Borrowing is not profit.
-                  </p>
+                  <details id="loan-terms" phx-mounted={JS.ignore_attributes("open")}>
+                    <summary class="cursor-pointer">Loan terms</summary>
+                    <p class="mt-2 text-sm">
+                      New loans have {@view.private["finance"]["installments"]} installments and accrue {@view.private[
+                        "finance"
+                      ]["rate_bps"] / 100}% interest per {div(
+                        @view.private["finance"]["period_ms"],
+                        3_600_000
+                      )} active-world hours on
+                      outstanding principal, continuously while the world runs. Recent bankruptcies
+                      raise rates from 8% to 9%, 10%, 12%, 14%, then 16%; existing loans keep their
+                      rate. Early repayment has no penalty and avoids future interest. Borrowing is
+                      not profit.
+                    </p>
+                  </details>
                   <p :if={@view.private["finance"]["deadline"]} class="text-amber-300">
                     Arrears: {money(@view.private["finance"]["arrears"])}. Bankruptcy deadline in {minutes(
                       max(0, @view.private["finance"]["deadline"] - @view.public["clock_ms"])
@@ -1115,11 +1325,14 @@ defmodule TijaraTidesWeb.GameLive do
                         "status"
                       ]} · {money(loan["remaining"])} principal remaining
                     </summary>
-                    <p>Accrued interest not yet due: {finance_money(loan["interest_accrued"])}</p>
-                    <p>Currently due: {money(loan["principal_due"] + loan["interest_due"])}</p>
+                    <p>
+                      Accrued interest not yet due: {finance_money(loan["interest_accrued"])} · Currently due: {money(
+                        loan["principal_due"] + loan["interest_due"]
+                      )}
+                    </p>
                     <table :if={loan["status"] == "open"} class="w-full text-right">
-                      <caption>
-                        Projected schedule assuming timely payments · active-world time
+                      <caption class="pb-2 text-left">
+                        Projected schedule assuming timely payments in active-world time:
                       </caption><thead>
                         <tr>
                           <th title="Remaining active-world time (HH:MM:SS); pauses when the world is suspended">
@@ -1143,79 +1356,81 @@ defmodule TijaraTidesWeb.GameLive do
                         ),
                         100
                       ) %>
-                    <.form
-                      :if={
-                        loan["periods_left"] > 0 && loan["principal_due"] == 0 &&
-                          loan["interest_due"] == 0 && @view.private["company"]["unpaid"] == 0 &&
-                          recast_max >= recast_min
-                      }
-                      for={%{}}
-                      id={"recast-" <> loan["id"]}
-                      phx-submit="recast"
-                      phx-hook="LoanAmount"
-                      data-max={recast_max}
-                      class="my-3 space-y-2"
-                    >
-                      <p class="text-sm">
-                        Recast: pay accrued interest first, then principal. Smaller remaining installments, same payoff date and interest rate. Keep cash for trading.
-                      </p>
-                      <input type="hidden" name="request_id" value={@request_id} />
-                      <input type="hidden" name="loan" value={loan["id"]} />
-                      <input
-                        type="range"
-                        aria-label="Recast payment in $10,000 steps"
-                        min={div(recast_min, 10_000)}
-                        max={ceil(recast_max / 10_000)}
-                        step="1"
-                        value={ceil(min(recast_max, max(recast_min, 10_000)) / 10_000)}
-                        class="w-full accent-teal-500"
-                      />
-                      <input
-                        type="number"
-                        name="amount"
-                        aria-label="Recast payment in dollars"
-                        min={recast_min}
-                        max={recast_max}
-                        value={min(recast_max, max(recast_min, 10_000))}
-                        class="w-32 rounded bg-slate-800 p-2"
-                      />
-                      <button phx-disable-with="Recasting…" class="rounded border p-2">Recast loan</button>
-                    </.form>
-                    <.form
-                      :if={
-                        loan["status"] == "open" &&
-                          @view.private["company"]["cash"] - @view.private["company"]["reserved"] >=
-                            loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
-                      }
-                      for={%{}}
-                      phx-submit="repay"
-                    >
-                      <input type="hidden" name="request_id" value={@request_id} /><input
-                        type="hidden"
-                        name="loan"
-                        value={loan["id"]}
-                      />
-                      <button phx-disable-with="Repaying…" class="rounded border p-2">Repay {finance_money(
-                        loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
-                      )} in full</button>
-                    </.form>
+                    <% can_recast =
+                      loan["periods_left"] > 0 && loan["principal_due"] == 0 &&
+                        loan["interest_due"] == 0 && @view.private["company"]["unpaid"] == 0 &&
+                        recast_max >= recast_min %>
+                    <% can_repay =
+                      loan["status"] == "open" &&
+                        @view.private["company"]["cash"] - @view.private["company"]["reserved"] >=
+                          loan["remaining"] + loan["interest_due"] + loan["interest_accrued"] %>
+
+                    <div class="my-3 flex flex-wrap items-end gap-3">
+                      <.form
+                        :if={can_repay}
+                        for={%{}}
+                        phx-submit="repay"
+                        class="shrink-0"
+                      >
+                        <input type="hidden" name="request_id" value={@request_id} /><input
+                          type="hidden"
+                          name="loan"
+                          value={loan["id"]}
+                        />
+                        <button phx-disable-with="Repaying…" class="rounded border p-2">Repay<br />{finance_money(
+                          loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
+                        )}<br />in full</button>
+                      </.form>
+                      <.form
+                        :if={can_recast}
+                        for={%{}}
+                        id={"recast-" <> loan["id"]}
+                        phx-submit="recast"
+                        phx-hook="LoanAmount"
+                        data-max={recast_max}
+                        class="min-w-0 flex-[1_1_16rem] space-y-2"
+                      >
+                        <input type="hidden" name="request_id" value={@request_id} />
+                        <input type="hidden" name="loan" value={loan["id"]} />
+                        <input
+                          type="range"
+                          aria-label="Recast payment in $10,000 steps"
+                          min={div(recast_min, 10_000)}
+                          max={ceil(recast_max / 10_000)}
+                          step="1"
+                          value={ceil(min(recast_max, max(recast_min, 10_000)) / 10_000)}
+                          class="w-full accent-teal-500"
+                        />
+                        <div class="flex flex-wrap items-start gap-3">
+                          <span :if={can_repay} class="text-slate-400">or</span>
+                          <input
+                            type="number"
+                            name="amount"
+                            aria-label="Recast payment in dollars"
+                            min={recast_min}
+                            max={recast_max}
+                            value={min(recast_max, max(recast_min, 10_000))}
+                            class="w-32 rounded bg-slate-800 p-2"
+                          />
+                          <button phx-disable-with="Recasting…" class="rounded border p-2">Recast loan</button>
+                        </div>
+                      </.form>
+                    </div>
+                    <p :if={can_recast} class="mt-2 text-sm">
+                      Recast: pay accrued interest first, then principal. Smaller remaining installments, same payoff date and interest rate. Keep cash for trading.
+                    </p>
                   </details>
                   <.form
+                    :if={@view.private["finance"]["can_declare_bankruptcy"]}
                     for={%{}}
                     phx-submit="bankruptcy"
-                    data-confirm="Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a new company starting with no cash or ships."
                   >
-                    <input type="hidden" name="request_id" value={@request_id} /><button
+                    <input type="hidden" name="request_id" value={@request_id} />
+                    <button
+                      data-confirm="Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a new company starting with no cash or ships."
                       phx-disable-with="Declaring…"
-                      disabled={not @view.private["finance"]["can_declare_bankruptcy"]}
-                      class="rounded border border-red-500 p-2 disabled:opacity-40"
+                      class="rounded border border-red-500 p-2"
                     >Declare bankruptcy</button>
-                    <p
-                      :if={not @view.private["finance"]["can_declare_bankruptcy"]}
-                      class="mt-2 text-slate-400"
-                    >
-                      Bankruptcy is unavailable while available cash covers all loan principal, accrued interest and unpaid operating bills. Reserved voyage funds are excluded.
-                    </p>
                   </.form>
                 </section>
               </section>
@@ -2136,31 +2351,37 @@ defmodule TijaraTidesWeb.GameLive do
                     <div :if={@ship} class="mt-4 rounded-xl bg-slate-900 p-5">
                       <h3 class="text-lg">{@ship["name"]} — private manifest</h3>
                       <% ship_value = GameQueries.ship_sale_value(@ship, @view.public["clock_ms"]) %>
-                      <p class="text-sm">
-                        Book value: {finance_money(ship_value.book)} · Shipyard offer: {finance_money(
-                          ship_value.proceeds
-                        )}
-                      </p>
-                      <p class="text-xs text-slate-400">
-                        90% of book value. Depreciates over 28 active-world days to 20% of build value.
-                      </p>
-                      <.form
-                        :if={@ship["status"] == "docked" && @ship["cargo"] == []}
-                        for={%{}}
-                        id="sell-ship-form"
-                        phx-submit="sell-ship"
+                      <p class="text-sm">Book value: {finance_money(ship_value.book)}</p>
+                      <details
+                        id={"shipyard-offer-" <> @ship["id"]}
+                        phx-mounted={JS.ignore_attributes("open")}
                         class="my-2"
                       >
-                        <input type="hidden" name="request_id" value={@request_id} />
-                        <input type="hidden" name="ship" value={@ship["id"]} />
-                        <input type="hidden" name="minimum" value={ship_value.proceeds} />
-                        <button
-                          type="submit"
-                          class="rounded border px-3 py-1"
-                          phx-disable-with="Selling…"
-                          data-confirm="Sell this ship to the shipyard? The ship will leave your fleet."
-                        >Sell ship for {finance_money(ship_value.proceeds)}</button>
-                      </.form>
+                        <summary class="cursor-pointer">Shipyard offer</summary>
+                        <p class="mt-2 text-sm">
+                          Shipyard offer: {finance_money(ship_value.proceeds)}
+                        </p>
+                        <p class="text-xs text-slate-400">
+                          90% of book value. Depreciates over 28 active-world days to 20% of build value.
+                        </p>
+                        <.form
+                          :if={@ship["status"] == "docked" && @ship["cargo"] == []}
+                          for={%{}}
+                          id="sell-ship-form"
+                          phx-submit="sell-ship"
+                          class="my-2"
+                        >
+                          <input type="hidden" name="request_id" value={@request_id} />
+                          <input type="hidden" name="ship" value={@ship["id"]} />
+                          <input type="hidden" name="minimum" value={ship_value.proceeds} />
+                          <button
+                            type="submit"
+                            class="rounded border px-3 py-1"
+                            phx-disable-with="Selling…"
+                            data-confirm="Sell this ship to the shipyard? The ship will leave your fleet."
+                          >Sell ship for {finance_money(ship_value.proceeds)}</button>
+                        </.form>
+                      </details>
                       <% occupied =
                         Enum.reduce(@ship["cargo"], %{weight: 0, volume: 0}, fn batch, used ->
                           good = @definitions.catalogue["goods"][batch["good"]]

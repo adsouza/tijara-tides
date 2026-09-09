@@ -16,7 +16,8 @@ defmodule TijaraTides.Application do
           {Phoenix.PubSub, name: TijaraTides.PubSub},
           {TijaraTides.Infrastructure.WorldServer, name: TijaraTides.Infrastructure.WorldServer},
           TijaraTides.Infrastructure.GameServer,
-          TijaraTidesWeb.Endpoint
+          TijaraTidesWeb.Endpoint,
+          TijaraTides.Infrastructure.EmailDelivery
         ]
 
     # Losing PubSub or the world also reconnects clients to a fresh snapshot.

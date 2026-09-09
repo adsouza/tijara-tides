@@ -1,6 +1,20 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "email_requests" => [
+      {"attempts", "attempts"},
+      {"retry_ms", "retry_ms"},
+      {"id", "id"},
+      {"token_hash", "token_hash"},
+      {"email", "email"},
+      {"purpose", "purpose"},
+      {"account_id", "account_id"},
+      {"requester", "requester"},
+      {"created_ms", "created_ms"},
+      {"expires_ms", "expires_ms"},
+      {"used_session", "used_session"},
+      {"delivery", "delivery"}
+    ],
     "guarantees" => [
       {"id", "id"},
       {"company_id", "company_id"},
@@ -85,6 +99,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"inviter", "inviter_account_id"},
       {"bankruptcies", "bankruptcies"},
       {"suspended_ms", "suspended_ms"},
+      {"email", "email"},
       {"invite_quota", "invite_quota"},
       {"created_ms", "created_ms"}
     ],
@@ -143,7 +158,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "notices" => [{"account_id", "account_id"}, {"text", "message"}, {"clock_ms", "clock_ms"}]
   }
-  @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees)
+  @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests)
 
   @children %{
     "ships" =>

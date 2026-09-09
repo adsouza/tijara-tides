@@ -121,3 +121,38 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 end
+
+# Explicit production email configuration; development uses a local mailbox.
+if config_env() == :prod and System.get_env("SMTP_HOST") do
+  config :tijara_tides, :email_enabled, true
+  base = System.fetch_env!("EMAIL_BASE_URL") |> String.trim_trailing("/")
+  uri = URI.parse(base)
+
+  unless uri.scheme == "https" and is_binary(uri.host) and uri.userinfo == nil and
+           uri.query == nil and uri.fragment == nil and uri.path in [nil, ""] do
+    raise "EMAIL_BASE_URL must be an HTTPS origin without a path, query, or credentials"
+  end
+
+  config :tijara_tides, :email_base_url, base
+  config :tijara_tides, :email_from, System.fetch_env!("EMAIL_FROM")
+
+  config :tijara_tides, TijaraTides.Infrastructure.Mailer,
+    adapter: Swoosh.Adapters.SMTP,
+    relay: System.fetch_env!("SMTP_HOST"),
+    username: System.fetch_env!("SMTP_USERNAME"),
+    password: System.fetch_env!("SMTP_PASSWORD"),
+    port: String.to_integer(System.get_env("SMTP_PORT") || "587"),
+    tls: :always,
+    auth: :always,
+    tls_options: [
+      verify: :verify_peer,
+      cacerts: :public_key.cacerts_get(),
+      server_name_indication: String.to_charlist(System.fetch_env!("SMTP_HOST"))
+    ]
+end
+
+if config_env() == :dev do
+  config :tijara_tides, :email_base_url, "http://localhost:" <> (System.get_env("PORT") || "4000")
+end
+
+config :tijara_tides, :render_proxy, config_env() == :prod and System.get_env("RENDER") == "true"

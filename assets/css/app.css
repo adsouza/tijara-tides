@@ -162,7 +162,7 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
   }
 }
 
-.company-menu-dismiss { position: sticky; top: -16px; z-index: 1; display: flex; justify-content: flex-end; padding: 8px 0; background: #0f172a; }
+.company-menu-dismiss { position: sticky; top: -16px; z-index: 1; display: flex; align-items: center; gap: 12px; justify-content: flex-end; padding: 8px 0; background: #0f172a; }
 
 .company-menu > .company-menu-trigger { display: flex; align-items: center; gap: 6px; list-style: none; }
 .company-menu > .company-menu-trigger::-webkit-details-marker { display: none; }

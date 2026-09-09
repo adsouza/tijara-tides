@@ -202,3 +202,47 @@ installments and operating bills without using reserved voyage funds. One
 Bankruptcy history, a 20-active-minute restart cooldown and reduced credit
 limits survive database reloads. Closed companies retain their assets for
 future receivership auctions, which are not implemented in this milestone.
+
+## Verified email identities
+
+Players can link an email from the account menu. Email verification appears above
+Invitations; Invitations stays hidden until an email is verified. Once linked,
+the verified address appears on the left of the popup header beside Close; the
+verification form and delivery status are hidden. The underlying identity workflow supports replacement and preserves
+an existing email until the new address is confirmed. Email sign-in on the web
+creates a new device session for the same account. Google sign-in remains deferred.
+Email invitation controls sit on the left, with available invitations above the
+email field. The shareable-code button sits to the right, separated by "or", with
+bottom edges aligned. The controls wrap on narrow screens. When no invitations
+remain, the controls and explanatory text are hidden; the zero count and any
+already-generated code remain visible.
+An email invitation consumes the sponsor's normal quota and atomically creates an
+account with the verified recipient email when redeemed. Shareable invitations
+continue to create accounts without an email. Sponsors see delivery status and
+acceptance, never the recipient's credential; accounts are not implicitly merged.
+
+Magic links for linking and sign-in expire after 15 wall-clock minutes. Invitation
+links follow the existing three-day active-world expiry and quota restoration.
+GET requests prepare a confirmation screen; a CSRF-protected POST consumes the
+single-use credential. Lost-response retries on the same device are idempotent.
+Requests are limited per requester and email. Credentials are stored as hashes;
+a durable outbox retries delivery with exponential backoff, stopping after eight
+failures. Delivery is at least once, so a rare retry may resend the same link.
+
+The account menu hides Sponsor guarantees unless there is an active guarantee,
+an outstanding sponsor pledge, or an invitee awaiting sponsorship. Loan-rate
+and required-guarantor guidance remains in Loans and repayments.
+
+Loan-rate, installment, interest-accrual, bankruptcy-rate and early-repayment
+explanations share a collapsed Loan terms disclosure. Its open state survives
+live updates; balances and actionable loan warnings remain visible.
+
+Invitation expiry uses the largest whole unit rounded down: approximate days or
+hours (for example, ~2 days or ~1 hour), then minutes or seconds below an hour.
+
+Declare bankruptcy is shown only when the company is eligible to declare; no
+disabled button or ineligibility explanation is displayed.
+
+Ship details keep book value visible and place the shipyard offer, depreciation
+explanation and sale button inside a collapsed Shipyard offer disclosure.
+Its expanded state survives live updates for the selected ship.

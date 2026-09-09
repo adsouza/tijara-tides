@@ -369,3 +369,47 @@ Keep Render's Docker Command override empty so it uses the versioned Dockerfile
 command. The first rollout from a release without the claim-lock protocol must
 be coordinated if it also introduces schema changes; the current production
 finance migrations were applied with the service suspended.
+
+## Email delivery and identity storage
+
+Migration `20260909050000_add_email_identity.exs` adds a normalized, unique email
+per account within a world and typed `game_email_requests` rows for verification,
+expiry, throttling, and delivery state. It is applied by the existing release
+migration step. Existing accounts retain their device sessions and start unlinked.
+
+Development captures messages without sending them: open `/dev/mailbox` on the
+local server to follow verification and invitation links. This route is compiled
+out of production. Link URLs use the development `PORT`, defaulting to 4000.
+
+Production email is disabled until SMTP is configured. Set `SMTP_HOST`,
+`SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_PORT` (default 587), `EMAIL_FROM` (a plain
+sender email address authorized by the provider), and `EMAIL_BASE_URL` (the public
+HTTPS origin, for example `https://tijara-tides.onrender.com`). SMTP requires TLS
+and certificate verification. Store credentials in the hosting service's secret
+environment, not in source control. Keep the existing application secret stable:
+queued email credentials are derived from it. Confirm provider delivery with an
+operator-owned address before inviting players; local and automated tests never
+send real mail. No production provider credentials are installed by this change.
+
+### Email operation behind Render
+
+In production with `RENDER=true`, the endpoint resolves `X-Forwarded-For` before
+rate limiting. It walks backward from the actual socket peer, skipping internal
+reserved addresses and the listed Cloudflare proxy ranges, and stops at the first
+untrusted address. Direct connections and non-Render environments do not trust
+arbitrary forwarding headers. Other IP headers are ignored. Internal network
+callers are inside this trust boundary; restrict access to that network. The
+Cloudflare ranges in `Plugs.ClientIp` were checked against the provider's official
+IPv4/IPv6 lists on 2026-09-09; review them when the hosting proxy topology changes.
+See [Render's client-IP guidance](https://render.com/articles/how-render-handles-ddos-attacks)
+and [Cloudflare's ranges](https://www.cloudflare.com/ips/).
+
+The durable requester limit uses the resolved client IP for anonymous sign-in
+and the account ID for authenticated linking/invitations. The separate email
+limit still applies. The mail worker runs after Endpoint in the supervision tree,
+so its restart cannot disconnect players. It sends at most one message every five
+seconds (12/minute), with delivery retries and backoff. Poll failures log a safe
+exception class or call-exit category, never the raw exception/call payload, which
+may contain credentials. Phoenix parameter filtering includes password, secret,
+token, code, and email. Reopening a verification URL preserves an existing pending
+device credential, so a committed redemption can recover after a lost response.

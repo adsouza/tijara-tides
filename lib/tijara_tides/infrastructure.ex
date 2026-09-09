@@ -12,6 +12,8 @@ defmodule TijaraTides.Infrastructure do
     ],
     exports: [
       GameServer,
+      Mailer,
+      EmailDelivery,
       GameQueries,
       GameCatalogue,
       Persistence.GameStore,

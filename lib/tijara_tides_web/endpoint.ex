@@ -39,6 +39,7 @@ defmodule TijaraTidesWeb.Endpoint do
     plug Phoenix.CodeReloader
   end
 
+  plug TijaraTidesWeb.Plugs.ClientIp
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 

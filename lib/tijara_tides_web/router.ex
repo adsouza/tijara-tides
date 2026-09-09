@@ -28,8 +28,19 @@ defmodule TijaraTidesWeb.Router do
 
     live "/", LobbyLive
     live "/play", GameLive
+    post "/email/request", EmailSessionController, :request
+    get "/email/verify", EmailSessionController, :prepare
+    get "/email/confirm", EmailSessionController, :confirm
+    post "/email/redeem", EmailSessionController, :redeem
     post "/session/redeem", GameSessionController, :create
     delete "/session", GameSessionController, :delete
+  end
+
+  if Application.compile_env(:tijara_tides, :dev_routes, false) do
+    scope "/dev" do
+      pipe_through :browser
+      forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
   end
 
   # Other scopes may use custom stacks.

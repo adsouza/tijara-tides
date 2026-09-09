@@ -63,8 +63,12 @@ config :tijara_tides,
        :game_secret,
        "tijara-local-invitation-secret-not-for-production-01234567890123456789"
 
-config :phoenix, :filter_parameters, ["password", "secret", "token", "code"]
+config :phoenix, :filter_parameters, ["password", "secret", "token", "code", "email"]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
+config :swoosh, :api_client, false
+config :tijara_tides, :email_enabled, false
+config :tijara_tides, TijaraTides.Infrastructure.Mailer, adapter: Swoosh.Adapters.Local
+
 import_config "#{config_env()}.exs"

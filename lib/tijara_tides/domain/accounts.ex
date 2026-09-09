@@ -34,6 +34,17 @@ defmodule TijaraTides.Domain.Accounts do
   end
 
   def redeem(state, hash, session_hash, context) do
+    email_invite =
+      Enum.any?(entities(state, "email_requests"), fn {_, r} ->
+        r["purpose"] == "invite" and r["token_hash"] == hash
+      end)
+
+    if email_invite and not Map.get(context, :email_verification, false),
+      do: {:error, :invalid_invitation},
+      else: redeem_invitation(state, hash, session_hash, context)
+  end
+
+  defp redeem_invitation(state, hash, session_hash, context) do
     case get(state, "invitations", hash) do
       %{"status" => "redeemed", "invitee" => account_id} ->
         case authenticate(state, session_hash, context.wall_ms) do
@@ -62,6 +73,7 @@ defmodule TijaraTides.Domain.Accounts do
         "inviter" => invite["inviter"],
         "bankruptcies" => 0,
         "suspended_ms" => nil,
+        "email" => nil,
         "invite_quota" => if(invite["seed"], do: 3, else: 0),
         "created_ms" => state.clock_ms
       }

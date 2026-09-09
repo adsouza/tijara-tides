@@ -62,3 +62,10 @@ config :phoenix_live_view,
   debug_attributes: true,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
+
+config :tijara_tides,
+  email_enabled: true,
+  email_base_url: "http://localhost:4000",
+  email_from: "game@localhost"
+
+config :tijara_tides, :dev_routes, true

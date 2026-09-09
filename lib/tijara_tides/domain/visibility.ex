@@ -33,6 +33,18 @@ defmodule TijaraTides.Domain.Visibility do
   def private(state, account) do
     %{
       "account" => Map.drop(account, ["inviter"]),
+      "email_deliveries" =>
+        entities(state, "email_requests")
+        |> Map.values()
+        |> Enum.filter(
+          &(&1["account_id"] == account["id"] and &1["purpose"] in ["link", "invite"])
+        )
+        |> Enum.sort_by(& &1["created_ms"], :desc)
+        |> Enum.take(10)
+        |> Enum.map(&Map.take(&1, ["email", "purpose", "delivery", "expires_ms", "used_session"]))
+        |> Enum.map(fn row ->
+          row |> Map.put("verified", row["used_session"] != nil) |> Map.delete("used_session")
+        end),
       "finance" => TijaraTides.Domain.Finance.summary(state, account),
       "guarantees" => TijaraTides.Domain.Guarantees.view(state, account),
       "company" => get(state, "companies", account["company_id"]),

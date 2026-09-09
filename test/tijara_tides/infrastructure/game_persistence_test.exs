@@ -1987,4 +1987,154 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     send(server, :tick)
     GameServer.snapshot(nil, server)
   end
+
+  test "email identity survives storage reload and HTTP confirmation consumes links only on POST",
+       c do
+    assert {:error, :email_invalid} =
+             GameServer.email_request(nil, "login", %{}, "x", "browser", c.server)
+
+    assert {:error, :email_link_invalid} = GameServer.email_redeem(nil, nil, nil, c.server)
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    assert {:ok, %{"requested" => true}} =
+             GameServer.email_request(
+               token,
+               "link",
+               "owner@example.com",
+               "request",
+               "browser",
+               c.server
+             )
+
+    [row] = GameServer.email_pending(c.server)
+    old_mailer = Application.get_env(:tijara_tides, TijaraTides.Infrastructure.Mailer)
+    Application.put_env(:tijara_tides, :email_enabled, true)
+    Application.put_env(:tijara_tides, :email_base_url, "https://game.example.com")
+    Application.put_env(:tijara_tides, :email_from, "game@example.com")
+
+    Application.put_env(:tijara_tides, TijaraTides.Infrastructure.Mailer,
+      adapter: Swoosh.Adapters.Test
+    )
+
+    Application.put_env(:swoosh, :shared_test_process, self())
+
+    on_exit(fn ->
+      Application.put_env(:tijara_tides, :email_enabled, false)
+      Application.put_env(:tijara_tides, TijaraTides.Infrastructure.Mailer, old_mailer)
+      Application.delete_env(:tijara_tides, :email_base_url)
+      Application.delete_env(:tijara_tides, :email_from)
+      Application.delete_env(:swoosh, :shared_test_process)
+    end)
+
+    assert {:noreply, nil} = TijaraTides.Infrastructure.EmailDelivery.handle_info(:poll, nil)
+    assert_receive {:email, message}
+    assert message.to == [{"", "owner@example.com"}]
+    assert message.text_body =~ "https://game.example.com/email/verify?token="
+    assert GameServer.email_pending(c.server) == []
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    assert has_element?(view, "#email-link-form")
+    refute has_element?(view, "#invitations")
+    refute has_element?(view, "#email-invite-form")
+    link = GameServer.email_token(row["id"])
+    prepared = conn |> recycle() |> get("/email/verify", %{"token" => link})
+    assert redirected_to(prepared) == "/email/confirm"
+    assert Plug.Conn.get_resp_header(prepared, "referrer-policy") == ["no-referrer"]
+    assert GameServer.snapshot(token, c.server).private["account"]["email"] == nil
+    confirmed = prepared |> recycle() |> post("/email/redeem")
+    assert redirected_to(confirmed) == "/play"
+    session = Plug.Conn.get_session(confirmed, :account_token)
+    # Simulate losing the POST response and re-opening the emailed URL using
+    # the cookie issued before the commit.
+    reopened = prepared |> recycle() |> get("/email/verify", %{"token" => link})
+    recovered = reopened |> recycle() |> post("/email/redeem")
+    assert Plug.Conn.get_session(recovered, :account_token) == session
+
+    snapshot = GameServer.snapshot(session, c.server)
+    assert snapshot.private["account"]["email"] == "owner@example.com"
+    {:ok, linked_view, _} = confirmed |> recycle() |> live("/play")
+    assert has_element?(linked_view, ".company-menu-dismiss #verified-email")
+    refute has_element?(linked_view, "#email-verification")
+    refute has_element?(linked_view, "#email-link-form")
+    assert has_element?(linked_view, "#invitations")
+    refute has_element?(linked_view, "#email-identity")
+    assert has_element?(linked_view, "#email-invite-form")
+
+    assert GameServer.email_pending(c.server) == []
+
+    assert %{rows: [["owner@example.com"]]} =
+             Repo.query!("SELECT email FROM game_accounts WHERE world_id=$1", [c.world_id])
+
+    assert {:ok, _} =
+             GameServer.email_request(
+               session,
+               "invite",
+               "invitee@example.com",
+               "invitation",
+               "browser",
+               c.server
+             )
+
+    [invite] = GameServer.email_pending(c.server)
+
+    assert {:ok, _} =
+             GameServer.email_redeem(
+               GameServer.email_token(invite["id"]),
+               GameServer.token(),
+               nil,
+               c.server
+             )
+
+    assert %{rows: [[2]]} =
+             Repo.query!(
+               "SELECT count(*) FROM game_accounts WHERE world_id=$1 AND email IS NOT NULL",
+               [c.world_id]
+             )
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :email_replacement
+      )
+
+    assert GameServer.snapshot(session, replacement).private["account"]["email"] ==
+             "owner@example.com"
+  end
+
+  test "login throttling separates clients behind Render and still limits each requester", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    Application.put_env(:tijara_tides, :email_enabled, true)
+    Application.put_env(:tijara_tides, :render_proxy, true)
+
+    on_exit(fn ->
+      Application.delete_env(:tijara_tides, :game_server)
+      Application.put_env(:tijara_tides, :email_enabled, false)
+      Application.delete_env(:tijara_tides, :render_proxy)
+    end)
+
+    request = fn ip, n ->
+      conn =
+        %{build_conn() | remote_ip: {10, 0, 0, 1}}
+        |> Plug.Conn.put_req_header("x-forwarded-for", "1.1.1.1, #{ip}, 172.64.1.2, 10.0.0.2")
+
+      post(conn, "/email/request", %{"email" => "login#{n}@example.com", "request_id" => "#{n}"})
+    end
+
+    for n <- 1..11, do: request.("8.8.8.8", n)
+    request.("9.9.9.9", 12)
+
+    rows =
+      Repo.query!(
+        "SELECT requester,count(*) FROM game_email_requests WHERE world_id=$1 GROUP BY requester",
+        [c.world_id]
+      ).rows
+
+    assert Enum.sort(rows) ==
+             Enum.sort([[GameServer.hash("8.8.8.8"), 10], [GameServer.hash("9.9.9.9"), 1]])
+  end
 end

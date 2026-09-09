@@ -19,6 +19,31 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def command(token, request, command, server \\ default_server()),
     do: GenServer.call(server, {:command, token, request, command}, @call_timeout)
 
+  def email_request(token, purpose, email, request_id, requester, server \\ default_server()),
+    do:
+      GenServer.call(
+        server,
+        {:email_request, token, purpose, email, request_id, requester},
+        @call_timeout
+      )
+
+  def email_redeem(code, device, signed_in, server \\ default_server()),
+    do: GenServer.call(server, {:email_redeem, code, device, signed_in}, @call_timeout)
+
+  def email_pending(server \\ default_server()),
+    do: GenServer.call(server, :email_pending, @call_timeout)
+
+  def email_failed(id, server \\ default_server()),
+    do: GenServer.call(server, {:email_failed, id}, @call_timeout)
+
+  def email_delivered(id, server \\ default_server()),
+    do: GenServer.call(server, {:email_delivered, id}, @call_timeout)
+
+  def email_token(id),
+    do:
+      :crypto.mac(:hmac, :sha256, invite_key(), "email:" <> id)
+      |> Base.url_encode64(padding: false)
+
   def preview(token, ship, destination, server \\ default_server()),
     do: GenServer.call(server, {:preview, token, ship, destination}, @call_timeout)
 
@@ -172,6 +197,129 @@ defmodule TijaraTides.Infrastructure.GameServer do
     case Game.seed_invite(state.game, hash(code)) do
       {:ok, game, result} -> finish(state, game, result, nil, fn _ -> {:ok, code} end)
       error -> {:reply, error, state}
+    end
+  end
+
+  def handle_call(
+        {:email_request, token, purpose, address, request_id, requester},
+        _from,
+        %{status: :ready} = state
+      )
+      when is_binary(request_id) and byte_size(request_id) in 1..128 and is_binary(requester) and
+             byte_size(requester) <= 128 and is_binary(address) and byte_size(address) <= 254 and
+             purpose in ["login", "link", "invite"] do
+    account =
+      case account(state, token) do
+        {:ok, a} -> a
+        _ -> nil
+      end
+
+    id =
+      hash(
+        :erlang.term_to_binary(
+          {state.world_id, hash(token), requester, purpose, address, request_id}
+        )
+      )
+
+    existing = TijaraTides.Domain.Game.get(state.game, "email_requests", id)
+
+    if existing do
+      {:reply, {:ok, %{"requested" => true}}, state}
+    else
+      ctx =
+        context(state)
+        |> Map.merge(%{
+          id: id,
+          hash: hash(email_token(id)),
+          requester: hash(if(account, do: account["id"], else: requester))
+        })
+
+      case TijaraTides.Domain.EmailIdentity.request(state.game, account, purpose, address, ctx) do
+        {:ok, game, result} -> finish(state, game, result, nil, &{:ok, &1})
+        error -> {:reply, error, state}
+      end
+    end
+  end
+
+  def handle_call({:email_request, _, _, _, _, _}, _from, %{status: :ready} = state),
+    do: {:reply, {:error, :email_invalid}, state}
+
+  def handle_call({:email_redeem, code, device, signed_in}, _from, %{status: :ready} = state)
+      when is_binary(code) and byte_size(code) == 43 and is_binary(device) and
+             byte_size(device) == 43 do
+    current =
+      case account(state, signed_in) do
+        {:ok, a} -> a
+        _ -> nil
+      end
+
+    case TijaraTides.Domain.EmailIdentity.redeem(
+           state.game,
+           hash(code),
+           hash(device),
+           current,
+           context(state)
+         ) do
+      {:ok, game, result} ->
+        finish(state, game, result, nil, fn _ -> {:ok, %{"session" => device}} end)
+
+      error ->
+        {:reply, error, state}
+    end
+  end
+
+  def handle_call({:email_redeem, _, _, _}, _from, %{status: :ready} = state),
+    do: {:reply, {:error, :email_link_invalid}, state}
+
+  def handle_call(:email_pending, _from, %{status: :ready} = state) do
+    now = System.system_time(:millisecond)
+
+    rows =
+      Game.entities(state.game, "email_requests")
+      |> Map.values()
+      |> Enum.filter(
+        &(&1["delivery"] == "pending" and &1["retry_ms"] <= now and &1["used_session"] == nil and
+            &1["expires_ms"] > if(&1["purpose"] == "invite", do: state.game.clock_ms, else: now))
+      )
+      |> Enum.sort_by(& &1["created_ms"])
+      |> Enum.take(1)
+
+    {:reply, rows, state}
+  end
+
+  def handle_call({:email_failed, id}, _from, %{status: :ready} = state) do
+    case Game.get(state.game, "email_requests", id) do
+      nil ->
+        {:reply, :ok, state}
+
+      row ->
+        finish(
+          state,
+          TijaraTides.Domain.EmailIdentity.delivery_failed(
+            state.game,
+            row,
+            System.system_time(:millisecond)
+          ),
+          %{},
+          nil,
+          fn _ -> :ok end
+        )
+    end
+  end
+
+  def handle_call({:email_delivered, id}, _from, %{status: :ready} = state) do
+    case Game.get(state.game, "email_requests", id) do
+      nil ->
+        {:reply, :ok, state}
+
+      row ->
+        finish(
+          state,
+          TijaraTides.Domain.EmailIdentity.delivered(state.game, row),
+          %{},
+          nil,
+          fn _ -> :ok end
+        )
     end
   end
 
