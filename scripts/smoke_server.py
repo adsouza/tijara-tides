@@ -48,10 +48,15 @@ status, headers, body = request("/", https=True)
 assert status == 200, status
 assert "Tijara Tides" in body.decode(), "Missing lobby"
 assert "secure" in headers.get("set-cookie", "").lower(), "Missing secure cookie"
+favicon = re.search(r'<link\b[^>]*rel="icon"[^>]*href="([^"]+)"', body.decode())
+assert favicon, "Missing favicon link"
+status, icon_headers, icon_body = request(favicon.group(1), https=True)
+assert status == 200 and icon_body.startswith(b"\x00\x00\x01\x00"), ("favicon", status)
+assert "image/" in icon_headers.get("content-type", ""), icon_headers
 assets = re.findall(r'(?:src|href)="(/assets/[^"?]+)', body.decode())
 assert any(path.endswith(".js") for path in assets), assets
 assert any(path.endswith(".css") for path in assets), assets
 for path in assets:
     status, _, body = request(path, https=True)
     assert status == 200 and body, (path, status)
-print("Production smoke check passed: health, HTTPS redirect, lobby, cookie, assets")
+print("Production smoke check passed: health, HTTPS redirect, lobby, cookie, assets, favicon")
