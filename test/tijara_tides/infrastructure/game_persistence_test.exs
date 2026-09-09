@@ -39,6 +39,50 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "home page counts authenticated playing browsers and removes signed-out sessions", c do
+    alias TijaraTides.Infrastructure.WorldServer
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+    :ok = WorldServer.subscribe("ocean")
+    base = WorldServer.snapshot().online_players
+    {:ok, lobby, _} = live(build_conn(), "/")
+    {:ok, spectator, _} = live(build_conn(), "/play")
+    assert WorldServer.snapshot().online_players == base
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+    {:ok, first, _} = conn |> recycle() |> live("/play")
+    assert_receive {:world_updated, %{online_players: count}}
+    assert count == base + 1
+    {:ok, second, _} = conn |> recycle() |> live("/play")
+    assert_receive {:world_updated, %{online_players: ^count}}
+    assert has_element?(lobby, "#online-players", to_string(count))
+
+    {:ok, other_code} = GameServer.seed(c.server)
+
+    other =
+      build_conn()
+      |> get("/play")
+      |> recycle()
+      |> post("/session/redeem", %{"code" => other_code})
+
+    {:ok, third, _} = other |> recycle() |> live("/play")
+    assert_receive {:world_updated, %{online_players: two}}
+    assert two == base + 2
+
+    GenServer.stop(first.pid, :normal)
+    assert_receive {:world_updated, %{online_players: ^two}}
+    :ok = GameServer.sign_out(token, c.server)
+    assert_receive {:world_updated, %{online_players: ^count}}
+    assert has_element?(lobby, "#online-players", to_string(count))
+    GenServer.stop(third.pid, :normal)
+    assert_receive {:world_updated, %{online_players: ^base}}
+    assert has_element?(lobby, "#online-players", to_string(base))
+    Enum.each([lobby, spectator, second], &GenServer.stop(&1.pid, :normal))
+  end
+
   test "ship instructions submit through the UI, replay, settle on arrival and survive reload",
        c do
     Application.put_env(:tijara_tides, :game_server, c.server)

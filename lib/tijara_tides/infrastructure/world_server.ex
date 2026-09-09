@@ -3,8 +3,8 @@ defmodule TijaraTides.Infrastructure.WorldServer do
   One authoritative world on one BEAM node, independent of connected clients.
 
   The roster is connection metadata, not persisted player/game state. Only this
-  process owns it. Each attached process is monitored; multiple tabs share one
-  guest identity. Public snapshots never include session credentials or PIDs.
+  process owns it. Each attached process is monitored; multiple play tabs share one
+  browser identity. Public snapshots never include session credentials or PIDs.
   """
   use GenServer
   alias TijaraTides.Domain.World
@@ -16,6 +16,7 @@ defmodule TijaraTides.Infrastructure.WorldServer do
 
   def snapshot(server \\ __MODULE__), do: GenServer.call(server, :snapshot)
   def attach(server \\ __MODULE__, player_id), do: GenServer.call(server, {:attach, player_id})
+  def detach(server \\ __MODULE__), do: GenServer.call(server, :detach)
   def command(server \\ __MODULE__, command), do: GenServer.call(server, {:command, command})
   def subscribe(world_id), do: Phoenix.PubSub.subscribe(TijaraTides.PubSub, topic(world_id))
   defp topic(world_id), do: "world:" <> world_id
@@ -27,6 +28,17 @@ defmodule TijaraTides.Infrastructure.WorldServer do
 
   @impl true
   def handle_call(:snapshot, _from, state), do: {:reply, public_snapshot(state), state}
+
+  def handle_call(:detach, {pid, _}, state) do
+    case Map.pop(state.clients, pid) do
+      {nil, _} ->
+        {:reply, :ok, state}
+
+      {{ref, _}, clients} ->
+        Process.demonitor(ref, [:flush])
+        {:reply, :ok, publish(%{state | clients: clients})}
+    end
+  end
 
   def handle_call({:attach, player_id}, {pid, _}, state)
       when is_binary(player_id) and byte_size(player_id) in 1..128 do

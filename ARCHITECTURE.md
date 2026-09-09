@@ -37,8 +37,11 @@ explicit time, identifiers, and static catalogue data; they perform no I/O.
 `Domain.ReadState` exposes reads across the boundary; `Domain.State` mutators
 remain internal, with no generic mutation delegates on the public facade.
 Infrastructure owns PostgreSQL, credential hashing, scheduling, and publication.
-The original `WorldServer` / `WorldCommands` / `Domain.World` path still serves
-only the temporary guest lobby.
+`WorldServer` tracks temporary browser presence for authenticated play views;
+the home page subscribes to its public count without registering itself.
+Play views attach by browser guest identity after an authenticated snapshot,
+detach when authentication is lost, and are removed on process termination.
+This roster remains separate from durable gameplay state.
 
 ## Ownership and synchronization
 

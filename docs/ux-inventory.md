@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 128
+Heuristic requirement sentences in DESIGN.md at generation: 130
 
 ## Screens
 
@@ -56,6 +56,8 @@ told after the fact, without being asked to approve it.
 
 | # | Requirement | Section | Kind | Screen |
 |---|-------------|---------|------|--------|
+| 127 | The home page shows a live Players online count of signed-in browsers with the play page open. | 15 | display | Company and account |
+| 128 | Do not show connection counts or a world identifier on the home page. | 15 | display | Company and account |
 | 1 | Show ship positions and routes visually. | 4 | display | World map |
 | 2 | Pacific crossings must display continuously across the map seam rather than as false cross-world lines. | 4 | display | World map |
 | 3 | Use one representative harbor marker per roster entry, located at the actual harbor, and show both city and port names where they differ. | 4 | display | World map |

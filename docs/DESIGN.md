@@ -2420,7 +2420,11 @@ alongside the goods.
 
 The first playable milestone implements invitation-based device accounts,
 persistent starter companies, manual immediate trades, and timed sea voyages.
-The guest lobby remains a separate temporary connection roster. See
+The home page shows a live Players online count of signed-in browsers with
+the play page open. Multiple play tabs in one browser count once; home-page
+visitors and spectators do not count. Closing the last play tab or signing out
+removes that browser from the count. Do not show connection counts or a world
+identifier on the home page. Presence is temporary and is not persisted. See
 [IMPLEMENTATION.md](IMPLEMENTATION.md) for the precise feature boundary and
 provisional market rules, and [ARCHITECTURE.md](../ARCHITECTURE.md) for storage,
 authority, recovery, and command idempotency. This design remains the target for

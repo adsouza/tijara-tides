@@ -1,6 +1,6 @@
 defmodule TijaraTidesWeb.GameLive do
   use TijaraTidesWeb, :live_view
-  alias TijaraTides.Infrastructure.{GameServer, GameQueries}
+  alias TijaraTides.Infrastructure.{GameServer, GameQueries, WorldServer}
   alias TijaraTidesWeb.WorldMap
 
   @impl true
@@ -19,6 +19,7 @@ defmodule TijaraTidesWeb.GameLive do
     socket =
       assign(socket,
         token: token,
+        browser_id: session["player_id"],
         page_title: "Your shipping company",
         definitions: GameServer.definitions(),
         selected_port: "Singapore",
@@ -358,6 +359,12 @@ defmodule TijaraTidesWeb.GameLive do
 
   defp refresh(socket) do
     view = GameServer.snapshot(socket.assigns.token)
+
+    if connected?(socket) do
+      if view.private,
+        do: WorldServer.attach(socket.assigns.browser_id),
+        else: WorldServer.detach()
+    end
 
     ship =
       if view.private do

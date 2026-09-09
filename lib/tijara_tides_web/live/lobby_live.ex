@@ -3,29 +3,10 @@ defmodule TijaraTidesWeb.LobbyLive do
   alias TijaraTides.Infrastructure.WorldServer
 
   @impl true
-  def mount(_params, %{"player_id" => player_id}, socket) do
-    snapshot =
-      if connected?(socket) do
-        # Subscribe before reading so a concurrent update cannot be missed.
-        :ok = WorldServer.subscribe("ocean")
-        WorldServer.attach(player_id)
-      else
-        WorldServer.snapshot()
-      end
-
-    socket = assign(socket, page_title: "Harbor lobby", attach_error: nil)
-
-    case snapshot do
-      {:error, _reason} ->
-        {:ok,
-         assign(socket,
-           snapshot: nil,
-           attach_error: "Unable to join the harbor lobby. Please reload to try again."
-         )}
-
-      snapshot ->
-        {:ok, assign(socket, snapshot: snapshot)}
-    end
+  def mount(_params, _session, socket) do
+    # Subscribe before reading so a concurrent update cannot be missed.
+    if connected?(socket), do: WorldServer.subscribe("ocean")
+    {:ok, assign(socket, page_title: "Harbor lobby", snapshot: WorldServer.snapshot())}
   end
 
   @impl true
@@ -55,41 +36,17 @@ defmodule TijaraTidesWeb.LobbyLive do
           <div class="flex flex-wrap items-center justify-between gap-4">
             <h2 class="text-xl font-medium">Harbor lobby</h2>
             <span id="connection-status" class="text-sm text-teal-300">
-              <%= if @attach_error do %>
-                Unable to join
-              <% else %>
-                <span class="phx-connected:hidden">Connecting…</span>
-                <span class="hidden phx-connected:inline">Connected to the shared world</span>
-              <% end %>
+              <span class="phx-connected:hidden">Connecting…</span>
+              <span class="hidden phx-connected:inline">Live player count</span>
             </span>
           </div>
-          <p :if={@attach_error} id="attach-error" role="alert" class="mt-8 text-amber-300">
-            {@attach_error}
-            <a href="/" class="underline">Reload lobby</a>
-          </p>
-          <dl :if={@snapshot} class="mt-8 grid gap-8 sm:grid-cols-3">
+          <dl class="mt-8">
             <div>
-              <dt class="text-sm text-slate-400">Guests online</dt><dd
+              <dt class="text-sm text-slate-400">Players online</dt><dd
                 id="online-players"
                 class="mt-2 text-4xl"
               >
                 {@snapshot.online_players}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-400">Open connections</dt><dd
-                id="connections"
-                class="mt-2 text-4xl"
-              >
-                {@snapshot.connections}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-400">World</dt><dd
-                id="world-id"
-                class="mt-2 text-4xl capitalize"
-              >
-                {@snapshot.world_id}
               </dd>
             </div>
           </dl>
