@@ -1441,7 +1441,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert has_element?(view, "#map-ship-overlay", ship["name"])
     assert has_element?(view, "#map-ship-overlay", "Cargo aboard")
-    assert has_element?(view, "h3", "#{ship["name"]} — private manifest")
+    assert has_element?(view, "h3", "#{ship["name"]} — Manifest")
     refute has_element?(view, "#public-ship-inspector")
 
     render_click(view, "map-region", %{"id" => "Pearl River Delta"})
@@ -1722,7 +1722,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     render_click(spectator, "inspect-ship", %{"id" => ship["id"]})
     assert has_element?(spectator, "#public-ship-inspector", "Company: Browser Shipping")
     assert has_element?(spectator, "#public-ship-inspector", "Class: Balanced freighter")
-    refute render(spectator) =~ "private manifest"
+    refute render(spectator) =~ "— Manifest"
     refute has_element?(spectator, "table[aria-label='Ship cargo manifest']")
     GenServer.stop(spectator.pid)
     GenServer.stop(view.pid)

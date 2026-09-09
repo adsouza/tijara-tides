@@ -43,7 +43,8 @@ tuning = {
  'Seafood':[250000,1000,1400], 'Meat':[200000,1000,1400],
 }
 liquid={'Crude oil','Refined fuel','Vegetable oil'}
-life={'Fruit':72,'Seafood':36,'Meat':48}
+# Active-world minutes: shelf lives shortened 10x alongside playtest voyage pacing.
+life_minutes={'Fruit':432,'Seafood':216,'Meat':288}
 # Explicit IDs stay fixed when display labels change. Never derive saved IDs from labels.
 CARGO_IDS = {'Agricultural machinery': 'agricultural_machinery', 'Appliances': 'appliances', 'Construction equipment': 'construction_equipment', 'Copper scrap': 'copper_scrap', 'Crude oil': 'crude_oil', 'Designer clothing': 'designer_clothing', 'Electronics': 'electronics', 'Everyday clothing': 'everyday_clothing', 'Fruit': 'fruit', 'Grain': 'grain', 'Iron ore': 'iron_ore', 'Jewelry': 'jewelry', 'Lumber': 'lumber', 'Meat': 'meat', 'Recovered plastics': 'recovered_plastics', 'Refined fuel': 'refined_fuel', 'Aluminium scrap': 'aluminium_scrap', 'Seafood': 'seafood', 'Spices': 'spices', 'Turbines': 'turbines', 'Vegetable oil': 'vegetable_oil', 'Whisky': 'whisky'}
 assert len(set(CARGO_IDS.values())) == len(CARGO_IDS)
@@ -56,8 +57,8 @@ for category, names in namespace['CATEGORIES']:
   good_id=cargo_id(name)
   price, weight, volume=tuning[name]
   goods[good_id]={'id':good_id,'name':display_name,'category':category,'reference_cents':price,'weight_kg':weight,
-   'volume_l':volume,'hold':'liquid' if name in liquid else 'reefer' if name in life else 'dry',
-   'shelf_ms':life.get(name,0)*3600000,
+   'volume_l':volume,'hold':'liquid' if name in liquid else 'reefer' if name in life_minutes else 'dry',
+   'shelf_ms':life_minutes.get(name,0)*60000,
    'manual':category not in ['Luxury items','Industrial machinery']}
 ports={}
 for name in namespace['ORDER']:

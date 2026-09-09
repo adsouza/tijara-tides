@@ -51,7 +51,10 @@ in the catalogue but cannot bypass their future auction mechanisms. Quantities,
 reference prices, production rates, ship prices, and travel scaling are explicit
 provisional tuning values. Voyages currently run at 600× sailing speed with a
 six-second minimum (10× faster than the initial playtest). Existing voyages are
-retimed on their next tick, preserving progress and fuel already spent. New
+retimed on their next tick, preserving progress and fuel already spent.
+New perishable production has correspondingly shorter shelf lives: fruit 7h 12m,
+seafood 3h 36m, and meat 4h 48m of active-world time. Existing lots retain their
+stored expiry timestamps; buying or splitting a lot does not reset its age. New
 companies start with no cash or ships; players borrow up to $250,000 and buy ships
 at any port. Existing companies retain their assets.
 

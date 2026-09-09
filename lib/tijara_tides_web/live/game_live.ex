@@ -609,10 +609,17 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   attr :estimates, :list, required: true
+  attr :id, :string, required: true
 
   defp voyage_freshness(assigns) do
     ~H"""
-    <div :if={@estimates != []} class="voyage-freshness mt-3 w-full text-sm text-amber-200">
+    <details
+      :if={@estimates != []}
+      id={@id}
+      phx-mounted={JS.ignore_attributes("open")}
+      class="voyage-freshness mt-3 w-full text-sm text-amber-200"
+    >
+      <summary class="cursor-pointer">Cargo freshness</summary>
       <p :for={estimate <- @estimates}>
         {cargo_name(estimate["good"])}: estimated time to first expiry — {minutes(
           estimate["arrival_ms"]
@@ -622,7 +629,7 @@ defmodule TijaraTidesWeb.GameLive do
       <p class="text-xs">
         Assumes unloading all current cargo. Estimates update with the voyage and may change with delays.
       </p>
-    </div>
+    </details>
     """
   end
 
@@ -1475,6 +1482,9 @@ defmodule TijaraTidesWeb.GameLive do
                       <h2 class="text-2xl">{@selected_port}</h2><form
                         id="port-selector"
                         phx-change="port"
+                        phx-hook="PortSelector"
+                        phx-update="ignore"
+                        data-selected={@selected_port}
                       >
                         <select
                           aria-label="Inspect port"
@@ -2349,27 +2359,24 @@ defmodule TijaraTidesWeb.GameLive do
                       </button>
                     </div>
                     <div :if={@ship} class="mt-4 rounded-xl bg-slate-900 p-5">
-                      <h3 class="text-lg">{@ship["name"]} — private manifest</h3>
                       <% ship_value = GameQueries.ship_sale_value(@ship, @view.public["clock_ms"]) %>
-                      <p class="text-sm">Book value: {finance_money(ship_value.book)}</p>
+                      <p class="text-sm">
+                        Book value: {finance_money(ship_value.book)}
+                        <span class="ml-2 text-xs text-slate-400">Depreciates over 28 active-world days to 20% of build value.</span>
+                      </p>
                       <details
+                        :if={@ship["status"] != "sailing"}
                         id={"shipyard-offer-" <> @ship["id"]}
                         phx-mounted={JS.ignore_attributes("open")}
                         class="my-2"
                       >
                         <summary class="cursor-pointer">Shipyard offer</summary>
-                        <p class="mt-2 text-sm">
-                          Shipyard offer: {finance_money(ship_value.proceeds)}
-                        </p>
-                        <p class="text-xs text-slate-400">
-                          90% of book value. Depreciates over 28 active-world days to 20% of build value.
-                        </p>
                         <.form
                           :if={@ship["status"] == "docked" && @ship["cargo"] == []}
                           for={%{}}
                           id="sell-ship-form"
                           phx-submit="sell-ship"
-                          class="my-2"
+                          class="my-2 flex items-center gap-3"
                         >
                           <input type="hidden" name="request_id" value={@request_id} />
                           <input type="hidden" name="ship" value={@ship["id"]} />
@@ -2380,8 +2387,10 @@ defmodule TijaraTidesWeb.GameLive do
                             phx-disable-with="Selling…"
                             data-confirm="Sell this ship to the shipyard? The ship will leave your fleet."
                           >Sell ship for {finance_money(ship_value.proceeds)}</button>
+                          <span class="text-xs text-slate-400">90% of book value.</span>
                         </.form>
                       </details>
+                      <h3 class="mt-4 mb-2 text-lg font-semibold">{@ship["name"]} — Manifest</h3>
                       <% occupied =
                         Enum.reduce(@ship["cargo"], %{weight: 0, volume: 0}, fn batch, used ->
                           good = @definitions.catalogue["goods"][batch["good"]]
@@ -2410,7 +2419,7 @@ defmodule TijaraTidesWeb.GameLive do
                                     {"quantity", "Lots"},
                                     {"weight", "Weight"},
                                     {"volume", "Volume"},
-                                    {"average_cost", "Average cost / lot"},
+                                    {"average_cost", "Avg. cost"},
                                     {"expires_ms", "First expiry"}
                                   ]
                                 }
@@ -2494,7 +2503,7 @@ defmodule TijaraTidesWeb.GameLive do
                               </td>
                               <td class="whitespace-nowrap py-3 pl-4 text-right tabular-nums">
                                 <%= if b["expires_ms"] do %>
-                                  {minutes(max(0, b["expires_ms"] - @view.public["clock_ms"]))} min
+                                  {div(max(0, b["expires_ms"] - @view.public["clock_ms"]), 60_000)} min
                                 <% else %>
                                   <span aria-label="Does not expire">—</span>
                                 <% end %>
@@ -2536,14 +2545,19 @@ defmodule TijaraTidesWeb.GameLive do
                           phx-value-request_id={@request_id}
                           class="rounded bg-teal-600 px-4 py-2"
                         >Reserve fuel and sail</button>
-                        <.voyage_freshness estimates={@preview["freshness"]} />
+                        <.voyage_freshness
+                          id={"preview-freshness-" <> @ship["id"]}
+                          estimates={@preview["freshness"]}
+                        />
                       </div>
-                      <.voyage_freshness estimates={@view.private["voyage_freshness"][@ship["id"]]} />
+                      <.voyage_freshness
+                        id={"voyage-freshness-" <> @ship["id"]}
+                        estimates={@view.private["voyage_freshness"][@ship["id"]]}
+                      />
                       <details
                         id={"instructions-" <> @ship["id"]}
                         phx-mounted={JS.ignore_attributes("open")}
                         class="mt-4 rounded border border-slate-700 p-3"
-                        open
                       >
                         <summary class="cursor-pointer font-semibold">
                           Next port cargo instructions
@@ -2567,94 +2581,13 @@ defmodule TijaraTidesWeb.GameLive do
                               order["ship_id"] == @ship["id"] && order["good"] == instruction.good &&
                                 order["side"] == "sell" && order["status"] in ["planned", "waiting"]
                             end) %>
-                        <p class="my-2 text-sm text-slate-400">
-                          Plan an onward destination with or without cargo orders. Departure is manual unless automatic departure is enabled for this visit.
-                        </p>
+
                         <% visits = GameQueries.instruction_visits(@view.private, @ship["id"]) %>
                         <% visits =
                           if visit_port, do: Map.put_new(visits, visit_port, []), else: visits %>
                         <% onwards =
                           GameQueries.instruction_onwards(@view.private, @ship["id"], visit_port) %>
-                        <.form
-                          :for={
-                            {shared_port, shared_onwards} <-
-                              Enum.sort(visits)
-                          }
-                          for={%{}}
-                          id={"visit-onward-" <> @ship["id"] <> "-" <> shared_port}
-                          phx-submit="instruction-onward"
-                          class="mb-3 space-y-2 text-sm"
-                        >
-                          <input type="hidden" name="port" value={shared_port} />
-                          <input type="hidden" name="request_id" value={@request_id} />
-                          <label>
-                            Onward destination after {shared_port}
-                            <select
-                              name="onward"
-                              aria-label="Shared onward port"
-                              class="block w-full rounded bg-slate-800 p-2"
-                            >
-                              <option :if={shared_onwards == []} value="">
-                                Choose onward destination
-                              </option>
-                              <option :if={length(shared_onwards) > 1} value="">
-                                Resolve conflicting destinations
-                              </option>
-                              <option
-                                :for={
-                                  port <-
-                                    Enum.sort(Map.keys(@definitions.catalogue["ports"])) --
-                                      [shared_port]
-                                }
-                                value={port}
-                                selected={shared_onwards == [port]}
-                              >
-                                {port}
-                              </option>
-                            </select>
-                          </label>
-                          <input type="hidden" name="auto_depart" value="false" />
-                          <label class="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              name="auto_depart"
-                              value="true"
-                              checked={
-                                get_in(@view.private, [
-                                  "visit_plans",
-                                  @ship["id"] <> "|" <> shared_port,
-                                  "auto_depart"
-                                ]) == true
-                              }
-                            /> Depart automatically after orders and handling finish
-                          </label>
-                          <p class="text-xs text-slate-400">
-                            Waits for every order to be filled or cancelled and for sufficient sailing funds. Save to apply.
-                          </p>
-                          <p
-                            :if={
-                              get_in(@view.private, [
-                                "visit_plans",
-                                @ship["id"] <> "|" <> shared_port,
-                                "departure_wait"
-                              ])
-                            }
-                            class="text-amber-300"
-                          >
-                            {get_in(@view.private, [
-                              "visit_plans",
-                              @ship["id"] <> "|" <> shared_port,
-                              "departure_wait"
-                            ])}
-                          </p>
-                          <p :if={length(shared_onwards) > 1} class="text-amber-300">
-                            Existing buy instructions disagree. Purchases are paused until you choose one onward port.
-                          </p>
-                          <button
-                            phx-disable-with="Updating…"
-                            class="rounded border border-slate-500 px-2 py-1"
-                          >Save onward destination</button>
-                        </.form>
+
                         <p :if={is_nil(visit_port)} class="my-3 text-sm text-amber-200">
                           Choose a destination in the voyage controls before adding instructions.
                         </p>
@@ -2759,7 +2692,7 @@ defmodule TijaraTidesWeb.GameLive do
                             :if={instruction.side == "buy" and length(onwards) != 1}
                             class="col-span-2 text-amber-200"
                           >
-                            Save an onward destination above before adding buy instructions.
+                            Save an onward destination below before adding buy instructions.
                           </p>
                           <p :if={duplicate_sell} class="col-span-2 text-amber-200">
                             An active sell instruction already exists for this cargo. Cancel it before adding another.
@@ -2800,8 +2733,91 @@ defmodule TijaraTidesWeb.GameLive do
                             phx-click="cancel-instruction"
                             phx-value-id={order["id"]}
                             class="mt-1 rounded border border-slate-500 px-2 py-1"
-                          >Cancel remainder</button>
+                          >Cancel order</button>
                         </div>
+                        <p class="my-2 text-sm text-slate-400">
+                          Plan an onward destination with or without cargo orders. Departure is manual unless automatic departure is enabled for this visit.
+                        </p>
+                        <.form
+                          :for={
+                            {shared_port, shared_onwards} <-
+                              Enum.sort(visits)
+                          }
+                          for={%{}}
+                          id={"visit-onward-" <> @ship["id"] <> "-" <> shared_port}
+                          phx-submit="instruction-onward"
+                          class="mb-3 space-y-2 text-sm"
+                        >
+                          <input type="hidden" name="port" value={shared_port} />
+                          <input type="hidden" name="request_id" value={@request_id} />
+                          <label>
+                            Onward destination after {shared_port}
+                            <select
+                              name="onward"
+                              aria-label="Shared onward port"
+                              class="block w-full rounded bg-slate-800 p-2"
+                            >
+                              <option :if={shared_onwards == []} value="">
+                                Choose onward destination
+                              </option>
+                              <option :if={length(shared_onwards) > 1} value="">
+                                Resolve conflicting destinations
+                              </option>
+                              <option
+                                :for={
+                                  port <-
+                                    Enum.sort(Map.keys(@definitions.catalogue["ports"])) --
+                                      [shared_port]
+                                }
+                                value={port}
+                                selected={shared_onwards == [port]}
+                              >
+                                {port}
+                              </option>
+                            </select>
+                          </label>
+                          <input type="hidden" name="auto_depart" value="false" />
+                          <label class="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              name="auto_depart"
+                              value="true"
+                              checked={
+                                get_in(@view.private, [
+                                  "visit_plans",
+                                  @ship["id"] <> "|" <> shared_port,
+                                  "auto_depart"
+                                ]) == true
+                              }
+                            /> Depart automatically after orders and handling finish
+                          </label>
+                          <p class="text-xs text-slate-400">
+                            Waits for every order to be filled or cancelled and for sufficient sailing funds. Save to apply.
+                          </p>
+                          <p
+                            :if={
+                              get_in(@view.private, [
+                                "visit_plans",
+                                @ship["id"] <> "|" <> shared_port,
+                                "departure_wait"
+                              ])
+                            }
+                            class="text-amber-300"
+                          >
+                            {get_in(@view.private, [
+                              "visit_plans",
+                              @ship["id"] <> "|" <> shared_port,
+                              "departure_wait"
+                            ])}
+                          </p>
+                          <p :if={length(shared_onwards) > 1} class="text-amber-300">
+                            Existing buy instructions disagree. Purchases are paused until you choose one onward port.
+                          </p>
+                          <button
+                            phx-disable-with="Updating…"
+                            class="rounded border border-slate-500 px-2 py-1"
+                          >Save onward destination</button>
+                        </.form>
                       </details>
                     </div>
                   </section>

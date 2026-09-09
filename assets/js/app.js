@@ -28,12 +28,13 @@ import {Flash} from "./flash"
 import {Workspace} from "./workspace"
 import {TradeQuantity} from "./trade_quantity"
 import {LoanAmount} from "./loan_amount"
+import {PortSelector} from "./port_selector"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Flash, Workspace, TradeQuantity, LoanAmount},
+  hooks: {...colocatedHooks, Flash, Workspace, TradeQuantity, LoanAmount, PortSelector},
 })
 
 // Show progress bar on live navigation and form submits
