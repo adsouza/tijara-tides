@@ -2337,7 +2337,8 @@ defmodule TijaraTidesWeb.GameLive do
                             @ship,
                             Map.get(@instruction_drafts, @ship["id"], %{}),
                             @view.markets,
-                            visit_port
+                            visit_port,
+                            @view.private["company"]
                           ) %>
                         <% duplicate_sell =
                           instruction.side == "sell" &&
@@ -2525,7 +2526,7 @@ defmodule TijaraTidesWeb.GameLive do
                             type="number"
                             min="1"
                             max="10000000000"
-                            value={instruction_value(@instruction_drafts, @ship, "budget", "10000")}
+                            value={instruction.budget}
                             class="block w-full rounded bg-slate-800 p-2 disabled:cursor-not-allowed disabled:opacity-50"
                           /></label>
                           <input

@@ -359,7 +359,7 @@ defmodule TijaraTides.UseCases.GameQueries do
     ) ++ undated
   end
 
-  def instruction_editor(definitions, ship, draft, markets \\ %{}, port \\ nil) do
+  def instruction_editor(definitions, ship, draft, markets \\ %{}, port \\ nil, company \\ nil) do
     draft =
       if draft["visit_port"] && draft["visit_port"] != port,
         do: Map.drop(draft, ["quantity", "limit"]),
@@ -371,7 +371,11 @@ defmodule TijaraTides.UseCases.GameQueries do
       definitions.catalogue["goods"]
       |> Enum.sort_by(fn {good, item} -> item["name"] || good end)
       |> Enum.filter(fn {good, item} ->
+        quote = if port, do: markets[port <> "|" <> good]
+
         item["manual"] and compatible_cargo?(ship, item) and
+          (side != "buy" or is_nil(port) or
+             (not is_nil(quote) and quote["manual"] == true and quote["stock"] > 0)) and
           (side != "sell" or ship["status"] != "sailing" or cargo_aboard(ship, good) > 0)
       end)
 
@@ -384,10 +388,45 @@ defmodule TijaraTides.UseCases.GameQueries do
              [] -> nil
            end)
 
-    maximum = if side == "sell", do: min(10_000, cargo_aboard(ship, good)), else: 10_000
-
-    default_quantity = if side == "sell", do: maximum, else: 1
     quote = if port && good, do: markets[port <> "|" <> good]
+    item = definitions.catalogue["goods"][good]
+
+    maximum =
+      cond do
+        side == "sell" ->
+          min(10_000, cargo_aboard(ship, good))
+
+        company && quote && item ->
+          class = Fleet.classes()[ship["class"]]
+
+          capacity =
+            Enum.min([
+              10_000,
+              quote["stock"],
+              div(class["weight"], item["weight_kg"]),
+              div(class["volume"], item["volume_l"])
+            ])
+
+          cash = max(0, company["cash"] - company["reserved"])
+
+          cap =
+            case Integer.parse(to_string(draft["budget"] || "")) do
+              {n, ""} -> min(cash, max(0, n * 100))
+              _ -> cash
+            end
+
+          largest_trade(0, capacity, fn quantity ->
+            purchase_total(quote, ship, item, quantity) <= cap
+          end)
+
+        port ->
+          0
+
+        true ->
+          10_000
+      end
+
+    default_quantity = if side == "sell" or company, do: maximum, else: 1
     price = if quote, do: quote[if(side == "sell", do: "bid", else: "ask")], else: 0
     default_limit = Decimal.new(price || 0) |> Decimal.div(100) |> Decimal.to_string(:normal)
 
@@ -397,13 +436,21 @@ defmodule TijaraTides.UseCases.GameQueries do
         _ -> 1
       end
 
+    quantity = if(maximum < 1, do: 0, else: min(maximum, max(1, quantity)))
+
+    budget =
+      if side == "buy" && quote && item,
+        do: div(purchase_total(quote, ship, item, quantity) + 99, 100),
+        else: 10_000
+
     %{
       goods: goods,
       good: good,
       side: side,
       maximum: maximum,
       limit: draft["limit"] || default_limit,
-      quantity: if(maximum < 1, do: 0, else: min(maximum, max(1, quantity)))
+      budget: draft["budget"] || to_string(max(1, budget)),
+      quantity: quantity
     }
   end
 

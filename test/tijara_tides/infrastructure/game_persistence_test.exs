@@ -584,7 +584,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert has_element?(
              view,
-             instruction_form <> " input[name=quantity][max='10000']:not([disabled])"
+             instruction_form <> " input[name=quantity]:not([max='10000']):not([disabled])"
            )
 
     refute has_element?(view, instruction_form <> " button[disabled]")
