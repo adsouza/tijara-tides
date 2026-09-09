@@ -1513,7 +1513,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert has_element?(view, "#destination-market-note", "Singapore")
     assert has_element?(view, ".destination-bid[data-good=lumber]", "$275 bid")
-    assert has_element?(view, ".destination-bid[data-good=lumber]", "+$50 spread")
+    assert has_element?(view, ".destination-bid[data-good=lumber]", "+$50 gross profit / lot")
+    assert has_element?(view, ".destination-bid[data-good=lumber] .destination-profit")
     refute has_element?(view, ".destination-bid[data-good='iron_ore']")
 
     render_change(view, "trade-preview", %{

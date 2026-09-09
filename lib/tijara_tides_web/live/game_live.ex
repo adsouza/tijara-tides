@@ -1396,16 +1396,20 @@ defmodule TijaraTidesWeb.GameLive do
                     <% show_ship_columns = owns_ship_at_port?(@view.private, @selected_port) %>
                     <% selected_ship_here =
                       @ship && @ship["port"] == @selected_port && @ship["status"] != "sailing" %>
+                    <% comparison_port =
+                      if @ship && @ship["status"] == "sailing",
+                        do: @ship["destination"],
+                        else: @destination %>
                     <% compare_destination =
-                      @port_market_side == "buy" && selected_ship_here && is_binary(@destination) &&
-                        @destination != @selected_port &&
-                        @definitions.catalogue["ports"][@destination] %>
+                      @port_market_side == "buy" && @ship && is_binary(comparison_port) &&
+                        comparison_port != @selected_port &&
+                        @definitions.catalogue["ports"][comparison_port] %>
                     <p
                       :if={compare_destination}
                       id="destination-market-note"
                       class="mb-3 text-xs text-slate-400"
                     >
-                      Destination bids: {@destination}. Spread is per lot before handling and voyage costs; demand and prices may change before arrival.
+                      Destination bids: {comparison_port}. Gross profit excludes handling and voyage costs; demand and prices may change before arrival.
                     </p>
                     <% purchase =
                       if @port_market_side == "buy" && selected_ship_here &&
@@ -1483,7 +1487,8 @@ defmodule TijaraTidesWeb.GameLive do
                           >
                             <% q = @view.markets[@selected_port <> "|" <> good] %>
                             <% destination_quote =
-                              if compare_destination, do: @view.markets[@destination <> "|" <> good] %>
+                              if compare_destination,
+                                do: @view.markets[comparison_port <> "|" <> good] %>
                             <td class="cargo-description-column py-3">
                               <button
                                 type="button"
@@ -1517,7 +1522,27 @@ defmodule TijaraTidesWeb.GameLive do
                                 }>
                                   {if destination_quote["bid"] > q["ask"], do: "+"}{money(
                                     destination_quote["bid"] - q["ask"]
-                                  )} spread
+                                  )} gross profit / lot
+                                </span>
+                                <% profit_lots =
+                                  if selected_ship_here,
+                                    do:
+                                      min(
+                                        Map.get(@trade_quantities, {"buy", good}, 0),
+                                        destination_quote["demand"]
+                                      ),
+                                    else: 0 %>
+                                <span
+                                  :if={profit_lots > 0}
+                                  class={[
+                                    "destination-profit block",
+                                    if(destination_quote["bid"] >= q["ask"],
+                                      do: "text-teal-300",
+                                      else: "text-red-400"
+                                    )
+                                  ]}
+                                >
+                                  {money((destination_quote["bid"] - q["ask"]) * profit_lots)} gross on {profit_lots} lots
                                 </span>
                                 <span class="block text-slate-400">{destination_quote["demand"]} lots demand</span>
                               </div>
