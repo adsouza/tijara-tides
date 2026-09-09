@@ -60,10 +60,16 @@ defmodule TijaraTides.Infrastructure.Persistence.FinancialLedger do
            -coalesce(sum(balance_cents) FILTER(WHERE account_code='payables'),0) AS unpaid,
            -coalesce(sum(balance_cents) FILTER(WHERE a.category IN ('revenue','expense') OR account_code='opening_profit'),0) AS profit,
            coalesce(sum(balance_cents) FILTER(WHERE account_code='inventory'),0) AS inventory,
-           coalesce(sum(balance_cents) FILTER(WHERE account_code='fleet'),0) AS fleet
+           coalesce(sum(balance_cents) FILTER(WHERE account_code='fleet'),0) AS fleet,
+           -coalesce(sum(balance_cents) FILTER(WHERE account_code='loan_principal'),0) AS debt,
+           -coalesce(sum(balance_cents) FILTER(WHERE account_code='loan_interest'),0) AS interest
           FROM game_ledger_balances b JOIN game_ledger_accounts a ON a.code=b.account_code WHERE b.world_id=c.world_id AND b.company_id=c.id
         ) b ON true
         WHERE c.world_id=$1 AND (c.cash_cents<>b.cash OR c.reserved_cents<>b.reserved OR c.unpaid_cents<>b.unpaid OR c.profit_cents<>b.profit
+         OR c.unpaid_cents<>(SELECT coalesce(sum(remaining),0) FROM game_operating_bills o WHERE o.world_id=c.world_id AND o.company_id=c.id)
+         OR EXISTS (SELECT 1 FROM game_loans l WHERE l.world_id=c.world_id AND l.company_id=c.id AND (l.principal_due<>(SELECT coalesce(sum(i.principal_due),0) FROM game_loan_installments i WHERE i.world_id=l.world_id AND i.loan_id=l.id) OR l.interest_due<>(SELECT coalesce(sum(i.interest_due),0) FROM game_loan_installments i WHERE i.world_id=l.world_id AND i.loan_id=l.id)))
+         OR b.debt<>(SELECT coalesce(sum(remaining),0) FROM game_loans l WHERE l.world_id=c.world_id AND l.company_id=c.id)
+         OR b.interest<>(SELECT coalesce(sum(interest_due + interest_accrued),0) FROM game_loans l WHERE l.world_id=c.world_id AND l.company_id=c.id)
          OR b.inventory<>(SELECT coalesce(sum(h.quantity_lots*h.unit_cost_cents),0) FROM game_cargo_holdings h JOIN game_ships s ON s.world_id=h.world_id AND s.id=h.ship_id WHERE s.world_id=c.world_id AND s.company_id=c.id)
          OR b.fleet<>(SELECT coalesce(sum(book_value_cents),0) FROM game_ships s WHERE s.world_id=c.world_id AND s.company_id=c.id))
         """,

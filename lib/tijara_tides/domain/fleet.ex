@@ -108,6 +108,8 @@ defmodule TijaraTides.Domain.Fleet do
   def voyage_quote(_ship, _destination, _catalogue), do: nil
 
   def sail(state, account, id, destination, limit, catalogue) do
+    state = TijaraTides.Domain.Finance.settle(state)
+
     with {:ok, ship, company, estimate} <-
            departure_check(state, account, id, destination, limit, catalogue) do
       owner = company["id"]
@@ -157,7 +159,8 @@ defmodule TijaraTides.Domain.Fleet do
     company = get(state, "companies", account["company_id"])
 
     cond do
-      is_nil(ship) or is_nil(company) or ship["company_id"] != account["company_id"] ->
+      is_nil(ship) or is_nil(company) or company["bankruptcy_ms"] != nil or
+          ship["company_id"] != account["company_id"] ->
         {:error, :departure_ship_unavailable}
 
       ship["status"] != "docked" ->
@@ -253,7 +256,7 @@ defmodule TijaraTides.Domain.Fleet do
       crew_numerator =
         ship["crew_remainder"] + moving_ms * class["crew"] * 2 + idle_ms * class["crew"]
 
-      crew = div(crew_numerator, 120_000)
+      crew = if company["bankruptcy_ms"] == nil, do: div(crew_numerator, 120_000), else: 0
 
       fuel_burned =
         if ship["status"] == "sailing",
@@ -288,6 +291,13 @@ defmodule TijaraTides.Domain.Fleet do
           "profit" => company["profit"] - crew - fuel - spoilage
       }
 
+      company =
+        Map.put(
+          company,
+          "unpaid_since",
+          if(company["unpaid"] > 0, do: company["unpaid_since"] || now)
+        )
+
       ship = %{
         ship
         | "fuel_burned" => fuel_burned,
@@ -313,6 +323,7 @@ defmodule TijaraTides.Domain.Fleet do
       state
       |> put("ships", id, ship)
       |> put("companies", company["id"], company)
+      |> TijaraTides.Domain.Finance.operating_bill(company["id"], crew - paid, now)
       |> Journal.post(
         company["id"],
         "operations",

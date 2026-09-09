@@ -10,7 +10,7 @@ defmodule TijaraTides.Domain.Visibility do
       "goods" => catalogue["goods"],
       "companies" =>
         Map.new(entities(state, "companies"), fn {id, c} ->
-          {id, Map.take(c, ["id", "name", "home", "created_ms"])}
+          {id, Map.take(c, ["id", "name", "created_ms", "bankruptcy_ms"])}
         end),
       "ships" =>
         Map.new(entities(state, "ships"), fn {id, s} ->
@@ -33,6 +33,7 @@ defmodule TijaraTides.Domain.Visibility do
   def private(state, account) do
     %{
       "account" => Map.drop(account, ["inviter"]),
+      "finance" => TijaraTides.Domain.Finance.summary(state, account),
       "company" => get(state, "companies", account["company_id"]),
       "ships" =>
         Map.filter(entities(state, "ships"), fn {_, s} ->

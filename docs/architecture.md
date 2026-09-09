@@ -15,9 +15,10 @@ not independently deployed services or independently committed aggregates.
 | Cargo | `Domain.CargoRules`, `CargoLots` | Hold compatibility, liquid mixing restrictions, freshness, stable lot identity and split lineage. |
 | Trading | `Domain.Trading` | Atomic cash, cargo, liquidity and accounting changes; destination funding rechecked before purchase. |
 | City markets | `Domain.Markets` | Bounded stock, demand and budgets; finite manufactured stock; no synthetic merchant inventory; world-time replenishment. |
+| Credit and insolvency | `Domain.Finance` | Fixed loan terms, oldest-due settlement, protected reservations, shared active-clock arrears, bankruptcy and replacement entitlement. |
 | Accounting | `Domain.Journal`, persistence ledger adapter | Balanced integer-cent entries; durable ledger and entity balances committed together and reconciled. |
 | Visibility | `Domain.Visibility` | Public ships never expose cargo, balances, credentials or private instructions; owner projections require authentication. |
-| Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, then fleet operations, market recovery and invitation expiry in the established order; commit all phases together. |
+| Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, settle finance before and after fleet operations, then market recovery, ship instructions and invitation expiry in the established order; commit all phases together. |
 
 `Domain.ReadState` exports only reads for application projections.
 `Domain.State` is unexported internal state-access machinery, not a general

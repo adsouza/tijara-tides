@@ -185,6 +185,17 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
 
     for {field, value, reason} <- [{"cash", 0, "funds"}, {"unpaid", 100, "unpaid"}] do
       blocked = put_in(arrived, [:entities, "companies", "company", field], value)
+
+      blocked =
+        if field == "unpaid",
+          do:
+            put_in(
+              blocked,
+              [:entities, "companies", "company", "reserved"],
+              blocked.entities["companies"]["company"]["cash"]
+            ),
+          else: blocked
+
       waiting = ShipInstructions.advance(blocked, c.catalogue)
       assert Game.get(waiting, "ships", "company:1")["status"] == "docked"
       assert Game.get(waiting, "visit_plans", "company:1|Singapore")["departure_wait"] =~ reason
@@ -196,6 +207,13 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
           waiting,
           [:entities, "companies", "company", field],
           arrived.entities["companies"]["company"][field]
+        )
+
+      recovered =
+        put_in(
+          recovered,
+          [:entities, "companies", "company", "reserved"],
+          arrived.entities["companies"]["company"]["reserved"]
         )
 
       assert Game.get(ShipInstructions.advance(recovered, c.catalogue), "ships", "company:1")[
@@ -461,7 +479,12 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
          catalogue}
 
       :unpaid ->
-        {State.put(state, "companies", "company", %{company | "unpaid" => 1}), catalogue}
+        {State.put(state, "companies", "company", %{
+           company
+           | "unpaid" => 1,
+             "cash" => 0,
+             "reserved" => 0
+         }), catalogue}
 
       :voyage_funds ->
         cost =

@@ -258,6 +258,25 @@ defmodule TijaraTidesWeb.GameLive do
     )
   end
 
+  def handle_event("borrow", params, socket) do
+    run(socket, %{
+      "action" => "borrow",
+      "amount" => integer(params["amount"]) * 100,
+      "request_id" => params["request_id"]
+    })
+  end
+
+  def handle_event("repay", params, socket),
+    do:
+      run(socket, %{
+        "action" => "repay",
+        "loan" => params["loan"],
+        "request_id" => params["request_id"]
+      })
+
+  def handle_event("bankruptcy", params, socket),
+    do: run(socket, %{"action" => "bankruptcy", "request_id" => params["request_id"]})
+
   def handle_event("instruction-onward", params, socket) do
     run(
       socket,
@@ -527,7 +546,20 @@ defmodule TijaraTidesWeb.GameLive do
   defp integer(_), do: -1
   defp dollars(whole), do: "$" <> Integer.to_string(whole)
   defp money(cents), do: dollars(round(cents / 100))
+
+  defp finance_money(cents),
+    do:
+      dollars(div(cents, 100)) <>
+        "." <> String.pad_leading(Integer.to_string(rem(cents, 100)), 2, "0")
+
   defp minutes(ms), do: Float.round(ms / 60000, 1)
+
+  defp active_countdown(ms) do
+    seconds = div(max(0, ms) + 999, 1000)
+
+    [div(seconds, 3600), div(rem(seconds, 3600), 60), rem(seconds, 60)]
+    |> Enum.map_join(":", &(Integer.to_string(&1) |> String.pad_leading(2, "0")))
+  end
 
   @doc false
   def error_message({:departure_busy, status, remaining}) do
@@ -587,6 +619,8 @@ defmodule TijaraTidesWeb.GameLive do
 
   def error_message(reason) do
     %{
+      bankruptcy_cash_covers_debts:
+        "Available cash covers all loan principal, accrued interest and unpaid operating bills. Bankruptcy is unavailable.",
       instruction_ship_not_owned: "Select a ship owned by your company.",
       instruction_destination_invalid:
         "Choose the ship's next destination; a sailing ship can only use its current destination.",
@@ -774,9 +808,9 @@ defmodule TijaraTidesWeb.GameLive do
             :if={@view.private && !@view.private["company"]}
             class="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6"
           >
-            <h2 class="text-xl">Name your company and choose a home port</h2>
+            <h2 class="text-xl">Name your company and choose a starting port</h2>
             <p class="my-3 text-slate-300">
-              Every package has three ships and $200,000 in combined fleet value and cash. Explore port markets below before choosing.
+              Starter packages have equivalent combined fleet and cash value. Prior bankruptcies reduce replacement packages; the choices below show your current entitlement.
             </p>
             <.form
               for={%{}}
@@ -795,7 +829,7 @@ defmodule TijaraTidesWeb.GameLive do
                 aria-label="Company name"
                 class="rounded bg-slate-800 px-3 py-2"
               />
-              <select name="port" aria-label="Home port" class="rounded bg-slate-800 px-3 py-2"><option
+              <select name="port" aria-label="Starting port" class="rounded bg-slate-800 px-3 py-2"><option
                 :for={name <- Enum.sort(Map.keys(@definitions.catalogue["ports"]))}
                 value={name}
                 selected={name == @company_draft["port"]}
@@ -803,23 +837,49 @@ defmodule TijaraTidesWeb.GameLive do
                 {name}
               </option></select>
               <select name="package" aria-label="Starter fleet" class="rounded bg-slate-800 px-3 py-2"><option
-                :for={{id, ships} <- Enum.sort(@definitions.packages)}
+                :for={{id, starter} <- Enum.sort(@view.private["finance"]["packages"])}
                 value={id}
                 selected={id == @company_draft["package"]}
               >
-                {id} · {Enum.join(ships, ", ")} · {money(@definitions.package_cash[id])} cash
+                {id} · {Enum.join(starter.ships, ", ")} · {money(starter.cash)} cash
               </option></select>
-              <button class="rounded bg-teal-600 px-4 py-2">Establish company</button>
+              <button
+                disabled={@view.private["finance"]["restart_ms"] > @view.public["clock_ms"]}
+                class="rounded bg-teal-600 px-4 py-2 disabled:opacity-40"
+              >Establish company</button>
+              <p :if={@view.private["finance"]["restart_ms"] > @view.public["clock_ms"]}>
+                Replacement company available in {minutes(
+                  @view.private["finance"]["restart_ms"] - @view.public["clock_ms"]
+                )} active-world minutes.
+              </p>
             </.form>
           </section>
-          <details :if={@view.private} id="company-menu" class="company-menu">
-            <summary>Account &amp; invitations</summary>
+          <details
+            :if={@view.private}
+            id="company-menu"
+            class="company-menu"
+            phx-mounted={JS.ignore_attributes("open")}
+          >
+            <summary class="company-menu-trigger">
+              <span aria-hidden="true" class="text-lg leading-none">☰</span><span>Account, finance &amp; invitations</span>
+            </summary>
             <div class="company-menu-body">
+              <div class="company-menu-dismiss">
+                <button
+                  type="button"
+                  phx-click={
+                    JS.remove_attribute("open", to: "#company-menu")
+                    |> JS.focus(to: "#company-menu > summary")
+                  }
+                  aria-label="Close account, finance and invitations"
+                  class="rounded border border-slate-500 px-3 py-1"
+                >Close ✕</button>
+              </div>
               <p class="text-sm text-amber-100">
                 Keep this device session: identity linking is not included in this first milestone. Losing the session permanently loses access to this account. Invitations cannot be reused to sign in.
               </p>
               <section class="my-6 rounded-xl bg-slate-900 p-5">
-                <h2 class="text-xl">Invitations & notices</h2><p class="my-2">
+                <h2 class="text-xl">Invitations</h2><p class="my-2">
                   Available entitlements: {@view.private["account"]["invite_quota"]}
                 </p>
                 <button
@@ -830,7 +890,106 @@ defmodule TijaraTidesWeb.GameLive do
                 <p :if={@invite_code} class="mt-3 break-all font-mono text-teal-200">
                   {@invite_code}
                 </p>
-                <p :for={notice <- @view.private["notices"]} class="mt-3">{notice["text"]}</p>
+                <section
+                  :if={@view.private["company"]}
+                  id="company-finance"
+                  class="mt-4 space-y-3 border-t border-slate-600 pt-3"
+                >
+                  <h3 class="text-lg">Loans and repayments</h3>
+                  <p>Lifetime bankruptcies: {@view.private["account"]["bankruptcies"]}</p>
+                  <p>
+                    Debt: {money(@view.private["finance"]["debt"])} · Available credit: {money(
+                      @view.private["finance"]["available"]
+                    )}
+                  </p>
+                  <p>
+                    {@view.private["finance"]["installments"]} installments, {@view.private["finance"][
+                      "rate_bps"
+                    ] / 100}% interest every {div(@view.private["finance"]["period_ms"], 3_600_000)} hours on outstanding principal, accruing continuously while the world runs. Early repayment has no penalty; future interest is avoided. Borrowing is not profit.
+                  </p>
+                  <p :if={@view.private["finance"]["deadline"]} class="text-amber-300">
+                    Arrears: {money(@view.private["finance"]["arrears"])}. Bankruptcy deadline in {minutes(
+                      max(0, @view.private["finance"]["deadline"] - @view.public["clock_ms"])
+                    )} active-world minutes. World suspension pauses this countdown.
+                  </p>
+                  <.form for={%{}} id="loan-form" phx-submit="borrow" class="flex gap-2">
+                    <input type="hidden" name="request_id" value={@request_id} />
+                    <input
+                      type="number"
+                      name="amount"
+                      aria-label="Loan amount in dollars"
+                      disabled={@view.private["finance"]["available"] < 100}
+                      min="1"
+                      max={div(@view.private["finance"]["available"], 100)}
+                      value={div(@view.private["finance"]["available"], 100)}
+                      class="w-32 rounded bg-slate-800 p-2"
+                    />
+                    <button
+                      disabled={@view.private["finance"]["available"] < 100}
+                      phx-disable-with="Borrowing…"
+                      class="rounded bg-teal-700 p-2 disabled:opacity-40"
+                    >Borrow</button>
+                  </.form>
+                  <details
+                    :for={loan <- @view.private["finance"]["loans"]}
+                    :if={loan["status"] == "open"}
+                    id={"loan-" <> loan["id"]}
+                    phx-mounted={JS.ignore_attributes("open")}
+                    class="rounded border border-slate-600 p-2"
+                  >
+                    <summary>
+                      {money(loan["principal"])} loan · {loan["rate_bps"] / 100}% per period · {loan[
+                        "status"
+                      ]} · {money(loan["remaining"])} principal remaining
+                    </summary>
+                    <p>Accrued interest not yet due: {finance_money(loan["interest_accrued"])}</p>
+                    <p>Currently due: {money(loan["principal_due"] + loan["interest_due"])}</p>
+                    <table :if={loan["status"] == "open"} class="w-full text-right">
+                      <caption>
+                        Projected schedule assuming timely payments · active-world time
+                      </caption><thead>
+                        <tr>
+                          <th title="Remaining active-world time (HH:MM:SS); pauses when the world is suspended">
+                            Due in (HH:MM:SS)
+                          </th><th>Principal</th><th>Interest</th>
+                        </tr>
+                      </thead><tbody>
+                        <tr :for={row <- loan["schedule"]}>
+                          <td>{active_countdown(row["due_ms"] - @view.public["clock_ms"])}</td><td>
+                            {money(row["principal"])}
+                          </td><td>{finance_money(row["interest"])}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <.form :if={loan["status"] == "open"} for={%{}} phx-submit="repay">
+                      <input type="hidden" name="request_id" value={@request_id} /><input
+                        type="hidden"
+                        name="loan"
+                        value={loan["id"]}
+                      />
+                      <button phx-disable-with="Repaying…" class="rounded border p-2">Repay {finance_money(
+                        loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
+                      )} in full</button>
+                    </.form>
+                  </details>
+                  <.form
+                    for={%{}}
+                    phx-submit="bankruptcy"
+                    data-confirm="Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a reduced replacement package."
+                  >
+                    <input type="hidden" name="request_id" value={@request_id} /><button
+                      phx-disable-with="Declaring…"
+                      disabled={not @view.private["finance"]["can_declare_bankruptcy"]}
+                      class="rounded border border-red-500 p-2 disabled:opacity-40"
+                    >Declare bankruptcy</button>
+                    <p
+                      :if={not @view.private["finance"]["can_declare_bankruptcy"]}
+                      class="mt-2 text-slate-400"
+                    >
+                      Bankruptcy is unavailable while available cash covers all loan principal, accrued interest and unpaid operating bills. Reserved voyage funds are excluded.
+                    </p>
+                  </.form>
+                </section>
               </section>
             </div>
           </details>
@@ -839,9 +998,7 @@ defmodule TijaraTidesWeb.GameLive do
             class="company-summary"
           >
             <div>
-              <h2 class="text-2xl">{@view.private["company"]["name"]}</h2><p class="text-slate-400">
-                Home: {@view.private["company"]["home"]}
-              </p>
+              <h2 class="text-2xl">{@view.private["company"]["name"]}</h2>
             </div>
             <div>
               Available cash<p class="text-2xl">
@@ -1560,6 +1717,12 @@ defmodule TijaraTidesWeb.GameLive do
                     >✕</button>
                     <h2 class="text-base font-semibold text-teal-200">{inspected["name"]}</h2>
                     <p>{@view.public["companies"][inspected["company_id"]]["name"]}</p>
+                    <p
+                      :if={@view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil}
+                      class="text-red-300"
+                    >
+                      Company in bankruptcy — assets in receivership
+                    </p>
                     <p>{@definitions.classes[inspected["class"]]["name"]} · {inspected["status"]}</p>
                     <p>
                       {inspected["port"]}<span :if={inspected["destination"]}> → {inspected[
@@ -1601,6 +1764,12 @@ defmodule TijaraTidesWeb.GameLive do
                     <% inspected = @view.public["ships"][@inspected_ship] %>
                     <h2 class="text-xl">{inspected["name"]}</h2>
                     <p>Company: {@view.public["companies"][inspected["company_id"]]["name"]}</p>
+                    <p
+                      :if={@view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil}
+                      class="text-red-300"
+                    >
+                      Company in bankruptcy — assets in receivership
+                    </p>
                     <p>Class: {@definitions.classes[inspected["class"]]["name"]}</p>
                     <p>
                       Status: {inspected["status"]} · {inspected["port"]}<span :if={

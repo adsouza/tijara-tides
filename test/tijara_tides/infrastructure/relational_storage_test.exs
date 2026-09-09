@@ -144,6 +144,12 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     end
   end
 
+  defp legacy_data("companies", data),
+    do:
+      data
+      |> Map.drop(["unpaid_since", "arrears_since", "bankruptcy_ms"])
+      |> Map.put("home", "Jakarta")
+
   defp legacy_data("ships", data),
     do:
       data
@@ -174,6 +180,13 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
     {:ok, loaded} = GameStore.claim(MigrationRepo)
     assert legacy_entities(loaded.entities) == legacy_entities(original.entities)
+    refute Map.has_key?(loaded.entities["companies"]["company"], "home")
+
+    assert [[0]] =
+             MigrationRepo.query!(
+               "SELECT count(*) FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='game_companies' AND column_name='home_port_id'"
+             ).rows
+
     assert loaded.clock_ms == original.clock_ms
     assert loaded.revision == original.revision
 
@@ -324,7 +337,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
 
     before = snapshot.()
 
-    Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_260_908_020_000, log: false)
     after_migration = snapshot.()
 
     for table <-
@@ -367,9 +380,6 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
                "SELECT count(*) FROM game_cargo_types WHERE id ~ '^[a-z]+(_[a-z]+)*$'"
              ).rows
 
-    {:ok, loaded} = GameStore.claim(MigrationRepo)
-    assert loaded.entities["ships"]["company:1"]["cargo"] |> Enum.all?(&(&1["good"] == "lumber"))
-
     assert {:replay, %{"quantity" => 2, "spent" => 200_000}} ==
              GameStore.receipt(
                MigrationRepo,
@@ -389,8 +399,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
       )
     end
 
-    # Undo the ownership claim, then prove the reverse migration restores every row.
-    MigrationRepo.query!("UPDATE game_worlds SET epoch=epoch-1 WHERE id='ocean'")
+    # Prove the reverse cargo migration restores every row.
     Ecto.Migrator.run(MigrationRepo, migrations, :down, to: 20_260_908_020_000, log: false)
     assert snapshot.() == before
   end

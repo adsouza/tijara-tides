@@ -55,11 +55,12 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 .workspace-tabs { display: none; }
 .company-menu { position: absolute; top: 16px; right: 16px; z-index: 40; font-size: 12px; }
 .company-menu summary { cursor: pointer; padding: 4px 8px; color: #99f6e4; }
-.company-menu-body { position: absolute; right: 0; width: min(380px, calc(100vw - 32px)); max-height: 75dvh; overflow: auto; padding: 16px; border: 1px solid #475569; border-radius: 12px; background: #0f172a; box-shadow: 0 12px 40px #0008; }
+.company-menu-body { position: absolute; right: 0; width: calc((100vw - 48px) / 3); max-height: 75dvh; overflow: auto; padding: 16px; border: 1px solid #475569; border-radius: 12px; background: #0f172a; box-shadow: 0 12px 40px #0008; }
 .company-menu-body section { margin: 12px 0 0; padding: 0; }
 
 @media (orientation: portrait) {
   .game-screen { padding: 8px; }
+  .company-menu-body { width: calc(100vw - 32px); }
   .game-tagline { display: none; }
   .company-summary { gap: 6px; padding: 8px; font-size: 10px; }
   .company-summary h2, .company-summary .text-2xl { font-size: 12px; }
@@ -160,3 +161,8 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
     font-size: 12px; line-height: 1.6;
   }
 }
+
+.company-menu-dismiss { position: sticky; top: -16px; z-index: 1; display: flex; justify-content: flex-end; padding: 8px 0; background: #0f172a; }
+
+.company-menu > .company-menu-trigger { display: flex; align-items: center; gap: 6px; list-style: none; }
+.company-menu > .company-menu-trigger::-webkit-details-marker { display: none; }

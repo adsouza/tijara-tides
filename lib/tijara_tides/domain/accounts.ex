@@ -1,9 +1,9 @@
 defmodule TijaraTides.Domain.Accounts do
   @moduledoc "Accounts, invitation entitlements, device-session authentication, and starter-company formation."
   import TijaraTides.Domain.State
-  import TijaraTides.Domain.Fleet, only: [classes: 0, packages: 0, package_cash: 1]
+  import TijaraTides.Domain.Fleet, only: [classes: 0, packages: 0]
   import TijaraTides.Domain.Notices, only: [notice: 4]
-  alias TijaraTides.Domain.Journal
+  alias TijaraTides.Domain.{Finance, Journal}
   @invite_ms 3 * 86_400_000
 
   def sign_out(state, session_hash), do: delete(state, "sessions", session_hash)
@@ -96,6 +96,9 @@ defmodule TijaraTides.Domain.Accounts do
       account["company_id"] != nil ->
         {:error, :company_exists}
 
+      Finance.restart_at(state, account) > state.clock_ms ->
+        {:error, :bankruptcy_cooldown}
+
       name == "" or String.length(name) > 60 ->
         {:error, :invalid_name}
 
@@ -112,18 +115,21 @@ defmodule TijaraTides.Domain.Accounts do
 
       true ->
         id = context.id
+        starter = Finance.starter(state, account, package)
 
         company = %{
           "id" => id,
           "account_id" => account["id"],
           "name" => name,
-          "home" => port,
-          "cash" => package_cash(package),
+          "cash" => starter.cash,
           "reserved" => 0,
           "profit" => 0,
           "unpaid" => 0,
           "created_ms" => state.clock_ms,
-          "last_invite_year" => 0
+          "last_invite_year" => 0,
+          "unpaid_since" => nil,
+          "arrears_since" => nil,
+          "bankruptcy_ms" => nil
         }
 
         state =
@@ -132,7 +138,7 @@ defmodule TijaraTides.Domain.Accounts do
           |> put("accounts", account["id"], %{account | "company_id" => id})
 
         state =
-          packages()[package]
+          starter.ships
           |> Enum.with_index(1)
           |> Enum.reduce(state, fn {class, index}, state ->
             ship_id = id <> ":" <> to_string(index)
@@ -162,13 +168,13 @@ defmodule TijaraTides.Domain.Accounts do
         state =
           notice(state, account["inviter"], "company:" <> id, "Your invitee now runs #{name}.")
 
-        fleet = Enum.sum(Enum.map(packages()[package], &classes()[&1]["price"]))
+        fleet = Enum.sum(Enum.map(starter.ships, &classes()[&1]["price"]))
 
         state =
           Journal.post(state, id, "starter_grant", [
-            {"cash_available", package_cash(package)},
+            {"cash_available", starter.cash},
             {"fleet", fleet},
-            {"capital", -package_cash(package) - fleet}
+            {"capital", -starter.cash - fleet}
           ])
 
         {:ok, state, %{"company_id" => id}}

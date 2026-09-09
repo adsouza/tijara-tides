@@ -97,7 +97,12 @@ defmodule TijaraTides.Domain.GameTest do
              run.(state, %{command | "fuel_limit" => 0}, catalogue)
 
     unpaid =
-      TijaraTides.Domain.State.put(state, "companies", "company", %{company | "unpaid" => 1250})
+      TijaraTides.Domain.State.put(state, "companies", "company", %{
+        company
+        | "unpaid" => 1250,
+          "cash" => 0,
+          "reserved" => 0
+      })
 
     assert {:error, {:departure_unpaid, 1250}} = run.(unpaid, command, catalogue)
 

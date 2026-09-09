@@ -1,6 +1,47 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "loan_installments" => [
+      {"id", "id"},
+      {"loan_id", "loan_id"},
+      {"company_id", "company_id"},
+      {"due_ms", "due_ms"},
+      {"principal_due", "principal_due"},
+      {"interest_due", "interest_due"}
+    ],
+    "operating_bills" => [
+      {"id", "id"},
+      {"company_id", "company_id"},
+      {"due_ms", "due_ms"},
+      {"remaining", "remaining"}
+    ],
+    "loans" => [
+      {"id", "id"},
+      {"company_id", "company_id"},
+      {"principal", "principal"},
+      {"remaining", "remaining"},
+      {"principal_due", "principal_due"},
+      {"interest_due", "interest_due"},
+      {"interest_accrued", "interest_accrued"},
+      {"interest_remainder", "interest_remainder"},
+      {"interest_at_ms", "interest_at_ms"},
+      {"overdue_ms", "overdue_ms"},
+      {"next_due_ms", "next_due_ms"},
+      {"period_ms", "period_ms"},
+      {"periods_left", "periods_left"},
+      {"rate_bps", "rate_bps"},
+      {"installment", "installment"},
+      {"status", "status"},
+      {"created_ms", "created_ms"}
+    ],
+    "bankruptcy_events" => [
+      {"id", "id"},
+      {"company_id", "company_id"},
+      {"account_id", "account_id"},
+      {"created_ms", "created_ms"},
+      {"restart_ms", "restart_ms"},
+      {"reason", "reason"}
+    ],
     "visit_plans" => [
       {"id", "id"},
       {"ship_id", "ship_id"},
@@ -39,13 +80,15 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"id", "id"},
       {"account_id", "account_id"},
       {"name", "name"},
-      {"home", "home_port_id"},
       {"cash", "cash_cents"},
       {"reserved", "reserved_cents"},
       {"profit", "profit_cents"},
       {"unpaid", "unpaid_cents"},
       {"created_ms", "created_ms"},
-      {"last_invite_year", "last_invite_year"}
+      {"last_invite_year", "last_invite_year"},
+      {"unpaid_since", "unpaid_since"},
+      {"arrears_since", "arrears_since"},
+      {"bankruptcy_ms", "bankruptcy_ms"}
     ],
     "ships" => [
       {"id", "id"},
@@ -86,7 +129,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "notices" => [{"account_id", "account_id"}, {"text", "message"}, {"clock_ms", "clock_ms"}]
   }
-  @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans)
+  @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments)
 
   @children %{
     "ships" =>

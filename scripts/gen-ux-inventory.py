@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 130
+TRIPWIRE = 139
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -159,6 +159,15 @@ REQUIREMENTS = [
     (123, "For Sell, cap target lots at the total of the selected cargo currently aboard across all lots.", 8, 'input', 'Fleet and ship detail'),
     (124, "On arrival, suggest the saved onward destination in the voyage controls when no other destination is selected.", 8, 'display', 'Fleet and ship detail'),
     (125, "all player-facing cargo labels use the display name, including instruction selectors, order summaries, and notifications.", 9, 'display', 'Fleet and ship detail'),
+    (137, "Installment countdowns use HH:MM:SS of remaining active-world time, with hours allowed to exceed 23 rather than wrapping at midnight.", 12, "display", "Finance"),
+    (136, "This selection only positions the initial fleet; the company has no stored or displayed permanent home city.", 10, "display", "Company and account"),
+    (135, "The account overlay trigger uses a hamburger icon beside its label instead of a disclosure triangle.", 12, "display", "Finance"),
+    (133, "Keep the overlay open across world updates until explicitly dismissed, with a Close button that remains visible while scrolling.", 12, "display", "Finance"),
+    (134, "Omit accumulated trade and notification history from this overlay; immediate notifications remain separate.", 12, "display", "Finance"),
+    (129, "Keep finance controls in the account overlay, preserving the three-column layout.", 12, "display", "Finance"),
+    (130, "Show available credit, outstanding principal, installment schedules, accrued arrears and the active-world deadline, with borrowing and full repayment actions.", 12, "display", "Finance"),
+    (131, "Require confirmation before voluntary bankruptcy.", 12, "input", "Finance"),
+    (132, "Show the replacement-company cooldown and the actual reduced starter packages before company formation.", 12, "display", "Company and account"),
     (126, "Provide a per-visit automatic-departure checkbox, off by default, saved together with the onward destination.", 8, 'input', 'Fleet and ship detail'),
 
 ]

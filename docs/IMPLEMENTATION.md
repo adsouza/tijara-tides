@@ -100,7 +100,7 @@ Stored cargo retains its cost and freshness. Perishable trades disclose estimate
 time to first expiry after handling for the entered quantity. Voyage estimates
 show time to first expiry at arrival and after unloading all current cargo, and
 update while underway. Public ship inspection shows company, class, and status
-without exposing cargo. Changing the onboarding home port updates its market. Suspension pauses every active timer.
+without exposing cargo. Changing the onboarding starting port updates its market. Suspension pauses every active timer.
 
 Raw-resource producers replenish finite stock; manufactured goods have a finite
 initial allocation until input-consuming production is implemented. Re-export
@@ -166,3 +166,13 @@ Cargo-lot IDs survive transfers and FIFO reordering. Partial purchases and sales
 split the source into child lots whose immutable parent link preserves lineage.
 Consumed and spoiled identities remain in the database. The counter and all
 new identities participate in the same transaction as holdings and accounting.
+
+### Playable company finance
+
+The account overlay supports bank borrowing, repayment schedules, full early
+repayment and confirmed voluntary bankruptcy. Domain finance settles oldest-due
+installments and operating bills without using reserved voyage funds. One
+24-active-hour grace period leads to forced bankruptcy; suspension pauses it.
+Bankruptcy history, a 20-active-minute restart cooldown and reduced starter
+packages survive database reloads. Closed companies retain their assets for
+future receivership auctions, which are not implemented in this milestone.

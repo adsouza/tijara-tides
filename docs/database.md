@@ -140,7 +140,7 @@ between those maps and SQL rows.
 |---|---|
 | `game_worlds` | World clock, revision, and owner fencing epoch. |
 | `game_accounts` | Invitation quota, bankruptcy count, inviter, active company. |
-| `game_companies` | Owner account, home port, cash, reserved funds, profit, unpaid costs. |
+| `game_companies` | Owner account, cash, reserved funds, profit, unpaid costs. |
 | `game_ships` | Company, class, port, status, destination, voyage timestamps, fuel accounting. |
 | `game_cargo_lots` | Permanent lot ID, parent lot, cargo type, original quantity, expiry, creation time. |
 | `game_cargo_holdings` | Current ship or market location, lot ID, FIFO position, quantity, acquisition cost. |
@@ -315,3 +315,28 @@ published schema already uses the original cargo IDs. Deploy by stopping the
 old game, applying both pending migrations, and starting the updated code.
 Existing production cargo and finances are preserved; new instruction and
 visit-plan tables start empty.
+
+## Company finance migration
+
+`20260909000000_add_company_finance` adds normalized loans, accrued installments,
+operating bills and bankruptcy events. Company rows gain persisted arrears and
+closure timestamps. Existing unpaid bills are backfilled at the current world
+clock. Principal and interest liabilities reconcile against ledger balances;
+installment balances reconcile against their parent loans. Loan proceeds and
+principal repayments do not enter operating profit. Bankruptcy write-offs use
+receivership equity.
+
+Apply this migration with the game server stopped, using the migration commands
+above, then restart it. Do not start a second game process to migrate or seed a
+live world. This migration does not rewrite earlier published migrations. Its
+rollback is deliberately unsupported once durable finance records exist.
+
+`20260909010000_remove_company_home_port` removes the unused company home-port
+column. Starting-port selection only positions the initial fleet; each ship
+continues to store its own current port. Historical home ports are discarded.
+
+`20260909020000_accrue_loan_interest_continuously` persists each loan's accrual
+clock, fractional-cent carry and interest accrued but not yet due. Existing
+loans start accruing at the migration world clock, preserving posted interest.
+The ledger reconciles both accrued and due interest; installment rows contain
+only due interest. Stop the server before migration and restart afterward.

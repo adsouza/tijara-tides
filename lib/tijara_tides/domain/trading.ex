@@ -7,6 +7,8 @@ defmodule TijaraTides.Domain.Trading do
   alias TijaraTides.Domain.{CargoLots, Journal}
 
   def execute(state, account, %TijaraTides.Domain.Trade{} = trade, catalogue) do
+    state = TijaraTides.Domain.Finance.settle(state)
+
     trade(
       state,
       account,
@@ -23,7 +25,7 @@ defmodule TijaraTides.Domain.Trading do
   defp trade(state, account, action, ship_id, good, quantity, limit, destination, catalogue) do
     with %{} = company <- get(state, "companies", account["company_id"]),
          %{"company_id" => owner, "status" => "docked"} = ship <- get(state, "ships", ship_id),
-         true <- owner == company["id"],
+         true <- owner == company["id"] and is_nil(company["bankruptcy_ms"]),
          %{"manual" => true} = item <- catalogue["goods"][good],
          %{"merchant" => false} <- get(state, "markets", ship["port"] <> "|" <> good),
          true <-
@@ -275,7 +277,8 @@ defmodule TijaraTides.Domain.Trading do
             %{ship: ship["id"], good: good}
           )
 
-        {:ok, state, %{"received" => proceeds, "quantity" => quantity}}
+        {:ok, TijaraTides.Domain.Finance.settle(state),
+         %{"received" => proceeds, "quantity" => quantity}}
     end
   end
 end

@@ -39,6 +39,121 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "finance UI, receipts, installments and bankruptcy survive durable reload", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      GameServer.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Finance Test",
+          "port" => "Singapore",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    assert has_element?(view, "#company-finance")
+    view |> form("#loan-form", %{"amount" => "1000"}) |> render_submit()
+
+    assert [%{"remaining" => 100_000}] =
+             GameServer.snapshot(token, c.server).private["finance"]["loans"]
+
+    request = %{"action" => "borrow", "amount" => 100_000}
+    assert {:ok, reply} = GameServer.command(token, "loan-replay", request, c.server)
+    assert {:ok, ^reply} = GameServer.command(token, "loan-replay", request, c.server)
+    assert GameServer.snapshot(token, c.server).private["finance"]["debt"] == 200_000
+    advance(c.server, 86_400_000)
+    assert GameServer.snapshot(token, c.server).private["finance"]["debt"] == 150_000
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+    saved_loans = GameServer.snapshot(token, c.server).private["finance"]["loans"]
+
+    assert {:error, :bankruptcy_cash_covers_debts} =
+             GameServer.command(token, "solvent-close", %{"action" => "bankruptcy"}, c.server)
+
+    {:ok, before_loss} = GameStore.claim(Repo, c.world_id)
+    cash = before_loss.entities["companies"][company]["cash"]
+
+    loss =
+      before_loss
+      |> put_in([:entities, "companies", company, "cash"], 0)
+      |> update_in([:entities, "companies", company, "profit"], &(&1 - cash))
+      |> TijaraTides.Domain.Journal.post(company, "test_loss", [
+        {"crew_expense", cash},
+        {"cash_available", -cash}
+      ])
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before_loss.epoch, before_loss, loss)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :finance_replacement
+      )
+
+    assert GameServer.snapshot(token, replacement).private["finance"]["loans"] == saved_loans
+    assert GameServer.snapshot(token, replacement).private["finance"]["debt"] == 150_000
+
+    assert {:ok, result} =
+             GameServer.command(token, "close-company", %{"action" => "bankruptcy"}, replacement)
+
+    assert {:ok, ^result} =
+             GameServer.command(token, "close-company", %{"action" => "bankruptcy"}, replacement)
+
+    snapshot = GameServer.snapshot(token, replacement)
+    assert snapshot.private["account"]["bankruptcies"] == 1
+    assert snapshot.private["company"] == nil
+    assert snapshot.private["ships"] == %{}
+
+    assert [[2]] =
+             Repo.query!(
+               "SELECT count(*) FROM game_loans WHERE world_id=$1 AND status='defaulted'",
+               [c.world_id]
+             ).rows
+
+    assert [[3]] =
+             Repo.query!("SELECT count(*) FROM game_ships WHERE world_id=$1 AND company_id=$2", [
+               c.world_id,
+               company
+             ]).rows
+
+    formation = %{
+      "action" => "company",
+      "name" => "Fresh Start",
+      "port" => "Singapore",
+      "package" => "general"
+    }
+
+    assert {:error, :bankruptcy_cooldown} =
+             GameServer.command(token, "too-soon", formation, replacement)
+
+    paused_clock = GameServer.snapshot(token, replacement).public["clock_ms"]
+    advance(replacement, 1_200_000)
+    assert GameServer.snapshot(token, replacement).public["clock_ms"] == paused_clock
+    :ok = GameServer.connect(token, replacement)
+    advance(replacement, 1_200_000)
+
+    assert {:ok, %{"company_id" => fresh}} =
+             GameServer.command(token, "fresh-start", formation, replacement)
+
+    refute fresh == company
+
+    assert Enum.all?(GameServer.snapshot(token, replacement).private["ships"], fn {_, ship} ->
+             ship["company_id"] == fresh
+           end)
+
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "home page counts authenticated playing browsers and removes signed-out sessions", c do
     alias TijaraTides.Infrastructure.WorldServer
     Application.put_env(:tijara_tides, :game_server, c.server)

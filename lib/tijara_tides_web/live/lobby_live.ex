@@ -29,7 +29,7 @@ defmodule TijaraTidesWeb.LobbyLive do
           A shared world awaits
         </p>
         <h1 class="mt-5 text-5xl font-semibold tracking-tight sm:text-7xl">Tijara Tides</h1>
-        <p class="mt-6 max-w-xl text-lg leading-8 text-slate-300">
+        <p class="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
           An ocean of possibilities. A multiplayer marine trading game, beginning here.
         </p>
         <div class="mt-12 rounded-2xl border border-slate-700 bg-slate-900/70 p-8">

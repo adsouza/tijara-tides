@@ -1797,11 +1797,13 @@ and sufficient working capital for initial cargo and voyages.
 
 Equal asset value alone does not guarantee fair earning potential. Balance risk,
 working capital, and compatibility with the starting port. Players may choose
-any launch port as their home port, with all three starter ships placed there.
+any launch port as their starting port, with all three starter ships placed there.
+This selection only positions the initial fleet; the company has no stored or
+displayed permanent home city.
 Show local trading opportunities before the player confirms their selection.
 Compare the four starter packages using fleet value, starting cash, cargo
 capabilities, and operating costs. Validate comparable earning opportunities
-through simulations across home ports, accounting for risk and working capital;
+through simulations across starting ports, accounting for risk and working capital;
 equivalent packages do not guarantee equal profits.
 
 Ships have weight and volume limits and hold capabilities. Mixed cargo is
@@ -2207,13 +2209,69 @@ becomes available. Existing reservations and committed operations remain
 protected; committed voyages and handling finish.
 
 A missed installment or operating bill blocks further borrowing and starts one
-shared, configurable 24-real-hour grace period from the first missed payment.
+shared, configurable grace period of 24 hours of active world operation from
+the first missed payment. Its deadline uses the persisted simulation clock:
+world suspension pauses the countdown, and restarting performs no elapsed-time
+catch-up. An individual player being offline does not pause the countdown while
+other players keep the world active.
 Warehouse liquidation retains its separate proceeds-capped rules. Show the
 arrears, deadline, and warnings. Partial payments reduce arrears without
 resetting the deadline; subsequent missed payments do not extend it. Clearing
 all overdue bills and installments ends the grace period. Remaining arrears at
-the deadline trigger forced bankruptcy. Voluntary bankruptcy is also available.
+the deadline trigger forced bankruptcy. Voluntary bankruptcy is available only when unreserved cash is less than all
+outstanding loan principal, accrued interest and unpaid operating bills. The
+command enforces this rule and its button is disabled with an explanation when
+cash covers those liabilities. A solvent company cannot use bankruptcy as a reset.
 Interest rates and other numerical lending parameters remain tunable.
+
+### First playable finance policy
+
+The initial policy offers four installments spaced 24 active-world hours apart,
+with 8% interest per period on outstanding principal, accrued continuously as
+active-world time advances. Interest becomes due at installment boundaries;
+early repayment pays principal plus all interest accrued through that moment.
+Fractional cents carry between ticks; cumulative charges round up to a cent so
+splitting the same duration into more ticks does not increase the charge.
+Suspension pauses accrual, and overdue principal continues accruing interest
+until repayment or bankruptcy, without compounding. Existing loans begin this
+accrual policy at the upgrade clock without retroactive charges. Loans have a $1 minimum and at most eight
+may be open per company. Initial credit is 25% of fleet book value, less existing
+debt. After one period, positive cumulative operating profit adds twice its value
+to the limit. Each loan repaid through its scheduled final installment adds 2.5
+percentage points of fleet value, capped at four such improvements; immediate
+early repayment does not earn this bonus. Divide the resulting limit by one plus
+the number of counted bankruptcies. These are provisional source-configured
+balance parameters, not promised permanent rates.
+
+Keep finance controls in the account overlay, preserving the three-column layout.
+Keep the overlay open across world updates until explicitly dismissed, with a
+Close button that remains visible while scrolling. Omit accumulated trade and
+notification history from this overlay; immediate notifications remain separate.
+Expanded loan schedules also retain their disclosure state across updates.
+Only active loans appear in the account overlay; repaid and defaulted loan
+history remains stored for accounting and credit calculations.
+Installment countdowns use HH:MM:SS of remaining active-world time, with hours
+allowed to exceed 23 rather than wrapping at midnight.
+The account overlay trigger uses a hamburger icon beside its label instead of a
+disclosure triangle. Its width matches one main column in landscape and fits
+within the viewport in portrait.
+Show available credit, outstanding principal, installment schedules, accrued
+arrears and the active-world deadline, with borrowing and full repayment actions.
+Require confirmation before voluntary bankruptcy. Show the replacement-company
+cooldown and the actual reduced starter packages before company formation.
+
+The initial replacement package is multiplied by 0.8 per counted bankruptcy,
+with a floor of 50% of its original combined fleet and cash value. Remove ships
+as necessary and return the remaining entitlement as cash. Bankruptcies count
+for 112 active-world days; the lifetime count remains permanent.
+
+For this milestone, receivership retains assets under the closed old company
+pending future asset auctions. Ordinary instructions and visit plans are cancelled.
+Committed fuel use, voyages, handling and spoilage continue; new crew charges
+stop for the closed company. Debt and unpaid bills are written off against
+receivership equity, without inflating operating profit. No assets or proceeds
+are inherited by the replacement company. The 20-minute restart cooldown uses
+active world time and pauses during suspension.
 
 Only player companies can go bankrupt; simulated city actors remain operational
 under the resource constraints in section 5.
@@ -2223,7 +2281,7 @@ trading instructions, and clears its loan debt. Its unsettled awarded supplier
 contracts default immediately: reserved deposits go to the computer-controlled
 buyers, whose payment and receiving reservations are released. Already-settled
 sales finish handling. There are no player-buyer procurement contracts initially.
-A 20-real-minute cooldown begins when bankruptcy is declared, voluntarily or
+A 20-active-world-minute cooldown begins when bankruptcy is declared, voluntarily or
 through default. After it expires, the player may create a replacement company
 and receive a starter package without waiting for liquidation to finish. The
 cooldown survives sign-out or restart and is not bypassed through another account.
@@ -2544,13 +2602,16 @@ change the list.
     bankruptcy history affecting access. Oldest overdue installments take
     priority over new spending from unreserved cash; existing commitments are
     protected. Missed payments block borrowing and start a configurable
-    24-real-hour grace period; partial repayment does not reset it, clearing
-    arrears ends it, and remaining arrears at expiry trigger bankruptcy.
+    24-hour grace period measured on the active simulation clock. World suspension
+    pauses it; individual player absence does not. Partial repayment does not
+    reset it, clearing arrears ends it, and remaining arrears at expiry trigger
+    bankruptcy.
     Numerical rates remain tunable.
 12. **Complete — Idle costs and unpaid operations:** anchorage and
     docking use the same reduced upkeep, with crew and refrigeration continuing
     but voyage fuel stopped. Operating bills outside warehouse liquidation share
-    the loans' 24-hour arrears process and oldest-due payment priority. Committed
+    the loans' 24-active-world-hour arrears process and oldest-due payment
+    priority. Committed
     voyages and handling finish; clearing all arrears ends grace, while partial
     payments and later missed bills do not reset the deadline.
 13. **Complete — Route stop completion:** cargo targets with an optional maximum
@@ -2606,12 +2667,12 @@ change the list.
     launch port roster. Additions may be proposed only for important gameplay
     balance needs and require the user's approval.
 19. **Complete — Initial fleet and onboarding:** any launch port may be
-    selected as home port, with all three starter ships placed there and local
+    selected as starting port, with all three starter ships placed there and local
     trading opportunities shown before confirmation. Four starter packages include
     an oil trader with two small tankers and one general freighter, with adjusted
     working cash for equivalent total value. Compare fleet value, starting cash,
     cargo capabilities, and operating costs; validate comparable opportunities
-    through simulations across home ports without guaranteeing equal profits.
+    through simulations across starting ports without guaranteeing equal profits.
 20. **Complete — Simulated economy:** gradual production and consumption, capped
     buyer-budget replenishment, and bounded price responses to surplus and
     shortages. Factories consume inputs and start with inventories; raw-resource
