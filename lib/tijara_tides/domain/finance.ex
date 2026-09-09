@@ -1,7 +1,7 @@
 defmodule TijaraTides.Domain.Finance do
   @moduledoc "Bank credit, active-clock installments, arrears and company receivership. All settlement is pure."
   import TijaraTides.Domain.State
-  alias TijaraTides.Domain.{Journal, Notices}
+  alias TijaraTides.Domain.{Journal, Notices, Guarantees}
   # Provisional lending policy; amounts are cents, durations are active-world ms.
   @terms %{
     period_ms: 86_400_000,
@@ -14,6 +14,14 @@ defmodule TijaraTides.Domain.Finance do
     history_ms: 112 * 86_400_000
   }
   def terms, do: @terms
+
+  def rate(state, account) do
+    count = counted(state, account)
+    min(1600, 800 + min(count, 2) * 100 + max(0, count - 2) * 200)
+  end
+
+  def credit_limit(state, account),
+    do: max(@terms.credit_floor, div(@terms.credit_limit, 1 + counted(state, account)))
 
   def history(state, account) do
     entities(state, "bankruptcy_events")
@@ -43,16 +51,25 @@ defmodule TijaraTides.Domain.Finance do
 
     loans = loans(state, account["company_id"])
     debt = Enum.sum(Enum.map(loans, & &1["remaining"]))
-    limit = max(@terms.credit_floor, div(@terms.credit_limit, 1 + counted(state, account)))
+    base_limit = credit_limit(state, account)
+    guarantee = Guarantees.active(state, account["id"])
+
+    limit =
+      cond do
+        guarantee -> min(base_limit, guarantee["amount"])
+        rate(state, account) == 1600 -> 0
+        true -> base_limit
+      end
 
     arrears =
       Enum.sum(for l <- loans, l["status"] == "open", do: l["principal_due"] + l["interest_due"]) +
         if(company, do: company["unpaid"], else: 0)
 
     available =
-      if company && is_nil(company["bankruptcy_ms"]) && arrears == 0,
-        do: max(0, limit - debt),
-        else: 0
+      if company && not Guarantees.suspended?(account) && is_nil(company["bankruptcy_ms"]) &&
+           arrears == 0,
+         do: max(0, limit - debt),
+         else: 0
 
     %{
       "can_declare_bankruptcy" => can_declare_bankruptcy?(state, account),
@@ -63,7 +80,7 @@ defmodule TijaraTides.Domain.Finance do
       "deadline" =>
         if(company && company["arrears_since"], do: company["arrears_since"] + @terms.grace_ms),
       "restart_ms" => restart_at(state, account),
-      "rate_bps" => @terms.rate_bps,
+      "rate_bps" => rate(state, account),
       "period_ms" => @terms.period_ms,
       "installments" => @terms.installments,
       "loans" => Enum.map(loans, &Map.put(&1, "schedule", schedule(&1)))
@@ -107,6 +124,9 @@ defmodule TijaraTides.Domain.Finance do
     company = get(state, "companies", account["company_id"])
 
     cond do
+      Guarantees.suspended?(get(state, "accounts", account["id"])) ->
+        {:error, :account_suspended}
+
       is_nil(company) or company["account_id"] != account["id"] or company["bankruptcy_ms"] != nil ->
         {:error, :finance_no_company}
 
@@ -134,7 +154,7 @@ defmodule TijaraTides.Domain.Finance do
           "next_due_ms" => state.clock_ms + @terms.period_ms,
           "period_ms" => @terms.period_ms,
           "periods_left" => @terms.installments,
-          "rate_bps" => @terms.rate_bps,
+          "rate_bps" => rate(state, account),
           "installment" => div(amount + @terms.installments - 1, @terms.installments),
           "status" => "open",
           "created_ms" => state.clock_ms
@@ -149,7 +169,7 @@ defmodule TijaraTides.Domain.Finance do
             {"loan_principal", -amount}
           ])
 
-        {:ok, state, %{"loan_id" => id, "borrowed" => amount}}
+        {:ok, Guarantees.drawn(state, account), %{"loan_id" => id, "borrowed" => amount}}
     end
   end
 
@@ -248,6 +268,7 @@ defmodule TijaraTides.Domain.Finance do
     Enum.reduce(entities(state, "companies"), state, fn {id, company}, state ->
       if company["bankruptcy_ms"] == nil, do: settle_company(state, id), else: state
     end)
+    |> Guarantees.settle()
   end
 
   defp accrue(state, %{"status" => "open"} = loan) do
@@ -519,6 +540,16 @@ defmodule TijaraTides.Domain.Finance do
         {:error, :bankruptcy_cash_covers_debts}
 
       true ->
+        debt =
+          Enum.sum(
+            for loan <- loans(state, company["id"]),
+                do: loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
+          )
+
+        state = Guarantees.default(state, account, debt)
+        # A sponsor may itself be the bankrupt company; refresh after refunds.
+        company = get(state, "companies", company["id"])
+
         state =
           Enum.reduce(loans(state, company["id"]), state, fn loan, state ->
             state
@@ -583,6 +614,26 @@ defmodule TijaraTides.Domain.Finance do
             "bankruptcy:" <> company["id"],
             "#{company["name"]} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes."
           )
+
+        account = get(state, "accounts", account["id"])
+
+        state =
+          if counted(state, account) >= 5 do
+            state
+            |> put("accounts", account["id"], Map.put(account, "suspended_ms", state.clock_ms))
+            |> Notices.notice(
+              account["id"],
+              "suspension",
+              "Account suspended after five recent bankruptcies. Your original sponsor must pledge at least $50,000 to reinstate you."
+            )
+            |> Notices.notice(
+              account["inviter"],
+              "suspension:" <> account["id"],
+              "An invitee is suspended and needs your cash-backed guarantee. Review sponsor guarantees in the account menu."
+            )
+          else
+            state
+          end
 
         {:ok, state, %{"bankrupt" => company["id"]}}
     end

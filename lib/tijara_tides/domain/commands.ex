@@ -9,9 +9,22 @@ defmodule TijaraTides.Domain.Commands do
 
   def execute(state, account, command, context) do
     state = Finance.settle(state)
+    current_account = TijaraTides.Domain.State.get(state, "accounts", account["id"]) || account
+
+    if TijaraTides.Domain.Guarantees.suspended?(current_account) do
+      {:error, :account_suspended}
+    else
+      dispatch(state, account, command, context)
+    end
+  end
+
+  defp dispatch(state, account, command, context) do
     catalogue = context.catalogue
 
     case command do
+      %{"action" => "guarantee", "account" => id, "amount" => amount} ->
+        TijaraTides.Domain.Guarantees.pledge(state, account, id, amount, context.id)
+
       %{"action" => "sell_ship", "ship" => id, "minimum" => minimum} ->
         TijaraTides.Domain.Fleet.sell(state, account, id, minimum)
 

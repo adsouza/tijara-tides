@@ -61,6 +61,7 @@ defmodule TijaraTides.Domain.Accounts do
         "company_id" => nil,
         "inviter" => invite["inviter"],
         "bankruptcies" => 0,
+        "suspended_ms" => nil,
         "invite_quota" => if(invite["seed"], do: 3, else: 0),
         "created_ms" => state.clock_ms
       }
@@ -92,6 +93,9 @@ defmodule TijaraTides.Domain.Accounts do
     name = if is_binary(name), do: String.trim(name), else: ""
 
     cond do
+      TijaraTides.Domain.Guarantees.suspended?(get(state, "accounts", account["id"])) ->
+        {:error, :account_suspended}
+
       account["company_id"] != nil ->
         {:error, :company_exists}
 
@@ -142,7 +146,8 @@ defmodule TijaraTides.Domain.Accounts do
         i["inviter"] == account["id"] and i["status"] == "issued"
       end)
 
-    if account["invite_quota"] > 0 and outstanding < 3 do
+    if not TijaraTides.Domain.Guarantees.suspended?(account) and account["invite_quota"] > 0 and
+         outstanding < 3 do
       state =
         state
         |> put("accounts", account["id"], %{

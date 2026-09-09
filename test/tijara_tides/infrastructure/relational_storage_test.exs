@@ -149,6 +149,8 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     end
   end
 
+  defp legacy_data("accounts", data), do: Map.delete(data, "suspended_ms")
+
   defp legacy_data("companies", data),
     do:
       data

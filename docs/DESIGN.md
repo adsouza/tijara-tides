@@ -2263,6 +2263,38 @@ arrears and the active-world deadline, with borrowing and full repayment actions
 Require confirmation before voluntary bankruptcy. Show the replacement-company
 cooldown and available credit limit before company formation.
 
+New-loan rates depend on bankruptcies within the rolling 112-active-world-day
+window: 8%, 9%, 10%, 12%, 14%, then 16% for five or more. These are rates per
+24 active-world hours. Each loan retains its issued rate, including on recast;
+aging history changes new offers only. A fifth counted bankruptcy suspends the
+account. History aging does not itself lift suspension. Suspended players may
+sign in and inspect the world, but cannot issue game commands or invitations.
+
+Only the original inviter can reinstate the account by funding a guarantee.
+The sponsor chooses a pledge of at least $50,000, no greater than the invitee's
+normal credit limit. Their active company must have no overdue bills, and its
+unreserved cash must cover its own outstanding loan principal plus accrued
+interest before pledging. The pledge must also fit within unreserved cash.
+Pledged funds move immediately to separate escrow, including before borrowing;
+they cannot be withdrawn, traded, repaid against the sponsor's loans, or released
+by the sponsor's bankruptcy. The sponsor explicitly confirms this commitment.
+An account without an original inviter requires operator intervention; there is
+no automatic sponsor substitution or exemption.
+
+Sponsor approval clears suspension but preserves the restart cooldown. An active
+guarantee caps borrowing at the lesser of the pledge and normal credit limit.
+When all loans drawn under that guarantee are repaid, the pledge returns to its
+original sponsoring company. At 16%, further borrowing needs a new guarantee.
+On borrower bankruptcy, escrow covers unpaid loan principal and accrued interest
+up to the pledge; excess escrow is returned to the sponsoring company, including
+its estate if bankrupt. The guarantor has no liability beyond the pledge.
+Guarantee losses are sponsor expenses; release is not profit. Every qualifying
+later bankruptcy suspends the borrower again and requires a fresh agreement.
+
+The account menu shows the suspension reason, current loan rate, original
+sponsor's pending invitees, pledge controls, and locked guarantees. Escrow and
+settlement have durable ledger entries and replay-safe commands.
+
 Bankruptcies count against credit access for 112 active-world days; the lifetime
 count remains permanent. Replacement companies receive neither cash nor ships.
 

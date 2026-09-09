@@ -112,6 +112,168 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "suspension, sponsor approval, escrow release and default survive durable reload", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    sponsor_conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    sponsor = Plug.Conn.get_session(sponsor_conn, :account_token)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        sponsor,
+        "sponsor-company",
+        %{
+          "action" => "company",
+          "name" => "Sponsor",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    {:ok, %{"code" => invite}} =
+      GameServer.command(sponsor, "invite", %{"action" => "invite"}, c.server)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => invite})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+    GameServer.connect(token, c.server)
+
+    for n <- 1..5 do
+      {:ok, _} =
+        GameServer.command(
+          token,
+          "company-#{n}",
+          %{"action" => "company", "name" => "Failed #{n}"},
+          c.server
+        )
+
+      {:ok, _} =
+        GameServer.command(
+          token,
+          "loan-#{n}",
+          %{"action" => "borrow", "amount" => 10_000_000},
+          c.server
+        )
+
+      for j <- 1..2 do
+        {:ok, _} =
+          GameServer.command(
+            token,
+            "ship-#{n}-#{j}",
+            %{
+              "action" => "purchase_ship",
+              "class" => "tanker",
+              "port" => "Jakarta",
+              "price_limit" => 5_000_000
+            },
+            c.server
+          )
+      end
+
+      {:ok, _} = GameServer.command(token, "bankrupt-#{n}", %{"action" => "bankruptcy"}, c.server)
+      advance(c.server, 1_200_000)
+    end
+
+    private = GameServer.snapshot(token, c.server).private
+    assert private["account"]["suspended_ms"] != nil
+    assert private["finance"]["rate_bps"] == 1600
+    {:ok, borrower_view, _} = conn |> recycle() |> live("/play")
+    assert has_element?(borrower_view, "#account-suspension")
+    refute has_element?(borrower_view, "#company-form")
+
+    assert {:error, :account_suspended} =
+             GameServer.command(
+               token,
+               "blocked",
+               %{"action" => "company", "name" => "Blocked"},
+               c.server
+             )
+
+    {:ok, sponsor_view, _} = sponsor_conn |> recycle() |> live("/play")
+    sponsor_view |> form("form[phx-submit=guarantee]", %{"amount" => "50000"}) |> render_submit()
+    refute GameServer.snapshot(token, c.server).private["account"]["suspended_ms"]
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "restart",
+        %{"action" => "company", "name" => "Guaranteed"},
+        c.server
+      )
+
+    assert {:error, :loan_limit} =
+             GameServer.command(
+               token,
+               "too-large",
+               %{"action" => "borrow", "amount" => 5_000_001},
+               c.server
+             )
+
+    {:ok, %{"loan_id" => loan}} =
+      GameServer.command(
+        token,
+        "guaranteed-loan",
+        %{"action" => "borrow", "amount" => 5_000_000},
+        c.server
+      )
+
+    {:ok, _} =
+      GameServer.command(token, "repay", %{"action" => "repay", "loan" => loan}, c.server)
+
+    assert GameServer.snapshot(token, c.server).private["guarantees"]["active"] == nil
+    assert GameServer.snapshot(token, c.server).private["finance"]["available"] == 0
+
+    pledge = %{
+      "action" => "guarantee",
+      "account" => private["account"]["id"],
+      "amount" => 5_000_000
+    }
+
+    {:ok, result} = GameServer.command(sponsor, "pledge-again", pledge, c.server)
+    assert {:ok, ^result} = GameServer.command(sponsor, "pledge-again", pledge, c.server)
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "loan-again",
+        %{"action" => "borrow", "amount" => 5_000_000},
+        c.server
+      )
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "buy-again",
+        %{
+          "action" => "purchase_ship",
+          "class" => "freighter",
+          "port" => "Jakarta",
+          "price_limit" => 4_000_000
+        },
+        c.server
+      )
+
+    {:ok, _} = GameServer.command(token, "fail-again", %{"action" => "bankruptcy"}, c.server)
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :guarantee_replacement
+      )
+
+    assert {:ok, ^result} = GameServer.command(sponsor, "pledge-again", pledge, replacement)
+    assert GameServer.snapshot(token, replacement).private["account"]["suspended_ms"] != nil
+    pledges = GameServer.snapshot(sponsor, replacement).private["guarantees"]["pledges"]
+    assert Enum.any?(pledges, &(&1["status"] == "claimed" and &1["forfeited"] == 5_000_000))
+    assert Enum.any?(pledges, &(&1["status"] == "released" and &1["forfeited"] == 0))
+  end
+
   test "selling removes the ship while preserving audited history and replay after reload", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
 

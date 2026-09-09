@@ -271,6 +271,15 @@ defmodule TijaraTidesWeb.GameLive do
     })
   end
 
+  def handle_event("guarantee", params, socket) do
+    run(socket, %{
+      "action" => "guarantee",
+      "account" => params["account"],
+      "amount" => integer(params["amount"]) * 100,
+      "request_id" => params["request_id"]
+    })
+  end
+
   def handle_event("borrow", params, socket) do
     run(socket, %{
       "action" => "borrow",
@@ -640,6 +649,15 @@ defmodule TijaraTidesWeb.GameLive do
         "Clear overdue bills before recasting. The loan must still have scheduled payments remaining.",
       loan_recast_amount:
         "Pay accrued interest plus at least $1 of principal, up to the outstanding balance. Review the current amounts and try again.",
+      account_suspended:
+        "Account suspended. Your original sponsor must fund a cash guarantee to reinstate you.",
+      guarantee_not_sponsor: "Only the player's original inviter can provide this guarantee.",
+      guarantee_sponsor_unavailable:
+        "Your company must be active with no overdue bills, and unreserved cash must cover your own outstanding loan principal and interest.",
+      guarantee_not_required: "This player does not currently need a guarantee.",
+      guarantee_exists: "This player already has an active guarantee.",
+      guarantee_amount: "Pledge at least $50,000, up to the player's normal credit limit.",
+      guarantee_funds: "Not enough unreserved cash to fund this guarantee.",
       ship_sale_unavailable:
         "Dock and empty the ship, then clear pending cargo instructions and onward plans before selling.",
       ship_sale_price_changed:
@@ -836,7 +854,10 @@ defmodule TijaraTidesWeb.GameLive do
             </.form>
           </section>
           <section
-            :if={@view.private && !@view.private["company"]}
+            :if={
+              @view.private && !@view.private["company"] &&
+                is_nil(@view.private["account"]["suspended_ms"])
+            }
             class="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6"
           >
             <h2 class="text-xl">Name your company</h2>
@@ -870,6 +891,19 @@ defmodule TijaraTidesWeb.GameLive do
                 )} active-world minutes.
               </p>
             </.form>
+          </section>
+          <section
+            :if={@view.private && @view.private["account"]["suspended_ms"]}
+            id="account-suspension"
+            class="rounded border border-red-500 p-4"
+          >
+            <h2>Account suspended</h2>
+            <p>
+              Five bankruptcies within 112 active-world days trigger suspension. Aging out does not lift it. Your original sponsor must pledge at least $50,000 to reinstate you.
+            </p>
+            <p :if={not @view.private["guarantees"]["has_sponsor"]}>
+              This account has no sponsor. Contact the operator; there is no automatic reinstatement.
+            </p>
           </section>
           <details
             :if={@view.private}
@@ -907,6 +941,73 @@ defmodule TijaraTidesWeb.GameLive do
                 <p :if={@invite_code} class="mt-3 break-all font-mono text-teal-200">
                   {@invite_code}
                 </p>
+                <section id="sponsor-guarantees" class="my-4 space-y-3">
+                  <h3>Sponsor guarantees</h3>
+                  <p :if={not @view.private["guarantees"]["eligible"]}>
+                    To sponsor a player, clear overdue bills and hold at least as much unreserved cash as your own outstanding loan principal and interest.
+                  </p>
+                  <p>
+                    New loan rate: {@view.private["finance"]["rate_bps"] / 100}% per 24 active-world hours. Recent bankruptcies raise rates: 8%, 9%, 10%, 12%, 14%, then 16%. Existing loans keep their rate.
+                  </p>
+                  <p :if={@view.private["guarantees"]["active"]}>
+                    Your borrowing is backed by a {money(
+                      @view.private["guarantees"]["active"]["amount"]
+                    )} sponsor pledge.
+                  </p>
+                  <p :if={
+                    @view.private["finance"]["rate_bps"] == 1600 &&
+                      is_nil(@view.private["guarantees"]["active"])
+                  }>
+                    New borrowing requires your original sponsor's cash pledge, even after earlier guaranteed loans were repaid.
+                  </p>
+                  <div
+                    :for={g <- @view.private["guarantees"]["pledges"]}
+                    :if={g["status"] == "pledged"}
+                  >
+                    {money(g["amount"])} locked as a guarantee. It is returned to the sponsoring company after the guaranteed loans are repaid; on bankruptcy, unpaid loan debt is covered up to this cap and the rest is refunded.
+                  </div>
+                  <.form
+                    :for={candidate <- @view.private["guarantees"]["pending"]}
+                    :if={@view.private["company"] && is_nil(@view.private["account"]["suspended_ms"])}
+                    for={%{}}
+                    id={"guarantee-" <> candidate["id"]}
+                    phx-submit="guarantee"
+                    data-confirm="Fund this guarantee? Cash is locked immediately, including before the invitee borrows. It can be forfeited on their bankruptcy and is not withdrawable. Your own bankruptcy does not release it."
+                    class="space-y-2 rounded border p-3"
+                  >
+                    <p>
+                      Guarantee {candidate["name"]}. The pledge caps their borrowing and your liability.
+                    </p>
+                    <input type="hidden" name="request_id" value={@request_id} />
+                    <input type="hidden" name="account" value={candidate["id"]} />
+                    <input
+                      type="number"
+                      name="amount"
+                      aria-label="Sponsor pledge in dollars"
+                      min="50000"
+                      max={
+                        div(
+                          min(
+                            candidate["limit"],
+                            @view.private["company"]["cash"] - @view.private["company"]["reserved"]
+                          ),
+                          100
+                        )
+                      }
+                      value="50000"
+                      class="w-32 rounded bg-slate-800 p-2"
+                    />
+                    <button
+                      disabled={
+                        not @view.private["guarantees"]["eligible"] or
+                          @view.private["company"]["cash"] - @view.private["company"]["reserved"] <
+                            5_000_000
+                      }
+                      phx-disable-with="Pledging…"
+                      class="rounded border p-2"
+                    >Pledge &amp; reinstate</button>
+                  </.form>
+                </section>
                 <section
                   :if={@view.private["company"]}
                   id="company-finance"

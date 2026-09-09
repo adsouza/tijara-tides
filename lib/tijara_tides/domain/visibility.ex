@@ -34,6 +34,7 @@ defmodule TijaraTides.Domain.Visibility do
     %{
       "account" => Map.drop(account, ["inviter"]),
       "finance" => TijaraTides.Domain.Finance.summary(state, account),
+      "guarantees" => TijaraTides.Domain.Guarantees.view(state, account),
       "company" => get(state, "companies", account["company_id"]),
       "ships" =>
         Map.filter(entities(state, "ships"), fn {_, s} ->

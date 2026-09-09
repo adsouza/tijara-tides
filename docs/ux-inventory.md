@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 138
+Heuristic requirement sentences in DESIGN.md at generation: 139
 
 ## Screens
 
@@ -183,6 +183,7 @@ told after the fact, without being asked to approve it.
 | 123 | For Sell, cap target lots at the total of the selected cargo currently aboard across all lots. | 8 | input | Fleet and ship detail |
 | 124 | On arrival, suggest the saved onward destination in the voyage controls when no other destination is selected. | 8 | display | Fleet and ship detail |
 | 125 | all player-facing cargo labels use the display name, including instruction selectors, order summaries, and notifications. | 9 | display | Fleet and ship detail |
+| 139 | The account menu shows the suspension reason, current loan rate, original sponsor's pending invitees, pledge controls, and locked guarantees. | 12 | display | Finance |
 | 138 | plans must be cleared before selling. | 9 | validation | Fleet and ship detail |
 | 137 | Installment countdowns use HH:MM:SS of remaining active-world time, with hours allowed to exceed 23 rather than wrapping at midnight. | 12 | display | Finance |
 | 136 | The company has no permanent home city. | 10 | display | Company and account |
