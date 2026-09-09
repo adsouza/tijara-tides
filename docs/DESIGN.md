@@ -1098,6 +1098,13 @@ Sort by ROI is unchecked by default and visible only when listed cargo ROI
 values differ. When checked, sort by descending unrounded ROI, then cargo
 name, with unavailable ROI last; otherwise sort alphabetically.
 
+When an active ship is selected, show an unchecked-by-default checkbox in the
+Cargo UI above the cargo dropdown to list only cargo types its ship class can
+carry. Apply this filter before ROI sorting and preserve it when switching
+ships. Class compatibility
+ignores current cargo and free capacity; without a selected ship, hide the
+checkbox and show the unfiltered market list.
+
 Cargo-menu prices, ROI, availability, and sort-control visibility update live.
 Preserve the selected cargo when available; otherwise select an available
 entry, or show No cargo markets available if none remain.
@@ -1449,6 +1456,73 @@ and effects in [the ship instruction state tables](ship-instructions.md), which
 implementation should build against and which records what this section leaves
 undecided.
 
+The first playable instruction milestone covers one destination visit, with
+manual departure by default and optional automatic departure. It uses the
+current simulated markets and immediate berth
+assignment. Repeating routes, warehouse collection, remote exchange orders,
+optional expiry and maximum-wait controls remain later extensions.
+
+The Ships panel shows a next-port instruction editor with the voyage
+destination shown as read-only text, buy or sell side, compatible cargo,
+target lots and a per-lot limit price. Buy instructions also specify a total
+purchase spending cap. All buys at one ship visit share an onward port for the
+existing voyage-affordability check. The cap includes handling and cleaning;
+it does not earmark cash. Sales use a minimum price and purchases a maximum.
+Without a voyage destination, show a prompt to choose one in the voyage
+controls before adding instructions. The editor follows changes to the
+selected voyage destination; while sailing it uses the ship's actual
+destination. Draft fields cannot override that destination.
+
+For Sell, cap target lots at the total of the selected cargo currently aboard
+across all lots. Clamp the field when the selected cargo or holdings change;
+when none is aboard, show zero and disable the target field and Add instruction.
+Validate the same bound when creating a sell instruction. This does not change
+an existing instruction's target if cargo later expires or is sold elsewhere;
+its ordinary partial-fill and waiting rules still apply.
+
+Disable the purchase-cap field for Sell and enable it for Buy, preserving its
+draft value when switching actions.
+
+Show each instruction's port, cargo, side, filled and target lots, price
+limit, status and waiting reason, plus spending against the cap for purchases.
+Provide Cancel remainder for active instructions. Filled cargo and committed
+handling survive cancellation. Status changes replace that instruction's
+previous notification; unchanged waiting states do not repeat it.
+
+Show the onward destination once per visit, with a control independent of cargo
+instructions. Players can plan an empty or sell-only visit's onward leg, including
+deadheading. Save the visit plan without requiring a buy instruction or moving
+cash or cargo. Buy instructions inherit its destination; conflicting additions
+are rejected, and changing the plan updates outstanding buys atomically.
+On arrival, suggest the saved onward destination in the voyage controls when no
+other destination is selected. Provide a per-visit automatic-departure checkbox,
+off by default, saved together with the onward destination. When enabled, depart
+only after every cargo order for that visit is filled or explicitly cancelled
+and all committed loading and unloading finish. Unfilled orders wait indefinitely;
+a full hold leaves the order waiting rather than automatically cancelling it.
+An empty visit can depart automatically as soon as the ship is docked.
+
+Automatic departure uses the normal route, unpaid-cost and funding checks,
+reserving fuel and paying canal fees in the same transaction as departure.
+If blocked, stay at the port, show the reason, and retry on active-world ticks.
+Replace the visit's departure notification when its status changes; identical
+waiting states do not repeat it. Disabling the checkbox restores manual departure
+through Sail. Editing cargo orders preserves the visit's departure setting.
+Consuming the visit or sailing to a different visit clears the old plan.
+Cancelling a cargo instruction does not remove it.
+Legacy conflicting buys pause until the owner explicitly resolves their onward
+destination. Completed trades and handling are preserved.
+
+For this milestone, a ship holds at most twenty active instructions. Instructions
+can be added before departure or while sailing to that destination. They execute
+only when docked at the visit port, in sell-before-buy order and then creation
+order, with instruction ID breaking ties. Each successful fill finishes handling
+before another fill starts. Retry on world ticks while the ship remains there.
+Departing cancels waiting remainders and plans for a different destination, with
+a shortfall notification. Display active instructions before recent completed
+or cancelled ones. Instructions and their prices are visible only to the owning
+company. Their progress persists atomically with the trade and financial ledger.
+
 Players can give each destination instructions to sell up to a quantity above a
 minimum price, buy up to a quantity below a maximum price with a spending cap,
 then wait or continue. Sell instructions run before buy instructions. Unfilled
@@ -1785,6 +1859,9 @@ Use cubic meters for solid cargo volume and ship volume capacity, liters for
 liquid cargo volume, and kilograms for weight.
 
 Use material-first scrap names consistently: Aluminium scrap and Copper scrap.
+Cargo types have stable machine IDs (for example, `aluminium_scrap`) separate
+from display names; all player-facing cargo labels use the display name,
+including instruction selectors, order summaries, and notifications.
 
 Numeric columns align for scanning, and the manifest scrolls horizontally on
 narrow screens. Cargo-name sorting uses the displayed names, with ascending

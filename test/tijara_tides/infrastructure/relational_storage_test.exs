@@ -84,12 +84,49 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     ship = Game.get(state, "ships", "company:1")
 
     cargo = [
-      %{"good" => "Lumber", "quantity" => 2, "unit_cost" => 22500, "expires_ms" => nil},
-      %{"good" => "Lumber", "quantity" => 3, "unit_cost" => 24000, "expires_ms" => nil}
+      %{"good" => "lumber", "quantity" => 2, "unit_cost" => 22500, "expires_ms" => nil},
+      %{"good" => "lumber", "quantity" => 3, "unit_cost" => 24000, "expires_ms" => nil}
     ]
 
     TijaraTides.Domain.State.put(state, "ships", ship["id"], %{ship | "cargo" => cargo})
   end
+
+  # Build pre-migration fixtures from modern domain data without changing expected state.
+  defp legacy_ids(value) when is_map(value),
+    do: Map.new(value, fn {key, item} -> {legacy_ids(key), legacy_ids(item)} end)
+
+  defp legacy_ids(value) when is_list(value), do: Enum.map(value, &legacy_ids/1)
+
+  defp legacy_ids(value) when is_binary(value) do
+    ids = %{
+      "agricultural_machinery" => "Agricultural machinery",
+      "appliances" => "Appliances",
+      "construction_equipment" => "Construction equipment",
+      "copper_scrap" => "Copper scrap",
+      "crude_oil" => "Crude oil",
+      "designer_clothing" => "Designer clothing",
+      "electronics" => "Electronics",
+      "everyday_clothing" => "Everyday clothing",
+      "fruit" => "Fruit",
+      "grain" => "Grain",
+      "iron_ore" => "Iron ore",
+      "jewelry" => "Jewelry",
+      "lumber" => "Lumber",
+      "meat" => "Meat",
+      "recovered_plastics" => "Recovered plastics",
+      "refined_fuel" => "Refined fuel",
+      "aluminium_scrap" => "Scrap aluminium",
+      "seafood" => "Seafood",
+      "spices" => "Spices",
+      "turbines" => "Turbines",
+      "vegetable_oil" => "Vegetable oil",
+      "whisky" => "Whisky"
+    }
+
+    value |> String.split("|") |> Enum.map(&Map.get(ids, &1, &1)) |> Enum.join("|")
+  end
+
+  defp legacy_ids(value), do: value
 
   defp store_legacy(state) do
     MigrationRepo.query!(
@@ -97,7 +134,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
       [state.epoch, state.clock_ms, state.revision]
     )
 
-    for {kind, entities} <- state.entities, {id, data} <- entities do
+    for {kind, entities} <- legacy_ids(state.entities), {id, data} <- entities do
       data = legacy_data(kind, data)
 
       MigrationRepo.query!(
@@ -191,6 +228,171 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
 
     {:ok, edited} = GameStore.claim(MigrationRepo)
     assert edited.entities["ships"]["company:1"]["name"] == "Operator name"
+  end
+
+  test "first instruction migration creates independent visit plans without cargo orders", %{
+    migrations: migrations
+  } do
+    store_legacy(legacy_state())
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_260_908_000_000, log: false)
+
+    MigrationRepo.query!("""
+    INSERT INTO game_visit_plans(world_id,id,ship_id,company_id,port_id,onward_port_id)
+    VALUES('ocean','company:1|Singapore','company:1','company','Singapore','Jakarta')
+    """)
+
+    assert [[0]] == MigrationRepo.query!("SELECT count(*) FROM game_ship_instructions").rows
+
+    assert [["company:1", "Singapore", "Jakarta"]] ==
+             MigrationRepo.query!("SELECT ship_id,port_id,onward_port_id FROM game_visit_plans").rows
+
+    assert_raise Postgrex.Error, fn ->
+      MigrationRepo.query!("""
+      INSERT INTO game_visit_plans(world_id,id,ship_id,company_id,port_id,onward_port_id)
+      VALUES('ocean','duplicate','company:1','company','Singapore','Dubai')
+      """)
+    end
+
+    assert_raise Postgrex.Error, fn ->
+      MigrationRepo.query!("UPDATE game_visit_plans SET onward_port_id=port_id")
+    end
+
+    Ecto.Migrator.run(MigrationRepo, migrations, :down, to: 20_260_908_000_000, log: false)
+
+    assert [[nil, nil]] ==
+             MigrationRepo.query!(
+               "SELECT to_regclass('game_ship_instructions'),to_regclass('game_visit_plans')"
+             ).rows
+
+    assert [[3]] == MigrationRepo.query!("SELECT count(*) FROM game_ships").rows
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+    {:ok, loaded} = GameStore.claim(MigrationRepo)
+    assert Game.entities(loaded, "visit_plans") == %{}
+    assert Game.entities(loaded, "ship_instructions") == %{}
+  end
+
+  test "machine cargo IDs preserve holdings, lineage, journal postings and receipts", %{
+    migrations: migrations
+  } do
+    store_legacy(legacy_state())
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_260_908_000_000, log: false)
+
+    MigrationRepo.query!(
+      "UPDATE game_ships SET last_liquid_good_id='Vegetable oil' WHERE id='company:2'"
+    )
+
+    MigrationRepo.query!("""
+    INSERT INTO game_ship_instructions(world_id,id,company_id,ship_id,port_id,good_id,side,quantity_lots,filled_lots,limit_cents,budget_cents,spent_cents,onward_port_id,status,reason,created_ms)
+    VALUES('ocean','order','company','company:1','Singapore','Scrap aluminium','buy',5,2,100000,1000000,200000,'Jakarta','waiting','Waiting for handling',0)
+    """)
+
+    MigrationRepo.query!(
+      "INSERT INTO game_receipts VALUES ('ocean','account','trade','unchanged-fingerprint',$1)",
+      [%{"quantity" => 2, "spent" => 200_000}]
+    )
+
+    MigrationRepo.query!("""
+    SELECT post_game_journal('ocean','company','handling',0,10,'trade','company:1','Scrap aluminium',ARRAY['cash_available','handling_expense'],ARRAY[-1000,1000]::bigint[])
+    """)
+
+    MigrationRepo.query!(
+      "UPDATE game_companies SET cash_cents=cash_cents-1000,profit_cents=profit_cents-1000 WHERE id='company'"
+    )
+
+    # Include immutable split lineage, not just unsplit legacy stock.
+    MigrationRepo.transaction(fn ->
+      MigrationRepo.query!(
+        "INSERT INTO game_cargo_lots(world_id,id,good_id,original_quantity_lots,created_ms) VALUES ('ocean','parent','Scrap aluminium',5,0)"
+      )
+
+      MigrationRepo.query!(
+        "INSERT INTO game_cargo_lots(world_id,id,parent_lot_id,good_id,original_quantity_lots,created_ms) VALUES ('ocean','child-a','parent','Scrap aluminium',2,0),('ocean','child-b','parent','Scrap aluminium',3,0)"
+      )
+    end)
+
+    tables =
+      ~w(game_cargo_types game_worlds game_companies game_ships game_markets game_cargo_lots game_cargo_holdings game_ship_instructions game_journal_transactions game_journal_entries game_ledger_balances game_receipts)
+
+    snapshot = fn ->
+      Map.new(tables, fn table ->
+        rows =
+          MigrationRepo.query!("SELECT to_jsonb(t) FROM #{table} t ORDER BY to_jsonb(t)::text").rows
+
+        {table, rows}
+      end)
+    end
+
+    before = snapshot.()
+
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+    after_migration = snapshot.()
+
+    for table <-
+          ~w(game_worlds game_companies game_journal_entries game_ledger_balances game_receipts) do
+      assert after_migration[table] == before[table]
+    end
+
+    assert [["aluminium_scrap", 3]] ==
+             MigrationRepo.query!(
+               "SELECT good_id,count(*) FROM game_cargo_lots WHERE id IN ('parent','child-a','child-b') GROUP BY good_id"
+             ).rows
+
+    assert [["vegetable_oil"]] ==
+             MigrationRepo.query!(
+               "SELECT last_liquid_good_id FROM game_ships WHERE id='company:2'"
+             ).rows
+
+    assert [["aluminium_scrap", 5, 2, 200_000]] ==
+             MigrationRepo.query!(
+               "SELECT good_id,quantity_lots,filled_lots,spent_cents FROM game_ship_instructions WHERE id='order'"
+             ).rows
+
+    assert [["aluminium_scrap", true]] ==
+             MigrationRepo.query!(
+               "SELECT good_id,sealed FROM game_journal_transactions WHERE request_id='trade'"
+             ).rows
+
+    assert [[0]] ==
+             MigrationRepo.query!(
+               "SELECT count(*) FROM game_markets WHERE id<>port_id || '|' || good_id"
+             ).rows
+
+    assert [[0]] ==
+             MigrationRepo.query!(
+               "SELECT count(*) FROM game_cargo_holdings h JOIN game_markets m ON h.world_id=m.world_id AND h.market_id=m.id JOIN game_cargo_lots l ON h.world_id=l.world_id AND h.lot_id=l.id WHERE m.good_id<>l.good_id"
+             ).rows
+
+    assert [[22]] ==
+             MigrationRepo.query!(
+               "SELECT count(*) FROM game_cargo_types WHERE id ~ '^[a-z]+(_[a-z]+)*$'"
+             ).rows
+
+    {:ok, loaded} = GameStore.claim(MigrationRepo)
+    assert loaded.entities["ships"]["company:1"]["cargo"] |> Enum.all?(&(&1["good"] == "lumber"))
+
+    assert {:replay, %{"quantity" => 2, "spent" => 200_000}} ==
+             GameStore.receipt(
+               MigrationRepo,
+               "ocean",
+               "account",
+               "trade",
+               "unchanged-fingerprint"
+             )
+
+    assert_raise Postgrex.Error, fn ->
+      MigrationRepo.query!("UPDATE game_cargo_lots SET good_id='lumber' WHERE id='parent'")
+    end
+
+    assert_raise Postgrex.Error, fn ->
+      MigrationRepo.query!(
+        "UPDATE game_journal_transactions SET good_id='lumber' WHERE request_id='trade'"
+      )
+    end
+
+    # Undo the ownership claim, then prove the reverse migration restores every row.
+    MigrationRepo.query!("UPDATE game_worlds SET epoch=epoch-1 WHERE id='ocean'")
+    Ecto.Migrator.run(MigrationRepo, migrations, :down, to: 20_260_908_020_000, log: false)
+    assert snapshot.() == before
   end
 
   test "unknown legacy fields abort the migration without dropping original data", %{

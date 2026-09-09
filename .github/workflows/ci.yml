@@ -33,8 +33,20 @@ jobs:
           restore-keys: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-
       - run: mix deps.get --check-locked
       - run: mix precommit
-      - name: Transaction and browser integration tests with disposable PostgreSQL
-        run: python3 scripts/test-game-db.py
+      - name: Full Elixir suite and line coverage with disposable PostgreSQL
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p cover
+          python3 scripts/test-game-db.py --cover | tee cover/elixir-summary.txt
+      - name: Upload Elixir line coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: elixir-line-coverage-${{ matrix.elixir }}-otp-${{ matrix.otp }}
+          path: cover/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Runtime catalogue matches its generator
         run: |
           python3 -m venv /tmp/tijara-catalogue

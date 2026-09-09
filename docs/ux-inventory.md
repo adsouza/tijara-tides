@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 114
+Heuristic requirement sentences in DESIGN.md at generation: 128
 
 ## Screens
 
@@ -171,6 +171,17 @@ told after the fact, without being asked to approve it.
 | 113 | Sort by ROI is unchecked by default and visible only when listed cargo ROI values differ. When checked, sort by descending unrounded ROI, then cargo name, with unavailable ROI last; otherwise sort alphabetically. | 7 | display | Market |
 | 114 | Cargo-menu prices, ROI, availability, and sort-control visibility update live. Preserve the selected cargo when available; otherwise select an available entry, or show No cargo markets available if none remain. | 7 | display | Market |
 | 115 | Fleet ship choices wrap into rows instead of requiring horizontal scrolling to reach additional ships. | 9 | display | Fleet and ship detail |
+| 116 | The Ships panel shows a next-port instruction editor with the voyage destination shown as read-only text, buy or sell side, compatible cargo, target lots and a per-lot limit price. | 8 | input | Fleet and ship detail |
+| 117 | Show each instruction's port, cargo, side, filled and target lots, price limit, status and waiting reason, plus spending against the cap for purchases. | 8 | display | Fleet and ship detail |
+| 118 | Provide Cancel remainder for active instructions. | 8 | input | Fleet and ship detail |
+| 119 | When an active ship is selected, show an unchecked-by-default checkbox in the Cargo UI above the cargo dropdown to list only cargo types its ship class can carry. | 7 | input | Market |
+| 120 | Show the onward destination once per visit, with a control independent of cargo instructions. | 8 | input | Fleet and ship detail |
+| 121 | Disable the purchase-cap field for Sell and enable it for Buy, preserving its draft value when switching actions. | 8 | input | Fleet and ship detail |
+| 122 | Without a voyage destination, show a prompt to choose one in the voyage controls before adding instructions. | 8 | display | Fleet and ship detail |
+| 123 | For Sell, cap target lots at the total of the selected cargo currently aboard across all lots. | 8 | input | Fleet and ship detail |
+| 124 | On arrival, suggest the saved onward destination in the voyage controls when no other destination is selected. | 8 | display | Fleet and ship detail |
+| 125 | all player-facing cargo labels use the display name, including instruction selectors, order summaries, and notifications. | 9 | display | Fleet and ship detail |
+| 126 | Provide a per-visit automatic-departure checkbox, off by default, saved together with the onward destination. | 8 | input | Fleet and ship detail |
 
 ## Defaults that keep the depth optional
 

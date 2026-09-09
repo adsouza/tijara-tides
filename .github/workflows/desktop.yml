@@ -45,7 +45,20 @@ jobs:
         if: runner.os == 'Linux'
         run: scripts/install-linux-ci-packages.sh
       - run: npm ci
-      - run: npm run desktop:test
+      - name: Desktop helper line and branch coverage
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p cover
+          npm run desktop:coverage | tee cover/desktop-summary.txt
+      - name: Upload desktop helper coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-helper-coverage-${{ matrix.name }}
+          path: cover/desktop-summary.txt
+          if-no-files-found: warn
+          retention-days: 14
       - run: python3 scripts/check-desktop-versions.py
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings

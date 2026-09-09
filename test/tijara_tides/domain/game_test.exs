@@ -123,8 +123,8 @@ defmodule TijaraTides.Domain.GameTest do
   test "catalogue production IDs and aluminium display name stay consistent" do
     catalogue = GameCatalogue.all()
     assert Enum.all?(Game.raw_goods(), &Map.has_key?(catalogue["goods"], &1))
-    assert catalogue["goods"]["Scrap aluminium"]["name"] == "Aluminium scrap"
-    broken = update_in(catalogue, ["goods"], &Map.delete(&1, "Scrap aluminium"))
+    assert catalogue["goods"]["aluminium_scrap"]["name"] == "Aluminium scrap"
+    broken = update_in(catalogue, ["goods"], &Map.delete(&1, "aluminium_scrap"))
 
     assert_raise ArgumentError, ~r/unknown raw production good/, fn ->
       Game.initialize(%{entities: %{}, clock_ms: 0}, broken)
@@ -142,8 +142,23 @@ defmodule TijaraTides.Domain.GameTest do
     end
   end
 
+  test "cargo identifiers are independent of labels and malformed catalogue identities fail early" do
+    catalogue = GameCatalogue.all()
+    renamed = put_in(catalogue, ["goods", "aluminium_scrap", "name"], "Recycled aluminium")
+    state = Game.initialize(%{entities: %{}, clock_ms: 0}, renamed)
+    assert Game.get(state, "markets", "Jakarta|aluminium_scrap")["good"] == "aluminium_scrap"
+
+    for {field, value} <- [{"id", "Aluminium scrap"}, {"name", ""}, {"name", nil}] do
+      broken = put_in(catalogue, ["goods", "aluminium_scrap", field], value)
+
+      assert_raise ArgumentError, ~r/cargo requires a machine ID and display name/, fn ->
+        Game.initialize(%{entities: %{}, clock_ms: 0}, broken)
+      end
+    end
+  end
+
   test "perishable merchant roles are rejected before world creation" do
-    catalogue = put_in(GameCatalogue.all(), ["ports", "Jakarta", "roles", "Fruit"], "exp/imp")
+    catalogue = put_in(GameCatalogue.all(), ["ports", "Jakarta", "roles", "fruit"], "exp/imp")
 
     assert_raise ArgumentError, ~r/perishable merchant/, fn ->
       Game.initialize(%{entities: %{}, clock_ms: 0}, catalogue)
@@ -184,43 +199,43 @@ defmodule TijaraTides.Domain.GameTest do
   test "purchase totals include handling and the applicable tanker cleaning fee" do
     goods = GameCatalogue.all()["goods"]
     quote = %{"ask" => 1000, "handling_fee" => 200}
-    ship = %{"class" => "tanker", "last_liquid" => "Crude oil"}
-    assert Game.purchase_total(quote, ship, goods["Crude oil"], 3) == 3600
-    assert Game.purchase_total(quote, ship, goods["Refined fuel"], 3) == 8600
-    assert Game.purchase_total(quote, ship, goods["Vegetable oil"], 3) == 28600
-    assert Game.purchase_total(quote, ship, goods["Vegetable oil"], 0) == 0
+    ship = %{"class" => "tanker", "last_liquid" => "crude_oil"}
+    assert Game.purchase_total(quote, ship, goods["crude_oil"], 3) == 3600
+    assert Game.purchase_total(quote, ship, goods["refined_fuel"], 3) == 8600
+    assert Game.purchase_total(quote, ship, goods["vegetable_oil"], 3) == 28600
+    assert Game.purchase_total(quote, ship, goods["vegetable_oil"], 0) == 0
   end
 
   test "cargo compatibility shares hold and single-liquid rules" do
     goods = GameCatalogue.all()["goods"]
     ship = fn class -> %{"class" => class, "cargo" => []} end
-    assert Game.compatible_cargo?(ship.("freighter"), goods["Lumber"])
-    refute Game.compatible_cargo?(ship.("freighter"), goods["Fruit"])
-    refute Game.compatible_cargo?(ship.("freighter"), goods["Crude oil"])
-    assert Game.compatible_cargo?(ship.("reefer"), goods["Fruit"])
-    assert Game.compatible_cargo?(ship.("reefer"), goods["Lumber"])
-    assert Game.compatible_cargo?(ship.("tanker"), goods["Vegetable oil"])
-    refute Game.compatible_cargo?(ship.("tanker"), goods["Lumber"])
-    loaded = Map.put(ship.("tanker"), "cargo", [%{"good" => "Crude oil", "quantity" => 1}])
-    assert Game.compatible_cargo?(loaded, goods["Crude oil"])
-    refute Game.compatible_cargo?(loaded, goods["Vegetable oil"])
+    assert Game.compatible_cargo?(ship.("freighter"), goods["lumber"])
+    refute Game.compatible_cargo?(ship.("freighter"), goods["fruit"])
+    refute Game.compatible_cargo?(ship.("freighter"), goods["crude_oil"])
+    assert Game.compatible_cargo?(ship.("reefer"), goods["fruit"])
+    assert Game.compatible_cargo?(ship.("reefer"), goods["lumber"])
+    assert Game.compatible_cargo?(ship.("tanker"), goods["vegetable_oil"])
+    refute Game.compatible_cargo?(ship.("tanker"), goods["lumber"])
+    loaded = Map.put(ship.("tanker"), "cargo", [%{"good" => "crude_oil", "quantity" => 1}])
+    assert Game.compatible_cargo?(loaded, goods["crude_oil"])
+    refute Game.compatible_cargo?(loaded, goods["vegetable_oil"])
   end
 
   test "freshness estimates use purchased batches, selected quantity and full unloading time" do
     batches = [
-      %{"good" => "Fruit", "quantity" => 2, "expires_ms" => 10_000},
-      %{"good" => "Fruit", "quantity" => 3, "expires_ms" => 20_000}
+      %{"good" => "fruit", "quantity" => 2, "expires_ms" => 10_000},
+      %{"good" => "fruit", "quantity" => 3, "expires_ms" => 20_000}
     ]
 
     assert Game.freshness(batches, 2, 1000, Game.handling_ms(2))["after_ms"] == 8000
     assert Game.freshness(batches, 5, 1000, Game.handling_ms(5))["after_ms"] == 6500
     assert Game.freshness(batches, 5, 9000, Game.handling_ms(5))["after_ms"] == 0
 
-    assert [%{"good" => "Fruit", "quantity" => 5, "arrival_ms" => 4000, "unloaded_ms" => 1500}] =
+    assert [%{"good" => "fruit", "quantity" => 5, "arrival_ms" => 4000, "unloaded_ms" => 1500}] =
              Game.voyage_freshness(%{"cargo" => batches}, 1000, 5000)
 
     assert Game.voyage_freshness(
-             %{"cargo" => [%{"good" => "Lumber", "quantity" => 1, "expires_ms" => nil}]},
+             %{"cargo" => [%{"good" => "lumber", "quantity" => 1, "expires_ms" => nil}]},
              0,
              5000
            ) == []
@@ -309,7 +324,7 @@ defmodule TijaraTides.Domain.GameTest do
     {state, account, catalogue} = setup_game()
     ship = Game.get(state, "ships", "company:1")
     company = Game.get(state, "companies", "company")
-    item = catalogue["goods"]["Lumber"]
+    item = catalogue["goods"]["lumber"]
 
     state =
       TijaraTides.Domain.State.put(state, "companies", company["id"], %{
@@ -322,7 +337,7 @@ defmodule TijaraTides.Domain.GameTest do
     command = %{
       "action" => "buy",
       "ship" => ship["id"],
-      "good" => "Lumber",
+      "good" => "lumber",
       "quantity" => 500,
       "limit" => 100_000
     }
@@ -344,7 +359,7 @@ defmodule TijaraTides.Domain.GameTest do
     assert voyage["upkeep"] > voyage["crew_estimate"]
 
     total =
-      Game.purchase_total(Game.quote(state, catalogue, "Jakarta", "Lumber"), ship, item, 500)
+      Game.purchase_total(Game.quote(state, catalogue, "Jakarta", "lumber"), ship, item, 500)
 
     required = voyage["required"]
 
@@ -394,14 +409,14 @@ defmodule TijaraTides.Domain.GameTest do
       "action" => "buy",
       "destination" => "Singapore",
       "ship" => "company:1",
-      "good" => "Lumber",
+      "good" => "lumber",
       "quantity" => 10,
       "limit" => 30_000
     }
 
     {:ok, after_buy, _} = Game.execute(state, account, buy, %{}, catalogue)
     assert Game.get(after_buy, "ships", "company:1")["status"] == "loading"
-    assert Game.get(after_buy, "markets", "Jakarta|Lumber")["stock"] == 490
+    assert Game.get(after_buy, "markets", "Jakarta|lumber")["stock"] == 490
     assert {:error, :invalid_trade} = Game.execute(after_buy, account, buy, %{}, catalogue)
 
     assert {:error, :invalid_trade} =
@@ -428,7 +443,7 @@ defmodule TijaraTides.Domain.GameTest do
           "action" => "buy",
           "destination" => "Singapore",
           "ship" => "company:1",
-          "good" => "Lumber",
+          "good" => "lumber",
           "quantity" => 10,
           "limit" => 30_000
         },
@@ -472,7 +487,7 @@ defmodule TijaraTides.Domain.GameTest do
                %{
                  "action" => "sell",
                  "ship" => "company:1",
-                 "good" => "Lumber",
+                 "good" => "lumber",
                  "quantity" => 10,
                  "limit" => 1
                },
@@ -553,13 +568,13 @@ defmodule TijaraTides.Domain.GameTest do
     state = Game.advance(state, 60_000, catalogue)
     ship = Game.get(state, "ships", "company:1") |> Map.put("class", "reefer")
     state = TijaraTides.Domain.State.put(state, "ships", ship["id"], ship)
-    expiry = hd(Game.get(state, "markets", "Jakarta|Fruit")["batches"])["expires_ms"]
+    expiry = hd(Game.get(state, "markets", "Jakarta|fruit")["batches"])["expires_ms"]
 
     command = %{
       "action" => "buy",
       "destination" => "Singapore",
       "ship" => ship["id"],
-      "good" => "Fruit",
+      "good" => "fruit",
       "quantity" => 2,
       "limit" => 100_000
     }
@@ -573,44 +588,44 @@ defmodule TijaraTides.Domain.GameTest do
 
   test "market recovery is one lot per 150 seconds and preserves partial intervals" do
     {state, _account, catalogue} = setup_game()
-    supplier = Game.get(state, "markets", "Jakarta|Lumber")
-    buyer = Game.get(state, "markets", "Singapore|Lumber")
+    supplier = Game.get(state, "markets", "Jakarta|lumber")
+    buyer = Game.get(state, "markets", "Singapore|lumber")
 
     state =
       state
-      |> TijaraTides.Domain.State.put("markets", "Jakarta|Lumber", %{supplier | "stock" => 490})
-      |> TijaraTides.Domain.State.put("markets", "Singapore|Lumber", %{
+      |> TijaraTides.Domain.State.put("markets", "Jakarta|lumber", %{supplier | "stock" => 490})
+      |> TijaraTides.Domain.State.put("markets", "Singapore|lumber", %{
         buyer
         | "demand" => 490,
           "budget" => 0
       })
 
     before = Enum.reduce(1..29, state, fn _, acc -> Game.advance(acc, 5_000, catalogue) end)
-    assert Game.get(before, "markets", "Jakarta|Lumber")["stock"] == 490
-    assert Game.get(before, "markets", "Singapore|Lumber")["demand"] == 490
+    assert Game.get(before, "markets", "Jakarta|lumber")["stock"] == 490
+    assert Game.get(before, "markets", "Singapore|lumber")["demand"] == 490
     after_tick = Game.advance(before, 5_000, catalogue)
-    assert Game.get(after_tick, "markets", "Jakarta|Lumber")["stock"] == 491
-    assert Game.get(after_tick, "markets", "Singapore|Lumber")["demand"] == 491
+    assert Game.get(after_tick, "markets", "Jakarta|lumber")["stock"] == 491
+    assert Game.get(after_tick, "markets", "Singapore|lumber")["demand"] == 491
 
-    assert Game.get(after_tick, "markets", "Singapore|Lumber")["budget"] ==
-             catalogue["goods"]["Lumber"]["reference_cents"]
+    assert Game.get(after_tick, "markets", "Singapore|lumber")["budget"] ==
+             catalogue["goods"]["lumber"]["reference_cents"]
 
     ten_minutes = Game.advance(after_tick, 450_000, catalogue)
-    assert Game.get(ten_minutes, "markets", "Jakarta|Lumber")["stock"] == 494
-    assert Game.get(ten_minutes, "markets", "Singapore|Lumber")["demand"] == 494
+    assert Game.get(ten_minutes, "markets", "Jakarta|lumber")["stock"] == 494
+    assert Game.get(ten_minutes, "markets", "Singapore|lumber")["demand"] == 494
     capped = Game.advance(ten_minutes, 86_400_000, catalogue)
-    assert Game.get(capped, "markets", "Jakarta|Lumber")["stock"] == 500
-    assert Game.get(capped, "markets", "Singapore|Lumber")["demand"] == 500
+    assert Game.get(capped, "markets", "Jakarta|lumber")["stock"] == 500
+    assert Game.get(capped, "markets", "Singapore|lumber")["demand"] == 500
   end
 
   test "market freshness expires between production boundaries" do
     {state, _, catalogue} = setup_game()
-    market = Game.get(state, "markets", "Jakarta|Fruit")
+    market = Game.get(state, "markets", "Jakarta|fruit")
     market = %{market | "batches" => [%{"quantity" => 500, "expires_ms" => 1}]}
-    state = TijaraTides.Domain.State.put(state, "markets", "Jakarta|Fruit", market)
+    state = TijaraTides.Domain.State.put(state, "markets", "Jakarta|fruit", market)
     state = Game.advance(state, 1, catalogue)
-    assert Game.get(state, "markets", "Jakarta|Fruit")["stock"] == 0
-    assert Game.quote(state, catalogue, "Jakarta", "Fruit")["stock"] == 0
+    assert Game.get(state, "markets", "Jakarta|fruit")["stock"] == 0
+    assert Game.quote(state, catalogue, "Jakarta", "fruit")["stock"] == 0
   end
 
   test "device expiry and invalid credentials never expose an account" do

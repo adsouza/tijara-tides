@@ -3,6 +3,8 @@ defmodule TijaraTides.Infrastructure.GameQueries do
   alias TijaraTides.UseCases.GameQueries, as: Queries
   alias TijaraTides.Infrastructure.GameCatalogue
 
+  defdelegate compatible_cargo?(ship, item), to: Queries
+
   defdelegate destination_options(definitions, view, ship, destination), to: Queries
   defdelegate purchase_total(quote, ship, item, quantity), to: Queries
   defdelegate trade_freshness(quote, ship, side, good, quantity, clock), to: Queries
@@ -25,7 +27,11 @@ defmodule TijaraTides.Infrastructure.GameQueries do
   defdelegate route_distance(definitions, ship, destination), to: Queries
   defdelegate cargo_markets(definitions, view, good, side, sort, ship), to: Queries
   def manifest(cargo), do: Queries.manifest(cargo, GameCatalogue.all())
+  defdelegate instruction_editor(definitions, ship, draft), to: Queries
+  defdelegate instruction_visits(private, ship_id), to: Queries
+  defdelegate instruction_onwards(private, ship_id, port), to: Queries
   defdelegate cargo_options(definitions, view, sort_roi), to: Queries
+  defdelegate cargo_options(definitions, view, sort_roi, ship), to: Queries
   defdelegate visible_market_rows(definitions, view, ship, port), to: Queries
   defdelegate available_to_trade(side, quote, ship, good), to: Queries
   defdelegate cargo_aboard(ship, good), to: Queries

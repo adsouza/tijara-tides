@@ -99,7 +99,7 @@ defmodule TijaraTides.Domain.Trading do
   defp cleaning_cost(ship, item) do
     if classes()[ship["class"]]["hold"] == "liquid" and
          ship["last_liquid"] not in [nil, item["id"]],
-       do: if("Vegetable oil" in [ship["last_liquid"], item["id"]], do: 25_000, else: 5000),
+       do: if("vegetable_oil" in [ship["last_liquid"], item["id"]], do: 25_000, else: 5000),
        else: 0
   end
 

@@ -175,8 +175,8 @@ at most one current location. No cargo arrays are stored as JSON.
 
 Static tuning and map geometry remain versioned source assets. The reference
 rows give those stable identifiers relational integrity; changing the catalogue's
-set of IDs requires a corresponding database migration. The stored legacy ID
-`Scrap aluminium` has the display name `Aluminium scrap`.
+set of IDs requires a corresponding database migration. Cargo types use explicit machine IDs such as
+`aluminium_scrap`, with `Aluminium scrap` as the display name.
 
 Commits update only scalar columns that changed and insert, update, or remove
 changed batch rows. They retain the world-row lock, ownership check, atomic
@@ -264,7 +264,7 @@ entries are serialized into the world row. Company removal requires transferring
 or retiring its ships first, enforced by the domain and PostgreSQL foreign keys.
 
 Cargo IDs are durable identifiers, separate from catalogue display names.
-For example, ID `Scrap aluminium` displays as `Aluminium scrap`. Production
+For example, ID `aluminium_scrap` displays as `Aluminium scrap`. Production
 definitions are validated against these IDs at initialization. Perishable
 merchant roles remain unsupported and are rejected before the world starts.
 
@@ -277,3 +277,41 @@ the same device can repeat redemption and receive the same account credential;
 a different device cannot replay it using the invite alone. No extra database
 table is needed. Missing cookies, revoked sessions, and expired sessions cannot
 use this retry path.
+
+## Cargo identifier migration
+
+`20260908020000_use_cargo_machine_ids.exs` replaces the original cargo IDs with
+explicit lowercase snake_case IDs. The generator maps display labels to fixed IDs;
+renaming a label must preserve that mapping rather than deriving a new ID.
+Ports and company names are outside this migration's scope.
+
+Stop the game server before applying this migration, then restart with the new
+code. It updates cargo references in markets, lots, tanker history, instructions,
+and journal metadata, plus composite market keys and their holdings. Permanent
+lot IDs, lineage, quantities, prices, ledger entries, balances, and command
+receipts remain intact. The old and new application versions must not run against
+the same database during this upgrade; refresh existing clients after restarting.
+
+The migration takes exclusive table locks and temporarily disables only the lot
+immutability and journal sealing triggers within its transaction to rename their
+cargo references. Both triggers are restored before commit; a failure rolls back
+the entire operation. Foreign keys remain enforced. A rollback reverses the ID
+mapping and requires the matching old application code. Historical free-text
+notices and receipt fingerprints are preserved, not rewritten.
+
+## Initial instruction schema
+
+The unpublished `20260908000000_add_ship_instructions.exs` creates both
+`game_ship_instructions` and `game_visit_plans` in one transaction. The latter
+stores an independent onward destination per ship and visit port, including
+empty and sell-only visits. It also stores `auto_depart` (default false) and a
+nullable departure waiting reason, so the setting and retry status survive
+restarts. Production never needs the temporary instruction-only
+schema or a visit-plan backfill. The discarded `20260908010000` migration must
+not remain in a local database's migration history.
+
+The separate `20260908020000` cargo-ID migration is still required because the
+published schema already uses the original cargo IDs. Deploy by stopping the
+old game, applying both pending migrations, and starting the updated code.
+Existing production cargo and finances are preserved; new instruction and
+visit-plan tables start empty.

@@ -27,6 +27,12 @@ defmodule TijaraTides.Domain.Markets do
   end
 
   defp validate_catalogue!(catalogue) do
+    Enum.each(catalogue["goods"], fn {id, item} ->
+      unless Regex.match?(~r/^[a-z]+(_[a-z]+)*$/, id) and item["id"] == id and
+               is_binary(item["name"]) and String.trim(item["name"]) != "",
+             do: raise(ArgumentError, "cargo requires a machine ID and display name: #{id}")
+    end)
+
     Enum.each(raw_goods(), fn good ->
       unless Map.has_key?(catalogue["goods"], good),
         do: raise(ArgumentError, "unknown raw production good: #{good}")
@@ -45,16 +51,16 @@ defmodule TijaraTides.Domain.Markets do
 
   def raw_goods,
     do: [
-      "Iron ore",
-      "Grain",
-      "Lumber",
-      "Crude oil",
-      "Fruit",
-      "Seafood",
-      "Meat",
-      "Scrap aluminium",
-      "Copper scrap",
-      "Recovered plastics"
+      "iron_ore",
+      "grain",
+      "lumber",
+      "crude_oil",
+      "fruit",
+      "seafood",
+      "meat",
+      "aluminium_scrap",
+      "copper_scrap",
+      "recovered_plastics"
     ]
 
   def handling_rate(%{"tiers" => %{"cost" => "high"}}), do: 600

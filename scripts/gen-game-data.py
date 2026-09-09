@@ -38,22 +38,24 @@ tuning = {
  'Turbines':[2000000,5000,12000], 'Construction equipment':[1200000,8000,20000],
  'Agricultural machinery':[800000,5000,18000], 'Electronics':[200000,100,1000],
  'Appliances':[80000,250,1800], 'Everyday clothing':[60000,150,1400], 'Spices':[300000,20,80],
- 'Scrap aluminium':[100000,1000,2500], 'Copper scrap':[350000,1000,500],
+ 'Aluminium scrap':[100000,1000,2500], 'Copper scrap':[350000,1000,500],
  'Recovered plastics':[6000,200,2000], 'Fruit':[50000,1000,1600],
  'Seafood':[250000,1000,1400], 'Meat':[200000,1000,1400],
 }
 liquid={'Crude oil','Refined fuel','Vegetable oil'}
 life={'Fruit':72,'Seafood':36,'Meat':48}
-# Display names may change; saved cargo IDs must not.
+# Explicit IDs stay fixed when display labels change. Never derive saved IDs from labels.
+CARGO_IDS = {'Agricultural machinery': 'agricultural_machinery', 'Appliances': 'appliances', 'Construction equipment': 'construction_equipment', 'Copper scrap': 'copper_scrap', 'Crude oil': 'crude_oil', 'Designer clothing': 'designer_clothing', 'Electronics': 'electronics', 'Everyday clothing': 'everyday_clothing', 'Fruit': 'fruit', 'Grain': 'grain', 'Iron ore': 'iron_ore', 'Jewelry': 'jewelry', 'Lumber': 'lumber', 'Meat': 'meat', 'Recovered plastics': 'recovered_plastics', 'Refined fuel': 'refined_fuel', 'Aluminium scrap': 'aluminium_scrap', 'Seafood': 'seafood', 'Spices': 'spices', 'Turbines': 'turbines', 'Vegetable oil': 'vegetable_oil', 'Whisky': 'whisky'}
+assert len(set(CARGO_IDS.values())) == len(CARGO_IDS)
 def cargo_id(name):
- return {'Aluminium scrap': 'Scrap aluminium'}.get(name, name)
+ return CARGO_IDS[name]
 goods={}
 for category, names in namespace['CATEGORIES']:
  for name in names:
   display_name=name
-  name=cargo_id(name)
+  good_id=cargo_id(name)
   price, weight, volume=tuning[name]
-  goods[name]={'id':name,'name':display_name,'category':category,'reference_cents':price,'weight_kg':weight,
+  goods[good_id]={'id':good_id,'name':display_name,'category':category,'reference_cents':price,'weight_kg':weight,
    'volume_l':volume,'hold':'liquid' if name in liquid else 'reefer' if name in life else 'dry',
    'shelf_ms':life.get(name,0)*3600000,
    'manual':category not in ['Luxury items','Industrial machinery']}

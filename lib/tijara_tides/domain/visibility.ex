@@ -38,6 +38,14 @@ defmodule TijaraTides.Domain.Visibility do
         Map.filter(entities(state, "ships"), fn {_, s} ->
           s["company_id"] == account["company_id"]
         end),
+      "visit_plans" =>
+        Map.filter(entities(state, "visit_plans"), fn {_, plan} ->
+          plan["company_id"] == account["company_id"]
+        end),
+      "ship_instructions" =>
+        Map.filter(entities(state, "ship_instructions"), fn {_, order} ->
+          order["company_id"] == account["company_id"]
+        end),
       "notices" => Map.get(Map.get(state, :notices_by_account, %{}), account["id"], [])
     }
   end

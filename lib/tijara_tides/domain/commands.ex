@@ -1,7 +1,7 @@
 defmodule TijaraTides.Domain.Commands do
   @moduledoc "Dispatch validated command shapes to the domain operation that owns their invariants."
   import TijaraTides.Domain.Accounts, only: [create_company: 6, issue_invite: 3]
-  alias TijaraTides.Domain.{Trade, Trading}
+  alias TijaraTides.Domain.{ShipInstructions, Trade, Trading}
   import TijaraTides.Domain.Fleet, only: [sail: 6]
 
   def execute(state, account, command, context, catalogue),
@@ -11,6 +11,23 @@ defmodule TijaraTides.Domain.Commands do
     catalogue = context.catalogue
 
     case command do
+      %{"action" => "instruction_onward", "ship" => ship, "port" => port, "onward" => onward} ->
+        ShipInstructions.change_onward(
+          state,
+          account,
+          ship,
+          port,
+          onward,
+          catalogue,
+          Map.get(command, "auto_depart")
+        )
+
+      %{"action" => "instruction"} ->
+        ShipInstructions.add(state, account, command, context)
+
+      %{"action" => "cancel_instruction", "instruction" => id} ->
+        ShipInstructions.cancel(state, account, id, catalogue)
+
       %{"action" => "company", "name" => name, "port" => port, "package" => package} ->
         create_company(state, account, name, port, package, context)
 

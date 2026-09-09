@@ -36,10 +36,12 @@ defmodule TijaraTidesWeb.GameLive do
         port_market_side: "buy",
         trade_limits: %{},
         trade_context: nil,
+        instruction_drafts: %{},
         manifest_sort: {"good", :asc},
-        market_good: "Lumber",
+        market_good: "lumber",
         cargo_menu_open: false,
         cargo_sort_roi: false,
+        cargo_filter_ship: false,
         market_sort: %{"supply" => {"ask", :asc}, "demand" => {"bid", :desc}},
         company_draft: %{"name" => "", "port" => "Singapore", "package" => "general"},
         destination: nil,
@@ -103,6 +105,10 @@ defmodule TijaraTidesWeb.GameLive do
 
   def handle_event("cargo-sort-roi", params, socket) do
     {:noreply, assign(socket, :cargo_sort_roi, params["roi"] == "true")}
+  end
+
+  def handle_event("cargo-filter-ship", params, socket) do
+    {:noreply, assign(socket, :cargo_filter_ship, params["compatible"] == "true")}
   end
 
   def handle_event("toggle-cargo-menu", _params, socket) do
@@ -216,6 +222,55 @@ defmodule TijaraTidesWeb.GameLive do
 
   def handle_event("invite", params, socket), do: run(socket, Map.put(params, "action", "invite"))
 
+  def handle_event("edit-instruction", params, socket) do
+    draft =
+      Map.merge(
+        Map.get(socket.assigns.instruction_drafts, socket.assigns.selected_ship, %{}),
+        Map.take(params, ~w(side good quantity limit budget onward))
+      )
+
+    {:noreply,
+     assign(
+       socket,
+       :instruction_drafts,
+       Map.put(socket.assigns.instruction_drafts, socket.assigns.selected_ship, draft)
+     )}
+  end
+
+  def handle_event("add-instruction", params, socket) do
+    run(
+      socket,
+      params
+      |> Map.put("action", "instruction")
+      |> Map.put("ship", socket.assigns.selected_ship)
+      |> Map.put(
+        "port",
+        instruction_port(
+          socket.assigns.ship,
+          socket.assigns.destination,
+          socket.assigns.definitions
+        )
+      )
+      |> Map.update("quantity", 0, &integer/1)
+      |> Map.update("limit", 0, &(integer(&1) * 100))
+      |> Map.update("budget", 0, &(integer(&1) * 100))
+    )
+  end
+
+  def handle_event("instruction-onward", params, socket) do
+    run(
+      socket,
+      params
+      |> Map.put("action", "instruction_onward")
+      |> Map.put("auto_depart", params["auto_depart"] == "true")
+      |> Map.put("ship", socket.assigns.selected_ship)
+    )
+  end
+
+  def handle_event("cancel-instruction", %{"id" => id}, socket) do
+    run(socket, %{"action" => "cancel_instruction", "instruction" => id})
+  end
+
   def handle_event("trade", params, socket) do
     params =
       params
@@ -315,6 +370,15 @@ defmodule TijaraTidesWeb.GameLive do
           |> List.first()
       end
 
+    planned =
+      if ship && view.private,
+        do: get_in(view.private, ["visit_plans", ship["id"] <> "|" <> ship["port"], "onward"])
+
+    socket =
+      if planned && socket.assigns.destination in [nil, "", ship["port"]],
+        do: assign(socket, :destination, planned),
+        else: socket
+
     preview =
       if socket.assigns.destination not in [nil, ""] && ship && ship["status"] == "docked",
         do: GameServer.preview(socket.assigns.token, ship["id"], socket.assigns.destination)
@@ -387,6 +451,29 @@ defmodule TijaraTidesWeb.GameLive do
   defp sorted_manifest(cargo, goods, sort), do: GameQueries.sorted_manifest(cargo, goods, sort)
 
   defp manifest(cargo), do: GameQueries.manifest(cargo)
+
+  defp instruction_port(nil, _destination, _definitions), do: nil
+
+  defp instruction_port(ship, destination, definitions) do
+    port = ship["destination"] || destination
+
+    if is_binary(port) and port != ship["port"] and
+         Map.has_key?(definitions.catalogue["ports"], port),
+       do: port
+  end
+
+  defp instruction_value(drafts, ship, key, default),
+    do: Map.get(Map.get(drafts, ship["id"], %{}), key, default)
+
+  defp ship_instructions(private, ship_id) do
+    private["ship_instructions"]
+    |> Map.values()
+    |> Enum.filter(&(&1["ship_id"] == ship_id))
+    |> Enum.sort_by(
+      &{if(&1["status"] in ["planned", "waiting"], do: 0, else: 1), -&1["created_ms"], &1["id"]}
+    )
+    |> Enum.take(40)
+  end
 
   defp cubic_meters(litres) do
     whole = Integer.to_string(div(litres, 1000))
@@ -493,6 +580,23 @@ defmodule TijaraTidesWeb.GameLive do
 
   def error_message(reason) do
     %{
+      instruction_ship_not_owned: "Select a ship owned by your company.",
+      instruction_destination_invalid:
+        "Choose the ship's next destination; a sailing ship can only use its current destination.",
+      instruction_cargo_invalid: "Choose compatible cargo with a market at the visit port.",
+      instruction_quantity_invalid: "Use 1–10,000 lots and a valid nonnegative limit price.",
+      instruction_sell_exceeds_cargo:
+        "The sell target exceeds the selected cargo currently aboard. Reduce the target and try again.",
+      instruction_onward_invalid: "Choose an onward destination different from the visit port.",
+      instruction_auto_depart_invalid: "Choose whether this visit should depart automatically.",
+      instruction_onward_conflict:
+        "All buy instructions at this visit must share one onward port. Update the shared onward destination first.",
+      instruction_budget_invalid:
+        "Buy instructions need a positive spending cap and a different onward port.",
+      instruction_limit_reached:
+        "This ship already has 20 active instructions. Cancel one before adding another.",
+      instruction_not_active:
+        "That instruction is no longer active or does not belong to your company.",
       invalid_command_payload: "The command payload must be an object.",
       too_many_command_fields: "The command contains too many fields (maximum 12).",
       command_payload_too_large: "The command payload is too large (maximum 4096 bytes).",
@@ -581,7 +685,12 @@ defmodule TijaraTidesWeb.GameLive do
 
     cargo_options =
       for {good, quote} <-
-            GameQueries.cargo_options(assigns.definitions, assigns.view, assigns.cargo_sort_roi) do
+            GameQueries.cargo_options(
+              assigns.definitions,
+              assigns.view,
+              assigns.cargo_sort_roi,
+              if(assigns.cargo_filter_ship, do: assigns.ship)
+            ) do
         label =
           "bid #{if quote.bid, do: money(quote.bid), else: "—"} / ask #{if quote.ask, do: money(quote.ask), else: "—"}"
 
@@ -1714,6 +1823,253 @@ defmodule TijaraTidesWeb.GameLive do
                         <.voyage_freshness estimates={@preview["freshness"]} />
                       </div>
                       <.voyage_freshness estimates={@view.private["voyage_freshness"][@ship["id"]]} />
+                      <details
+                        id={"instructions-" <> @ship["id"]}
+                        phx-mounted={JS.ignore_attributes("open")}
+                        class="mt-4 rounded border border-slate-700 p-3"
+                        open
+                      >
+                        <summary class="cursor-pointer font-semibold">
+                          Next port cargo instructions
+                        </summary>
+                        <p class="my-2 text-sm text-slate-400">
+                          Execute when berthed. Sales unload before purchases load. Partial fills retry while waiting; sailing cancels any remainder. Prices are per lot, excluding handling. A purchase cap includes all purchase costs and does not reserve cash.
+                        </p>
+                        <% visit_port = instruction_port(@ship, @destination, @definitions) %>
+                        <% instruction =
+                          GameQueries.instruction_editor(
+                            @definitions,
+                            @ship,
+                            Map.get(@instruction_drafts, @ship["id"], %{})
+                          ) %>
+                        <p class="my-2 text-sm text-slate-400">
+                          Plan an onward destination with or without cargo orders. Departure is manual unless automatic departure is enabled for this visit.
+                        </p>
+                        <% visits = GameQueries.instruction_visits(@view.private, @ship["id"]) %>
+                        <% visits =
+                          if visit_port, do: Map.put_new(visits, visit_port, []), else: visits %>
+                        <% onwards =
+                          GameQueries.instruction_onwards(@view.private, @ship["id"], visit_port) %>
+                        <.form
+                          :for={
+                            {shared_port, shared_onwards} <-
+                              Enum.sort(visits)
+                          }
+                          for={%{}}
+                          id={"visit-onward-" <> @ship["id"] <> "-" <> shared_port}
+                          phx-submit="instruction-onward"
+                          class="mb-3 space-y-2 text-sm"
+                        >
+                          <input type="hidden" name="port" value={shared_port} />
+                          <input type="hidden" name="request_id" value={@request_id} />
+                          <label>
+                            Onward destination after {shared_port}
+                            <select
+                              name="onward"
+                              aria-label="Shared onward port"
+                              class="block w-full rounded bg-slate-800 p-2"
+                            >
+                              <option :if={shared_onwards == []} value="">
+                                Choose onward destination
+                              </option>
+                              <option :if={length(shared_onwards) > 1} value="">
+                                Resolve conflicting destinations
+                              </option>
+                              <option
+                                :for={
+                                  port <-
+                                    Enum.sort(Map.keys(@definitions.catalogue["ports"])) --
+                                      [shared_port]
+                                }
+                                value={port}
+                                selected={shared_onwards == [port]}
+                              >
+                                {port}
+                              </option>
+                            </select>
+                          </label>
+                          <input type="hidden" name="auto_depart" value="false" />
+                          <label class="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              name="auto_depart"
+                              value="true"
+                              checked={
+                                get_in(@view.private, [
+                                  "visit_plans",
+                                  @ship["id"] <> "|" <> shared_port,
+                                  "auto_depart"
+                                ]) == true
+                              }
+                            /> Depart automatically after orders and handling finish
+                          </label>
+                          <p class="text-xs text-slate-400">
+                            Waits for every order to be filled or cancelled and for sufficient sailing funds. Save to apply.
+                          </p>
+                          <p
+                            :if={
+                              get_in(@view.private, [
+                                "visit_plans",
+                                @ship["id"] <> "|" <> shared_port,
+                                "departure_wait"
+                              ])
+                            }
+                            class="text-amber-300"
+                          >
+                            {get_in(@view.private, [
+                              "visit_plans",
+                              @ship["id"] <> "|" <> shared_port,
+                              "departure_wait"
+                            ])}
+                          </p>
+                          <p :if={length(shared_onwards) > 1} class="text-amber-300">
+                            Existing buy instructions disagree. Purchases are paused until you choose one onward port.
+                          </p>
+                          <button
+                            phx-disable-with="Updating…"
+                            class="rounded border border-slate-500 px-2 py-1"
+                          >Save onward destination</button>
+                        </.form>
+                        <p :if={is_nil(visit_port)} class="my-3 text-sm text-amber-200">
+                          Choose a destination in the voyage controls before adding instructions.
+                        </p>
+                        <.form
+                          :if={visit_port != nil}
+                          for={%{}}
+                          id={"instruction-form-" <> @ship["id"]}
+                          phx-submit="add-instruction"
+                          phx-change="edit-instruction"
+                          class="grid grid-cols-2 gap-2 text-sm"
+                        >
+                          <input type="hidden" name="request_id" value={@request_id} />
+                          <p class="col-span-2 font-semibold">Instructions at {visit_port}</p>
+                          <label>
+                            Action
+                            <select
+                              name="side"
+                              aria-label="Instruction action"
+                              class="block w-full rounded bg-slate-800 p-2"
+                            ><option
+                              value="sell"
+                              selected={
+                                instruction_value(@instruction_drafts, @ship, "side", "sell") ==
+                                  "sell"
+                              }
+                            >
+                              Sell
+                            </option><option
+                              value="buy"
+                              selected={
+                                instruction_value(@instruction_drafts, @ship, "side", "sell") == "buy"
+                              }
+                            >
+                              Buy
+                            </option></select>
+                          </label>
+                          <label>
+                            Cargo
+                            <select
+                              name="good"
+                              aria-label="Instruction cargo"
+                              class="block w-full rounded bg-slate-800 p-2"
+                            >
+                              <option
+                                :for={{good, _item} <- instruction.goods}
+                                value={good}
+                                selected={good == instruction.good}
+                              >
+                                {cargo_name(good)}
+                              </option>
+                            </select>
+                          </label>
+                          <label
+                            id={"instruction-quantity-" <> @ship["id"]}
+                            phx-hook="TradeQuantity"
+                            data-max={instruction.maximum}
+                            data-quantity={instruction.quantity}
+                          >Target lots<input
+                            name="quantity"
+                            aria-label="Instruction target lots"
+                            type="number"
+                            min={if instruction.maximum < 1, do: 0, else: 1}
+                            max={instruction.maximum}
+                            disabled={instruction.maximum < 1}
+                            value={instruction.quantity}
+                            required
+                            class="block w-full rounded bg-slate-800 p-2"
+                          /></label>
+                          <label>Limit price ($/lot)<input
+                            name="limit"
+                            aria-label="Instruction limit price"
+                            type="number"
+                            min="0"
+                            max="10000000000"
+                            value={instruction_value(@instruction_drafts, @ship, "limit", "0")}
+                            required
+                            class="block w-full rounded bg-slate-800 p-2"
+                          /></label>
+                          <label>Purchase cap ($; buys only)<input
+                            name="budget"
+                            aria-label="Instruction purchase cap"
+                            disabled={
+                              instruction_value(@instruction_drafts, @ship, "side", "sell") == "sell"
+                            }
+                            type="number"
+                            min="1"
+                            max="10000000000"
+                            value={instruction_value(@instruction_drafts, @ship, "budget", "10000")}
+                            class="block w-full rounded bg-slate-800 p-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          /></label>
+                          <input
+                            type="hidden"
+                            name="onward"
+                            value={if length(onwards) == 1, do: hd(onwards), else: ""}
+                          />
+                          <p
+                            :if={instruction.side == "buy" and length(onwards) != 1}
+                            class="col-span-2 text-amber-200"
+                          >
+                            Save an onward destination above before adding buy instructions.
+                          </p>
+                          <button
+                            phx-disable-with="Adding…"
+                            disabled={
+                              instruction.maximum < 1 or is_nil(instruction.good) or
+                                (instruction.side == "buy" and length(onwards) != 1)
+                            }
+                            class="self-end rounded bg-teal-700 p-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          >Add instruction</button>
+                        </.form>
+                        <div
+                          :for={order <- ship_instructions(@view.private, @ship["id"])}
+                          id={"instruction-" <> order["id"]}
+                          class="mt-3 border-t border-slate-700 pt-2 text-sm"
+                        >
+                          <p>
+                            <strong>{String.capitalize(order["side"])} {cargo_name(order["good"])}</strong>
+                            at {order["port"]} · {order["filled"]}/{order["quantity"]} lots · {if order[
+                                                                                                    "side"
+                                                                                                  ] ==
+                                                                                                    "buy",
+                                                                                                  do:
+                                                                                                    "maximum",
+                                                                                                  else:
+                                                                                                    "minimum"} {money(
+                              order["limit"]
+                            )}/lot
+                          </p>
+                          <p :if={order["side"] == "buy"}>
+                            {money(order["spent"])} spent / {money(order["budget"])} cap
+                          </p>
+                          <p>{String.capitalize(order["status"])} · {order["reason"]}</p>
+                          <button
+                            :if={order["status"] in ["planned", "waiting"]}
+                            phx-click="cancel-instruction"
+                            phx-value-id={order["id"]}
+                            class="mt-1 rounded border border-slate-500 px-2 py-1"
+                          >Cancel remainder</button>
+                        </div>
+                      </details>
                     </div>
                   </section>
                 </div>
@@ -1722,8 +2078,24 @@ defmodule TijaraTidesWeb.GameLive do
                 <h2 class="panel-title">Cargo</h2>
                 <div class="panel-content" tabindex="0" aria-label="Cargo markets">
                   <section id="cargo-markets" class="my-6 rounded-xl border border-slate-700 p-5">
-                    <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="space-y-3">
                       <h2 class="text-2xl">Markets by cargo</h2>
+                      <form
+                        :if={@ship}
+                        id="cargo-ship-filter"
+                        phx-change="cargo-filter-ship"
+                        class="mt-2 text-sm"
+                      >
+                        <label class="flex items-center gap-2">
+                          <input type="hidden" name="compatible" value="false" />
+                          <input
+                            type="checkbox"
+                            name="compatible"
+                            value="true"
+                            checked={@cargo_filter_ship}
+                          /> Only cargo carried by {@definitions.classes[@ship["class"]]["name"]}
+                        </label>
+                      </form>
                       <div
                         id="cargo-market-selector"
                         class="cargo-picker"

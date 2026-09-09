@@ -39,6 +39,393 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "ship instructions submit through the UI, replay, settle on arrival and survive reload",
+       c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      GameServer.command(
+        token,
+        "company",
+        %{
+          "action" => "company",
+          "name" => "Automatic Cargo",
+          "port" => "Singapore",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    instruction_form = "form[id=\"instruction-form-#{company}:1\"]"
+    refute has_element?(view, instruction_form)
+
+    assert render(view) =~
+             "Choose a destination in the voyage controls before adding instructions."
+
+    view |> form("#voyage-preview", %{"destination" => "Jakarta"}) |> render_change()
+    assert has_element?(view, instruction_form, "Instructions at Jakarta")
+
+    assert has_element?(
+             view,
+             instruction_form <> " option[value='aluminium_scrap']",
+             "Aluminium scrap"
+           )
+
+    refute has_element?(view, instruction_form <> " select[name=port]")
+    view |> form("#voyage-preview", %{"destination" => "Dubai"}) |> render_change()
+    assert has_element?(view, instruction_form, "Instructions at Dubai")
+    view |> form("#voyage-preview", %{"destination" => "Jakarta"}) |> render_change()
+    render_change(view, "edit-instruction", %{"port" => "Dubai"})
+    assert has_element?(view, instruction_form, "Instructions at Jakarta")
+
+    view
+    |> form("form[phx-submit=instruction-onward]", %{"onward" => "Singapore"})
+    |> render_submit()
+
+    assert has_element?(view, instruction_form <> " input[name=budget][disabled]")
+
+    assert has_element?(
+             view,
+             instruction_form <> " input[name=quantity][max='0'][value='0'][disabled]"
+           )
+
+    assert has_element?(view, instruction_form <> " button[disabled]")
+
+    view |> form(instruction_form, %{"side" => "buy"}) |> render_change()
+    refute has_element?(view, instruction_form <> " input[name=budget][disabled]")
+
+    assert has_element?(
+             view,
+             instruction_form <> " input[name=quantity][max='10000']:not([disabled])"
+           )
+
+    refute has_element?(view, instruction_form <> " button[disabled]")
+
+    view |> form(instruction_form, %{"budget" => "12000"}) |> render_change()
+    view |> form(instruction_form, %{"side" => "sell"}) |> render_change()
+    assert has_element?(view, instruction_form <> " input[name=budget][disabled]")
+    view |> form(instruction_form, %{"side" => "buy"}) |> render_change()
+
+    assert has_element?(
+             view,
+             instruction_form <> " input[name=budget][value='12000']:not([disabled])"
+           )
+
+    view
+    |> form("form[id=\"instruction-form-#{company}:1\"]", %{
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => "2",
+      "limit" => "10000",
+      "budget" => "10000",
+      "onward" => "Singapore"
+    })
+    |> render_change()
+
+    send(view.pid, {:game_changed, 0})
+
+    assert has_element?(
+             view,
+             "form[id=\"instruction-form-#{company}:1\"] input[name=quantity][value=\"2\"]"
+           )
+
+    assert has_element?(
+             view,
+             "form[id=\"instruction-form-#{company}:1\"]",
+             "Instructions at Jakarta"
+           )
+
+    view
+    |> form("form[id=\"instruction-form-#{company}:1\"]", %{
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => "2",
+      "limit" => "10000",
+      "budget" => "10000",
+      "onward" => "Singapore"
+    })
+    |> render_submit()
+
+    [order] = GameServer.snapshot(token, c.server).private["ship_instructions"] |> Map.values()
+    assert order["port"] == "Jakarta"
+    assert order["limit"] == 1_000_000
+    assert order["status"] == "planned"
+    assert render(view) =~ "0/2 lots"
+    assert has_element?(view, "form[phx-submit=instruction-onward]")
+
+    {:ok, %{"instruction_id" => second_buy}} =
+      GameServer.command(
+        token,
+        "second-buy",
+        %{
+          "action" => "instruction",
+          "ship" => company <> ":1",
+          "port" => "Jakarta",
+          "side" => "buy",
+          "good" => "lumber",
+          "quantity" => 1,
+          "limit" => 1_000_000,
+          "budget" => 1_000_000,
+          "onward" => "Singapore"
+        },
+        c.server
+      )
+
+    view |> form("form[phx-submit=instruction-onward]", %{"onward" => "Dubai"}) |> render_submit()
+
+    assert Enum.all?(GameServer.snapshot(token, c.server).private["ship_instructions"], fn {_,
+                                                                                            row} ->
+             row["onward"] == "Dubai"
+           end)
+
+    assert {:error, :instruction_onward_conflict} =
+             GameServer.command(
+               token,
+               "conflicting-buy",
+               %{
+                 "action" => "instruction",
+                 "ship" => company <> ":1",
+                 "port" => "Jakarta",
+                 "side" => "buy",
+                 "good" => "lumber",
+                 "quantity" => 1,
+                 "limit" => 1_000_000,
+                 "budget" => 1_000_000,
+                 "onward" => "Singapore"
+               },
+               c.server
+             )
+
+    shared = %{
+      "action" => "instruction_onward",
+      "ship" => company <> ":1",
+      "port" => "Jakarta",
+      "onward" => "Singapore"
+    }
+
+    assert {:ok, shared_reply} = GameServer.command(token, "shared-return", shared, c.server)
+    revision = GameServer.snapshot(token, c.server).public["revision"]
+    assert {:ok, ^shared_reply} = GameServer.command(token, "shared-return", shared, c.server)
+    assert GameServer.snapshot(token, c.server).public["revision"] == revision
+
+    assert [["Singapore"], ["Singapore"]] ==
+             Repo.query!(
+               "SELECT onward_port_id FROM game_ship_instructions WHERE world_id=$1 ORDER BY id",
+               [c.world_id]
+             ).rows
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "cancel-second-buy",
+               %{"action" => "cancel_instruction", "instruction" => second_buy},
+               c.server
+             )
+
+    command = %{
+      "action" => "instruction",
+      "ship" => company <> ":1",
+      "port" => "Jakarta",
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 1,
+      "limit" => 1_000_000,
+      "budget" => 1_000_000,
+      "onward" => "Singapore"
+    }
+
+    assert {:ok, reply} = GameServer.command(token, "replay-order", command, c.server)
+    assert {:ok, ^reply} = GameServer.command(token, "replay-order", command, c.server)
+    assert map_size(GameServer.snapshot(token, c.server).private["ship_instructions"]) == 3
+    view |> element("#instruction-#{reply["instruction_id"]} button") |> render_click()
+
+    quote = GameServer.preview(token, company <> ":1", "Jakarta", c.server)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "sail",
+               %{
+                 "action" => "sail",
+                 "ship" => company <> ":1",
+                 "destination" => "Jakarta",
+                 "fuel_limit" => quote["fuel"]
+               },
+               c.server
+             )
+
+    :sys.replace_state(c.server, fn state ->
+      %{state | last_mono: System.monotonic_time(:millisecond) - quote["duration_ms"] - 1}
+    end)
+
+    send(c.server, :tick)
+    snapshot = GameServer.snapshot(token, c.server)
+    assert snapshot.private["ship_instructions"][order["id"]]["filled"] == 2
+    assert snapshot.private["ships"][company <> ":1"]["status"] == "loading"
+
+    assert [[1]] =
+             Repo.query!(
+               "SELECT count(*) FROM game_journal_transactions WHERE world_id=$1 AND kind='purchase'",
+               [c.world_id]
+             ).rows
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :instruction_replacement
+      )
+
+    restored = GameServer.snapshot(token, replacement)
+    assert restored.private["ship_instructions"] == snapshot.private["ship_instructions"]
+    assert restored.private["ships"] == snapshot.private["ships"]
+    assert GameServer.snapshot(nil, replacement).private == nil
+
+    assert [[1]] =
+             Repo.query!(
+               "SELECT count(*) FROM game_journal_transactions WHERE world_id=$1 AND kind='purchase'",
+               [c.world_id]
+             ).rows
+  end
+
+  test "a fenced progression tick cannot advance durable state or publish a revision", %{
+    server: server,
+    code: code,
+    world_id: world
+  } do
+    {:ok, %{"session" => token}} = GameServer.redeem(code, server)
+    assert :ok = GameServer.connect(token, server)
+    before = :sys.get_state(server)
+    # A second owner claims the actual SQL epoch, fencing this still-live server.
+    assert {:ok, claimed} = GameStore.claim(Repo, world)
+    assert claimed.epoch == before.game.epoch + 1
+    GameServer.subscribe()
+
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        assert %{status: :unavailable} = advance(server, 5000)
+      end)
+
+    assert log =~ "ownership_lost"
+    stopped = :sys.get_state(server)
+    refute stopped.active
+    assert stopped.game == before.game
+    assert stopped.projection == before.projection
+    refute_receive {:game_changed, _}, 10
+
+    assert [[claimed.clock_ms, claimed.revision]] ==
+             Repo.query!(
+               "SELECT clock_ms,revision FROM game_worlds WHERE id=$1",
+               [world]
+             ).rows
+
+    send(server, :tick)
+    assert GameServer.readiness(server) == :unavailable
+    assert :sys.get_state(server).game == before.game
+  end
+
+  for auto_depart <- [false, true] do
+    test "cargo-free onward plan survives restart with automatic departure #{auto_depart}",
+         c do
+      {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+      {:ok, %{"company_id" => company}} =
+        GameServer.command(
+          token,
+          "company",
+          %{
+            "action" => "company",
+            "name" => "Deadhead",
+            "port" => "Singapore",
+            "package" => "general"
+          },
+          c.server
+        )
+
+      {:ok, _} =
+        GameServer.command(
+          token,
+          "plan",
+          %{
+            "action" => "instruction_onward",
+            "ship" => company <> ":1",
+            "port" => "Jakarta",
+            "onward" => "Singapore",
+            "auto_depart" => unquote(auto_depart)
+          },
+          c.server
+        )
+
+      replacement =
+        start_supervised!(
+          {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+          id: :deadhead_replacement
+        )
+
+      Application.put_env(:tijara_tides, :game_server, replacement)
+      on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+      snapshot = GameServer.snapshot(token, replacement)
+      assert snapshot.private["ship_instructions"] == %{}
+      assert snapshot.private["visit_plans"][company <> ":1|Jakarta"]["onward"] == "Singapore"
+      conn = build_conn() |> init_test_session(%{account_token: token})
+      {:ok, view, _} = live(conn, "/play")
+      view |> form("#voyage-preview", %{"destination" => "Jakarta"}) |> render_change()
+
+      assert has_element?(
+               view,
+               "form[phx-submit=instruction-onward]",
+               "Onward destination after Jakarta"
+             )
+
+      selector = "form[phx-submit=instruction-onward] input[type=checkbox][name=auto_depart]"
+      assert has_element?(view, selector <> "[checked]") == unquote(auto_depart)
+
+      view
+      |> form("form[phx-submit=instruction-onward]", %{
+        "onward" => "Singapore",
+        "auto_depart" => "false"
+      })
+      |> render_submit()
+
+      refute GameServer.snapshot(token, replacement).private["visit_plans"][
+               company <> ":1|Jakarta"
+             ]["auto_depart"]
+
+      view
+      |> form("form[phx-submit=instruction-onward]", %{
+        "onward" => "Singapore",
+        "auto_depart" => to_string(unquote(auto_depart))
+      })
+      |> render_submit()
+
+      assert GameServer.snapshot(token, replacement).private["visit_plans"][
+               company <> ":1|Jakarta"
+             ]["auto_depart"] == unquote(auto_depart)
+
+      quote = GameServer.preview(token, company <> ":1", "Jakarta", replacement)
+      view |> element("button[phx-click=sail]") |> render_click()
+      advance(replacement, quote["duration_ms"] + 1)
+
+      unless unquote(auto_depart),
+        do: assert(has_element?(view, "#voyage-preview option[value=Singapore][selected]"))
+
+      assert GameServer.snapshot(token, replacement).private["ships"][company <> ":1"]["cargo"] ==
+               []
+
+      unless unquote(auto_depart), do: view |> element("button[phx-click=sail]") |> render_click()
+      returning = GameServer.snapshot(token, replacement)
+      assert returning.private["ships"][company <> ":1"]["destination"] == "Singapore"
+      assert returning.private["ships"][company <> ":1"]["status"] == "sailing"
+      assert returning.private["visit_plans"] == %{}
+    end
+  end
+
   test "invalid preview destinations leave the shared owner available", %{
     server: server,
     code: code
@@ -436,9 +823,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     |> render_submit()
 
     assert render(view) =~ "Browser Shipping"
-    render_change(view, "market-good", %{"good" => "Spices"})
+    render_change(view, "market-good", %{"good" => "spices"})
     refute has_element?(view, "#cargo-supply tr[data-port=Dubai]")
-    render_change(view, "market-good", %{"good" => "Appliances"})
+    render_change(view, "market-good", %{"good" => "appliances"})
     refute has_element?(view, "#cargo-demand tr[data-port='Colón']")
     refute has_element?(view, "#cargo-supply tr[data-port='Colón']")
     refute has_element?(view, "#cargo-markets", "Trading not available yet")
@@ -458,6 +845,18 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     end
 
     alphabetical = option_goods.()
+    assert has_element?(view, "#cargo-ship-filter input[type=checkbox]:not([checked])")
+    assert "crude_oil" in alphabetical
+    view |> form("#cargo-ship-filter", %{"compatible" => "true"}) |> render_change()
+    assert has_element?(view, "#cargo-ship-filter input[type=checkbox][checked]")
+    assert "lumber" in option_goods.()
+    refute "crude_oil" in option_goods.()
+    refute "fruit" in option_goods.()
+    send(view.pid, {:game_changed, 0})
+    refute "crude_oil" in option_goods.()
+    view |> form("#cargo-ship-filter", %{"compatible" => "false"}) |> render_change()
+    assert option_goods.() == alphabetical
+
     markets = GameServer.snapshot(token, server).markets
 
     expected =
@@ -486,7 +885,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert option_goods.() == expected
     render_change(view, "cargo-sort-roi", %{"roi" => "false"})
     assert option_goods.() == alphabetical
-    view |> element("#cargo-options button[phx-value-good='Scrap aluminium']") |> render_click()
+    view |> element("#cargo-options button[phx-value-good='aluminium_scrap']") |> render_click()
     refute has_element?(view, "#cargo-options")
     view |> element("#market-good") |> render_click()
     render_click(view, "close-cargo-menu")
@@ -504,9 +903,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     view |> element("#cargo-markets button[phx-value-id='Singapore']") |> render_click()
     assert has_element?(view, "#port-selector option[selected]", "Singapore")
     assert has_element?(view, "#destination-planner", "From Jakarta")
-    assert has_element?(view, "#destination-planner tr[data-good=Lumber]", "$225")
-    assert has_element?(view, "#destination-planner tr[data-good=Lumber]", "$275")
-    assert has_element?(view, "#destination-planner tr[data-good='Iron ore']", "No demand")
+    assert has_element?(view, "#destination-planner tr[data-good=lumber]", "$225")
+    assert has_element?(view, "#destination-planner tr[data-good=lumber]", "$275")
+    assert has_element?(view, "#destination-planner tr[data-good='iron_ore']", "No demand")
     view |> element("#set-port-destination") |> render_click()
     assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
     assert has_element?(view, "#port-selector option[selected]", "Singapore")
@@ -518,7 +917,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
            end)
 
     render_change(view, "preview", %{"destination" => ""})
-    render_click(view, "market-good", %{"good" => "Lumber"})
+    render_click(view, "market-good", %{"good" => "lumber"})
 
     snapshot = GameServer.snapshot(token, server)
     ship = snapshot.private["ships"] |> Map.values() |> Enum.sort_by(& &1["id"]) |> hd()
@@ -529,15 +928,15 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     expected =
       snapshot.markets
       |> Enum.filter(fn {key, quote} ->
-        String.ends_with?(key, "|Lumber") && quote["manual"] && quote["demand"] > 0
+        String.ends_with?(key, "|lumber") && quote["manual"] && quote["demand"] > 0
       end)
       |> Enum.sort_by(fn {key, quote} ->
-        port = String.replace_suffix(key, "|Lumber", "")
+        port = String.replace_suffix(key, "|lumber", "")
 
         {-quote["bid"], -quote["demand"],
          catalogue["routes"]["Jakarta|" <> port]["nautical_miles"], port}
       end)
-      |> Enum.map(fn {key, _} -> String.replace_suffix(key, "|Lumber", "") end)
+      |> Enum.map(fn {key, _} -> String.replace_suffix(key, "|lumber", "") end)
 
     actual =
       render(view)
@@ -593,12 +992,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(view, "td", "Appliances")
     refute has_element?(view, "td", "Fruit")
     assert has_element?(view, "td", "Lumber")
-    assert has_element?(view, "#aboard-Lumber", "0")
+    assert has_element?(view, "#aboard-lumber", "0")
     refute has_element?(view, "#set-port-destination")
-    render_change(view, "market-good", %{"good" => "Grain"})
+    render_change(view, "market-good", %{"good" => "grain"})
 
     view
-    |> element("#port-market-table button[phx-click=market-good][phx-value-good=Lumber]")
+    |> element("#port-market-table button[phx-click=market-good][phx-value-good=lumber]")
     |> render_click()
 
     assert has_element?(view, "#market-good", "Lumber")
@@ -607,9 +1006,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#port-market-table th", "Buy / supply")
     refute has_element?(view, "#port-market-table th", "Sell / demand")
     refute has_element?(view, "#port-market-table form[phx-submit=trade] input[value=sell]")
-    assert has_element?(view, "#trade-buy-Lumber button[disabled]")
-    assert has_element?(view, "#quantity-buy-Lumber[value='0'][max='0'][disabled]")
-    assert has_element?(view, "#aboard-Lumber", "0")
+    assert has_element?(view, "#trade-buy-lumber button[disabled]")
+    assert has_element?(view, "#quantity-buy-lumber[value='0'][max='0'][disabled]")
+    assert has_element?(view, "#aboard-lumber", "0")
     render_change(view, "preview", %{"destination" => "Singapore"})
     assert has_element?(view, "#port-selector option[selected]", "Jakarta")
     assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
@@ -625,52 +1024,52 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     limit =
       GameServer.trade_limits(GameServer.snapshot(token, server), ship, "Singapore")[
-        {"buy", "Lumber"}
+        {"buy", "lumber"}
       ]
 
     assert limit > 0
-    assert has_element?(view, "#quantity-buy-Lumber[value='#{limit}'][max='#{limit}']")
+    assert has_element?(view, "#quantity-buy-lumber[value='#{limit}'][max='#{limit}']")
 
     assert has_element?(
              view,
-             "#trade-buy-Lumber input[type=range][value='#{limit}'][max='#{limit}']"
+             "#trade-buy-lumber input[type=range][value='#{limit}'][max='#{limit}']"
            )
 
     assert has_element?(view, "#destination-market-note", "Singapore")
-    assert has_element?(view, ".destination-bid[data-good=Lumber]", "$275 bid")
-    assert has_element?(view, ".destination-bid[data-good=Lumber]", "+$50 spread")
-    refute has_element?(view, ".destination-bid[data-good='Iron ore']")
+    assert has_element?(view, ".destination-bid[data-good=lumber]", "$275 bid")
+    assert has_element?(view, ".destination-bid[data-good=lumber]", "+$50 spread")
+    refute has_element?(view, ".destination-bid[data-good='iron_ore']")
 
     render_change(view, "trade-preview", %{
       "action" => "buy",
       "destination" => "Singapore",
-      "good" => "Lumber",
+      "good" => "lumber",
       "quantity" => "500"
     })
 
-    assert has_element?(view, "#quantity-buy-Lumber[value='#{limit}']")
-    refute has_element?(view, "#trade-buy-Lumber .purchase-total.text-red-400")
+    assert has_element?(view, "#quantity-buy-lumber[value='#{limit}']")
+    refute has_element?(view, "#trade-buy-lumber .purchase-total.text-red-400")
 
     render_change(view, "trade-preview", %{
       "action" => "buy",
       "destination" => "Singapore",
-      "good" => "Lumber",
+      "good" => "lumber",
       "quantity" => "10"
     })
 
-    assert has_element?(view, "#trade-buy-Lumber .purchase-total", "$2270 total")
+    assert has_element?(view, "#trade-buy-lumber .purchase-total", "$2270 total")
     assert has_element?(view, "#purchase-voyage-summary", "For 10 lots of Lumber")
     refute has_element?(view, "#port-market-table .purchase-voyage")
-    refute has_element?(view, "#trade-buy-Lumber .purchase-total.text-red-400")
+    refute has_element?(view, "#trade-buy-lumber .purchase-total.text-red-400")
 
     assert render(view) =~ "900 m³"
     assert render(view) =~ "1.6 m³"
-    assert has_element?(view, "#quantity-buy-Lumber[value='10']")
+    assert has_element?(view, "#quantity-buy-lumber[value='10']")
 
     render_submit(view, "trade", %{
       "action" => "buy",
       "destination" => "Singapore",
-      "good" => "Lumber",
+      "good" => "lumber",
       "quantity" => "10",
       "limit" => "30000"
     })
@@ -693,7 +1092,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     GenServer.stop(fresh_view.pid)
     render_change(view, "fleet-status", %{"status" => "all"})
     refute has_element?(view, "#set-port-destination")
-    assert has_element?(view, "#aboard-Lumber", "10")
+    assert has_element?(view, "#aboard-lumber", "10")
     assert render(view) =~ "16 m³"
     refute has_element?(view, "td", "Appliances")
     advance(server, 6000)
@@ -717,29 +1116,29 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     new_limit =
       GameServer.trade_limits(GameServer.snapshot(token, server), new_ship, "Singapore")[
-        {"buy", "Lumber"}
+        {"buy", "lumber"}
       ]
 
-    assert has_element?(view, "#quantity-buy-Lumber[value='#{new_limit}']")
+    assert has_element?(view, "#quantity-buy-lumber[value='#{new_limit}']")
     assert has_element?(view, "button[phx-click=sail]", "Reserve fuel and sail")
     assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
 
     render_submit(view, "trade", %{
       "action" => "buy",
       "destination" => "Singapore",
-      "good" => "Lumber",
+      "good" => "lumber",
       "quantity" => "1",
       "limit" => "30000"
     })
 
-    assert has_element?(view, "#manifest-Lumber td", "11")
-    render_change(view, "market-good", %{"good" => "Grain"})
-    view |> element("#manifest-Lumber button[phx-click=market-good]") |> render_click()
+    assert has_element?(view, "#manifest-lumber td", "11")
+    render_change(view, "market-good", %{"good" => "grain"})
+    view |> element("#manifest-lumber button[phx-click=market-good]") |> render_click()
     assert has_element?(view, "#market-good", "Lumber")
-    assert has_element?(view, "#manifest-Lumber", "17.6 m³")
+    assert has_element?(view, "#manifest-lumber", "17.6 m³")
     assert has_element?(view, "#ship-capacity", "5500 / 500000 kg")
     assert has_element?(view, "#ship-capacity", "17.6 m³ / 900 m³")
-    assert has_element?(view, "#manifest-Lumber td", "$225")
+    assert has_element?(view, "#manifest-lumber td", "$225")
 
     view
     |> element("button[phx-click=sort-manifest][phx-value-column=quantity]")
@@ -825,14 +1224,14 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     view |> element("button[phx-click=port-market-side][phx-value-side=sell]") |> render_click()
     assert has_element?(view, "#port-market-table th", "Sell / demand")
     refute has_element?(view, "#port-market-table th", "Buy / supply")
-    assert has_element?(view, "#trade-sell-Lumber")
-    refute has_element?(view, "#trade-buy-Lumber")
+    assert has_element?(view, "#trade-sell-lumber")
+    refute has_element?(view, "#trade-buy-lumber")
     send(view.pid, {:game_changed, 0})
     assert has_element?(view, "button[phx-value-side=sell][aria-pressed=true]")
 
     render_submit(view, "trade", %{
       "action" => "sell",
-      "good" => "Lumber",
+      "good" => "lumber",
       "quantity" => "11",
       "limit" => "1"
     })
@@ -842,6 +1241,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     after_sale = GameServer.snapshot(token, server)
     assert after_sale.private["ships"][ship["id"]]["cargo"] == []
     {:ok, spectator, _} = build_conn() |> live("/play")
+    refute has_element?(spectator, "#cargo-ship-filter")
     render_click(spectator, "inspect-ship", %{"id" => ship["id"]})
     assert has_element?(spectator, "#public-ship-inspector", "Company: Browser Shipping")
     assert has_element?(spectator, "#public-ship-inspector", "Class: Balanced freighter")
@@ -882,11 +1282,11 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
            )
 
     assert_push_event(view, "workspace-panel", %{panel: 0})
-    view |> form("#trade-buy-Fruit", %{"quantity" => "20"}) |> render_change()
-    assert has_element?(view, "#trade-buy-Fruit", "20 lots: first expiry")
-    assert has_element?(view, "#trade-buy-Fruit", "0.2 min handling")
-    assert has_element?(view, "#trade-buy-Fruit", "Estimates may change")
-    view |> form("#trade-buy-Fruit", %{"quantity" => "20"}) |> render_submit()
+    view |> form("#trade-buy-fruit", %{"quantity" => "20"}) |> render_change()
+    assert has_element?(view, "#trade-buy-fruit", "20 lots: first expiry")
+    assert has_element?(view, "#trade-buy-fruit", "0.2 min handling")
+    assert has_element?(view, "#trade-buy-fruit", "Estimates may change")
+    view |> form("#trade-buy-fruit", %{"quantity" => "20"}) |> render_submit()
     advance(server, 11_000)
     view |> form("#voyage-preview", %{"destination" => "Singapore"}) |> render_change()
     assert has_element?(view, ".voyage-freshness", "Fruit: estimated time to first expiry")
@@ -927,7 +1327,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     [[parent]] =
       Repo.query!(
-        "SELECT lot_id FROM game_cargo_holdings WHERE world_id=$1 AND market_id='Jakarta|Fruit' ORDER BY position LIMIT 1",
+        "SELECT lot_id FROM game_cargo_holdings WHERE world_id=$1 AND market_id='Jakarta|fruit' ORDER BY position LIMIT 1",
         [world]
       ).rows
 
@@ -935,7 +1335,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "action" => "buy",
       "destination" => "Singapore",
       "ship" => ship["id"],
-      "good" => "Fruit",
+      "good" => "fruit",
       "quantity" => 2,
       "limit" => 100_000
     }
@@ -1084,7 +1484,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     sell = %{
       "action" => "sell",
       "ship" => other["id"],
-      "good" => "Fruit",
+      "good" => "fruit",
       "quantity" => 1,
       "limit" => 1
     }

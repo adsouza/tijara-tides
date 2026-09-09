@@ -9,6 +9,7 @@ defmodule TijaraTides.Domain.Simulation do
     %{state | clock_ms: state.clock_ms + elapsed}
     |> Fleet.advance(elapsed)
     |> Markets.advance(catalogue)
+    |> TijaraTides.Domain.ShipInstructions.advance(catalogue)
     |> Accounts.expire_invitations()
   end
 end

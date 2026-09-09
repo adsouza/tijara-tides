@@ -13,9 +13,10 @@ tmp/check-catalogue-venv/bin/python -m pip install -q -r scripts/game-data-requi
 tmp/check-catalogue-venv/bin/python scripts/check-generated.py
 mix deps.get --check-locked
 mix precommit
-python3 scripts/test-game-db.py
+mkdir -p cover
+python3 scripts/test-game-db.py --cover | tee cover/elixir-summary.txt
 npm ci
-npm run desktop:test
+npm run desktop:coverage | tee cover/desktop-summary.txt
 python3 scripts/check-desktop-versions.py
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings

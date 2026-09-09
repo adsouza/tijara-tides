@@ -36,6 +36,9 @@ Use `PORT=4001 mix phx.server` if port 4000 is already occupied.
 mix precommit       # formatting, forced boundary checks, and tests
 ```
 
+See [testing and coverage](docs/testing-and-coverage.md) for report commands,
+coverage scope, and the explicit branch-scenario matrix.
+
 Enable the tracked pre-push hook once per clone:
 
 ```sh
@@ -67,7 +70,9 @@ The launcher creates a persistent local database under `tmp/local-game`, applies
 migrations, prints a launch invitation on first use, and opens the server at
 <http://localhost:4000/play>. Paste the invitation into the game, name your company,
 and choose a home port and starter fleet. It ignores inherited Neon credentials.
-Ctrl-C stops both services while retaining your game. Use `--seed` to issue
+Ctrl-C stops both services while retaining your game. If the local database is
+already running, the launcher verifies and reuses it, leaving it running on exit.
+Use `--seed` to issue
 another launch invitation or `--web-port 4001` for another web port.
 
 Accounts currently use a durable, revocable device credential. Email magic links,

@@ -1,4 +1,6 @@
 defmodule TijaraTides.UseCases.GameQueries do
+  defdelegate compatible_cargo?(ship, item), to: TijaraTides.Domain.CargoRules
+
   @moduledoc "Pure read-side planning projections. Reads never mutate domain state."
   alias TijaraTides.Domain.{Fleet, Trading, CargoRules, Visibility}
 
@@ -355,12 +357,73 @@ defmodule TijaraTides.UseCases.GameQueries do
     ) ++ undated
   end
 
-  def cargo_options(definitions, view, sort_roi) do
+  def instruction_editor(definitions, ship, draft) do
+    goods =
+      definitions.catalogue["goods"]
+      |> Enum.sort_by(fn {good, item} -> item["name"] || good end)
+      |> Enum.filter(fn {_, item} -> item["manual"] and compatible_cargo?(ship, item) end)
+
+    good =
+      if List.keymember?(goods, draft["good"], 0),
+        do: draft["good"],
+        else:
+          (case goods do
+             [{id, _} | _] -> id
+             [] -> nil
+           end)
+
+    side = if draft["side"] == "buy", do: "buy", else: "sell"
+    maximum = if side == "sell", do: min(10_000, cargo_aboard(ship, good)), else: 10_000
+
+    quantity =
+      case Integer.parse(to_string(draft["quantity"] || "1")) do
+        {n, ""} -> n
+        _ -> 1
+      end
+
+    %{
+      goods: goods,
+      good: good,
+      side: side,
+      maximum: maximum,
+      quantity: if(maximum < 1, do: 0, else: min(maximum, max(1, quantity)))
+    }
+  end
+
+  def instruction_visits(private, ship_id) do
+    from_orders =
+      private["ship_instructions"]
+      |> Map.values()
+      |> Enum.filter(
+        &(&1["ship_id"] == ship_id and &1["side"] == "buy" and
+            &1["status"] in ["planned", "waiting"])
+      )
+      |> Enum.group_by(& &1["port"], & &1["onward"])
+      |> Map.new(fn {port, onwards} -> {port, Enum.sort(Enum.uniq(onwards))} end)
+
+    Map.get(private, "visit_plans", %{})
+    |> Map.values()
+    |> Enum.filter(&(&1["ship_id"] == ship_id))
+    |> Enum.reduce(from_orders, fn plan, visits ->
+      Map.update(
+        visits,
+        plan["port"],
+        [plan["onward"]],
+        &Enum.sort(Enum.uniq([plan["onward"] | &1]))
+      )
+    end)
+  end
+
+  def instruction_onwards(private, ship_id, port),
+    do: Map.get(instruction_visits(private, ship_id), port, [])
+
+  def cargo_options(definitions, view, sort_roi, ship \\ nil) do
     options =
-      for {good, _} <-
+      for {good, item} <-
             Enum.sort_by(definitions.catalogue["goods"], fn {good, item} ->
               item["name"] || good
             end),
+          is_nil(ship) or compatible_cargo?(Map.put(ship, "cargo", []), item),
           asks = cargo_markets(definitions, view, good, "supply", {"ask", :asc}, nil),
           bids = cargo_markets(definitions, view, good, "demand", {"bid", :desc}, nil),
           asks != [] or bids != [] do

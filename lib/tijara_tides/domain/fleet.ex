@@ -147,6 +147,7 @@ defmodule TijaraTides.Domain.Fleet do
           %{ship: id}
         )
 
+      state = TijaraTides.Domain.ShipInstructions.depart(state, id, destination, catalogue)
       {:ok, state, %{"arrive_ms" => ship["arrive_ms"], "fuel" => estimate["fuel"]}}
     end
   end

@@ -129,3 +129,36 @@ financial ledger is accounting history rather than a replay log for all gameplay
   commit failures; browser tests cover the query-driven UI.
 - This refactor needs no SQL migration, data reset or gameplay rebalance. Existing
   startup ownership fencing and deployment procedures remain applicable.
+
+## Single-visit ship instructions
+
+`Domain.ShipInstructions` owns private next-visit plans, partial-fill progress,
+spending caps and cancellation. `Domain.Commands` dispatches creation and
+cancellation through the existing receipt-protected command workflow. Successful
+manual departure cancels waiting remainders and incompatible destination plans.
+Simulation attempts instructions after fleet handling and market replenishment,
+using the same `Trading.execute` operation as manual trades. A tick commits fills,
+lot identities, ledger postings, instruction progress and notices together before
+publication. Failed quantity probes are discarded pure state values.
+
+`game_ship_instructions` stores typed relational rows with ship, company, cargo
+and port references. Apply migration `20260908000000` before running this code.
+Only authenticated owner projections include these rows. There are no separate
+order timers or offline catch-up: retries use the existing suspended world clock.
+
+`game_visit_plans` stores one private onward plan per ship/port visit independently
+of cargo orders, enabling empty and sell-only legs. Both tables are created by
+the initial instruction migration `20260908000000`; no intermediate instruction
+schema is deployed. Conflicting instructions stay paused until explicitly
+resolved. `instruction_onward` creates or updates the visit plan and its
+outstanding buy instructions in one command transaction.
+A successful departure consumes the current visit plan and removes plans for a
+different next destination. Arrival suggests the saved onward leg in the UI;
+manual departure remains the default. Visit plans persist `auto_depart` and a
+waiting reason. After processing all cargo instructions, the same simulation tick
+calls `Fleet.sail` for opted-in docked ships whose visit orders are filled or
+cancelled. Handling, route availability, unpaid costs and fuel/canal funding still
+apply. Departure, plan consumption, ledger entries and notices commit together;
+failed persistence cannot publish or retain a departure. Failed departure checks
+keep the plan for retry and emit a notice only when the reason changes. No cash
+or cargo moves merely by saving a plan.

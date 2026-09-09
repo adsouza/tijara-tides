@@ -28,8 +28,20 @@ base.mkdir(parents=True,exist_ok=True)
 new=not (base/'data/PG_VERSION').exists()
 if new:
     subprocess.run([str(bin_dir/'initdb'),'-D',str(base/'data'),'-U','postgres','--auth=trust','--no-locale','--encoding=UTF8'],check=True,stdout=subprocess.DEVNULL,env=env)
-# TCP listens on loopback only; the filesystem cluster is private to this launcher.
-subprocess.run([str(bin_dir/'pg_ctl'),'-D',str(base/'data'),'-l',str(base/'postgres.log'),'-o',f'-h 127.0.0.1 -p {args.db_port} -k /tmp','-w','start'],check=True,env=env)
+# A previous launcher may have exited without stopping its database. Only stop
+# PostgreSQL on exit when this invocation started it.
+status=subprocess.run([str(bin_dir/'pg_ctl'),'-D',str(base/'data'),'status'],capture_output=True,text=True,env=env)
+if status.returncode not in (0,3):
+    raise SystemExit(status.stderr or status.stdout or 'Could not determine local database status.')
+started_database=status.returncode == 3
+if not started_database:
+    identity=subprocess.run([str(bin_dir/'psql'),'-X','-A','-t','-h','127.0.0.1','-p',str(args.db_port),'-U','postgres','-d','postgres','-c','SHOW data_directory'],capture_output=True,text=True,env={**env,'PGCONNECT_TIMEOUT':'5'})
+    if identity.returncode or Path(identity.stdout.strip()).resolve() != (base/'data').resolve():
+        raise SystemExit(f'The local database is already running, but could not be verified on port {args.db_port}. Check {base / "data/postmaster.pid"} for its port and use --db-port with that value.')
+    print(f'Reusing local database on port {args.db_port}; it will remain running on exit.',flush=True)
+else:
+    # TCP listens on loopback only; the filesystem cluster is private to this launcher.
+    subprocess.run([str(bin_dir/'pg_ctl'),'-D',str(base/'data'),'-l',str(base/'postgres.log'),'-o',f'-h 127.0.0.1 -p {args.db_port} -k /tmp','-w','start'],check=True,env=env)
 try:
     if new:
         subprocess.run([str(bin_dir/'createdb'),'-h','127.0.0.1','-p',str(args.db_port),'-U','postgres','tijara_tides'],check=True,env=env)
@@ -39,7 +51,8 @@ try:
     subprocess.run(['mix','assets.build'],cwd=root,env=env,check=True)
     if new or args.seed:
         subprocess.run(['mix','run','--no-start','scripts/seed_game.exs'],cwd=root,env=env,check=True)
-    print(f'Play at http://localhost:{args.web_port}/play. Ctrl-C stops server and database; data is retained.',flush=True)
+    shutdown='server and database' if started_database else 'server (the existing database stays running)'
+    print(f'Play at http://localhost:{args.web_port}/play. Ctrl-C stops {shutdown}; data is retained.',flush=True)
     app=subprocess.Popen(['mix','phx.server'],cwd=root,env=env)
     try:
         app.wait()
@@ -47,4 +60,5 @@ try:
         app.terminate()
         app.wait(timeout=20)
 finally:
-    subprocess.run([str(bin_dir/'pg_ctl'),'-D',str(base/'data'),'-m','fast','-w','stop'],check=True,env=env)
+    if started_database:
+        subprocess.run([str(bin_dir/'pg_ctl'),'-D',str(base/'data'),'-m','fast','-w','stop'],check=True,env=env)
