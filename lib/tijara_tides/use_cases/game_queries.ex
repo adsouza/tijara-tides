@@ -359,11 +359,21 @@ defmodule TijaraTides.UseCases.GameQueries do
     ) ++ undated
   end
 
-  def instruction_editor(definitions, ship, draft) do
+  def instruction_editor(definitions, ship, draft, markets \\ %{}, port \\ nil) do
+    draft =
+      if draft["visit_port"] && draft["visit_port"] != port,
+        do: Map.drop(draft, ["quantity", "limit"]),
+        else: draft
+
+    side = if draft["side"] == "buy", do: "buy", else: "sell"
+
     goods =
       definitions.catalogue["goods"]
       |> Enum.sort_by(fn {good, item} -> item["name"] || good end)
-      |> Enum.filter(fn {_, item} -> item["manual"] and compatible_cargo?(ship, item) end)
+      |> Enum.filter(fn {good, item} ->
+        item["manual"] and compatible_cargo?(ship, item) and
+          (side != "sell" or ship["status"] != "sailing" or cargo_aboard(ship, good) > 0)
+      end)
 
     good =
       if List.keymember?(goods, draft["good"], 0),
@@ -374,11 +384,15 @@ defmodule TijaraTides.UseCases.GameQueries do
              [] -> nil
            end)
 
-    side = if draft["side"] == "buy", do: "buy", else: "sell"
     maximum = if side == "sell", do: min(10_000, cargo_aboard(ship, good)), else: 10_000
 
+    default_quantity = if side == "sell", do: maximum, else: 1
+    quote = if port && good, do: markets[port <> "|" <> good]
+    price = if quote, do: quote[if(side == "sell", do: "bid", else: "ask")], else: 0
+    default_limit = Decimal.new(price || 0) |> Decimal.div(100) |> Decimal.to_string(:normal)
+
     quantity =
-      case Integer.parse(to_string(draft["quantity"] || "1")) do
+      case Integer.parse(to_string(draft["quantity"] || default_quantity)) do
         {n, ""} -> n
         _ -> 1
       end
@@ -388,6 +402,7 @@ defmodule TijaraTides.UseCases.GameQueries do
       good: good,
       side: side,
       maximum: maximum,
+      limit: draft["limit"] || default_limit,
       quantity: if(maximum < 1, do: 0, else: min(maximum, max(1, quantity)))
     }
   end

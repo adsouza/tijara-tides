@@ -712,6 +712,31 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     assert Game.get(changed, "visit_plans", "company:1|Singapore")["onward"] == "Dubai"
   end
 
+  test "one active sale per ship and cargo, including partially filled orders", c do
+    state =
+      put_in(c.state, [:entities, "ships", "company:1", "cargo"], [
+        %{"good" => "lumber", "quantity" => 5}
+      ])
+
+    sale = %{"side" => "sell", "quantity" => 2}
+    {:ok, ordered, _} = add(c, state, "first", sale)
+    assert {:error, :instruction_duplicate_sell} = add(c, ordered, "second", sale)
+
+    waiting =
+      ordered
+      |> put_in([:entities, "ship_instructions", "first", "status"], "waiting")
+      |> put_in([:entities, "ship_instructions", "first", "filled"], 1)
+
+    assert {:error, :instruction_duplicate_sell} = add(c, waiting, "second", sale)
+
+    for status <- ["filled", "cancelled"] do
+      closed = put_in(ordered, [:entities, "ship_instructions", "first", "status"], status)
+      assert {:ok, _, _} = add(c, closed, "replacement", sale)
+    end
+
+    assert {:ok, _, _} = add(c, ordered, "purchase", %{"quantity" => 1})
+  end
+
   test "sell targets cannot exceed the total currently aboard", c do
     assert {:error, :instruction_sell_exceeds_cargo} =
              add(c, c.state, "empty", %{"side" => "sell", "quantity" => 1})

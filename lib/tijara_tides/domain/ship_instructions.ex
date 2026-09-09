@@ -41,6 +41,13 @@ defmodule TijaraTides.Domain.ShipInstructions do
             ) ->
         {:error, :instruction_sell_exceeds_cargo}
 
+      side == "sell" and
+          Enum.any?(entities(state, "ship_instructions"), fn {_, order} ->
+            order["ship_id"] == ship["id"] and order["good"] == params["good"] and
+              order["side"] == "sell" and order["status"] in @open
+          end) ->
+        {:error, :instruction_duplicate_sell}
+
       side == "buy" and visit_onwards(state, ship["id"], port) not in [[], [onward]] ->
         {:error, :instruction_onward_conflict}
 

@@ -226,15 +226,20 @@ period. Voyages, leases, grace periods, cooldowns, auction windows, and arrears
 deadlines are real; reporting quarters and years are game periods mapping onto one
 and four real weeks respectively.
 
-Two families of parameter are deliberately expressed in game time, because they
-are calendar-scale concepts that would be absurd read as real time. Ship and
-facility useful lives, residual values, and depreciation schedules in section 13
-run in game years, so a hull with a twenty-game-year life lasts about eighty real
-weeks. Loan interest rates and installment schedules in section 12 are likewise
-quoted per game period, with installments falling on a game-quarter cadence and
-therefore about one real week apart. Wherever a player commits to one of these,
-display the game period and the corresponding real interval together, so nobody
-mistakes a twenty-year loan for a twenty-real-year obligation.
+Long-term asset lives and financial periods need explicit units alongside the
+accelerated reporting calendar. Current playtest hulls have a useful life of one
+game year: 28 active-world days, with a 20% residual value as specified in section
+9. A twenty-game-year life would mean eighty weeks of operation, but is not the
+current hull setting. The shorter hull life is provisional playtest tuning,
+separate from the 600× voyage speed; it does not compress the reporting calendar
+or the 112-active-world-day bankruptcy-history window.
+
+Current loans accrue interest per 24 active-world hours, with installments on
+that same cadence, as specified in section 12. They do not currently use a
+weekly game-quarter installment schedule. Wherever game periods are used,
+display the game period and the corresponding real interval together. World
+suspension pauses active-world durations. See [implementation scope and tuning](IMPLEMENTATION.md)
+for the currently implemented systems and deliberate deferrals.
 
 The shortest direct routes must take less than 15 real minutes under normal
 conditions, including with the slowest ship eligible for those routes. This lets
@@ -1890,6 +1895,12 @@ anchorage. Voyage fuel consumption stops while waiting, but crew and applicable
 refrigeration costs continue. Offline cash shortages do not immediately liquidate
 ships; unpaid operating bills outside warehouse liquidation share the loan
 arrears process in section 12.
+
+The following age-based maintenance curve is a target design rule, deliberately
+deferred in the current playtest. Current crew upkeep has no age multiplier;
+fully depreciated hulls can continue at flat upkeep, so buybacks alone do not
+complete the intended retirement and replacement cash sink. See
+[implementation scope and tuning](IMPLEMENTATION.md).
 
 Ships carry a maintenance cost that follows a published curve against age. It is
 flat through the ship's useful life and rises steadily afterward, until operating

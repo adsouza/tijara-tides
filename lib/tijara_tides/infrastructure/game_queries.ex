@@ -30,6 +30,7 @@ defmodule TijaraTides.Infrastructure.GameQueries do
   defdelegate cargo_markets(definitions, view, good, side, sort, ship), to: Queries
   def manifest(cargo), do: Queries.manifest(cargo, GameCatalogue.all())
   defdelegate instruction_editor(definitions, ship, draft), to: Queries
+  defdelegate instruction_editor(definitions, ship, draft, markets, port), to: Queries
   defdelegate instruction_visits(private, ship_id), to: Queries
   defdelegate instruction_onwards(private, ship_id, port), to: Queries
   defdelegate cargo_options(definitions, view, sort_roi), to: Queries

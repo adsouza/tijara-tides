@@ -1,10 +1,17 @@
 # First playable milestone
 
-The first playtest covers invitation-based accounts, one lasting company per
-account, loan-funded ship purchases, manual port trading, and automatic voyages.
-The approved design remains authoritative. This milestone does not expose
-auctions, remote orders, warehouses, loans, bankruptcy, or player industry before
-their settlement and recovery rules are implemented.
+The current playtest covers invitation-based accounts, one lasting company per
+account, loan-funded ship purchases, depreciated shipyard buybacks, manual port
+trading, timed voyages, next-port cargo instructions and optional automatic
+departure. Company finance includes loans, recasts, bankruptcy, escalating credit
+rates, account suspension and sponsor guarantees. The approved design remains
+authoritative; the provisional tuning and deferred systems below describe the
+current implementation.
+
+Auctions, standing exchange orders, warehouses, escalating age-based maintenance
+and player industry remain deferred. Next-port instructions are implemented;
+they execute ship-specific buy/sell actions on arrival rather than placing
+standing orders on a shared exchange.
 
 See [architecture and domain boundaries](architecture.md) for command workflows,
 query projections, consistency and module responsibilities.
@@ -22,8 +29,9 @@ query projections, consistency and module responsibilities.
   and records the result. Publish and acknowledge only after commit.
 - A fresh world process claims a new epoch. A superseded process becomes
   unavailable instead of reclaiming ownership. No game assets are created in
-  the database-free lobby. Migrations and seed invitations are explicit operator
-  commands, never automatic production startup mutations.
+  the database-free lobby. Container startup applies pending migrations before
+  starting the game; launch invitations still require explicit operator seeding.
+  Direct `mix phx.server` requires prior migration. See [database operations](database.md).
 - Startup restores the last committed simulation clock without wall-clock
   catch-up. An authenticated connection starts progression; it continues while
   the server stays awake, including after disconnect. Static catalogue and map
@@ -43,8 +51,26 @@ in the catalogue but cannot bypass their future auction mechanisms. Quantities,
 reference prices, production rates, ship prices, and travel scaling are explicit
 provisional tuning values. Voyages currently run at 600× sailing speed with a
 six-second minimum (10× faster than the initial playtest). Existing voyages are
-retimed on their next tick, preserving progress and fuel already spent. New companies start with no cash or ships; players borrow up to $250,000 and buy
-ships at any port. Existing companies retain their assets.
+retimed on their next tick, preserving progress and fuel already spent. New
+companies start with no cash or ships; players borrow up to $250,000 and buy ships
+at any port. Existing companies retain their assets.
+
+Hull depreciation uses a provisional 28-active-world-day useful life: one game
+year at the unchanged four-week reporting calendar, not twenty game years.
+Straight-line depreciation reduces build value to a 20% residual; shipyard
+buybacks pay 90% of current book value. The shorter life lets playtests exercise
+replacement sooner. It is separate tuning from the 600× voyage speed, not a
+rescaling of all world timers. Existing hulls start aging from the deployment
+clock at their then-current book value; no retrospective depreciation is charged.
+
+Age-based maintenance escalation is deliberately deferred. Current crew upkeep
+is age-independent, with reduced upkeep when docked or waiting and higher upkeep
+while sailing. A hull at residual value can therefore operate indefinitely at
+the same crew rate. Buyback provides voluntary divestment, but the economic
+pressure to retire old hulls and sustain the replacement cash sink is incomplete.
+Before evaluating long-term fleet turnover or money-supply balance, implement
+and tune the published post-useful-life maintenance curve in DESIGN.md §10,
+including the cost crossover against a replacement hull and its UI disclosure.
 
 Manual purchases require a destination with a valid voyage. After paying for
 cargo, handling, and any tanker cleaning, available cash must cover fuel for the

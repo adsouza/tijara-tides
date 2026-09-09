@@ -228,10 +228,39 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event("invite", params, socket), do: run(socket, Map.put(params, "action", "invite"))
 
   def handle_event("edit-instruction", params, socket) do
+    previous = Map.get(socket.assigns.instruction_drafts, socket.assigns.selected_ship, %{})
+
+    visit_port =
+      instruction_port(
+        socket.assigns.ship,
+        socket.assigns.destination,
+        socket.assigns.definitions
+      )
+
+    previous =
+      if previous["visit_port"] && previous["visit_port"] != visit_port,
+        do: Map.drop(previous, ["quantity", "limit"]),
+        else: previous
+
+    target = List.last(params["_target"] || [])
+
+    fields =
+      if target in ~w(side good quantity limit budget onward),
+        do: [target],
+        else: ~w(side good quantity limit budget onward)
+
+    draft = Map.merge(previous, Map.take(params, fields))
+    draft = if target in ["side", "good"], do: Map.drop(draft, ["quantity", "limit"]), else: draft
+
     draft =
-      Map.merge(
-        Map.get(socket.assigns.instruction_drafts, socket.assigns.selected_ship, %{}),
-        Map.take(params, ~w(side good quantity limit budget onward))
+      Map.put(
+        draft,
+        "visit_port",
+        instruction_port(
+          socket.assigns.ship,
+          socket.assigns.destination,
+          socket.assigns.definitions
+        )
       )
 
     {:noreply,
@@ -257,7 +286,7 @@ defmodule TijaraTidesWeb.GameLive do
         )
       )
       |> Map.update("quantity", 0, &integer/1)
-      |> Map.update("limit", 0, &(integer(&1) * 100))
+      |> Map.update("limit", 0, &instruction_cents/1)
       |> Map.update("budget", 0, &(integer(&1) * 100))
     )
   end
@@ -514,6 +543,13 @@ defmodule TijaraTidesWeb.GameLive do
        do: port
   end
 
+  defp instruction_cents(value) do
+    case Decimal.parse(to_string(value)) do
+      {amount, ""} -> amount |> Decimal.mult(100) |> Decimal.round(0) |> Decimal.to_integer()
+      _ -> 0
+    end
+  end
+
   defp instruction_value(drafts, ship, key, default),
     do: Map.get(Map.get(drafts, ship["id"], %{}), key, default)
 
@@ -673,6 +709,8 @@ defmodule TijaraTidesWeb.GameLive do
       instruction_ship_not_owned: "Select a ship owned by your company.",
       instruction_destination_invalid:
         "Choose the ship's next destination; a sailing ship can only use its current destination.",
+      instruction_duplicate_sell:
+        "An active sell instruction already exists for this ship and cargo. Cancel it before adding another.",
       instruction_cargo_invalid: "Choose compatible cargo with a market at the visit port.",
       instruction_quantity_invalid: "Use 1–10,000 lots and a valid nonnegative limit price.",
       instruction_sell_exceeds_cargo:
@@ -2086,15 +2124,17 @@ defmodule TijaraTidesWeb.GameLive do
                         for={%{}}
                         id="sell-ship-form"
                         phx-submit="sell-ship"
-                        data-confirm="Sell this ship to the shipyard? The ship will leave your fleet."
                         class="my-2"
                       >
                         <input type="hidden" name="request_id" value={@request_id} />
                         <input type="hidden" name="ship" value={@ship["id"]} />
                         <input type="hidden" name="minimum" value={ship_value.proceeds} />
-                        <button class="rounded border px-3 py-1" phx-disable-with="Selling…">Sell ship for {finance_money(
-                          ship_value.proceeds
-                        )}</button>
+                        <button
+                          type="submit"
+                          class="rounded border px-3 py-1"
+                          phx-disable-with="Selling…"
+                          data-confirm="Sell this ship to the shipyard? The ship will leave your fleet."
+                        >Sell ship for {finance_money(ship_value.proceeds)}</button>
                       </.form>
                       <% occupied =
                         Enum.reduce(@ship["cargo"], %{weight: 0, volume: 0}, fn batch, used ->
@@ -2270,8 +2310,16 @@ defmodule TijaraTidesWeb.GameLive do
                           GameQueries.instruction_editor(
                             @definitions,
                             @ship,
-                            Map.get(@instruction_drafts, @ship["id"], %{})
+                            Map.get(@instruction_drafts, @ship["id"], %{}),
+                            @view.markets,
+                            visit_port
                           ) %>
+                        <% duplicate_sell =
+                          instruction.side == "sell" &&
+                            Enum.any?(@view.private["ship_instructions"], fn {_, order} ->
+                              order["ship_id"] == @ship["id"] && order["good"] == instruction.good &&
+                                order["side"] == "sell" && order["status"] in ["planned", "waiting"]
+                            end) %>
                         <p class="my-2 text-sm text-slate-400">
                           Plan an onward destination with or without cargo orders. Departure is manual unless automatic departure is enabled for this visit.
                         </p>
@@ -2401,8 +2449,12 @@ defmodule TijaraTidesWeb.GameLive do
                             <select
                               name="good"
                               aria-label="Instruction cargo"
+                              disabled={instruction.goods == []}
                               class="block w-full rounded bg-slate-800 p-2"
                             >
+                              <option :if={instruction.goods == []} value="">
+                                No cargo available
+                              </option>
                               <option
                                 :for={{good, _item} <- instruction.goods}
                                 value={good}
@@ -2434,7 +2486,8 @@ defmodule TijaraTidesWeb.GameLive do
                             type="number"
                             min="0"
                             max="10000000000"
-                            value={instruction_value(@instruction_drafts, @ship, "limit", "0")}
+                            value={instruction.limit}
+                            step="0.01"
                             required
                             class="block w-full rounded bg-slate-800 p-2"
                           /></label>
@@ -2461,10 +2514,13 @@ defmodule TijaraTidesWeb.GameLive do
                           >
                             Save an onward destination above before adding buy instructions.
                           </p>
+                          <p :if={duplicate_sell} class="col-span-2 text-amber-200">
+                            An active sell instruction already exists for this cargo. Cancel it before adding another.
+                          </p>
                           <button
                             phx-disable-with="Adding…"
                             disabled={
-                              instruction.maximum < 1 or is_nil(instruction.good) or
+                              duplicate_sell or instruction.maximum < 1 or is_nil(instruction.good) or
                                 (instruction.side == "buy" and length(onwards) != 1)
                             }
                             class="self-end rounded bg-teal-700 p-2 disabled:cursor-not-allowed disabled:opacity-50"

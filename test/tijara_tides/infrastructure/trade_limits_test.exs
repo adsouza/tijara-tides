@@ -54,6 +54,54 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     editor = &TijaraTides.UseCases.GameQueries.instruction_editor(%{catalogue: catalogue}, &1, &2)
     draft = %{"side" => "sell", "good" => "lumber", "quantity" => "99"}
     assert %{maximum: 5, quantity: 5, good: "lumber"} = editor.(ship, draft)
+    markets = %{"Singapore|lumber" => %{"bid" => 12345, "ask" => 13000}}
+
+    defaults =
+      TijaraTides.UseCases.GameQueries.instruction_editor(
+        %{catalogue: catalogue},
+        ship,
+        %{"side" => "sell", "good" => "lumber"},
+        markets,
+        "Singapore"
+      )
+
+    assert defaults.quantity == 5
+    assert defaults.limit == "123.45"
+
+    edited = %{
+      "side" => "sell",
+      "good" => "lumber",
+      "quantity" => "2",
+      "limit" => "150",
+      "visit_port" => "Singapore"
+    }
+
+    assert %{quantity: 2, limit: "150"} =
+             TijaraTides.UseCases.GameQueries.instruction_editor(
+               %{catalogue: catalogue},
+               ship,
+               edited,
+               markets,
+               "Singapore"
+             )
+
+    assert %{quantity: 5, limit: "0"} =
+             TijaraTides.UseCases.GameQueries.instruction_editor(
+               %{catalogue: catalogue},
+               ship,
+               edited,
+               markets,
+               "Jakarta"
+             )
+
+    sailing = %{ship | "status" => "sailing"}
+    assert Enum.map(editor.(sailing, draft).goods, &elem(&1, 0)) == ["appliances", "lumber"]
+    assert editor.(sailing, %{draft | "good" => "spices"}).good == "appliances"
+
+    assert %{goods: [], good: nil, maximum: 0, quantity: 0} =
+             editor.(%{sailing | "cargo" => []}, draft)
+
+    assert length(editor.(sailing, %{draft | "side" => "buy"}).goods) > 2
     assert %{maximum: 1, quantity: 1} = editor.(ship, %{draft | "good" => "appliances"})
     assert %{maximum: 0, quantity: 0} = editor.(%{ship | "cargo" => []}, draft)
     assert %{maximum: 10_000, quantity: 99} = editor.(ship, %{draft | "side" => "buy"})
