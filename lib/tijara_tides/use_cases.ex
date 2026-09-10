@@ -4,6 +4,9 @@ defmodule TijaraTides.UseCases do
     deps: [TijaraTides.Domain],
     exports: [
       WorldCommands,
+      CommitPreparation,
+      ReportQueries,
+      ReportStore,
       GameCommands,
       CommandStore,
       CommandRequest,

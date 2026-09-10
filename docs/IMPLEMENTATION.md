@@ -168,9 +168,8 @@ are deferred.
 
 ## Following milestones
 
-Account identity linking and delivery integrations; standing order matching;
-berth queues and automated instructions; warehouse leases and reservations;
-auctions and procurement contracts; financial reporting, loans, and bankruptcy.
+Standing order matching; berth queues and repeating routes; warehouse leases
+and reservations; auctions and procurement contracts; age-based maintenance.
 Player-owned industry stays a later expansion under section 14.
 
 Markets by cargo compares applicable ports in two tables: Supply on the left
@@ -249,3 +248,37 @@ disabled button or ineligibility explanation is displayed.
 Ship details keep book value visible and place the shipyard offer, depreciation
 explanation and sale button inside a collapsed Shipyard offer disclosure.
 Its expanded state survives live updates for the selected ship.
+
+## Company results and leaderboards
+
+The Results & leaderboards panel is available to spectators and players. It
+provides quarter/year and profit/ROI selectors, ranked completed periods and
+unranked provisional results. Company owners also see sales revenue, cargo sold
+at cost, operating costs (including spoilage and asset-disposal losses),
+depreciation, net profit and average capital employed. Public results never expose
+cargo holdings or cost breakdowns. Bankruptcy history remains attached to accounts;
+former companies retain their own reports and restart companies begin afresh.
+
+Periods are anchored to active-world clock zero: quarters last seven days and
+years twenty-eight. Journal events at an exact boundary belong to the new period.
+Capital is integrated with integer cent-milliseconds between committed asset
+changes; integration splits at every period boundary. Borrowing adds assets but
+not profit; reserved cash and pledged guarantees remain capital. ROI is net
+profit divided by time-weighted assets, never shareholder equity. Zero capital,
+partial periods and companies bankrupt before period end are unranked. Quarterly
+profit and ROI reports offer the current quarter and latest three completed
+quarters through a dropdown. Yearly history remains available.
+
+Migration `20260910000000_add_financial_reports.exs` adds typed reporting-account
+and period-summary tables. Summaries update in the same transaction as domain
+entities, journal entries and command receipts. Existing companies begin tracking
+at the first startup with this feature; earlier results are not reconstructed or
+ranked. Their current period is provisional unless tracking begins exactly at its
+boundary. Deploy and test on a disposable database before applying locally; the
+normal production startup migration mechanism applies this schema on deployment.
+
+The panel fetches one selected period on opening or selection and supports explicit
+refresh. Each ranked, provisional and owner list is paged at 10 companies. Owner history
+has separate page controls from the leaderboard. The
+application query layer owns ranking and retention policy; the component renders
+its prepared results. Ordinary world ticks do not reload report history.

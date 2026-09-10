@@ -4,7 +4,7 @@ defmodule TijaraTides.UseCases.GameCommands do
   pure rules, commit atomically, then expose the result. Transport publishes only
   committed outcomes. Persistence and invitation credentials are supplied ports.
   """
-  alias TijaraTides.Domain.{Accounts, Commands, Journal}
+  alias TijaraTides.Domain.{Accounts, Commands}
   alias TijaraTides.UseCases.{CommandRequest, CommandResult}
 
   def execute(state, account, command, context),
@@ -31,13 +31,27 @@ defmodule TijaraTides.UseCases.GameCommands do
 
           case execute(game, account, request.payload, context) do
             {:ok, changed, result} ->
-              changed = %{changed | revision: game.revision + 1}
+              changed =
+                TijaraTides.UseCases.CommitPreparation.prepare(game, %{
+                  changed
+                  | revision: game.revision + 1
+                })
+
               receipt = {account["id"], request.id, request.fingerprint, result}
 
               case store.commit(storage, game, changed, receipt) do
-                {:ok, :ok} -> outcome(Journal.clear(changed), decorate.(result), true)
-                {:error, {:replay, result}} -> outcome(game, decorate.(result), false)
-                {:error, error} -> {:halt, error}
+                {:ok, :ok} ->
+                  outcome(
+                    TijaraTides.UseCases.CommitPreparation.accepted(changed),
+                    decorate.(result),
+                    true
+                  )
+
+                {:error, {:replay, result}} ->
+                  outcome(game, decorate.(result), false)
+
+                {:error, error} ->
+                  {:halt, error}
               end
 
             error ->

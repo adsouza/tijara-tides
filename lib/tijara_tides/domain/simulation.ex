@@ -3,7 +3,10 @@ defmodule TijaraTides.Domain.Simulation do
   alias TijaraTides.Domain.{Accounts, Fleet, Markets, Notices, ShipInstructions}
 
   def initialize(state, catalogue),
-    do: state |> Notices.prune_notices() |> Markets.initialize(catalogue)
+    do:
+      state
+      |> Notices.prune_notices()
+      |> Markets.initialize(catalogue)
 
   def advance(state, elapsed, catalogue) when is_integer(elapsed) and elapsed >= 0 do
     %{state | clock_ms: state.clock_ms + elapsed}

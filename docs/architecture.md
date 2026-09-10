@@ -17,6 +17,7 @@ not independently deployed services or independently committed aggregates.
 | City markets | `Domain.Markets` | Bounded stock, demand and budgets; finite manufactured stock; no synthetic merchant inventory; world-time replenishment. |
 | Credit and insolvency | `Domain.Finance` | Fixed loan terms, oldest-due settlement, protected reservations, shared active-clock arrears, bankruptcy and replacement entitlement. |
 | Accounting | `Domain.Journal`, persistence ledger adapter | Balanced integer-cent entries; durable ledger and entity balances committed together and reconciled. |
+| Financial accumulation | `Domain.Reporting`, `UseCases.CommitPreparation` | Integer capital-time integration and accounting categories; apply pending journal events before commit, clear only after success. |
 | Visibility | `Domain.Visibility` | Public ships never expose cargo, balances, credentials or private instructions; owner projections require authentication. |
 | Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, settle finance before and after fleet operations, then market recovery, ship instructions and invitation expiry in the established order; commit all phases together. |
 
@@ -114,6 +115,29 @@ control, revision consistency and failure behavior need explicit tests first.
 This is lightweight CQRS with distinct command workflows and read projections.
 It is not event sourcing: PostgreSQL entity state is authoritative, and the
 financial ledger is accounting history rather than a replay log for all gameplay.
+
+## Financial report reads and writes
+
+`Journal` emits balanced accounting events without calling reporting code.
+`CommitPreparation` applies their financial effects and accrues period totals
+for commands, simulation, and lifecycle writes before the shared transaction.
+Only a successful commit clears events and compacts closed report periods.
+
+`ReportQueries` owns period selection, retention, eligibility and public-field
+policy. Its `ReportStore` port is implemented by the PostgreSQL adapter. Queries
+read one selected period in pages of at most 10 rows per list, apply owner scoping
+in SQL, and verify world epoch/revision/clock in a read-only repeatable-read
+transaction. Revision races re-plan and retry at most twice. SQL runs in the requesting
+process after the world owner authenticates and prepares the query, leaving the
+world mailbox free. Owner history has independent pagination.
+Archived summaries stay in relational storage; only current quarter
+and year accumulators are restored into world memory. Compaction never deletes
+archived database rows.
+
+The financial panel renders a prepared page. It requests data on opening, changing
+selection, paging or explicit refresh; ordinary world ticks do not reload history.
+A report read failure leaves gameplay available and offers a retry. The ledger
+and summaries remain atomically committed; this is CQRS, not event sourcing.
 
 ## Change and verification rules
 

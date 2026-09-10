@@ -10,7 +10,8 @@
 body { background-image: radial-gradient(ellipse at top right, #123a46 0%, transparent 65%); }
 
 .game-screen { padding: 12px; }
-.game-header { min-height: 32px; margin-bottom: 8px; padding-right: 170px; }
+.game-header { min-height: 32px; margin-bottom: 8px; flex-wrap: wrap; flex-shrink: 0; }
+.game-header > .game-header-actions { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; }
 .game-header > div { display: flex; align-items: baseline; gap: 16px; }
 .game-screen-playing { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
 .game-screen-playing .game-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -53,9 +54,9 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 #map-panel > p { font-size: 10px; padding: 4px 10px; }
 #map-panel #region-ports { padding: 8px; }
 .workspace-tabs { display: none; }
-.company-menu { position: absolute; top: 16px; right: 16px; z-index: 40; font-size: 12px; }
+.company-menu { position: relative; z-index: 40; font-size: 12px; }
 .company-menu summary { cursor: pointer; padding: 4px 8px; color: #99f6e4; }
-.company-menu-body { position: absolute; right: 0; width: calc((100vw - 48px) / 3); max-height: 75dvh; overflow: auto; padding: 16px; border: 1px solid #475569; border-radius: 12px; background: #0f172a; box-shadow: 0 12px 40px #0008; }
+.company-menu-body { position: fixed; top: var(--popup-top, 88px); right: 16px; width: calc((100vw - 48px) / 3); max-height: calc(100dvh - var(--popup-top, 88px) - 16px); overflow: auto; padding: 16px; border: 1px solid #475569; border-radius: 12px; background: #0f172a; box-shadow: 0 12px 40px #0008; }
 .company-menu-body section { margin: 12px 0 0; padding: 0; }
 
 @media (orientation: portrait) {
@@ -166,3 +167,11 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 
 .company-menu > .company-menu-trigger { display: flex; align-items: center; gap: 6px; list-style: none; }
 .company-menu > .company-menu-trigger::-webkit-details-marker { display: none; }
+
+.financial-reports { position: relative; z-index: 41; }
+.financial-reports-body { position: fixed; top: var(--popup-top, 88px); right: 16px; width: min(720px, calc(100vw - 32px)); max-height: calc(100dvh - var(--popup-top, 88px) - 16px); overflow: auto; padding: 16px; border: 1px solid #475569; border-radius: 12px; background: #0f172a; box-shadow: 0 12px 40px #0008; }
+
+.game-header .popup-menu-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 4px 12px; border: 1px solid #475569; border-radius: 6px; background: #0f172a; color: #99f6e4; font-size: 14px; font-weight: 400; line-height: 22px; cursor: pointer; }
+.game-header .popup-menu-trigger:hover { background: #1e293b; border-color: #64748b; }
+.game-header .popup-menu-trigger:focus-visible { outline: 2px solid #5eead4; outline-offset: 2px; }
+.game-header .popup-menu-trigger[aria-expanded=true], .company-menu[open] > .popup-menu-trigger { background: #134e4a; border-color: #5eead4; }

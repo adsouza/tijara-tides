@@ -1,6 +1,12 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "reporting_accounts" => Enum.map(~w(id capital since_ms at_ms), &{&1, &1}),
+    "financial_reports" =>
+      Enum.map(
+        ~w(id company_id period period_index capital_ms observed_ms revenue cargo_cost operating depreciation),
+        &{&1, &1}
+      ),
     "email_requests" => [
       {"attempts", "attempts"},
       {"retry_ms", "retry_ms"},
@@ -158,7 +164,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "notices" => [{"account_id", "account_id"}, {"text", "message"}, {"clock_ms", "clock_ms"}]
   }
-  @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests)
+  @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports)
 
   @children %{
     "ships" =>
@@ -182,13 +188,23 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       columns = ["id" | Enum.map(fields, &elem(&1, 1))]
 
       rows =
-        repo.query!("SELECT #{Enum.join(columns, ",")} FROM game_#{kind} WHERE world_id=$1", [
-          world
-        ]).rows
+        repo.query!(
+          "SELECT #{Enum.join(columns, ",")} FROM game_#{kind} WHERE world_id=$1" <>
+            current_reports_filter(kind),
+          [
+            world
+          ]
+        ).rows
 
       entities =
         Map.new(rows, fn [id | values] ->
-          data = fields |> Enum.map(&elem(&1, 0)) |> Enum.zip(values) |> Map.new()
+          data =
+            fields
+            |> Enum.map(&elem(&1, 0))
+            |> Enum.zip(values)
+            |> Map.new(fn {key, value} ->
+              {key, if(key == "capital_ms", do: Decimal.to_integer(value), else: value)}
+            end)
 
           data =
             Enum.reduce(Map.get(@optional, kind, []), data, fn key, data ->
@@ -202,6 +218,12 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     end)
     |> Map.reject(fn {_, rows} -> map_size(rows) == 0 end)
   end
+
+  defp current_reports_filter("financial_reports"),
+    do:
+      " AND period_index=(SELECT clock_ms / CASE period WHEN 'quarter' THEN 604800000 ELSE 2419200000 END FROM game_worlds WHERE id=$1)"
+
+  defp current_reports_filter(_), do: ""
 
   defp load_children(repo, world, kind, entities) do
     case @children[kind] do
@@ -238,7 +260,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
         write_entity(repo, world, kind, id, Map.get(old, id), data)
       end
 
-      for id <- Map.keys(old), not Map.has_key?(new, id) do
+      for id <- Map.keys(old), kind != "financial_reports", not Map.has_key?(new, id) do
         repo.query!("DELETE FROM game_#{kind} WHERE world_id=$1 AND id=$2", [world, id])
       end
     end
@@ -261,7 +283,14 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
     if is_nil(old) do
       columns = ["world_id", "id" | Enum.map(fields, &elem(&1, 1))]
-      values = [world, id | Enum.map(fields, fn {key, _} -> data[key] end)]
+
+      values = [
+        world,
+        id
+        | Enum.map(fields, fn {key, _} ->
+            if(key == "capital_ms", do: Decimal.new(data[key]), else: data[key])
+          end)
+      ]
 
       repo.query!(
         "INSERT INTO game_#{kind}(#{Enum.join(columns, ",")}) VALUES (#{params(length(values))})",
@@ -278,7 +307,10 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
         repo.query!("UPDATE game_#{kind} SET #{assignments} WHERE world_id=$1 AND id=$2", [
           world,
-          id | Enum.map(changed, fn {key, _} -> data[key] end)
+          id
+          | Enum.map(changed, fn {key, _} ->
+              if(key == "capital_ms", do: Decimal.new(data[key]), else: data[key])
+            end)
         ])
       end
     end

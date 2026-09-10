@@ -433,3 +433,21 @@ the link in a separate browser first; request a fresh link if already consumed.
 Tokens are validated by the current world. Only links for the current server or its configured email origin are accepted.
 This flow uses the existing CSRF-protected confirmation and single-use credentials;
 it does not navigate to pasted URLs or require OS custom protocol registration.
+
+### Financial reporting storage
+
+`game_reporting_accounts` stores each company's tracking start, last accrual time
+and capital balance. `game_financial_reports` stores quarter/year monetary totals,
+observed time and a `numeric(40,0)` capital-time integral. Domain calculations use
+arbitrary-precision integers; the SQL boundary converts the integral to/from
+Decimal without rounding. Reporting writes share the fenced world transaction,
+so a rejected command, replay or failed write cannot partially publish results.
+Existing companies begin with a capital baseline at rollout and cannot rank an
+unobserved historical period. No wall-clock catch-up is applied on restart.
+
+Startup loads only current quarter/year accumulators. Closed summaries remain in
+PostgreSQL and are never deleted by in-memory compaction. Report queries read one
+period with bounded pages and owner predicates in SQL, using a read-only
+repeatable-read transaction that verifies the owning world revision. Accounting
+events and summary updates are prepared by the application commit workflow and
+written atomically; the journal has no dependency on report projections.

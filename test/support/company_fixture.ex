@@ -81,12 +81,16 @@ defmodule TijaraTides.CompanyFixture do
                 state.catalogue
               )
 
-            game = %{game | revision: game.revision + 1}
+            game =
+              TijaraTides.UseCases.CommitPreparation.prepare(state.game, %{
+                game
+                | revision: game.revision + 1
+              })
 
             {:ok, :ok} =
               GameStore.commit(state.repo, state.world_id, game.epoch, state.game, game)
 
-            game = Journal.clear(game)
+            game = TijaraTides.UseCases.CommitPreparation.accepted(game)
 
             %{
               state

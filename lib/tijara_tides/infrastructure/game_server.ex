@@ -4,7 +4,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   require Logger
   alias TijaraTides.Domain.Game
   alias TijaraTides.Infrastructure.GameCatalogue
-  alias TijaraTides.Infrastructure.Persistence.{GameStore, Repo}
+  alias TijaraTides.Infrastructure.Persistence.{GameStore, Repo, ReportStore}
   @topic "game:ocean"
   @call_timeout 30_000
 
@@ -15,6 +15,36 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   def snapshot(token \\ nil, server \\ default_server()),
     do: GenServer.call(server, {:snapshot, token}, @call_timeout)
+
+  # The owner process only plans the page; the SQL runs here, in the caller, so a slow
+  # or contended report read never queues behind or ahead of commands and world ticks.
+  def reports(token, selection, server \\ default_server()) do
+    reports_with_retry(token, selection, server, 2)
+  end
+
+  defp reports_with_retry(token, selection, server, retries) do
+    result =
+      case GenServer.call(server, {:report_plan, token, selection}, @call_timeout) do
+        {:ok, plan, store} -> read_reports(plan, store)
+        {:error, error} -> {:error, error}
+      end
+
+    case result do
+      {:error, :report_revision_changed} when retries > 0 ->
+        reports_with_retry(token, selection, server, retries - 1)
+
+      other ->
+        other
+    end
+  end
+
+  defp read_reports(plan, store) do
+    TijaraTides.UseCases.ReportQueries.fetch(plan, store)
+  rescue
+    error ->
+      log_failure("report query", error, __STACKTRACE__)
+      {:error, :report_unavailable}
+  end
 
   def command(token, request, command, server \\ default_server()),
     do: GenServer.call(server, {:command, token, request, command}, @call_timeout)
@@ -116,7 +146,12 @@ defmodule TijaraTides.Infrastructure.GameServer do
     if enabled do
       try do
         {:ok, game} = GameStore.claim(repo, state.world_id)
-        initialized = Game.initialize(game, state.catalogue)
+
+        initialized =
+          TijaraTides.UseCases.CommitPreparation.prepare(
+            game,
+            Game.initialize(game, state.catalogue)
+          )
 
         # Fresh-world market creation makes hundreds of writes over the database
         # connection. Allow startup to complete without extending gameplay calls.
@@ -125,7 +160,10 @@ defmodule TijaraTides.Infrastructure.GameServer do
              ) do
           {:ok, :ok} ->
             {:ok,
-             accept_game(%{state | status: :ready}, TijaraTides.Domain.Journal.clear(initialized))}
+             accept_game(
+               %{state | status: :ready},
+               TijaraTides.UseCases.CommitPreparation.accepted(initialized)
+             )}
 
           _ ->
             {:ok, %{state | status: :unavailable}}
@@ -138,6 +176,30 @@ defmodule TijaraTides.Infrastructure.GameServer do
     else
       {:ok, state}
     end
+  end
+
+  @impl true
+  def handle_call({:report_plan, token, selection}, _from, state) do
+    result =
+      if state.status == :ready do
+        plan =
+          TijaraTides.UseCases.ReportQueries.plan(
+            state.game,
+            hash(token),
+            System.system_time(:millisecond),
+            selection
+          )
+
+        {:ok, plan, {ReportStore, %{repo: state.repo, world_id: state.world_id}}}
+      else
+        {:error, :unavailable}
+      end
+
+    {:reply, result, state}
+  rescue
+    error ->
+      log_failure("report plan", error, __STACKTRACE__)
+      {:reply, {:error, :report_unavailable}, state}
   end
 
   @impl true
@@ -510,11 +572,15 @@ defmodule TijaraTides.Infrastructure.GameServer do
   end
 
   defp persist(state, game, receipt) do
-    game = %{game | revision: state.game.revision + 1}
+    game =
+      TijaraTides.UseCases.CommitPreparation.prepare(state.game, %{
+        game
+        | revision: state.game.revision + 1
+      })
 
     case GameStore.commit(state.repo, state.world_id, game.epoch, state.game, game, receipt) do
       {:ok, :ok} ->
-        next = accept_game(state, TijaraTides.Domain.Journal.clear(game))
+        next = accept_game(state, TijaraTides.UseCases.CommitPreparation.accepted(game))
         Phoenix.PubSub.broadcast(TijaraTides.PubSub, @topic, {:game_changed, game.revision})
         {:ok, next}
 

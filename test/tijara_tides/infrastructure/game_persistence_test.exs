@@ -39,6 +39,135 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "historical report pages survive compaction and restart, enforce privacy and remain bounded",
+       c do
+    alias TijaraTides.UseCases.CommitPreparation
+    alias TijaraTides.Infrastructure.Persistence.{GameStore, ReportStore}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => company}} =
+      GameServer.command(
+        token,
+        "company",
+        %{"action" => "company", "name" => "History"},
+        c.server
+      )
+
+    {:ok, _} =
+      GameServer.command(token, "loan", %{"action" => "borrow", "amount" => 1_000_000}, c.server)
+
+    before = :sys.get_state(c.server).game
+
+    changed =
+      CommitPreparation.prepare(before, %{
+        before
+        | clock_ms: 604_800_001,
+          revision: before.revision + 1
+      })
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, changed)
+    assert {:error, :report_revision_changed} = GameServer.reports(token, %{}, c.server)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :report_replacement
+      )
+
+    game = :sys.get_state(replacement).game
+
+    assert Enum.all?(game.entities["financial_reports"], fn {_, row} ->
+             row["period"] == "year" or row["period_index"] == 1
+           end)
+
+    assert [[1]] =
+             Repo.query!(
+               "SELECT count(*) FROM game_financial_reports WHERE world_id=$1 AND period='quarter' AND period_index=0",
+               [c.world_id]
+             ).rows
+
+    assert {:ok, page} = GameServer.reports(token, %{"index" => 0}, replacement)
+    assert [%{"eligible" => true, "average_capital" => 1_000_000}] = page.own
+    assert {:ok, anonymous} = GameServer.reports(nil, %{"index" => 0}, replacement)
+    assert anonymous.own == []
+    refute Map.has_key?(hd(anonymous.ranked), "capital_ms")
+
+    # Populate independent companies to verify LIMIT/OFFSET and owner filtering at the SQL boundary.
+    for {table, changes} <- [
+          {"game_accounts", "'id','rank-'||n,'company_id',NULL,'email',NULL"},
+          {"game_companies", "'id','rank-'||n,'account_id','rank-'||n,'name','Rank '||n"},
+          {"game_reporting_accounts", "'id','rank-'||n"},
+          {"game_financial_reports", "'id','rank-'||n||':quarter:0','company_id','rank-'||n"}
+        ] do
+      filter =
+        case table do
+          "game_accounts" ->
+            "id=(SELECT account_id FROM game_companies WHERE world_id=$1 AND id=$2)"
+
+          "game_financial_reports" ->
+            "company_id=$2 AND period='quarter' AND period_index=0"
+
+          _ ->
+            "id=$2"
+        end
+
+      Repo.query!(
+        "INSERT INTO #{table} SELECT (jsonb_populate_record(NULL::#{table}, to_jsonb(t)||jsonb_build_object(#{changes}))).* FROM #{table} t CROSS JOIN generate_series(1,55) n WHERE world_id=$1 AND #{filter}",
+        [c.world_id, company]
+      )
+    end
+
+    assert {:ok, first} = GameServer.reports(token, %{"index" => 0}, replacement)
+    assert length(first.ranked) == 10
+    assert first.ranked_count == 56
+    assert length(first.own) == 1
+    assert {:ok, second} = GameServer.reports(nil, %{"index" => 0, "page" => 1}, replacement)
+    assert length(second.ranked) == 10
+    assert {:ok, last} = GameServer.reports(nil, %{"index" => 0, "page" => 5}, replacement)
+    assert length(last.ranked) == 6
+
+    assert MapSet.disjoint?(
+             MapSet.new(first.ranked, & &1["company_id"]),
+             MapSet.new(second.ranked, & &1["company_id"])
+           )
+
+    # Former companies accumulate on the same account; their history must remain reachable.
+    Repo.query!(
+      "UPDATE game_companies SET account_id=(SELECT account_id FROM game_companies WHERE world_id=$1 AND id=$2) WHERE world_id=$1 AND id LIKE 'rank-%'",
+      [c.world_id, company]
+    )
+
+    assert {:ok, owned_first} =
+             GameServer.reports(token, %{"index" => 0, "page" => 1}, replacement)
+
+    assert owned_first.own_count == 56
+    assert length(owned_first.own) == 10
+
+    assert {:ok, owned_last} =
+             GameServer.reports(token, %{"index" => 0, "page" => 1, "own_page" => 5}, replacement)
+
+    assert length(owned_last.own) == 6
+    assert owned_first.ranked == owned_last.ranked
+
+    assert MapSet.disjoint?(
+             MapSet.new(owned_first.own, & &1["company_id"]),
+             MapSet.new(owned_last.own, & &1["company_id"])
+           )
+
+    assert {:ok, anonymous} =
+             GameServer.reports(nil, %{"index" => 0, "own_page" => 5}, replacement)
+
+    assert anonymous.own == []
+
+    assert {:error, :report_revision_changed} =
+             ReportStore.page(
+               %{repo: Repo, world_id: c.world_id},
+               TijaraTides.UseCases.ReportQueries.selection(game.clock_ms, %{}),
+               nil,
+               %{game | revision: -1}
+             )
+  end
+
   test "full repayment is shown only when unreserved cash covers principal and interest", c do
     Application.put_env(:tijara_tides, :game_server, c.server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
@@ -96,6 +225,37 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert {:ok, result} = GameServer.command(token, "recast-retry", command, c.server)
     assert {:ok, ^result} = GameServer.command(token, "recast-retry", command, c.server)
 
+    {:ok, page} = GameServer.reports(token, %{"period" => "quarter"}, c.server)
+    saved_reports = Enum.sort_by(page.own, & &1["id"])
+
+    current = Enum.find(saved_reports, &(&1["period"] == "quarter"))
+    assert current["profit"] == GameServer.snapshot(token, c.server).private["company"]["profit"]
+    refute current["eligible"]
+    assert has_element?(view, "#financial-reports", "Results & leaderboards")
+
+    render_click(view, "report-toggle")
+
+    for {period, metric} <- [{"year", "roi"}, {"year", "profit"}] do
+      render_click(view, "report-page", %{"page" => "2"})
+      render_click(view, "report-own-page", %{"page" => "3"})
+      assert has_element?(view, "#financial-reports", "Page 3")
+      refute has_element?(view, "section[aria-label='Your company results']")
+
+      render_change(view, "report-selection", %{
+        "period" => period,
+        "metric" => metric,
+        "period_number" => "1"
+      })
+
+      assert has_element?(view, "#financial-reports", "Page 1")
+      assert has_element?(view, "section[aria-label='Your company results']")
+    end
+
+    assert has_element?(view, "#report-selection option[value=year][selected]")
+    assert has_element?(view, "#financial-reports", "No eligible companies")
+    view |> element("#company-menu > summary") |> render_click()
+    refute has_element?(view, ".financial-reports-body")
+
     replacement =
       start_supervised!(
         {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
@@ -105,6 +265,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert {:ok, ^result} = GameServer.command(token, "recast-retry", command, replacement)
     restored = GameServer.snapshot(token, replacement).private
     assert restored["company"]["cash"] == 3_900_000
+    {:ok, restored_page} = GameServer.reports(token, %{"period" => "quarter"}, replacement)
+    assert Enum.sort_by(restored_page.own, & &1["id"]) == saved_reports
 
     assert [%{"remaining" => 7_900_000, "installment" => 1_975_000}] =
              restored["finance"]["loans"]
@@ -547,17 +709,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     instruction_form = "form[id=\"instruction-form-#{company}:1\"]"
     refute has_element?(view, instruction_form)
 
-    assert render(view) =~
-             "Choose a destination in the voyage controls before adding instructions."
+    refute has_element?(view, "details[id^=instructions-]")
 
     view |> form("#voyage-preview", %{"destination" => "Jakarta"}) |> render_change()
     assert has_element?(view, instruction_form, "Instructions at Jakarta")
 
-    assert has_element?(
-             view,
-             instruction_form <> " option[value='aluminium_scrap']",
-             "Aluminium scrap"
-           )
+    refute has_element?(view, instruction_form <> " option[value='aluminium_scrap']")
 
     refute has_element?(view, instruction_form <> " select[name=port]")
     view |> form("#voyage-preview", %{"destination" => "Dubai"}) |> render_change()
@@ -1726,8 +1883,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     {:ok, spectator, _} = build_conn() |> live("/play")
     refute has_element?(spectator, "#cargo-ship-filter")
     render_click(spectator, "inspect-ship", %{"id" => ship["id"]})
-    assert has_element?(spectator, "#public-ship-inspector", "Company: Browser Shipping")
-    assert has_element?(spectator, "#public-ship-inspector", "Class: Balanced freighter")
+    assert has_element?(spectator, "#public-ship-inspector", "Browser Shipping")
+    assert has_element?(spectator, "#public-ship-inspector", "Balanced freighter")
     refute render(spectator) =~ "— Manifest"
     refute has_element?(spectator, "table[aria-label='Ship cargo manifest']")
     GenServer.stop(spectator.pid)

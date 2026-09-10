@@ -88,13 +88,17 @@ prevent.
 
 Public projections omit balances and cargo. PubSub announces revisions only;
 subscribers fetch their own authorized projection. Static route and map data are
-versioned assets. Email and Google identity linking remain unimplemented.
+versioned assets. Email identity linking is implemented; Google linking remains
+unimplemented. Financial report pages use the application report-query port,
+with owner filtering and bounded pagination in PostgreSQL. Only current report
+accumulators occupy world memory. See [domain and CQRS architecture](docs/architecture.md)
+for commit preparation and query consistency.
 
 When enabled, Repo and Readiness start before Telemetry, PubSub, WorldServer,
 GameServer, and Endpoint under `rest_for_one`. Owner crashes restart Endpoint so
 clients reconnect. Storage failure leaves gameplay unavailable and `/statusz`
-unhealthy; restart after repairing the failure. Migrations are explicit operator
-commands and never run at normal startup.
+unhealthy; restart after repairing the failure. Configured storage is migrated before the supervision tree starts; migration
+failure prevents startup.
 
 See [implementation scope](docs/IMPLEMENTATION.md) and
 [database operations](docs/database.md) for playtest rules and verification.
