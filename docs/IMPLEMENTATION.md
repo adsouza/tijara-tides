@@ -4,7 +4,9 @@ The current playtest covers invitation-based accounts, one lasting company per
 account, loan-funded ship purchases, depreciated shipyard buybacks, manual port
 trading, timed voyages, next-port cargo instructions and optional automatic
 departure. Company finance includes loans, recasts, bankruptcy, escalating credit
-rates, account suspension and sponsor guarantees. The approved design remains
+rates, account suspension and sponsor guarantees. Verified email linking and
+sign-in, email invitations, and quarterly/yearly financial reports and
+leaderboards are also implemented. The approved design remains
 authoritative; the provisional tuning and deferred systems below describe the
 current implementation.
 
@@ -129,7 +131,8 @@ Stored cargo retains its cost and freshness. Perishable trades disclose estimate
 time to first expiry after handling for the entered quantity. Voyage estimates
 show time to first expiry at arrival and after unloading all current cargo, and
 update while underway. Public ship inspection shows company, class, and status
-without exposing cargo. Changing the onboarding starting port updates its market. Suspension pauses every active timer.
+without exposing cargo. Selecting a port updates its market view. World suspension
+pauses simulation timers; wall-clock session and magic-link expiry still apply.
 
 Raw-resource producers replenish finite stock; manufactured goods have a finite
 initial allocation until input-consuming production is implemented. Re-export
@@ -139,10 +142,11 @@ production remains part of the full economy. Consumer demand and spending budget
 replenish and are capped. Supply and demand recover one lot every 150 seconds
 of active world time (0.4 lots per minute); buyer budgets recover one lot’s
 reference value on the same interval. Partial intervals carry across ticks. This is a manual
-NPC market adapter, not the eventual central limit order book. Berth capacity,
-ship purchases, warehouses, automated trading, annual invite entitlements, and
-leaderboard periods are not yet exposed. Operating shortfalls accumulate as unpaid
-bills; loans and bankruptcy recovery are a later milestone.
+NPC market adapter, not the eventual central limit order book. Berth capacity
+and queues, warehouses, repeating routes, standing exchange orders, and annual
+invitation allocations remain deferred. Next-port cargo instructions and optional
+automatic departure are available. Operating shortfalls accumulate as unpaid
+bills and participate in the implemented loan settlement and bankruptcy rules.
 
 Launch invitations grant three outgoing invitations; ordinary invitees initially
 have no outgoing quota. Unused invitations expire after three active-world days
@@ -152,8 +156,10 @@ in the signed, HTTP-only cookie. A lost redemption response can be retried using
 that same credential, including after server restart. Another device holding
 only the invitation cannot recover the account; revoked or expired credentials
 cannot be revived. POST without the pre-issued cookie consumes nothing.
-Email delivery, identity linking, and recovery after losing the device credential
-are deferred.
+Verified email linking, email delivery, and email sign-in are implemented. Players
+with a linked email can regain access on another device; accounts without a linked
+email still depend on their existing device session. Desktop users can redeem an
+emailed token inside the app. Google sign-in remains deferred.
 
 ## Verification gates
 
@@ -176,8 +182,9 @@ Markets by cargo compares applicable ports in two tables: Supply on the left
 and Demand on the right, stacking on narrow screens. Each shows quantity and its
 relevant price, with independent sorting and clickable ports. Supply defaults to
 ascending price then descending supply; demand defaults to descending price then
-descending demand. Cargo selection and sorting persist through live updates; markets
-whose trading systems are deferred are labeled unavailable instead of showing
+descending demand, then ascending sea-route distance on the demand side. Cargo
+selection and sorting persist through live updates. These tables omit ports
+without executable supply or demand; deferred trading systems do not contribute
 executable quotes.
 
 ## Accounting and lot foundations
@@ -188,7 +195,8 @@ reservations/consumption, crew costs/arrears, and spoilage post atomically with
 state changes and receipts. Company summaries reconcile with ledger balances;
 startup also verifies those balances against historical entries. Existing
 playtest companies receive explicit opening entries rather than fabricated
-history. No ledger UI or future loan/auction functionality is implied.
+history. Loan and bankruptcy accounting is implemented; auctions and a raw
+ledger-history UI remain deferred.
 
 Cargo-lot IDs survive transfers and FIFO reordering. Partial purchases and sales
 split the source into child lots whose immutable parent link preserves lineage.
@@ -198,7 +206,7 @@ new identities participate in the same transaction as holdings and accounting.
 ### Playable company finance
 
 The account overlay supports bank borrowing, repayment schedules, full early
-repayment and confirmed voluntary bankruptcy. Domain finance settles oldest-due
+repayment, partial repayment through recasting, and confirmed voluntary bankruptcy. Domain finance settles oldest-due
 installments and operating bills without using reserved voyage funds. One
 24-active-hour grace period leads to forced bankruptcy; suspension pauses it.
 Bankruptcy history, a 20-active-minute restart cooldown and reduced credit
@@ -245,9 +253,10 @@ hours (for example, ~2 days or ~1 hour), then minutes or seconds below an hour.
 Declare bankruptcy is shown only when the company is eligible to declare; no
 disabled button or ineligibility explanation is displayed.
 
-Ship details keep book value visible and place the shipyard offer, depreciation
-explanation and sale button inside a collapsed Shipyard offer disclosure.
-Its expanded state survives live updates for the selected ship.
+Ship details show the depreciation explanation beside book value. The sale
+button and buyback percentage sit inside a collapsed Shipyard offer disclosure,
+which is hidden while sailing. Its expanded state survives live updates for the
+selected ship.
 
 ## Company results and leaderboards
 
