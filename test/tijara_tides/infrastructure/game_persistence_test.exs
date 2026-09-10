@@ -39,6 +39,161 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "repeating route UI, receipts, private templates and active visit survive restart", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Route company",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    render_click(view, "ship", %{"id" => ship})
+    assert has_element?(view, "[id='repeating-route-#{ship}']")
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Jakarta"}) |> render_submit()
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Singapore"}) |> render_submit()
+
+    assert has_element?(
+             view,
+             "[id='route-start-#{ship}'] input[name=auto_depart][type=hidden][value=true]"
+           )
+
+    refute has_element?(view, "[id='route-start-#{ship}'] input[type=checkbox]")
+    private = GameServer.snapshot(token, c.server).private
+    first = private["route_stops"] |> Map.values() |> Enum.find(&(&1["position"] == 0))
+
+    view |> form("#route-rule-#{first["id"]}", %{"side" => "sell"}) |> render_change()
+    assert has_element?(view, "#route-rule-#{first["id"]} input[name=budget][disabled]")
+    view |> form("#route-rule-#{first["id"]}", %{"side" => "buy"}) |> render_change()
+    refute has_element?(view, "#route-rule-#{first["id"]} input[name=budget][disabled]")
+
+    rule = %{
+      "action" => "route",
+      "operation" => "add_rule",
+      "ship" => ship,
+      "stop" => first["id"],
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 3,
+      "limit" => 1_000_000,
+      "budget" => 10_000_000
+    }
+
+    assert {:ok, _} = GameServer.command(token, "rule", rule, c.server)
+    assert {:ok, _} = GameServer.command(token, "rule", rule, c.server)
+    assert map_size(GameServer.snapshot(token, c.server).private["route_rules"]) == 1
+    second = private["route_stops"] |> Map.values() |> Enum.find(&(&1["position"] == 1))
+
+    view
+    |> form("#route-rule-#{second["id"]}", %{"side" => "sell", "quantity_mode" => "maximum"})
+    |> render_change()
+
+    assert has_element?(view, "#route-rule-#{second["id"]} input[name=quantity][disabled]")
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "sell-all",
+               Map.merge(rule, %{
+                 "stop" => second["id"],
+                 "side" => "sell",
+                 "quantity_mode" => "maximum",
+                 "quantity" => nil,
+                 "limit" => 0
+               }),
+               c.server
+             )
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "start",
+               %{
+                 "action" => "route",
+                 "operation" => "start",
+                 "ship" => ship,
+                 "auto_depart" => false
+               },
+               c.server
+             )
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 1)
+    current = GameServer.snapshot(token, c.server).private
+    assert current["ship_routes"][ship]["phase"] == "buying"
+    assert current["ships"][ship]["status"] == "loading"
+    assert [order] = Map.values(current["ship_instructions"])
+    assert order["filled"] == 3
+    refute Map.has_key?(GameServer.snapshot(nil, c.server).public, "ship_routes")
+    assert GameServer.snapshot(nil, c.server).private == nil
+
+    buy_rule = current["route_rules"] |> Map.values() |> Enum.find(&(&1["side"] == "buy"))
+    view |> element("button[phx-value-rule='#{buy_rule["id"]}']", "Edit") |> render_click()
+
+    assert has_element?(
+             view,
+             "#route-rule-#{first["id"]} input[name=operation][value=update_rule]"
+           )
+
+    view
+    |> form("#route-rule-#{first["id"]}", %{"quantity" => "4", "budget" => ""})
+    |> render_submit()
+
+    current = GameServer.snapshot(token, c.server).private
+    assert current["route_rules"][buy_rule["id"]]["quantity"] == 4
+    assert current["route_rules"][buy_rule["id"]]["budget"] == nil
+    assert current["ship_instructions"][order["id"]]["quantity"] == 3
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :route_replacement
+      )
+
+    restored = GameServer.snapshot(token, replacement).private
+
+    for kind <- ["ship_routes", "route_stops", "route_rules", "ship_instructions"],
+        do: assert(restored[kind] == current[kind])
+
+    assert {:ok, _} = GameServer.command(token, "rule", rule, replacement)
+    assert map_size(GameServer.snapshot(token, replacement).private["route_rules"]) == 2
+    GameServer.connect(token, replacement)
+    advance(replacement, 300_000)
+    finished = GameServer.snapshot(token, replacement).private
+    assert finished["ships"][ship]["status"] == "docked"
+    assert Enum.sum(for b <- finished["ships"][ship]["cargo"], do: b["quantity"]) == 3
+    assert finished["ship_instructions"][order["id"]]["filled"] == 3
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "delete",
+               %{"action" => "route", "operation" => "delete", "ship" => ship},
+               replacement
+             )
+
+    assert [[0]] ==
+             Repo.query!("SELECT count(*) FROM game_ship_routes WHERE world_id=$1", [c.world_id]).rows
+
+    assert [[0]] ==
+             Repo.query!("SELECT count(*) FROM game_route_rules WHERE world_id=$1", [c.world_id]).rows
+  end
+
   test "historical report pages survive compaction and restart, enforce privacy and remain bounded",
        c do
     alias TijaraTides.UseCases.CommitPreparation
@@ -1275,6 +1430,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert log =~ "ArgumentError"
     assert log =~ "financial_ledger.ex"
+    assert log =~ "Company balances do not reconcile with journal"
     refute log =~ token
     assert GameServer.readiness(server) == :unavailable
   end

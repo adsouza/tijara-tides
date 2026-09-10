@@ -54,7 +54,14 @@ defmodule TijaraTidesWeb.EmailSessionController do
       _ -> invalid_link(conn)
     end
   rescue
-    ArgumentError -> invalid_link(conn)
+    error in ArgumentError ->
+      TijaraTides.Infrastructure.ExceptionLog.error(
+        "Invalid email verification URL",
+        error,
+        __STACKTRACE__
+      )
+
+      invalid_link(conn)
   end
 
   defp invalid_link(conn) do

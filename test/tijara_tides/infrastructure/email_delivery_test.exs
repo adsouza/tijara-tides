@@ -67,7 +67,7 @@ defmodule TijaraTides.Infrastructure.EmailDeliveryTest do
 
       case config[:outcome] do
         :error -> {:error, :provider_unavailable}
-        :raise -> raise "sensitive-provider-credential"
+        :raise -> raise "Provider rejected api_key=sensitive-provider-credential"
         :exit -> exit(:sensitive_provider_credential)
         :ok -> {:ok, %{id: "provider-receipt"}}
       end
@@ -138,6 +138,7 @@ defmodule TijaraTides.Infrastructure.EmailDeliveryTest do
       assert_receive {:outbox_update, {:email_failed, "login"}}
       refute_received {:outbox_update, {:email_delivered, _}}
       refute log =~ "sensitive"
+      if unquote(outcome) == :raise, do: assert(log =~ "Provider rejected api_key=[REDACTED]")
     end
   end
 

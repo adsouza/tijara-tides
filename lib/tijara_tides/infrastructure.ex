@@ -11,6 +11,7 @@ defmodule TijaraTides.Infrastructure do
       Ecto.Adapters.SQL
     ],
     exports: [
+      ExceptionLog,
       GameServer,
       Mailer,
       EmailDelivery,

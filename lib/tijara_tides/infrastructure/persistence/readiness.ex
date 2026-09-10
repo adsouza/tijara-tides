@@ -56,19 +56,45 @@ defmodule TijaraTides.Infrastructure.Persistence.Readiness do
 
   defp safely_check(check) do
     case check.() do
-      :ok -> :ready
-      _ -> :failed
+      :ok ->
+        :ready
+
+      {:error, error} when is_exception(error) ->
+        TijaraTides.Infrastructure.ExceptionLog.error(
+          "Database readiness check failed",
+          error,
+          []
+        )
+
+        :failed
+
+      _ ->
+        :failed
     end
   rescue
-    _ -> :failed
+    error ->
+      TijaraTides.Infrastructure.ExceptionLog.error(
+        "Database readiness check failed",
+        error,
+        __STACKTRACE__
+      )
+
+      :failed
   catch
     _, _ -> :failed
   end
 
   defp check_database do
     case Repo.query("SELECT 1", [], timeout: 30_000, log: false) do
-      {:ok, %{rows: [[1]]}} -> :ok
-      _ -> :error
+      {:ok, %{rows: [[1]]}} ->
+        :ok
+
+      {:error, error} when is_exception(error) ->
+        TijaraTides.Infrastructure.ExceptionLog.error("Database connectivity failed", error, [])
+        :error
+
+      _ ->
+        :error
     end
   end
 end

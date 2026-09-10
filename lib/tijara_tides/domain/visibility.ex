@@ -52,6 +52,18 @@ defmodule TijaraTides.Domain.Visibility do
         Map.filter(entities(state, "ships"), fn {_, s} ->
           s["company_id"] == account["company_id"]
         end),
+      "ship_routes" =>
+        Map.filter(entities(state, "ship_routes"), fn {_, row} ->
+          row["company_id"] == account["company_id"]
+        end),
+      "route_stops" =>
+        Map.filter(entities(state, "route_stops"), fn {_, row} ->
+          row["company_id"] == account["company_id"]
+        end),
+      "route_rules" =>
+        Map.filter(entities(state, "route_rules"), fn {_, row} ->
+          row["company_id"] == account["company_id"]
+        end),
       "visit_plans" =>
         Map.filter(entities(state, "visit_plans"), fn {_, plan} ->
           plan["company_id"] == account["company_id"]

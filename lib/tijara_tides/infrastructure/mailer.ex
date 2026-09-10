@@ -15,14 +15,28 @@ defmodule TijaraTides.Infrastructure.EmailDelivery do
   def handle_info(_, state), do: {:noreply, state}
 
   defp deliver(message) do
-    Mailer.deliver(message)
+    case Mailer.deliver(message) do
+      {:error, error} = result when is_exception(error) ->
+        TijaraTides.Infrastructure.ExceptionLog.error("Email delivery failed", error, [])
+        result
+
+      result ->
+        result
+    end
   rescue
-    _ -> {:error, :delivery_failed}
+    error ->
+      TijaraTides.Infrastructure.ExceptionLog.error(
+        "Email delivery failed",
+        error,
+        __STACKTRACE__
+      )
+
+      {:error, :delivery_failed}
   catch
     :exit, _ -> {:error, :delivery_failed}
   end
 
-  # Do not log exceptions or GenServer exit payloads: they may contain credentials.
+  # GenServer exit payloads may contain credentials; retain only their category.
   defp safe_status(status) when status in [:unavailable, :disabled, :not_configured, :loading],
     do: status
 
@@ -66,7 +80,12 @@ defmodule TijaraTides.Infrastructure.EmailDelivery do
             :ok
         end
       rescue
-        error -> Logger.error("Email poll failed: #{inspect(error.__struct__)}; retrying")
+        error ->
+          TijaraTides.Infrastructure.ExceptionLog.error(
+            "Email poll failed",
+            error,
+            __STACKTRACE__
+          )
       catch
         :exit, reason ->
           Logger.warning("Email poll failed: game call exited (#{exit_kind(reason)}); retrying")

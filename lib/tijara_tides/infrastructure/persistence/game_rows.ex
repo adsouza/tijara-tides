@@ -73,6 +73,30 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"restart_ms", "restart_ms"},
       {"reason", "reason"}
     ],
+    "ship_routes" =>
+      Enum.map(
+        ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason),
+        &{&1, &1}
+      ),
+    "route_stops" => [
+      {"id", "id"},
+      {"ship_id", "ship_id"},
+      {"company_id", "company_id"},
+      {"position", "position"},
+      {"port", "port_id"}
+    ],
+    "route_rules" => [
+      {"id", "id"},
+      {"ship_id", "ship_id"},
+      {"company_id", "company_id"},
+      {"stop_id", "stop_id"},
+      {"side", "side"},
+      {"good", "good_id"},
+      {"quantity", "quantity_lots"},
+      {"quantity_mode", "quantity_mode"},
+      {"limit", "limit_cents"},
+      {"budget", "budget_cents"}
+    ],
     "visit_plans" => [
       {"id", "id"},
       {"ship_id", "ship_id"},
@@ -90,6 +114,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"good", "good_id"},
       {"side", "side"},
       {"quantity", "quantity_lots"},
+      {"quantity_mode", "quantity_mode"},
       {"filled", "filled_lots"},
       {"limit", "limit_cents"},
       {"budget", "budget_cents"},
@@ -164,7 +189,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "notices" => [{"account_id", "account_id"}, {"text", "message"}, {"clock_ms", "clock_ms"}]
   }
-  @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports)
+  @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
 
   @children %{
     "ships" =>

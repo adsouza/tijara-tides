@@ -20,6 +20,10 @@ defmodule TijaraTides.Domain.ShipInstructions do
       is_nil(ship) or is_nil(account["company_id"]) or ship["company_id"] != account["company_id"] ->
         {:error, :instruction_ship_not_owned}
 
+      # Whether a ship runs a route is private, so never answer before ownership.
+      get(state, "ship_routes", params["ship"]) != nil ->
+        {:error, :route_owns_instructions}
+
       ship["status"] not in ["docked", "loading", "unloading", "sailing"] or
         is_nil(catalogue["ports"][port]) or port == ship["port"] or
           (ship["status"] == "sailing" and port != ship["destination"]) ->
@@ -69,6 +73,7 @@ defmodule TijaraTides.Domain.ShipInstructions do
           "port" => port,
           "good" => params["good"],
           "side" => side,
+          "quantity_mode" => "fixed",
           "quantity" => quantity,
           "filled" => 0,
           "limit" => limit,
@@ -94,6 +99,10 @@ defmodule TijaraTides.Domain.ShipInstructions do
     cond do
       is_nil(ship) or is_nil(account["company_id"]) or ship["company_id"] != account["company_id"] ->
         {:error, :instruction_ship_not_owned}
+
+      # Whether a ship runs a route is private, so never answer before ownership.
+      get(state, "ship_routes", ship_id) != nil ->
+        {:error, :route_owns_instructions}
 
       is_nil(catalogue["ports"][port]) or
           (ship["status"] == "sailing" and port != ship["destination"]) ->
@@ -177,19 +186,25 @@ defmodule TijaraTides.Domain.ShipInstructions do
           else: state
       end)
 
-    Enum.reduce(entities(state, "ship_instructions"), state, fn {_, order}, state ->
-      if order["ship_id"] == ship_id and order["status"] in @open and
-           (order["status"] == "waiting" or order["port"] != destination),
-         do: finish(state, order, "Cancelled remainder on departure", catalogue),
-         else: state
-    end)
+    state =
+      Enum.reduce(entities(state, "ship_instructions"), state, fn {_, order}, state ->
+        if order["ship_id"] == ship_id and order["status"] in @open and
+             (order["status"] == "waiting" or order["port"] != destination),
+           do: finish(state, order, "Cancelled remainder on departure", catalogue),
+           else: state
+      end)
+
+    TijaraTides.Domain.ShipRoutes.departed(state, ship_id, destination)
   end
 
   def advance(state, catalogue) do
+    state = TijaraTides.Domain.ShipRoutes.advance(state, catalogue)
     # Stable order across restarts; sell instructions always precede purchases.
     entities(state, "ship_instructions")
     |> Map.values()
-    |> Enum.filter(&(&1["status"] in @open))
+    |> Enum.filter(
+      &(&1["status"] in @open and TijaraTides.Domain.ShipRoutes.executable?(state, &1["ship_id"]))
+    )
     |> Enum.sort_by(&{if(&1["side"] == "sell", do: 0, else: 1), &1["created_ms"], &1["id"]})
     |> Enum.reduce(state, &attempt(&2, &1, catalogue))
     |> depart_ready_visits(catalogue)
@@ -201,7 +216,9 @@ defmodule TijaraTides.Domain.ShipInstructions do
     |> Enum.reduce(state, fn {id, plan}, state ->
       ship = get(state, "ships", plan["ship_id"])
 
-      if plan["auto_depart"] == true and not is_nil(ship) and ship["port"] == plan["port"] and
+      if plan["auto_depart"] == true and
+           TijaraTides.Domain.ShipRoutes.executable?(state, plan["ship_id"]) and not is_nil(ship) and
+           ship["port"] == plan["port"] and
            ship["status"] in ["docked", "loading", "unloading"] do
         pending =
           Enum.any?(entities(state, "ship_instructions"), fn {_, order} ->
@@ -285,6 +302,12 @@ defmodule TijaraTides.Domain.ShipInstructions do
       account = get(state, "accounts", company["account_id"])
       remaining = order["quantity"] - order["filled"]
 
+      maximum_buy =
+        order["quantity_mode"] == "maximum" and order["side"] == "buy"
+
+      maximum_sell =
+        order["quantity_mode"] == "maximum" and order["side"] == "sell"
+
       trade = %Trade{
         side: order["side"],
         ship_id: ship["id"],
@@ -298,9 +321,10 @@ defmodule TijaraTides.Domain.ShipInstructions do
       result = fn quantity ->
         case Trading.execute(state, account, %{trade | quantity: quantity}, catalogue) do
           {:ok, changed, reply} ->
-            if order["side"] == "buy" and order["spent"] + reply["spent"] > order["budget"],
-              do: {:error, :instruction_budget_exhausted},
-              else: {:ok, changed, reply}
+            if order["side"] == "buy" and not is_nil(order["budget"]) and
+                 order["spent"] + reply["spent"] > order["budget"],
+               do: {:error, :instruction_budget_exhausted},
+               else: {:ok, changed, reply}
 
           error ->
             error
@@ -322,7 +346,9 @@ defmodule TijaraTides.Domain.ShipInstructions do
 
           plan = get(state, "visit_plans", ship["id"] <> "|" <> order["port"])
 
-          if sales_pending or (plan && plan["auto_depart"] == true),
+          route = get(state, "ship_routes", ship["id"])
+
+          if sales_pending or ((is_nil(route) and plan) && plan["auto_depart"] == true),
             do:
               wait(
                 state,
@@ -339,12 +365,38 @@ defmodule TijaraTides.Domain.ShipInstructions do
               )
 
         {:error, reason} ->
-          wait(state, order, reason_text(reason), catalogue)
+          if (maximum_sell and reason in [:insufficient_demand, :insufficient_cargo]) or
+               (maximum_buy and
+                  (reason in [
+                     :insufficient_supply,
+                     :insufficient_cash,
+                     :instruction_budget_exhausted
+                   ] or match?({:purchase_voyage_funds, _, _, _}, reason))),
+             do:
+               update(
+                 state,
+                 %{
+                   order
+                   | "status" => "filled",
+                     "reason" =>
+                       if(maximum_sell,
+                         do: "Available demand exhausted; unsold cargo stays aboard",
+                         else: "Maximum available purchase completed"
+                       )
+                 },
+                 catalogue
+               ),
+             else: wait(state, order, reason_text(reason), catalogue)
 
         {:ok, _, _} ->
-          quantity = maximum(1, remaining, result)
+          quantity = maximum(1, min(remaining, 10_000), result)
           {:ok, changed, reply} = result.(quantity)
           filled = order["filled"] + quantity
+
+          order =
+            if (maximum_buy or maximum_sell) and quantity < 10_000,
+              do: %{order | "quantity" => filled},
+              else: order
 
           order = %{
             order

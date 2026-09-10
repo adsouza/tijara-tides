@@ -22,6 +22,9 @@ defmodule TijaraTides.Domain.Commands do
     catalogue = context.catalogue
 
     case command do
+      %{"action" => "route"} ->
+        TijaraTides.Domain.ShipRoutes.execute(state, account, command, context)
+
       %{"action" => "guarantee", "account" => id, "amount" => amount} ->
         TijaraTides.Domain.Guarantees.pledge(state, account, id, amount, context.id)
 

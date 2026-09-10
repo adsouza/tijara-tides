@@ -28,8 +28,8 @@ for attempt in range(60):
         status, headers, body = request("/healthz")
         if status == 200:
             break
-    except (OSError, http.client.HTTPException):
-        pass
+    except (OSError, http.client.HTTPException) as error:
+        print(f"Waiting for server: {type(error).__name__}: {error}", file=sys.stderr)
     time.sleep(1)
 else:
     raise RuntimeError("Server did not become healthy")

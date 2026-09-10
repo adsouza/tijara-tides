@@ -2,8 +2,8 @@
 
 The current playtest covers invitation-based accounts, one lasting company per
 account, loan-funded ship purchases, depreciated shipyard buybacks, manual port
-trading, timed voyages, next-port cargo instructions and optional automatic
-departure. Company finance includes loans, recasts, bankruptcy, escalating credit
+trading, timed voyages, next-port cargo instructions, repeating routes and optional
+automatic departure. Company finance includes loans, recasts, bankruptcy, escalating credit
 rates, account suspension and sponsor guarantees. Verified email linking and
 sign-in, email invitations, and quarterly/yearly financial reports and
 leaderboards are also implemented. The approved design remains
@@ -143,7 +143,7 @@ replenish and are capped. Supply and demand recover one lot every 150 seconds
 of active world time (0.4 lots per minute); buyer budgets recover one lot’s
 reference value on the same interval. Partial intervals carry across ticks. This is a manual
 NPC market adapter, not the eventual central limit order book. Berth capacity
-and queues, warehouses, repeating routes, standing exchange orders, and annual
+and queues, warehouses, standing exchange orders, and annual
 invitation allocations remain deferred. Next-port cargo instructions and optional
 automatic departure are available. Operating shortfalls accumulate as unpaid
 bills and participate in the implemented loan settlement and bankruptcy rules.
@@ -174,7 +174,7 @@ emailed token inside the app. Google sign-in remains deferred.
 
 ## Following milestones
 
-Standing order matching; berth queues and repeating routes; warehouse leases
+Standing order matching; berth queues; warehouse leases
 and reservations; auctions and procurement contracts; age-based maintenance.
 Player-owned industry stays a later expansion under section 14.
 
@@ -291,3 +291,63 @@ refresh. Each ranked, provisional and owner list is paged at 10 companies. Owner
 has separate page controls from the leaderboard. The
 application query layer owns ranking and retention policy; the component renders
 its prepared results. Ordinary world ticks do not reload report history.
+
+## Repeating routes
+
+The Ships panel has a collapsed Repeating route editor, using the existing form,
+button and disclosure styles. One ship can have one private route with two to
+eight ordered stops and at most twenty cargo targets per stop. Adjacent stops
+and the final/first pair must differ. The final stop returns to the first.
+Running and paused routes remain editable. Cargo targets can be added, edited,
+or removed; already-created visit orders retain their original terms, including
+quantity mode. Changes apply when the relevant stage next creates orders.
+Future stops can be added or removed while preserving the active stop identity.
+The current and next stops are protected, as is appending a new next leg after
+orders for the final stop have been created. Every active circuit stays valid. Removing a route preserves its cargo,
+committed handling and current voyage while cancelling future route activity.
+Existing single-visit instructions and onward plans must be cleared first;
+route-managed ships cannot also receive independent next-port instructions.
+
+Each stop sells up to its configured quantity from cargo actually aboard, then
+finishes unloading before calculating purchase shortfalls. Load targets include
+retained cargo; a fresh per-visit cap limits purchases including handling and
+cleaning, without earmarking cash. Prices use the same limit semantics and
+voyage-affordability checks as manual and single-visit trades. Partial fills retry
+and never accumulate across circuits. Once sales finish, exhausted hold capacity
+cancels the remaining loading shortfall with notification. Other unfilled targets
+wait until filled or explicitly cancelled. Expiry and maximum-wait controls,
+warehouse collection, linked exchange orders and advance purchase budgets remain
+future extensions.
+
+Starting or resuming a route in the UI enables automatic departure. Existing
+routes are upgraded to automatic departure too. Normal funding and handling guards
+apply; blocked departures show their reason and retry. Pause stops new route
+fills and automatic departures, while committed voyages and handling finish.
+Resume retains the current visit's fills. Stop after this visit finishes its
+orders and handling, then pauses before departure. A manual departure to another
+port pauses the route; return to its selected stop before resuming. Start requires
+the ship to be at, or sailing to, the first stop.
+
+Migration `20260911000000_add_repeating_routes.exs` adds relational route, stop and
+target tables. The current cursor, visit counter and execution phase commit with
+cargo instructions, trades, ledger and command receipts. Only the current visit's
+instruction rows are retained, keeping route execution bounded across circuits.
+Restart restores progress without rematerializing filled orders or replaying
+purchases. Route definitions and execution details are owner-only.
+
+Route targets support fixed lots, **Buy maximum**, and **Sell all aboard**. Maximum
+purchases use available hold, stock, free cash including voyage reserves, and the
+purchase cap. Resource exhaustion completes the purchase for that visit; price
+limits still wait. Sell-all quantities use cargo aboard at each visit and sell only what current
+demand and buyer funds permit. Unsold cargo stays aboard and the route continues
+after handling finishes; minimum-price limits still wait. Fixed targets remain available.
+
+Repeating-route purchase caps are optional. A blank cap persists as no cap, not
+as zero or a large sentinel. Limit prices, available cash, voyage reserves, stock
+and hold capacity still constrain every purchase. Existing caps remain in place
+until the player clears them; existing visit orders keep their original cap.
+
+Route cargo choices use ship-class compatibility rather than the current load.
+A tanker can plan to sell refined fuel and then buy crude at the same stop.
+Actual execution still forbids mixing liquid cargoes and applies cleaning costs;
+unsold incompatible cargo must be cleared before the purchase can proceed.

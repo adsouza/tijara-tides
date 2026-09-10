@@ -2,10 +2,16 @@ defmodule TijaraTides.Domain.CargoRules do
   @moduledoc "Hold compatibility, handling durations and perishable freshness estimates."
   import TijaraTides.Domain.Fleet, only: [classes: 0]
 
+  def compatible_class?(ship, item) do
+    hold = classes()[ship["class"]]["hold"]
+    item["hold"] == hold or (hold == "reefer" and item["hold"] == "dry")
+  end
+
   def compatible_cargo?(ship, item) do
     hold = classes()[ship["class"]]["hold"]
-    supported = item["hold"] == hold or (hold == "reefer" and item["hold"] == "dry")
-    supported and (hold != "liquid" or Enum.all?(ship["cargo"], &(&1["good"] == item["id"])))
+
+    compatible_class?(ship, item) and
+      (hold != "liquid" or Enum.all?(ship["cargo"], &(&1["good"] == item["id"])))
   end
 
   def handling_ms(quantity), do: max(1000, quantity * 500)

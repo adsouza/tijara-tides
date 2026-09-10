@@ -4,7 +4,7 @@ const input = document.querySelector("#server-url");
 const recent = document.querySelector("#recent-servers");
 const error = document.querySelector("#error");
 let storage;
-try { storage = window.localStorage; } catch {}
+try { storage = window.localStorage; } catch (failure) { console.warn("Cannot access connection storage:", failure.message); }
 const connections = loadConnections(storage);
 input.value = connections.last;
 
@@ -23,6 +23,7 @@ function connect() {
     const url = rememberConnection(storage, input.value);
     window.location.replace(playUrl(url));
   } catch (failure) {
+    console.warn("Connection failed:", failure.message);
     error.textContent = failure.message;
     error.hidden = false;
   }

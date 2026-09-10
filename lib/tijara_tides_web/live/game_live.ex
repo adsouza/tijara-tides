@@ -23,6 +23,7 @@ defmodule TijaraTidesWeb.GameLive do
         page_title: "Your shipping company",
         definitions: GameServer.definitions(),
         selected_port: "Singapore",
+        route_drafts: %{},
         report_open: false,
         report_data: nil,
         report_error: nil,
@@ -360,6 +361,83 @@ defmodule TijaraTidesWeb.GameLive do
      )}
   end
 
+  def handle_event("route-edit-rule", %{"rule" => id}, socket) do
+    rule = get_in(socket.assigns.view.private || %{}, ["route_rules", id])
+
+    if rule && rule["ship_id"] == socket.assigns.selected_ship do
+      draft =
+        Map.merge(rule, %{
+          "rule" => id,
+          "limit" => :erlang.float_to_binary(rule["limit"] / 100, decimals: 2),
+          "budget" => if(rule["budget"], do: to_string(div(rule["budget"], 100)), else: ""),
+          "quantity" => to_string(rule["quantity"] || 1)
+        })
+
+      {:noreply,
+       assign(socket, :route_drafts, Map.put(socket.assigns.route_drafts, rule["stop_id"], draft))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("route-edit-cancel", %{"stop" => stop}, socket) do
+    {:noreply, assign(socket, :route_drafts, Map.delete(socket.assigns.route_drafts, stop))}
+  end
+
+  def handle_event("route-draft", params, socket) do
+    key = params["stop"]
+
+    if is_binary(key) and Map.has_key?(socket.assigns.view.private["route_stops"] || %{}, key) do
+      {:noreply,
+       assign(
+         socket,
+         :route_drafts,
+         Map.put(
+           socket.assigns.route_drafts,
+           key,
+           params
+           |> Map.take(~w(rule side good quantity quantity_mode limit budget))
+           |> Map.filter(fn {_, value} -> is_binary(value) and byte_size(value) <= 128 end)
+         )
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("route", params, socket) do
+    command =
+      params
+      |> Map.take(~w(operation port stop rule side good quantity_mode request_id))
+      |> Map.merge(%{"action" => "route", "ship" => socket.assigns.selected_ship})
+
+    command =
+      case params["operation"] do
+        op when op in ["add_rule", "update_rule"] ->
+          Map.merge(command, %{
+            "quantity" => report_number(params["quantity"]) || 0,
+            "limit" =>
+              if(is_binary(params["limit"]) and byte_size(params["limit"]) <= 32,
+                do: instruction_cents(params["limit"]),
+                else: -1
+              ),
+            "budget" =>
+              if(params["budget"] in [nil, ""],
+                do: nil,
+                else: (report_number(params["budget"]) || 0) * 100
+              )
+          })
+
+        op when op in ["start", "resume"] ->
+          Map.put(command, "auto_depart", true)
+
+        _ ->
+          command
+      end
+
+    run(socket, command)
+  end
+
   def handle_event("add-instruction", params, socket) do
     run(
       socket,
@@ -502,6 +580,16 @@ defmodule TijaraTidesWeb.GameLive do
 
     case GameServer.command(socket.assigns.token, request, command) do
       {:ok, result} ->
+        socket =
+          if command["action"] == "route" && command["operation"] in ["add_rule", "update_rule"],
+            do:
+              assign(
+                socket,
+                :route_drafts,
+                Map.delete(socket.assigns.route_drafts, command["stop"])
+              ),
+            else: socket
+
         socket = if result["code"], do: assign(socket, :invite_code, result["code"]), else: socket
 
         socket =
@@ -843,7 +931,7 @@ defmodule TijaraTidesWeb.GameLive do
       guarantee_amount: "Pledge at least $50,000, up to the player's normal credit limit.",
       guarantee_funds: "Not enough unreserved cash to fund this guarantee.",
       ship_sale_unavailable:
-        "Dock and empty the ship, then clear pending cargo instructions and onward plans before selling.",
+        "Dock and empty the ship, then clear pending cargo instructions, onward plans and repeating routes before selling.",
       ship_sale_price_changed:
         "The shipyard offer has changed. Review the current value and try again.",
       ship_company_unavailable: "Create an active company before buying a ship.",
@@ -861,6 +949,25 @@ defmodule TijaraTidesWeb.GameLive do
       email_unavailable:
         "That email cannot be linked or invited. Its owner can use email sign-in instead.",
       email_rate_limited: "Too many email requests. Please try again later.",
+      route_ship_not_owned: "Choose a ship owned by your active company.",
+      route_stop_committed:
+        "This stop belongs to the current visit or next leg. Edit it after the ship advances.",
+      route_edit_draft:
+        "Route stops can be edited before starting. Remove the route to replace its plan; committed handling continues.",
+      route_existing_instructions:
+        "Finish or cancel next-port instructions and clear their onward plan before creating a repeating route.",
+      route_owns_instructions:
+        "This ship uses a repeating route. Use its route controls instead.",
+      route_stop_limit: "A repeating route can have up to eight stops.",
+      route_port_invalid:
+        "Choose a valid port with a sea route; consecutive stops must be different.",
+      route_duplicate_rule:
+        "Use one target per cargo and action at each stop, with at most twenty targets per stop.",
+      route_needs_stops:
+        "Add at least two stops. The last stop returns to the first, so they must differ.",
+      route_start_port:
+        "The ship must be at, or sailing toward, the route's selected stop to start or resume.",
+      route_missing: "This ship has no saved repeating route.",
       instruction_duplicate_sell:
         "An active sell instruction already exists for this ship and cargo. Cancel it before adding another.",
       instruction_cargo_invalid: "Choose compatible cargo with a market at the visit port.",
@@ -2735,8 +2842,18 @@ defmodule TijaraTidesWeb.GameLive do
                         id={"voyage-freshness-" <> @ship["id"]}
                         estimates={@view.private["voyage_freshness"][@ship["id"]]}
                       />
+                      <TijaraTidesWeb.ShipRouteEditor.panel
+                        ship={@ship}
+                        model={GameQueries.route_editor(@view.private, @ship, @definitions.catalogue)}
+                        catalogue={@definitions.catalogue}
+                        drafts={@route_drafts}
+                        request_id={@request_id}
+                      />
                       <details
-                        :if={instruction_port(@ship, @destination, @definitions) != nil}
+                        :if={
+                          instruction_port(@ship, @destination, @definitions) != nil &&
+                            is_nil((@view.private["ship_routes"] || %{})[@ship["id"]])
+                        }
                         id={"instructions-" <> @ship["id"]}
                         phx-mounted={JS.ignore_attributes("open")}
                         class="mt-4 rounded border border-slate-700 p-3"

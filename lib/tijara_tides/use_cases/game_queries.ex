@@ -4,6 +4,64 @@ defmodule TijaraTides.UseCases.GameQueries do
   @moduledoc "Pure read-side planning projections. Reads never mutate domain state."
   alias TijaraTides.Domain.{Fleet, Trading, CargoRules, Visibility}
 
+  def route_editor(private, ship, catalogue) do
+    route = Map.get(private["ship_routes"] || %{}, ship["id"])
+
+    stops =
+      (private["route_stops"] || %{})
+      |> Map.values()
+      |> Enum.filter(&(&1["ship_id"] == ship["id"]))
+      |> Enum.sort_by(& &1["position"])
+
+    rules =
+      (private["route_rules"] || %{})
+      |> Map.values()
+      |> Enum.filter(&(&1["ship_id"] == ship["id"]))
+      |> Enum.sort_by(&{&1["side"], &1["id"]})
+      |> Enum.group_by(& &1["stop_id"])
+
+    goods =
+      catalogue["goods"]
+      |> Enum.filter(fn {_, good} ->
+        good["manual"] == true and CargoRules.compatible_class?(ship, good)
+      end)
+      |> Enum.sort_by(fn {_, good} -> good["name"] end)
+
+    orders =
+      (private["ship_instructions"] || %{})
+      |> Map.values()
+      |> Enum.filter(&(&1["ship_id"] == ship["id"] and String.starts_with?(&1["id"], "route:")))
+      |> Enum.sort_by(&{&1["side"], &1["id"]})
+
+    plan =
+      (private["visit_plans"] || %{}) |> Map.values() |> Enum.find(&(&1["ship_id"] == ship["id"]))
+
+    stop_goods =
+      Map.new(stops, fn stop ->
+        choices =
+          Map.new(["buy", "sell"], fn side ->
+            role = if side == "buy", do: "exp", else: "imp"
+
+            {side,
+             Enum.filter(goods, fn {id, _} ->
+               String.contains?(catalogue["ports"][stop["port"]]["roles"][id] || "", role)
+             end)}
+          end)
+
+        {stop["id"], choices}
+      end)
+
+    %{
+      route: route,
+      stops: stops,
+      rules: rules,
+      goods: goods,
+      stop_goods: stop_goods,
+      orders: orders,
+      plan: plan
+    }
+  end
+
   def ship_sale_value(ship, clock), do: Fleet.sale_value(ship, clock)
 
   def preview(game, catalogue, authenticated, id, destination) do

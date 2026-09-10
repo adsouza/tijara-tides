@@ -537,21 +537,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
       )
 
   defp log_failure(operation, error, stacktrace) do
-    # Exception messages may contain SQL parameters or credentials. Log the type
-    # and stack frames, without inspecting the exception or command payload.
-    stacktrace =
-      Enum.map(stacktrace, fn
-        {module, function, args, location} when is_list(args) ->
-          {module, function, length(args), location}
-
-        frame ->
-          frame
-      end)
-
-    Logger.error(
-      "Game #{operation} failed (#{inspect(error.__struct__)}):\n" <>
-        Exception.format_stacktrace(stacktrace)
-    )
+    TijaraTides.Infrastructure.ExceptionLog.error("Game #{operation} failed", error, stacktrace)
 
     if is_struct(error, Postgrex.Error) or is_struct(error, DBConnection.ConnectionError),
       do: :storage_unavailable,

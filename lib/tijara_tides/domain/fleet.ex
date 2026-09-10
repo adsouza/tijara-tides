@@ -26,9 +26,11 @@ defmodule TijaraTides.Domain.Fleet do
     company = get(state, "companies", account["company_id"])
 
     committed =
-      Enum.any?(entities(state, "ship_instructions"), fn {_, order} ->
-        order["ship_id"] == id and order["status"] in ["planned", "waiting"]
-      end) or Enum.any?(entities(state, "visit_plans"), fn {_, plan} -> plan["ship_id"] == id end)
+      get(state, "ship_routes", id) != nil or
+        Enum.any?(entities(state, "ship_instructions"), fn {_, order} ->
+          order["ship_id"] == id and order["status"] in ["planned", "waiting"]
+        end) or
+        Enum.any?(entities(state, "visit_plans"), fn {_, plan} -> plan["ship_id"] == id end)
 
     cond do
       is_nil(ship) or is_nil(company) or ship["company_id"] != company["id"] or

@@ -11,6 +11,7 @@ not independently deployed services or independently committed aggregates.
 | Area | Owner | Invariants |
 |---|---|---|
 | Identity and company formation | `Domain.Accounts` | Valid durable sessions; one active company per account; invitation entitlement lifecycle; zero-asset formation and explicit borrowing. |
+| Repeating routes | `Domain.ShipRoutes` | Private bounded stop templates; durable visit cursor and phase; fresh load shortfalls per visit; pause without cancelling committed movement. |
 | Ship operation | `Domain.Fleet` | Ownership and handling status before departure; fuel funding and reservation; capacity measured in kg/litres; fuel and crew costs settled once. |
 | Cargo | `Domain.CargoRules`, `CargoLots` | Hold compatibility, liquid mixing restrictions, freshness, stable lot identity and split lineage. |
 | Trading | `Domain.Trading` | Atomic cash, cargo, liquidity and accounting changes; destination funding rechecked before purchase. |
@@ -193,3 +194,30 @@ tree. `Release` coordinates `Ecto.Migrator` through `SchemaMaintenance`: schema
 changes serialize with world claims and fence earlier world epochs. Migration
 failure prevents startup; migration-free restarts do not change world epochs
 until the normal world claim.
+
+## Repeating route orchestration
+
+`ShipRoutes` validates private route templates and materializes one visit at a
+time into `ShipInstructions`. Sale instructions finish before loading targets
+are evaluated against retained cargo. The existing trading and fleet operations
+remain responsible for cash, cargo, handling and departure invariants.
+`ShipInstructions.depart` advances the route only after a successful departure;
+failed commits cannot publish a new cursor. Paused routes emit no new fills or
+automatic departures. Bankruptcy removes route configuration and pending visits.
+
+`game_ship_routes`, `game_route_stops` and `game_route_rules` are typed relational
+tables with foreign keys and bounded positions/quantities. They use the existing
+fenced transaction and command receipt workflow. `GameQueries.route_editor`
+prepares the owner-only editor model; the component formats it. No public world
+projection contains route cargo targets, limits or budgets.
+
+### Exception diagnostics
+
+Caught server exceptions use Infrastructure.ExceptionLog to record their type,
+message, and stack trace. Do not substitute a type-only or generic failure log.
+The formatter redacts common credential formats, database row details, and
+embedded values in pattern-matching exceptions; stack frames retain arity rather
+than argument values. Never deliberately include credentials or request bodies
+in exception messages. Process-exit payloads remain summarized because they can
+contain complete GenServer requests. Expected validation failures remain normal
+error results rather than exceptions.

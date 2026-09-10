@@ -3,6 +3,8 @@ defmodule TijaraTides.Infrastructure.GameQueries do
   alias TijaraTides.UseCases.GameQueries, as: Queries
   alias TijaraTides.Infrastructure.GameCatalogue
 
+  defdelegate route_editor(private, ship, catalogue), to: Queries
+
   defdelegate ship_sale_value(ship, clock), to: Queries
 
   defdelegate compatible_cargo?(ship, item), to: Queries

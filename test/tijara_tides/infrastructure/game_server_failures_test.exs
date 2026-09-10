@@ -13,12 +13,22 @@ defmodule TijaraTides.Infrastructure.GameServerFailuresTest do
   end
 
   defmodule StorageException do
-    def transaction(_fun), do: raise(DBConnection.ConnectionError, message: "private-db-marker")
-    def query!(_sql, _args), do: raise(DBConnection.ConnectionError, message: "private-db-marker")
+    def transaction(_fun),
+      do:
+        raise(DBConnection.ConnectionError,
+          message: "Connection refused password=private-db-marker"
+        )
+
+    def query!(_sql, _args),
+      do:
+        raise(DBConnection.ConnectionError,
+          message: "Connection refused password=private-db-marker"
+        )
   end
 
   defmodule DomainException do
-    def query!(_sql, _args), do: raise(ArgumentError, "private-domain-marker")
+    def query!(_sql, _args),
+      do: raise(ArgumentError, "Invalid command token=private-domain-marker")
   end
 
   defmodule NoPersistence do
@@ -72,6 +82,7 @@ defmodule TijaraTides.Infrastructure.GameServerFailuresTest do
 
     assert log =~ "initialization"
     assert log =~ "DBConnection.ConnectionError"
+    assert log =~ "Connection refused password=[REDACTED]"
     refute log =~ "private-db-marker"
   end
 
@@ -103,6 +114,7 @@ defmodule TijaraTides.Infrastructure.GameServerFailuresTest do
         end)
 
       assert log =~ "command"
+      assert log =~ "[REDACTED]"
       refute log =~ unquote(marker)
       refute_receive {:game_changed, _}, 10
     end

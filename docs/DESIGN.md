@@ -1462,8 +1462,13 @@ undecided.
 The first playable instruction milestone covers one destination visit, with
 manual departure by default and optional automatic departure. It uses the
 current simulated markets and immediate berth
-assignment. Repeating routes, warehouse collection, remote exchange orders,
-optional expiry and maximum-wait controls remain later extensions.
+assignment. Repeating routes now extend this execution path with private ordered stops,
+per-visit cargo targets, pause/resume and stop-after-visit controls. The editor
+sits in a collapsed Repeating route disclosure in the Ships panel and preserves
+its open state across live updates. Automatic departure remains off by default.
+Warehouse collection, remote exchange orders, optional expiry and maximum-wait
+controls remain later extensions. See IMPLEMENTATION.md for the bounded
+playtest route editor and its lifecycle.
 
 The Ships panel shows a next-port instruction editor with the voyage
 destination shown as read-only text, buy or sell side, compatible cargo,

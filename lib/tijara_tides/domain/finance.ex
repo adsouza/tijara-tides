@@ -572,7 +572,15 @@ defmodule TijaraTides.Domain.Finance do
 
         state =
           Enum.reduce(
-            ["ship_instructions", "visit_plans", "operating_bills", "loan_installments"],
+            [
+              "route_rules",
+              "route_stops",
+              "ship_routes",
+              "ship_instructions",
+              "visit_plans",
+              "operating_bills",
+              "loan_installments"
+            ],
             state,
             fn kind, state ->
               Enum.reduce(entities(state, kind), state, fn {id, row}, state ->

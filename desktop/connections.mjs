@@ -6,17 +6,17 @@ const LAST_KEY = "tijara-tides:server";
 const HISTORY_KEY = "tijara-tides:servers";
 
 function valid(value) {
-  try { return serverUrl(value); } catch { return null; }
+  try { return serverUrl(value); } catch (error) { console.warn("Invalid saved server:", error.message); return null; }
 }
 
 export function loadConnections(storage) {
   let last;
   let recent = [];
-  try { last = valid(storage.getItem(LAST_KEY)); } catch {}
+  try { last = valid(storage.getItem(LAST_KEY)); } catch (error) { console.warn("Connection history unavailable:", error.message); }
   try {
     const saved = JSON.parse(storage.getItem(HISTORY_KEY));
     if (Array.isArray(saved)) recent = saved.map(valid).filter(Boolean);
-  } catch {}
+  } catch (error) { console.warn("Connection history unavailable:", error.message); }
   last ||= recent[0] || DEFAULT_SERVER;
   return {last, recent: [...new Set([last, ...recent])].slice(0, HISTORY_LIMIT)};
 }
@@ -28,7 +28,7 @@ export function rememberConnection(storage, value) {
   try {
     storage.setItem(HISTORY_KEY, JSON.stringify(next));
     storage.setItem(LAST_KEY, url);
-  } catch {}
+  } catch (error) { console.warn("Connection history unavailable:", error.message); }
   return url;
 }
 
