@@ -2281,25 +2281,56 @@ defmodule TijaraTidesWeb.GameLive do
                     class="my-6 rounded-xl border border-slate-700 p-5"
                   >
                     <% inspected = @view.public["ships"][@inspected_ship] %>
-                    <h2 class="text-xl">{inspected["name"]}</h2>
-                    <p>Company: {@view.public["companies"][inspected["company_id"]]["name"]}</p>
-                    <p
-                      :if={@view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil}
-                      class="text-red-300"
-                    >
-                      Company in bankruptcy — assets in receivership
-                    </p>
-                    <p>Class: {@definitions.classes[inspected["class"]]["name"]}</p>
-                    <p>
-                      Status: {inspected["status"]} · {inspected["port"]}<span :if={
-                        inspected["destination"]
-                      }> → {inspected[
-                        "destination"
-                      ]}</span>
-                    </p>
+                    <div class="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                          <h2 class="break-words text-lg font-semibold text-teal-200">
+                            {inspected["name"]}
+                          </h2>
+                          <p class="mt-1 text-sm text-slate-400">
+                            {@view.public["companies"][inspected["company_id"]]["name"]}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          phx-click="close-map-ship"
+                          aria-label="Dismiss ship information"
+                          class="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                        >✕</button>
+                      </div>
+                      <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                        <span class="rounded-full border border-slate-600 px-2 py-1 text-slate-300">{@definitions.classes[
+                          inspected["class"]
+                        ]["name"]}</span>
+                        <span
+                          :if={inspected["status"] != "sailing"}
+                          class="rounded-full bg-teal-950 px-2 py-1 capitalize text-teal-200"
+                        >{inspected[
+                          "status"
+                        ]}</span>
+                      </div>
+                      <p
+                        :if={
+                          @view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil
+                        }
+                        class="mt-3 rounded border border-red-900 bg-red-950/40 p-2 text-sm text-red-300"
+                      >
+                        Company in bankruptcy — assets in receivership
+                      </p>
+                      <div class="mt-3 border-t border-slate-700 pt-3">
+                        <p class="mb-1 text-xs text-slate-400">
+                          {if inspected["destination"], do: "Route", else: "Port"}
+                        </p>
+                        <p class="flex flex-wrap items-center gap-2 text-sm font-medium">
+                          <span>{inspected["port"]}</span>
+                          <span :if={inspected["destination"]} aria-label="to" class="text-teal-400">→</span>
+                          <span :if={inspected["destination"]}>{inspected["destination"]}</span>
+                        </p>
+                      </div>
+                    </div>
                   </section>
                   <section :if={@view.private && @view.private["company"]} class="my-6">
-                    <h2 class="mb-3 text-xl">Your fleet</h2>
+                    <h2 class="mb-3 text-xl font-semibold">Your fleet</h2>
                     <details
                       id="shipyard"
                       phx-mounted={JS.ignore_attributes("open")}
