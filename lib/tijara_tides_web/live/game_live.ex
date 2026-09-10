@@ -171,9 +171,11 @@ defmodule TijaraTidesWeb.GameLive do
     own = socket.assigns.view.private && socket.assigns.view.private["ships"][id]
 
     if own do
+      port = if own["status"] == "sailing", do: socket.assigns.selected_port, else: own["port"]
+
       {:noreply,
        socket
-       |> assign(selected_ship: id, selected_port: own["port"], inspected_ship: id, preview: nil)
+       |> assign(selected_ship: id, selected_port: port, inspected_ship: id, preview: nil)
        |> refresh()}
     else
       {:noreply, socket}
@@ -1513,8 +1515,8 @@ defmodule TijaraTidesWeb.GameLive do
                 <h2 class="panel-title">Ports</h2>
                 <div class="panel-content" tabindex="0" aria-label="Port details and trading">
                   <section class="my-6 rounded-xl border border-slate-700 p-5">
-                    <div class="flex flex-wrap justify-between gap-3">
-                      <h2 class="text-2xl">{@selected_port}</h2><form
+                    <div class="flex flex-wrap gap-3">
+                      <form
                         id="port-selector"
                         phx-change="port"
                         phx-hook="PortSelector"
@@ -1547,7 +1549,11 @@ defmodule TijaraTidesWeb.GameLive do
                         do: "Selected destination",
                         else: "Set as destination"}
                     </button>
-                    <details class="my-2 text-sm text-slate-400">
+                    <details
+                      id="about-port"
+                      phx-mounted={JS.ignore_attributes("open")}
+                      class="my-2 text-sm text-slate-400"
+                    >
                       <summary class="cursor-pointer">About this port</summary>
                       <p class="mt-2">
                         {@definitions.catalogue["ports"][@selected_port]["identity"]}
@@ -1715,7 +1721,7 @@ defmodule TijaraTidesWeb.GameLive do
                       id="purchase-destination-reminder"
                       class="mb-3 text-sm text-amber-200"
                     >
-                      Choose a valid destination in the Ships panel before buying.
+                      Choose a destination port before buying.
                     </p>
                     <p :if={market_rows == []} class="py-4 text-slate-400">
                       No cargo is available to {@port_market_side} here right now.
@@ -2590,6 +2596,7 @@ defmodule TijaraTidesWeb.GameLive do
                         estimates={@view.private["voyage_freshness"][@ship["id"]]}
                       />
                       <details
+                        :if={instruction_port(@ship, @destination, @definitions) != nil}
                         id={"instructions-" <> @ship["id"]}
                         phx-mounted={JS.ignore_attributes("open")}
                         class="mt-4 rounded border border-slate-700 p-3"
@@ -2863,7 +2870,16 @@ defmodule TijaraTidesWeb.GameLive do
                 <div class="panel-content" tabindex="0" aria-label="Cargo markets">
                   <section id="cargo-markets" class="my-6 rounded-xl border border-slate-700 p-5">
                     <div class="space-y-3">
-                      <h2 class="text-2xl">Markets by cargo</h2>
+                      <details
+                        id="cargo-market-help"
+                        phx-mounted={JS.ignore_attributes("open")}
+                        class="mb-3 text-sm text-slate-400"
+                      >
+                        <summary class="cursor-pointer">About cargo markets</summary>
+                        <p class="mt-2">
+                          Supply and demand in lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market.
+                        </p>
+                      </details>
                       <form
                         :if={@ship}
                         id="cargo-ship-filter"
@@ -2877,7 +2893,7 @@ defmodule TijaraTidesWeb.GameLive do
                             name="compatible"
                             value="true"
                             checked={@cargo_filter_ship}
-                          /> Only cargo carried by {@definitions.classes[@ship["class"]]["name"]}
+                          /> Show only cargo carried by {@definitions.classes[@ship["class"]]["name"]}
                         </label>
                       </form>
                       <div
@@ -2933,21 +2949,18 @@ defmodule TijaraTidesWeb.GameLive do
                       :if={@cargo_roi_varies}
                       id="cargo-sort"
                       phx-change="cargo-sort-roi"
-                      class="mt-2 text-sm"
+                      class="mt-2 flex items-start gap-3 text-sm"
                     >
-                      <label class="flex items-center gap-2">
+                      <label class="flex shrink-0 items-center gap-2 whitespace-nowrap">
                         <input type="hidden" name="roi" value="false" />
                         <input type="checkbox" name="roi" value="true" checked={@cargo_sort_roi} />
                         Sort by ROI
                       </label>
-                      <p class="mt-1 text-xs text-slate-400">
+                      <p class="text-xs leading-5 text-slate-400">
                         Highest first: (best bid − best ask) ÷ best ask, before handling and voyage costs.
                       </p>
                     </form>
-                    <p class="my-3 text-sm text-slate-400">
-                      Supply and demand in lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market.
-                    </p>
-                    <p class="mb-2 text-xs text-slate-400">
+                    <p class="mt-2 mb-2 text-xs text-slate-400">
                       {if @ship && @ship["status"] == "docked",
                         do: "Sea-route distances from #{@ship["port"]} in nautical miles.",
                         else: "Select a docked ship to compare sea-route distances."}

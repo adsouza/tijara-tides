@@ -103,7 +103,10 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     editor = &TijaraTides.UseCases.GameQueries.instruction_editor(%{catalogue: catalogue}, &1, &2)
     draft = %{"side" => "sell", "good" => "lumber", "quantity" => "99"}
     assert %{maximum: 5, quantity: 5, good: "lumber"} = editor.(ship, draft)
-    markets = %{"Singapore|lumber" => %{"bid" => 12345, "ask" => 13000}}
+
+    markets = %{
+      "Singapore|lumber" => %{"bid" => 12345, "ask" => 13000, "manual" => true, "demand" => 10}
+    }
 
     defaults =
       TijaraTides.UseCases.GameQueries.instruction_editor(
@@ -116,6 +119,23 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
 
     assert defaults.quantity == 5
     assert defaults.limit == "123.45"
+    assert Enum.map(defaults.goods, &elem(&1, 0)) == ["lumber"]
+
+    for demand <- [0, nil] do
+      unavailable = put_in(markets, ["Singapore|lumber", "demand"], demand)
+
+      result =
+        TijaraTides.UseCases.GameQueries.instruction_editor(
+          %{catalogue: catalogue},
+          ship,
+          draft,
+          unavailable,
+          "Singapore"
+        )
+
+      assert result.goods == []
+      assert result.quantity == 0
+    end
 
     edited = %{
       "side" => "sell",
@@ -134,7 +154,7 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
                "Singapore"
              )
 
-    assert %{quantity: 5, limit: "0"} =
+    assert %{goods: [], quantity: 0, limit: "0"} =
              TijaraTides.UseCases.GameQueries.instruction_editor(
                %{catalogue: catalogue},
                ship,
@@ -142,6 +162,9 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
                markets,
                "Jakarta"
              )
+
+    assert Enum.map(editor.(ship, draft).goods, &elem(&1, 0)) == ["appliances", "lumber"]
+    assert editor.(%{ship | "cargo" => []}, draft).goods == []
 
     sailing = %{ship | "status" => "sailing"}
     assert Enum.map(editor.(sailing, draft).goods, &elem(&1, 0)) == ["appliances", "lumber"]

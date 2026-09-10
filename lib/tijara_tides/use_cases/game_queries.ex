@@ -376,7 +376,11 @@ defmodule TijaraTides.UseCases.GameQueries do
         item["manual"] and compatible_cargo?(ship, item) and
           (side != "buy" or is_nil(port) or
              (not is_nil(quote) and quote["manual"] == true and quote["stock"] > 0)) and
-          (side != "sell" or ship["status"] != "sailing" or cargo_aboard(ship, good) > 0)
+          (side != "sell" or
+             (cargo_aboard(ship, good) > 0 and
+                (is_nil(port) or
+                   (not is_nil(quote) and quote["manual"] == true and
+                      is_number(quote["demand"]) and quote["demand"] > 0))))
       end)
 
     good =

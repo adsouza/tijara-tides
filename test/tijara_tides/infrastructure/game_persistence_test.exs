@@ -1638,6 +1638,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     render_click(view, "sail")
     assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["status"] == "sailing"
 
+    render_click(view, "port", %{"id" => "Rotterdam"})
+    render_click(view, "ship", %{"id" => ship["id"]})
+    assert has_element?(view, "#port-selector[data-selected='Rotterdam']")
+    render_click(view, "inspect-ship", %{"id" => ship["id"]})
+    assert has_element?(view, "#port-selector[data-selected='Rotterdam']")
+
     render_click(view, "toggle-map-filters")
     assert has_element?(view, "#map-filters input[name=show_others][checked]")
     classes = Map.keys(GameServer.definitions().classes)
