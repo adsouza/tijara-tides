@@ -4,19 +4,28 @@ defmodule TijaraTides.Domain.State do
   defdelegate entities(state, kind), to: TijaraTides.Domain.ReadState
   defdelegate get(state, kind, id), to: TijaraTides.Domain.ReadState
 
-  def put(state, kind, id, value),
-    do: %{
+  def put(state, kind, id, value) do
+    if get(state, kind, id) == value do
       state
-      | entities: Map.update(state.entities, kind, %{id => value}, &Map.put(&1, id, value))
-    }
-
-  def delete(state, "companies", id) do
-    if Enum.any?(entities(state, "ships"), fn {_, ship} -> ship["company_id"] == id end),
-      do: raise(ArgumentError, "retire or transfer ships before removing a company")
-
-    %{state | entities: Map.update(state.entities, "companies", %{}, &Map.delete(&1, id))}
+    else
+      %{
+        state
+        | entities: Map.update(state.entities, kind, %{id => value}, &Map.put(&1, id, value))
+      }
+      |> TijaraTides.Domain.ChangeSet.record(kind, id, :put)
+    end
   end
 
-  def delete(state, kind, id),
-    do: %{state | entities: Map.update(state.entities, kind, %{}, &Map.delete(&1, id))}
+  def delete(state, kind, id) do
+    if kind == "companies" and
+         Enum.any?(entities(state, "ships"), fn {_, ship} -> ship["company_id"] == id end),
+       do: raise(ArgumentError, "retire or transfer ships before removing a company")
+
+    if Map.has_key?(entities(state, kind), id) do
+      %{state | entities: Map.update!(state.entities, kind, &Map.delete(&1, id))}
+      |> TijaraTides.Domain.ChangeSet.record(kind, id, :delete)
+    else
+      state
+    end
+  end
 end

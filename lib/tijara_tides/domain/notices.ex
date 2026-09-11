@@ -1,6 +1,6 @@
 defmodule TijaraTides.Domain.Notices do
   @moduledoc "Bounded account notices and invitation lifecycle coalescing."
-  import TijaraTides.Domain.State, only: [get: 3, put: 4, entities: 2]
+  import TijaraTides.Domain.State, only: [get: 3, put: 4, delete: 3, entities: 2]
 
   def notice(state, nil, _id, _text), do: state
 
@@ -49,8 +49,11 @@ defmodule TijaraTides.Domain.Notices do
         {account, Enum.sort_by(notices, & &1["clock_ms"], :desc)}
       end)
 
-    state
-    |> Map.put(:entities, Map.put(state.entities, "notices", retained))
-    |> Map.put(:notices_by_account, index)
+    state =
+      Enum.reduce(entities(state, "notices"), state, fn {id, _}, acc ->
+        if Map.has_key?(retained, id), do: acc, else: delete(acc, "notices", id)
+      end)
+
+    Map.put(state, :notices_by_account, index)
   end
 end

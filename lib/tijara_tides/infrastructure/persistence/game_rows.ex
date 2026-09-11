@@ -274,19 +274,25 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   end
 
   def write(repo, world, before, after_state) do
-    unknown = Enum.uniq(Map.keys(before.entities) ++ Map.keys(after_state.entities)) -- @kinds
+    changes = TijaraTides.Domain.ChangeSet.since(before, after_state)
+    unknown = Enum.uniq(for {{kind, _}, _} <- changes, do: kind) -- @kinds
     if unknown != [], do: raise(ArgumentError, "Unsupported entity kinds: #{inspect(unknown)}")
+    grouped = Enum.group_by(changes, fn {{kind, _}, _} -> kind end)
 
-    for kind <- @kinds do
-      old = Map.get(before.entities, kind, %{})
-      new = Map.get(after_state.entities, kind, %{})
+    for kind <- @kinds, {{_, id}, operation} <- Map.get(grouped, kind, []) do
+      old = get_in(before, [:entities, kind, id])
 
-      for {id, data} <- new, Map.get(old, id) != data do
-        write_entity(repo, world, kind, id, Map.get(old, id), data)
-      end
+      case operation do
+        :put ->
+          data =
+            get_in(after_state, [:entities, kind, id]) ||
+              raise(ArgumentError, "Changed row missing before persistence")
 
-      for id <- Map.keys(old), kind != "financial_reports", not Map.has_key?(new, id) do
-        repo.query!("DELETE FROM game_#{kind} WHERE world_id=$1 AND id=$2", [world, id])
+          if data != old, do: write_entity(repo, world, kind, id, old, data)
+
+        :delete ->
+          if old != nil,
+            do: repo.query!("DELETE FROM game_#{kind} WHERE world_id=$1 AND id=$2", [world, id])
       end
     end
   end

@@ -286,7 +286,14 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
         "SELECT position,xmin::text FROM game_cargo_holdings WHERE ship_id='company:1' ORDER BY position"
       ).rows
 
-    changed = put_in(loaded, [:entities, "ships", "company:1", "name"], "Renamed")
+    changed =
+      TijaraTides.Domain.State.put(
+        loaded,
+        "ships",
+        "company:1",
+        Map.put(loaded.entities["ships"]["company:1"], "name", "Renamed")
+      )
+
     assert {:ok, :ok} = GameStore.commit(MigrationRepo, "ocean", loaded.epoch, loaded, changed)
 
     assert MigrationRepo.query!(
@@ -295,7 +302,15 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
 
     # FIFO position can change without replacing permanent lot identities.
     [first, second] = changed.entities["ships"]["company:1"]["cargo"]
-    next = put_in(changed, [:entities, "ships", "company:1", "cargo"], [second, first])
+
+    next =
+      TijaraTides.Domain.State.put(
+        changed,
+        "ships",
+        "company:1",
+        Map.put(changed.entities["ships"]["company:1"], "cargo", [second, first])
+      )
+
     assert {:ok, :ok} = GameStore.commit(MigrationRepo, "ocean", loaded.epoch, changed, next)
     {:ok, restored} = GameStore.claim(MigrationRepo)
     assert restored.entities == next.entities

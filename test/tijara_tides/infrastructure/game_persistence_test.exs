@@ -724,9 +724,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     loss =
       before_loss
-      |> put_in([:entities, "companies", company, "cash"], 0)
-      |> update_in([:entities, "companies", company, "profit"], &(&1 - cash))
-      |> TijaraTides.Domain.Journal.post(company, "test_loss", [
+      |> TijaraTides.Domain.CompanyFinance.post(company, "test_loss", [
         {"crew_expense", cash},
         {"cash_available", -cash}
       ])
@@ -2204,8 +2202,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     moved =
       before
-      |> put_in([:entities, "ships", ship["id"], "cargo"], [])
-      |> put_in([:entities, "ships", other["id"], "cargo"], [cargo])
+      |> TijaraTides.Domain.State.put(
+        "ships",
+        ship["id"],
+        Map.put(before.entities["ships"][ship["id"]], "cargo", [])
+      )
+      |> TijaraTides.Domain.State.put("ships", other["id"], Map.put(other, "cargo", [cargo]))
 
     assert {:ok, :ok} = GameStore.commit(Repo, world, before.epoch, before, moved)
 
@@ -2265,7 +2267,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     end
 
     unsupported =
-      update_in(restored, [:entities, "companies", ship["company_id"], "cash"], &(&1 + 100))
+      TijaraTides.Domain.State.put(
+        restored,
+        "companies",
+        ship["company_id"],
+        Map.update!(restored.entities["companies"][ship["company_id"]], "cash", &(&1 + 100))
+      )
 
     assert_raise ArgumentError, fn ->
       GameStore.commit(Repo, world, restored.epoch, restored, unsupported)

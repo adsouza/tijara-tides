@@ -348,3 +348,15 @@ record progress; they do not write child rows. Bankruptcy asks CompanyFinance to
 close financial obligations, Ship to cancel automation and Account to record the
 personal consequences. Compatibility facades retain existing callers. No service
 commits independently or publishes intermediate results.
+
+## Explicit persistence changes
+
+`State.put/delete` record touched row identities and explicit deletions with a
+monotonic mutation sequence. `GameRows` consumes that change set in dependency
+order and still updates only changed SQL columns and cargo locations. It no
+longer discovers writes by comparing every entity in the world. Journal events
+and new lot identities remain append-only transaction payloads. Pending changes
+are cleared only after successful acceptance; discarded probes do not mutate
+the original state. Reporting compaction is cache eviction and emits no delete;
+notice pruning emits actual deletions. Maintenance and tests must declare row
+writes through the mutation API rather than editing entity maps directly.

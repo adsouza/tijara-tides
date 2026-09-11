@@ -16,8 +16,7 @@ defmodule TijaraTides.CompanyFixture do
 
     state =
       state
-      |> update_in([:entities, "companies", company, "cash"], &(&1 + 20_000_000))
-      |> Journal.post(company, "test_capital", [
+      |> TijaraTides.Domain.CompanyFinance.post(company, "test_capital", [
         {"cash_available", 20_000_000},
         {"capital", -20_000_000}
       ])

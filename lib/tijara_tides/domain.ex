@@ -5,6 +5,7 @@ defmodule TijaraTides.Domain do
     deps: [],
     exports: [
       World,
+      ChangeSet,
       Game,
       Journal,
       Reporting,

@@ -38,5 +38,6 @@ defmodule TijaraTides.UseCases.CommitPreparation do
     Reporting.advance(%{changed | clock_ms: target_clock})
   end
 
-  def accepted(game), do: game |> Journal.clear() |> Reporting.compact()
+  def accepted(game),
+    do: game |> Journal.clear() |> Reporting.compact() |> TijaraTides.Domain.ChangeSet.accepted()
 end
