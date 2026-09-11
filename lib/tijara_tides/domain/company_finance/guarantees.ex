@@ -30,7 +30,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
   end
 
   def pledge(state, sponsor, beneficiary_id, amount, id) do
-    state = Finance.settle(state)
+    state = Finance.settle(state, [sponsor["company_id"]])
     sponsor = get(state, "accounts", sponsor["id"])
     beneficiary = get(state, "accounts", beneficiary_id)
     company = get(state, "companies", sponsor["company_id"])
@@ -97,8 +97,17 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
     end
   end
 
-  def settle(state) do
-    Enum.reduce(entities(state, "guarantees"), state, fn {_, g}, acc ->
+  def settle(state, company_ids \\ :all) do
+    guarantees =
+      if company_ids == :all,
+        do: Map.values(entities(state, "guarantees")),
+        else:
+          Enum.flat_map(
+            Enum.uniq(company_ids) -- [nil],
+            &owned(state, "guarantees", "borrower_company_id", &1)
+          )
+
+    Enum.reduce(guarantees, state, fn g, acc ->
       if g["status"] == "pledged" and g["borrower_company_id"] != nil and
            Enum.all?(Finance.loans(acc, g["borrower_company_id"]), &(&1["status"] == "repaid")) do
         close(acc, g, 0)

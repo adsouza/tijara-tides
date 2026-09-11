@@ -149,6 +149,8 @@ defmodule TijaraTides.Domain.Reporting do
         row["period_index"] == div(state.clock_ms, duration(row["period"]))
       end)
 
-    %{state | entities: Map.put(state.entities, "financial_reports", rows)}
+    Enum.reduce(entities(state, "financial_reports"), state, fn {id, _}, acc ->
+      if Map.has_key?(rows, id), do: acc, else: evict(acc, "financial_reports", id)
+    end)
   end
 end

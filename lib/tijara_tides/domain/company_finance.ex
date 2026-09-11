@@ -177,9 +177,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
 
   def loans(state, company),
     do:
-      entities(state, "loans")
-      |> Map.values()
-      |> Enum.filter(&(&1["company_id"] == company))
+      owned(state, "loans", "company_id", company)
       |> Enum.sort_by(&{&1["created_ms"], &1["id"]})
 
   def summary(state, account) do
@@ -256,7 +254,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
   end
 
   def borrow(state, account, amount, id) do
-    state = settle(state)
+    state = settle(state, [account["company_id"]])
     company = get(state, "companies", account["company_id"])
 
     cond do
@@ -309,7 +307,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
   end
 
   def repay(state, account, id) do
-    state = settle(state)
+    state = settle(state, [account["company_id"]])
     company = get(state, "companies", account["company_id"])
     loan = get(state, "loans", id)
 
@@ -343,12 +341,12 @@ defmodule TijaraTides.Domain.CompanyFinance do
             amount
           )
 
-        {:ok, settle(state), %{"repaid" => amount}}
+        {:ok, settle(state, [account["company_id"]]), %{"repaid" => amount}}
     end
   end
 
   def recast(state, account, id, amount) do
-    state = settle(state)
+    state = settle(state, [account["company_id"]])
     company = get(state, "companies", account["company_id"])
     loan = get(state, "loans", id)
 
@@ -396,14 +394,24 @@ defmodule TijaraTides.Domain.CompanyFinance do
     end
   end
 
-  def settle(state) do
-    state =
-      Enum.reduce(entities(state, "loans"), state, fn {_, loan}, state -> accrue(state, loan) end)
+  def settle(state, company_ids \\ :all) do
+    ids =
+      if company_ids == :all,
+        do: Map.keys(entities(state, "companies")),
+        else: Enum.uniq(company_ids) -- [nil]
 
-    Enum.reduce(entities(state, "companies"), state, fn {id, company}, state ->
-      if company["bankruptcy_ms"] == nil, do: settle_company(state, id), else: state
+    loans =
+      if company_ids == :all,
+        do: Map.values(entities(state, "loans")),
+        else: Enum.flat_map(ids, &loans(state, &1))
+
+    state = Enum.reduce(loans, state, fn loan, acc -> accrue(acc, loan) end)
+
+    Enum.reduce(ids, state, fn id, acc ->
+      company = get(acc, "companies", id)
+      if company && company["bankruptcy_ms"] == nil, do: settle_company(acc, id), else: acc
     end)
-    |> Guarantees.settle()
+    |> Guarantees.settle(company_ids)
   end
 
   defp accrue(state, %{"status" => "open"} = loan) do
@@ -493,7 +501,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
     company = get(state, "companies", id)
 
     operations =
-      entities(state, "operating_bills") |> Map.values() |> Enum.filter(&(&1["company_id"] == id))
+      owned(state, "operating_bills", "company_id", id)
 
     unrecorded = company["unpaid"] - Enum.sum(Enum.map(operations, & &1["remaining"]))
 
@@ -503,15 +511,14 @@ defmodule TijaraTides.Domain.CompanyFinance do
         else: state
 
     bills =
-      for {bill_id, bill} <- entities(state, "loan_installments"),
-          bill["company_id"] == id,
-          do: {bill["due_ms"], {"loan", bill_id}}
+      for bill <- owned(state, "loan_installments", "company_id", id),
+          do: {bill["due_ms"], {"loan", bill["id"]}}
 
     bills =
       bills ++
-        for {bill_id, bill} <- entities(state, "operating_bills"),
-            bill["company_id"] == id and bill["remaining"] > 0,
-            do: {bill["due_ms"], {"operations", bill_id}}
+        for bill <- owned(state, "operating_bills", "company_id", id),
+            bill["remaining"] > 0,
+            do: {bill["due_ms"], {"operations", bill["id"]}}
 
     first_due = Enum.min(Enum.map(bills, &elem(&1, 0)), fn -> nil end)
 

@@ -62,7 +62,7 @@ defmodule TijaraTides.Domain.Fleet do
             %{ship: id}
           )
 
-        {:ok, TijaraTides.Domain.CompanyFinance.settle(state),
+        {:ok, TijaraTides.Domain.CompanyFinance.settle(state, [account["company_id"]]),
          %{"sold" => id, "proceeds" => value.proceeds}}
     end
   end
@@ -70,7 +70,7 @@ defmodule TijaraTides.Domain.Fleet do
   defdelegate classes(), to: TijaraTides.Domain.ShipClass, as: :all
 
   def purchase(state, account, class_id, port, price_limit, context) do
-    state = TijaraTides.Domain.CompanyFinance.settle(state)
+    state = TijaraTides.Domain.CompanyFinance.settle(state, [account["company_id"]])
     company = get(state, "companies", account["company_id"])
     class = classes()[class_id]
 
@@ -166,7 +166,7 @@ defmodule TijaraTides.Domain.Fleet do
   def voyage_quote(_ship, _destination, _catalogue), do: nil
 
   def sail(state, account, id, destination, limit, catalogue) do
-    state = TijaraTides.Domain.CompanyFinance.settle(state)
+    state = TijaraTides.Domain.CompanyFinance.settle(state, [account["company_id"]])
 
     with {:ok, _ship, company, estimate} <-
            departure_check(state, account, id, destination, limit, catalogue) do

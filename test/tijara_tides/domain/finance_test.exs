@@ -28,6 +28,21 @@ defmodule TijaraTides.Domain.FinanceTest do
   defp loan(c, amount \\ 100_000), do: Finance.borrow(c.state, c.account, amount, "loan")
   defp tick(state, ms), do: Finance.settle(%{state | clock_ms: ms})
 
+  test "company-scoped settlement leaves unrelated loans untouched", c do
+    {:ok, state, _} = loan(c)
+
+    other =
+      state.entities["loans"]["loan"]
+      |> Map.put("id", "other")
+      |> Map.put("company_id", "unrelated")
+
+    state = TijaraTides.Domain.State.put(state, "loans", "other", other)
+    state = TijaraTides.Domain.EntityIndex.rebuild(%{state | clock_ms: 1000})
+    settled = TijaraTides.Domain.CompanyFinance.settle(state, ["company"])
+    assert settled.entities["loans"]["other"] == other
+    assert settled.entities["loans"]["loan"]["interest_accrued"] > 0
+  end
+
   test "borrowing is a liability, not profit, with conservative available credit", c do
     before = Finance.summary(c.state, c.account)
     {:ok, state, _} = loan(c)

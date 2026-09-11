@@ -23,6 +23,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
         next_lot_id: next_lot_id,
         entities: entities
       }
+      |> TijaraTides.Domain.EntityIndex.rebuild()
     end)
   end
 
@@ -50,7 +51,12 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
         FinancialLedger.write_lots(repo, world_id, before, after_state)
         GameRows.write(repo, world_id, before, after_state)
         FinancialLedger.post(repo, world_id, before, after_state, receipt)
-        FinancialLedger.verify(repo, world_id)
+
+        FinancialLedger.verify(
+          repo,
+          world_id,
+          TijaraTides.Domain.ChangeSet.affected_companies(before, after_state)
+        )
 
         if receipt do
           {account, request, fingerprint, result} = receipt

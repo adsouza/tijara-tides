@@ -145,3 +145,7 @@ still commit atomically. See [market aggregate](docs/architecture.md#port-cargo-
 `Account` owns identity, sessions, invitations, company membership and personal
 bankruptcy history. Financial settlement invokes its lifecycle transitions rather
 than modifying account rows directly. See [account aggregate](docs/architecture.md#account-aggregate).
+
+Persistence consumes an explicit touched-row change set rather than comparing
+whole-world entity maps. Reconciliation is scoped to affected financial owners;
+startup retains full audits. See [scoped settlement](docs/architecture.md#scoped-settlement-and-reconciliation).

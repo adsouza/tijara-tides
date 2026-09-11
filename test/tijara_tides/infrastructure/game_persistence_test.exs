@@ -1423,7 +1423,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     log =
       ExUnit.CaptureLog.capture_log(fn ->
-        assert {:error, :internal_error} = GameServer.seed(server)
+        assert {:error, :internal_error} =
+                 GameServer.command(token, "integrity-invite", %{"action" => "invite"}, server)
       end)
 
     assert log =~ "ArgumentError"

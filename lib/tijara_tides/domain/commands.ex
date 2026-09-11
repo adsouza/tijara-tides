@@ -9,7 +9,7 @@ defmodule TijaraTides.Domain.Commands do
     do: execute(state, account, command, Map.put(context, :catalogue, catalogue))
 
   def execute(state, account, command, context) do
-    state = CompanyFinance.settle(state)
+    state = CompanyFinance.settle(state, [account["company_id"]])
     current_account = TijaraTides.Domain.State.get(state, "accounts", account["id"]) || account
 
     if TijaraTides.Domain.Guarantees.suspended?(current_account) do

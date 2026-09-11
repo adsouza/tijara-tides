@@ -2,6 +2,7 @@ defmodule TijaraTides.Domain.State do
   @moduledoc "Internal world-state access. Mutation helpers do not replace business operations or validation."
 
   defdelegate entities(state, kind), to: TijaraTides.Domain.ReadState
+  defdelegate owned(state, kind, field, owner), to: TijaraTides.Domain.ReadState
   defdelegate get(state, kind, id), to: TijaraTides.Domain.ReadState
 
   def put(state, kind, id, value) do
@@ -12,6 +13,7 @@ defmodule TijaraTides.Domain.State do
         state
         | entities: Map.update(state.entities, kind, %{id => value}, &Map.put(&1, id, value))
       }
+      |> TijaraTides.Domain.EntityIndex.update(kind, id, get(state, kind, id), value)
       |> TijaraTides.Domain.ChangeSet.record(kind, id, :put)
     end
   end
@@ -23,9 +25,17 @@ defmodule TijaraTides.Domain.State do
 
     if Map.has_key?(entities(state, kind), id) do
       %{state | entities: Map.update!(state.entities, kind, &Map.delete(&1, id))}
+      |> TijaraTides.Domain.EntityIndex.update(kind, id, get(state, kind, id), nil)
       |> TijaraTides.Domain.ChangeSet.record(kind, id, :delete)
     else
       state
     end
+  end
+
+  def evict(state, kind, id) do
+    row = get(state, kind, id)
+
+    %{state | entities: Map.update(state.entities, kind, %{}, &Map.delete(&1, id))}
+    |> TijaraTides.Domain.EntityIndex.update(kind, id, row, nil)
   end
 end

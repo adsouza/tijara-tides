@@ -246,9 +246,9 @@ shape. `from_row`/`to_row` are adapters, and `from_world` assembles a ship and i
 owned children. Route orchestration still accepts the world as its internal
 coordination context: this is an incremental aggregate migration, not an
 independently loadable repository for every operation. CompanyFinance and
-PortCargoMarket ownership is described below. Global map-diff persistence, the world lock, epoch fencing and atomic journals remain unchanged;
-explicit changed-root persistence is deferred until all mutation paths have
-aggregate ownership. No schema migration or gameplay rebalance is required.
+PortCargoMarket ownership is described below. Persistence consumes explicit
+row changes; the world lock, epoch fencing and atomic journals remain unchanged.
+No schema migration or gameplay rebalance is required.
 
 ## Company finance aggregate
 
@@ -328,7 +328,7 @@ they are handled by the same identity lifecycle implementation rather than
 attached to a fictitious player. Account is not a separately committed service.
 An architecture regression test guards account-owned writes, alongside the
 existing Ship, CompanyFinance and PortCargoMarket guards. Relational tables,
-world fencing, map-diff persistence and wire shapes are unchanged. No migration
+world fencing and wire shapes are unchanged; persistence uses explicit changes. No migration
 or authentication-policy change is required by this extraction.
 
 ## Mutation API hardening
@@ -360,3 +360,18 @@ are cleared only after successful acceptance; discarded probes do not mutate
 the original state. Reporting compaction is cache eviction and emits no delete;
 notice pruning emits actual deletions. Maintenance and tests must declare row
 writes through the mutation API rather than editing entity maps directly.
+
+## Scoped settlement and reconciliation
+
+Command-time financial settlement targets the acting company. A derived ownership
+index locates its loans, installment bills and guarantees without scanning all
+companies' children; load rebuilds the index and declared writes maintain it.
+The index is not persisted and cache eviction removes index entries without
+issuing database deletions. World ticks still settle all companies deliberately.
+
+Commit reconciliation covers companies affected by row changes (including former
+and new owners) and pending journal entries. Startup audits still verify the
+entire world and historical journal totals. Out-of-band corruption of an unrelated
+company is therefore detected by its next affected commit or a full audit, not
+by every unrelated command. SQL writes, journals, reconciliation and receipts
+remain one transaction under the world lock. No database migration is needed.
