@@ -225,9 +225,17 @@ defmodule TijaraTides.Domain.CompanyFinance do
       "rate_bps" => rate(state, account),
       "period_ms" => @terms.period_ms,
       "installments" => @terms.installments,
-      "loans" => Enum.map(loans, &Map.put(&1, "schedule", schedule(&1)))
+      "requires_guarantee" => rate(state, account) == 1600 and is_nil(guarantee),
+      "loans" =>
+        Enum.map(loans, fn loan ->
+          loan
+          |> Map.put("schedule", schedule(loan))
+          |> Map.put("actions", loan_actions(company, loan))
+        end)
     }
   end
+
+  defdelegate loan_actions(company, loan), to: __MODULE__.LoanActions, as: :for_loan
 
   defp schedule(loan) do
     if loan["status"] == "open" do
@@ -377,8 +385,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
       loan["status"] != "open" ->
         {:error, :loan_not_owned}
 
-      company["cash"] - company["reserved"] <
-          loan["remaining"] + loan["interest_due"] + loan["interest_accrued"] ->
+      not loan_actions(company, loan)["repay_enabled"] ->
         {:error, :loan_repayment_funds}
 
       true ->
@@ -410,12 +417,11 @@ defmodule TijaraTides.Domain.CompanyFinance do
           company["bankruptcy_ms"] != nil ->
         {:error, :loan_not_owned}
 
-      loan["periods_left"] < 1 or loan["principal_due"] > 0 or loan["interest_due"] > 0 or
-          company["unpaid"] > 0 ->
+      not loan_actions(company, loan)["recast_allowed"] ->
         {:error, :loan_recast_unavailable}
 
-      not is_integer(amount) or amount < loan["interest_accrued"] + 100 or
-          amount > loan["remaining"] + loan["interest_accrued"] ->
+      not is_integer(amount) or amount < loan_actions(company, loan)["recast_min"] or
+          amount > loan_actions(company, loan)["recast_balance"] ->
         {:error, :loan_recast_amount}
 
       amount > company["cash"] - company["reserved"] ->

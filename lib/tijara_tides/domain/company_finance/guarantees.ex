@@ -4,6 +4,9 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
   alias TijaraTides.Domain.Notices
   alias TijaraTides.Domain.CompanyFinance, as: Finance
 
+  @minimum_pledge 5_000_000
+  def minimum_pledge, do: @minimum_pledge
+
   defdelegate suspended?(account), to: TijaraTides.Domain.Account
 
   def sponsor_eligible?(state, sponsor) do
@@ -48,7 +51,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
       active(state, beneficiary_id) != nil ->
         {:error, :guarantee_exists}
 
-      not is_integer(amount) or amount < 5_000_000 or
+      not is_integer(amount) or amount < @minimum_pledge or
           amount > Finance.credit_limit(state, beneficiary) ->
         {:error, :guarantee_amount}
 
@@ -155,6 +158,10 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
   end
 
   def view(state, account) do
+    company = get(state, "companies", account["company_id"])
+    cash = if company, do: company["cash"] - company["reserved"], else: 0
+    eligible = sponsor_eligible?(state, account)
+
     pending =
       entities(state, "accounts")
       |> Map.values()
@@ -167,7 +174,10 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
         %{
           "id" => a["id"],
           "name" => invitee_name(state, a),
-          "limit" => Finance.credit_limit(state, a)
+          "limit" => Finance.credit_limit(state, a),
+          "minimum" => @minimum_pledge,
+          "maximum" => min(Finance.credit_limit(state, a), max(0, cash)),
+          "enabled" => eligible and min(Finance.credit_limit(state, a), cash) >= @minimum_pledge
         }
       end)
 

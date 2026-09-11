@@ -1332,25 +1332,13 @@ defmodule TijaraTidesWeb.GameLive do
                         type="number"
                         name="amount"
                         aria-label="Sponsor pledge in dollars"
-                        min="50000"
-                        max={
-                          div(
-                            min(
-                              candidate["limit"],
-                              @view.private["company"]["cash"] - @view.private["company"]["reserved"]
-                            ),
-                            100
-                          )
-                        }
-                        value="50000"
+                        min={div(candidate["minimum"], 100)}
+                        max={div(candidate["maximum"], 100)}
+                        value={div(candidate["minimum"], 100)}
                         class="w-32 rounded bg-slate-800 p-2"
                       />
                       <button
-                        disabled={
-                          not @view.private["guarantees"]["eligible"] or
-                            @view.private["company"]["cash"] - @view.private["company"]["reserved"] <
-                              5_000_000
-                        }
+                        disabled={not candidate["enabled"]}
                         phx-disable-with="Pledging…"
                         class="rounded border p-2"
                       >Pledge &amp; reinstate</button>
@@ -1363,10 +1351,7 @@ defmodule TijaraTidesWeb.GameLive do
                   >
                     <h3 class="text-lg">Loans and repayments</h3>
 
-                    <p :if={
-                      @view.private["finance"]["rate_bps"] == 1600 &&
-                        is_nil(@view.private["guarantees"]["active"])
-                    }>
+                    <p :if={@view.private["finance"]["requires_guarantee"]}>
                       New borrowing requires your original sponsor's cash pledge, even after earlier guaranteed loans were repaid.
                     </p>
                     <p>
@@ -1463,23 +1448,11 @@ defmodule TijaraTidesWeb.GameLive do
                           </tr>
                         </tbody>
                       </table>
-                      <% recast_min = div(loan["interest_accrued"] + 199, 100) %>
-                      <% recast_max =
-                        div(
-                          min(
-                            @view.private["company"]["cash"] - @view.private["company"]["reserved"],
-                            loan["remaining"] + loan["interest_accrued"]
-                          ),
-                          100
-                        ) %>
-                      <% can_recast =
-                        loan["periods_left"] > 0 && loan["principal_due"] == 0 &&
-                          loan["interest_due"] == 0 && @view.private["company"]["unpaid"] == 0 &&
-                          recast_max >= recast_min %>
-                      <% can_repay =
-                        loan["status"] == "open" &&
-                          @view.private["company"]["cash"] - @view.private["company"]["reserved"] >=
-                            loan["remaining"] + loan["interest_due"] + loan["interest_accrued"] %>
+                      <% actions = loan["actions"] %>
+                      <% recast_min = div(actions["recast_min"] + 99, 100) %>
+                      <% recast_max = div(actions["recast_max"], 100) %>
+                      <% can_recast = actions["recast_enabled"] && recast_max >= recast_min %>
+                      <% can_repay = actions["repay_enabled"] %>
 
                       <div class="my-3 flex flex-wrap items-end gap-3">
                         <.form

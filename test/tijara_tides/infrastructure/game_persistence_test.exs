@@ -737,7 +737,13 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         id: :finance_replacement
       )
 
-    assert GameServer.snapshot(token, replacement).private["finance"]["loans"] == saved_loans
+    restored_loans = GameServer.snapshot(token, replacement).private["finance"]["loans"]
+
+    assert Enum.map(restored_loans, &Map.delete(&1, "actions")) ==
+             Enum.map(saved_loans, &Map.delete(&1, "actions"))
+
+    assert Enum.all?(restored_loans, &(&1["actions"]["recast_max"] == 0))
+    refute Enum.any?(restored_loans, & &1["actions"]["repay_enabled"])
     assert GameServer.snapshot(token, replacement).private["finance"]["debt"] == 150_000
 
     assert {:ok, result} =

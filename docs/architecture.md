@@ -390,3 +390,12 @@ Test persistence audits actual row differences against the declared change set
 before acceptance and cache eviction. This deliberately expensive check is off
 in production. Domain purity checks also prohibit ambient clocks, I/O,
 configuration access, randomness and process-global state.
+
+## Financial action projections
+
+Loan summaries include repayment/recast eligibility and integer-cent bounds from
+CompanyFinance.LoanActions, also used by loan commands. Sponsor candidates carry
+pledge bounds and eligibility; credit summaries indicate whether a guarantee is
+required. Presentation converts units and formats controls, without independently
+reimplementing financial authorization. Action projections are derived from
+current cash and obligations, never stored as loan terms.
