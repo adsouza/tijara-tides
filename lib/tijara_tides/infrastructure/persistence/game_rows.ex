@@ -274,6 +274,9 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   end
 
   def write(repo, world, before, after_state) do
+    if Application.get_env(:tijara_tides, :audit_mutations, false),
+      do: TijaraTides.Domain.ChangeSet.assert_complete!(before, after_state)
+
     changes = TijaraTides.Domain.ChangeSet.since(before, after_state)
     unknown = Enum.uniq(for {{kind, _}, _} <- changes, do: kind) -- @kinds
     if unknown != [], do: raise(ArgumentError, "Unsupported entity kinds: #{inspect(unknown)}")

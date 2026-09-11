@@ -42,17 +42,36 @@ defmodule TijaraTides.Domain.ShipAggregateTest do
     end
   end
 
-  test "sale cannot silently create or destroy cargo" do
-    batch = %{"good" => "crude_oil", "quantity" => 4}
+  test "sale owns the split, preserves cost and expiry, and rejects invalid quantities" do
+    state = %{clock_ms: 0}
+    {state, batch} = TijaraTides.Domain.CargoLots.create(state, "crude_oil", 4, 90_000)
+    batch = Map.merge(batch, %{"good" => "crude_oil", "unit_cost" => 123})
     ship = %{vessel() | cargo: [batch]}
 
-    assert_raise ArgumentError, fn ->
-      Ship.record_sale(ship, [%{batch | "quantity" => 2}], [], 0)
+    for quantity <- [-1, 0, 5, 1.5] do
+      assert_raise ArgumentError, fn -> Ship.record_sale(state, ship, "crude_oil", quantity) end
     end
 
-    next = Ship.record_sale(ship, [%{batch | "quantity" => 2}], [%{batch | "quantity" => 2}], 0)
+    assert_raise ArgumentError, fn -> Ship.record_sale(state, ship, "grain", 1) end
+    {changed, next, [sold]} = Ship.record_sale(state, ship, "crude_oil", 2)
+    [remaining] = next.cargo
     assert next.status == "unloading"
-    assert next.cargo == [%{batch | "quantity" => 2}]
+
+    for part <- [sold, remaining] do
+      assert part["quantity"] == 2
+      assert part["unit_cost"] == 123
+      assert part["expires_ms"] == 90_000
+      assert part["good"] == "crude_oil"
+      assert part["lot_id"] != batch["lot_id"]
+
+      assert Enum.find(changed.new_lots, &(&1["id"] == part["lot_id"]))["parent_lot_id"] ==
+               batch["lot_id"]
+    end
+
+    assert sold["lot_id"] != remaining["lot_id"]
+    {_, empty, [whole]} = Ship.record_sale(state, ship, "crude_oil", 4)
+    assert empty.cargo == []
+    assert whole == batch
   end
 
   test "arrival burns fuel once and preserves the aggregate's automation" do

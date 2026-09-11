@@ -42,5 +42,25 @@ defmodule TijaraTides.Domain.ChangeSet do
     |> Enum.sort()
   end
 
+  @doc "Expensive test-only audit: every actual row mutation must be declared. Run before cache eviction."
+  def assert_complete!(before, after_state) do
+    declared = since(before, after_state)
+    kinds = (Map.keys(before.entities) ++ Map.keys(after_state.entities)) |> Enum.uniq()
+
+    for kind <- kinds do
+      old = Map.get(before.entities, kind, %{})
+      new = Map.get(after_state.entities, kind, %{})
+
+      for id <- Enum.uniq(Map.keys(old) ++ Map.keys(new)), old[id] != new[id] do
+        expected = if Map.has_key?(new, id), do: :put, else: :delete
+
+        unless declared[{kind, id}] == expected,
+          do: raise(ArgumentError, "Undeclared mutation: #{kind}/#{id}")
+      end
+    end
+
+    :ok
+  end
+
   def accepted(state), do: Map.put(state, :changes, %{})
 end

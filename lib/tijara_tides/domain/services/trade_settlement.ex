@@ -4,7 +4,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2, voyage_quote: 3]
   import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 1]
   import TijaraTides.Domain.PortCargoMarket, only: [quote: 4, handling_rate: 1]
-  alias TijaraTides.Domain.{CargoLots, CompanyFinance, PortCargoMarket}
+  alias TijaraTides.Domain.{CompanyFinance, PortCargoMarket}
 
   def execute(state, account, %TijaraTides.Domain.Trade{} = trade, catalogue) do
     state = TijaraTides.Domain.CompanyFinance.settle(state, [account["company_id"]])
@@ -202,7 +202,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
         {:error, :insufficient_demand}
 
       true ->
-        {state, sold, cargo} = CargoLots.take(state, ship["cargo"], quantity, good)
+        {state, sold} = TijaraTides.Domain.Ship.unload_cargo(state, ship["id"], good, quantity)
         cost = Enum.sum(Enum.map(sold, &(&1["quantity"] * &1["unit_cost"])))
 
         proceeds = quote["bid"] * quantity - handling
@@ -210,7 +210,6 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
         state =
           state
-          |> TijaraTides.Domain.Ship.unload_cargo(ship["id"], sold, cargo)
           |> PortCargoMarket.accept_cargo(market["port"], good, quantity, quote["bid"])
 
         state =
