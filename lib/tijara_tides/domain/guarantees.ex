@@ -5,7 +5,7 @@ defmodule TijaraTides.Domain.Guarantees do
   defdelegate active(state, account_id), to: TijaraTides.Domain.CompanyFinance.Guarantees
 
   defdelegate pledge(state, sponsor, beneficiary_id, amount, id),
-    to: TijaraTides.Domain.CompanyFinance.Guarantees
+    to: TijaraTides.Domain.Services.Sponsorship
 
   defdelegate drawn(state, account), to: TijaraTides.Domain.CompanyFinance.Guarantees
   defdelegate settle(state), to: TijaraTides.Domain.CompanyFinance.Guarantees

@@ -4,7 +4,6 @@ defmodule TijaraTides.Domain do
     type: :strict,
     deps: [],
     exports: [
-      World,
       ChangeSet,
       EntityIndex,
       Game,
@@ -16,6 +15,9 @@ defmodule TijaraTides.Domain do
       Commands,
       Ship,
       CompanyFinance,
+      Services.FinancialSettlement,
+      Services.Bankruptcy,
+      Services.Credit,
       PortCargoMarket,
       Fleet,
       Trading,

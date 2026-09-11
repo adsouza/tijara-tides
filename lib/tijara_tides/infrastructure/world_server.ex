@@ -1,14 +1,12 @@
 defmodule TijaraTides.Infrastructure.WorldServer do
   @moduledoc """
-  One authoritative world on one BEAM node, independent of connected clients.
+  Ephemeral presence roster for one world; GameServer owns durable gameplay.
 
   The roster is connection metadata, not persisted player/game state. Only this
   process owns it. Each attached process is monitored; multiple play tabs share one
   browser identity. Public snapshots never include session credentials or PIDs.
   """
   use GenServer
-  alias TijaraTides.Domain.World
-  alias TijaraTides.UseCases.WorldCommands
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
@@ -23,7 +21,7 @@ defmodule TijaraTides.Infrastructure.WorldServer do
 
   @impl true
   def init(opts) do
-    {:ok, %{world: %World{id: Keyword.get(opts, :world_id, "ocean")}, revision: 0, clients: %{}}}
+    {:ok, %{world: %{id: Keyword.get(opts, :world_id, "ocean")}, revision: 0, clients: %{}}}
   end
 
   @impl true
@@ -58,10 +56,10 @@ defmodule TijaraTides.Infrastructure.WorldServer do
 
   def handle_call({:attach, _}, _from, state), do: {:reply, {:error, :invalid_identity}, state}
 
-  def handle_call({:command, command}, {pid, _}, state) do
+  def handle_call({:command, _command}, {pid, _}, state) do
     result =
       case Map.fetch(state.clients, pid) do
-        {:ok, {_ref, player_id}} -> WorldCommands.execute(state.world, player_id, command)
+        {:ok, _} -> {:error, :unsupported_command}
         :error -> {:error, :not_attached}
       end
 

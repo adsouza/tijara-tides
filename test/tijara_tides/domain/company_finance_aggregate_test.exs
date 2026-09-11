@@ -60,4 +60,27 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
 
     assert Finance.from_world(state, "c").bills |> hd() |> Map.fetch!("remaining") == 100
   end
+
+  test "loaded finance settles without accounts or ships and emits a receivership effect" do
+    row =
+      Map.merge(company(), %{
+        "cash" => 0,
+        "unpaid" => 100,
+        "account_id" => "a",
+        "bankruptcy_ms" => nil,
+        "unpaid_since" => 0,
+        "arrears_since" => 0
+      })
+
+    root = %{
+      Finance.from_row(row)
+      | bills: [%{"id" => "b", "company_id" => "c", "due_ms" => 0, "remaining" => 100}]
+    }
+
+    {next, effects} = Finance.settle_finances(root, Finance.terms().grace_ms)
+    assert effects.receivership
+    assert next.unpaid == 100
+    assert next.details["bankruptcy_ms"] == nil
+    assert Enum.map(next.bills, & &1["id"]) == ["b"]
+  end
 end

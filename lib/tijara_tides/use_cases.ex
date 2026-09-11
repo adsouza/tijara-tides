@@ -3,7 +3,6 @@ defmodule TijaraTides.UseCases do
   use Boundary,
     deps: [TijaraTides.Domain],
     exports: [
-      WorldCommands,
       CommitExecutor,
       LifecycleCommands,
       CommitPreparation,

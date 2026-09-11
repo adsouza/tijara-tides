@@ -12,6 +12,27 @@ defmodule TijaraTides.MutationApiTest do
     end
   end
 
+  test "aggregate implementations never invoke coordinating services" do
+    files =
+      Path.wildcard("lib/tijara_tides/domain/{account,company_finance,ship,port_cargo_market}.ex") ++
+        Path.wildcard(
+          "lib/tijara_tides/domain/{account,company_finance,ship,port_cargo_market}/**/*.ex"
+        )
+
+    for file <- files do
+      ast = file |> File.read!() |> Code.string_to_quoted!()
+
+      Macro.prewalk(ast, fn
+        {:__aliases__, _, parts} = node ->
+          refute :Services in parts, "#{file} invokes orchestration from an aggregate"
+          node
+
+        node ->
+          node
+      end)
+    end
+  end
+
   test "application modules and coordinating services cannot use generic writers" do
     files =
       Path.wildcard("lib/tijara_tides/use_cases/**/*.ex") ++

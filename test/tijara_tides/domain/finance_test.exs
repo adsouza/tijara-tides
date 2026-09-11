@@ -38,7 +38,7 @@ defmodule TijaraTides.Domain.FinanceTest do
 
     state = TijaraTides.Domain.State.put(state, "loans", "other", other)
     state = TijaraTides.Domain.EntityIndex.rebuild(%{state | clock_ms: 1000})
-    settled = TijaraTides.Domain.CompanyFinance.settle(state, ["company"])
+    settled = TijaraTides.Domain.Services.FinancialSettlement.settle(state, ["company"])
     assert settled.entities["loans"]["other"] == other
     assert settled.entities["loans"]["loan"]["interest_accrued"] > 0
   end

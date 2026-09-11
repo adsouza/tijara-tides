@@ -270,8 +270,12 @@ finances and references the beneficiary; it is not embedded in two aggregates.
 `Finance` and `Guarantees` remain compatibility entry points.
 
 The typed financial root can load its owned children with `from_world`.
-Lifecycle orchestration still uses the internal world context, including account
-lifecycle transitions through Account and cross-company guarantee settlement. This is not an independently
+Loan transitions and settlement operate on a loaded financial aggregate with its
+owned children and explicit time/credit facts. The world adapter saves only those
+owned rows. FinancialSettlement handles returned receivership effects; Credit
+coordinates loan draws and repayments with guarantee obligations. Sponsorship
+coordinates funded pledges with Account reinstatement. Aggregate implementations
+cannot call coordinating services, enforced by an architecture test. This is not an independently
 committed repository: the world writer, fencing and atomic ledger persistence
 remain unchanged. No schema or financial-policy migration is required.
 
@@ -307,7 +311,7 @@ and reinstatement. Its typed root exposes current state and owned children via
 delivery state; transport, hashing and sending mail stay outside the domain.
 `Accounts` and `EmailIdentity` remain compatibility facades.
 
-CompanyFinance closes the insolvent company's finances, then calls
+The Bankruptcy service closes the insolvent company's finances, then calls
 `Account.record_bankruptcy` to detach that company, append its history exactly
 once and apply account suspension. Recent-history counting and restart cooldown
 queries belong to Account; lending policy remains in CompanyFinance. Guarantee
