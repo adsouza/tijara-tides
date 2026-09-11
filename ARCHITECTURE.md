@@ -133,3 +133,7 @@ The Ship aggregate now owns hull/hold transitions and route/visit lifecycle;
 Fleet and Trading coordinate economic settlement through its operations. See
 [the aggregate migration](docs/architecture.md#ship-aggregate-migration) for
 ownership, compatibility adapters, and remaining extraction work.
+
+Company balances and accounting entries are now applied together by the
+`CompanyFinance` root. See [company finance aggregate](docs/architecture.md#company-finance-aggregate)
+for ownership, settlement and the retained world transaction boundary.

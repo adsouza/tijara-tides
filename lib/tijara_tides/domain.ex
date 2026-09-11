@@ -12,6 +12,7 @@ defmodule TijaraTides.Domain do
       EmailIdentity,
       Commands,
       Ship,
+      CompanyFinance,
       Fleet,
       Trading,
       CargoRules,

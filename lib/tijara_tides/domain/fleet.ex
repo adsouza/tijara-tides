@@ -1,7 +1,7 @@
 defmodule TijaraTides.Domain.Fleet do
   @moduledoc "Ship definitions, capacity, departure funding, voyages, and operating-cost settlement."
   import TijaraTides.Domain.State
-  alias TijaraTides.Domain.Journal
+  alias TijaraTides.Domain.CompanyFinance
   @voyage_speedup 600
   @minimum_voyage_ms 6_000
 
@@ -46,17 +46,11 @@ defmodule TijaraTides.Domain.Fleet do
 
       true ->
         value = sale_value(ship, state.clock_ms)
-        loss = ship["book_value"] - value.proceeds
 
         state =
           state
           |> TijaraTides.Domain.Ship.retire(id)
-          |> put("companies", company["id"], %{
-            company
-            | "cash" => company["cash"] + value.proceeds,
-              "profit" => company["profit"] - loss
-          })
-          |> Journal.post(
+          |> CompanyFinance.post(
             company["id"],
             "ship_sale",
             [
@@ -68,7 +62,7 @@ defmodule TijaraTides.Domain.Fleet do
             %{ship: id}
           )
 
-        {:ok, TijaraTides.Domain.Finance.settle(state),
+        {:ok, TijaraTides.Domain.CompanyFinance.settle(state),
          %{"sold" => id, "proceeds" => value.proceeds}}
     end
   end
@@ -76,7 +70,7 @@ defmodule TijaraTides.Domain.Fleet do
   defdelegate classes(), to: TijaraTides.Domain.ShipClass, as: :all
 
   def purchase(state, account, class_id, port, price_limit, context) do
-    state = TijaraTides.Domain.Finance.settle(state)
+    state = TijaraTides.Domain.CompanyFinance.settle(state)
     company = get(state, "companies", account["company_id"])
     class = classes()[class_id]
 
@@ -129,11 +123,7 @@ defmodule TijaraTides.Domain.Fleet do
         state =
           state
           |> TijaraTides.Domain.Ship.store(TijaraTides.Domain.Ship.commission(ship))
-          |> put("companies", company["id"], %{
-            company
-            | "cash" => company["cash"] - class["price"]
-          })
-          |> Journal.post(
+          |> CompanyFinance.post(
             company["id"],
             "ship_purchase",
             [{"fleet", class["price"]}, {"cash_available", -class["price"]}],
@@ -176,7 +166,7 @@ defmodule TijaraTides.Domain.Fleet do
   def voyage_quote(_ship, _destination, _catalogue), do: nil
 
   def sail(state, account, id, destination, limit, catalogue) do
-    state = TijaraTides.Domain.Finance.settle(state)
+    state = TijaraTides.Domain.CompanyFinance.settle(state)
 
     with {:ok, ship, company, estimate} <-
            departure_check(state, account, id, destination, limit, catalogue) do
@@ -197,15 +187,9 @@ defmodule TijaraTides.Domain.Fleet do
       state =
         state
         |> TijaraTides.Domain.Ship.store(aggregate)
-        |> put("companies", owner, %{
-          company
-          | "reserved" => company["reserved"] + estimate["fuel"],
-            "cash" => company["cash"] - estimate["canal_fees"],
-            "profit" => company["profit"] - estimate["canal_fees"]
-        })
 
       state =
-        Journal.post(
+        CompanyFinance.post(
           state,
           owner,
           "departure",
@@ -298,51 +282,9 @@ defmodule TijaraTides.Domain.Fleet do
           value.book
         )
 
-      cash = company["cash"] - effects.fuel
-      reserved = company["reserved"] - effects.fuel
-      paid = min(effects.crew, max(0, cash - reserved))
-
-      company = %{
-        company
-        | "cash" => cash - paid,
-          "reserved" => reserved,
-          "unpaid" => company["unpaid"] + effects.crew - paid,
-          "profit" =>
-            company["profit"] - effects.depreciation - effects.crew - effects.fuel -
-              effects.spoilage
-      }
-
-      company =
-        Map.put(
-          company,
-          "unpaid_since",
-          if(company["unpaid"] > 0, do: company["unpaid_since"] || now)
-        )
-
       state
       |> TijaraTides.Domain.Ship.store(ship)
-      |> put("companies", company["id"], company)
-      |> Journal.post(
-        company["id"],
-        "ship_depreciation",
-        [{"depreciation_expense", effects.depreciation}, {"fleet", -effects.depreciation}],
-        %{ship: id}
-      )
-      |> TijaraTides.Domain.Finance.operating_bill(company["id"], effects.crew - paid, now)
-      |> Journal.post(
-        company["id"],
-        "operations",
-        [
-          {"fuel_expense", effects.fuel},
-          {"cash_reserved", -effects.fuel},
-          {"crew_expense", effects.crew},
-          {"cash_available", -paid},
-          {"payables", -(effects.crew - paid)},
-          {"spoilage_expense", effects.spoilage},
-          {"inventory", -effects.spoilage}
-        ],
-        %{ship: id}
-      )
+      |> CompanyFinance.ship_operations(company["id"], id, effects)
     end)
   end
 end

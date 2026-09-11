@@ -250,3 +250,26 @@ PortCargoMarket are still subsequent aggregate extractions. Global map-diff
 persistence, the world lock, epoch fencing and atomic journals remain unchanged;
 explicit changed-root persistence is deferred until all mutation paths have
 aggregate ownership. No schema migration or gameplay rebalance is required.
+
+## Company finance aggregate
+
+`CompanyFinance` owns company financial balances, loans, installments, operating
+bills and sponsor pledges. Its `apply_entries` transition derives cash, reserved
+cash, payables and trading profit from balanced integer accounting entries.
+`post` saves those balances and records the same entries together; callers no
+longer calculate a separate balance mutation. Reservations cannot be spent as
+available cash, and settlement cannot overdraw reservations or payables.
+
+Fleet and Trading coordinate financial settlement with Ship transitions inside
+the existing atomic world transaction. `ship_operations` pays crew from free
+cash, consumes fuel reservations and records unpaid operating bills. Loan and
+bankruptcy lifecycle rules reside in the root; guarantee coordination resides
+in `CompanyFinance.Guarantees`. A guarantee belongs to its sponsoring company's
+finances and references the beneficiary; it is not embedded in two aggregates.
+`Finance` and `Guarantees` remain compatibility entry points.
+
+The typed financial root can load its owned children with `from_world`.
+Lifecycle orchestration still uses the internal world context, including account
+suspension and cross-company guarantee settlement. This is not an independently
+committed repository: the world writer, fencing and atomic ledger persistence
+remain unchanged. No schema or financial-policy migration is required.

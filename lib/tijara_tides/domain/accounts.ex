@@ -2,7 +2,7 @@ defmodule TijaraTides.Domain.Accounts do
   @moduledoc "Accounts, invitation entitlements, device-session authentication, and company formation."
   import TijaraTides.Domain.State
   import TijaraTides.Domain.Notices, only: [notice: 4]
-  alias TijaraTides.Domain.Finance
+  alias TijaraTides.Domain.CompanyFinance, as: Finance
   @invite_ms 3 * 86_400_000
 
   def sign_out(state, session_hash), do: delete(state, "sessions", session_hash)
@@ -142,7 +142,7 @@ defmodule TijaraTides.Domain.Accounts do
 
         state =
           state
-          |> put("companies", id, company)
+          |> Finance.open(company)
           |> put("accounts", account["id"], %{account | "company_id" => id})
 
         state =

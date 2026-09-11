@@ -1,14 +1,14 @@
 defmodule TijaraTides.Domain.Commands do
   @moduledoc "Dispatch validated command shapes to the domain operation that owns their invariants."
   import TijaraTides.Domain.Accounts, only: [create_company: 4, issue_invite: 3]
-  alias TijaraTides.Domain.{Finance, Ship, Trade, Trading}
+  alias TijaraTides.Domain.{CompanyFinance, Ship, Trade, Trading}
   import TijaraTides.Domain.Fleet, only: [sail: 6]
 
   def execute(state, account, command, context, catalogue),
     do: execute(state, account, command, Map.put(context, :catalogue, catalogue))
 
   def execute(state, account, command, context) do
-    state = Finance.settle(state)
+    state = CompanyFinance.settle(state)
     current_account = TijaraTides.Domain.State.get(state, "accounts", account["id"]) || account
 
     if TijaraTides.Domain.Guarantees.suspended?(current_account) do
@@ -32,16 +32,16 @@ defmodule TijaraTides.Domain.Commands do
         TijaraTides.Domain.Fleet.sell(state, account, id, minimum)
 
       %{"action" => "borrow", "amount" => amount} ->
-        Finance.borrow(state, account, amount, context.id)
+        CompanyFinance.borrow(state, account, amount, context.id)
 
       %{"action" => "repay", "loan" => id} ->
-        Finance.repay(state, account, id)
+        CompanyFinance.repay(state, account, id)
 
       %{"action" => "recast", "loan" => id, "amount" => amount} ->
-        Finance.recast(state, account, id, amount)
+        CompanyFinance.recast(state, account, id, amount)
 
       %{"action" => "bankruptcy"} ->
-        Finance.bankrupt(state, account)
+        CompanyFinance.bankrupt(state, account)
 
       %{"action" => "instruction_onward", "ship" => ship, "port" => port, "onward" => onward} ->
         Ship.change_onward(

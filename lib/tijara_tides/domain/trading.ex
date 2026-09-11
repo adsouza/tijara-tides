@@ -4,10 +4,10 @@ defmodule TijaraTides.Domain.Trading do
   import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2, voyage_quote: 3]
   import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 1]
   import TijaraTides.Domain.Markets, only: [quote: 4, handling_rate: 1]
-  alias TijaraTides.Domain.{CargoLots, Journal}
+  alias TijaraTides.Domain.{CargoLots, CompanyFinance}
 
   def execute(state, account, %TijaraTides.Domain.Trade{} = trade, catalogue) do
-    state = TijaraTides.Domain.Finance.settle(state)
+    state = TijaraTides.Domain.CompanyFinance.settle(state)
 
     trade(
       state,
@@ -176,23 +176,16 @@ defmodule TijaraTides.Domain.Trading do
           |> TijaraTides.Domain.Ship.from_row()
           |> TijaraTides.Domain.Ship.record_purchase(cargo, state.clock_ms, cleaning, catalogue)
 
-        company = %{
-          company
-          | "cash" => company["cash"] - cost - handling - cleaning,
-            "profit" => company["profit"] - handling - cleaning
-        }
-
         state =
           state
           |> TijaraTides.Domain.Ship.store(aggregate)
-          |> put("companies", company["id"], company)
           |> put("markets", market["port"] <> "|" <> market["good"], %{
             market
             | "stock" => market["stock"] - quantity
           })
 
         state =
-          Journal.post(
+          CompanyFinance.post(
             state,
             company["id"],
             "purchase",
@@ -229,13 +222,6 @@ defmodule TijaraTides.Domain.Trading do
         proceeds = quote["bid"] * quantity - handling
         paid = min(company["unpaid"], max(0, proceeds))
 
-        company = %{
-          company
-          | "cash" => company["cash"] + proceeds - paid,
-            "unpaid" => company["unpaid"] - paid,
-            "profit" => company["profit"] + proceeds - cost
-        }
-
         aggregate =
           ship
           |> TijaraTides.Domain.Ship.from_row()
@@ -251,11 +237,10 @@ defmodule TijaraTides.Domain.Trading do
         state =
           state
           |> TijaraTides.Domain.Ship.store(aggregate)
-          |> put("companies", company["id"], company)
           |> put("markets", market["port"] <> "|" <> good, market)
 
         state =
-          Journal.post(
+          CompanyFinance.post(
             state,
             company["id"],
             "sale",
@@ -270,7 +255,7 @@ defmodule TijaraTides.Domain.Trading do
             %{ship: ship["id"], good: good}
           )
 
-        {:ok, TijaraTides.Domain.Finance.settle(state),
+        {:ok, TijaraTides.Domain.CompanyFinance.settle(state),
          %{"received" => proceeds, "quantity" => quantity}}
     end
   end

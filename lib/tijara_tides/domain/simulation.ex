@@ -10,9 +10,9 @@ defmodule TijaraTides.Domain.Simulation do
 
   def advance(state, elapsed, catalogue) when is_integer(elapsed) and elapsed >= 0 do
     %{state | clock_ms: state.clock_ms + elapsed}
-    |> TijaraTides.Domain.Finance.settle()
+    |> TijaraTides.Domain.CompanyFinance.settle()
     |> Fleet.advance(elapsed)
-    |> TijaraTides.Domain.Finance.settle()
+    |> TijaraTides.Domain.CompanyFinance.settle()
     |> Markets.advance(catalogue)
     |> Ship.execute_visits(catalogue)
     |> Accounts.expire_invitations()
