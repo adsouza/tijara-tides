@@ -75,21 +75,24 @@ defmodule TijaraTides.Domain.Ship do
     }
   end
 
-  def record_sale(%__MODULE__{} = ship, sold, remaining, now) do
+  def record_sale(state, %__MODULE__{} = ship, good, quantity) do
     docked!(ship)
+    available = Enum.sum(for batch <- ship.cargo, batch["good"] == good, do: batch["quantity"])
 
-    unless quantities(ship.cargo) == quantities(sold ++ remaining),
-      do: raise(ArgumentError, "Sale must conserve the ship's cargo quantities")
+    unless is_integer(quantity) and quantity > 0 and quantity <= available,
+      do: raise(ArgumentError, "Sale requires a positive integer quantity available aboard")
 
-    quantity = Enum.sum(Enum.map(sold, & &1["quantity"]))
-    unless quantity > 0, do: raise(ArgumentError, "Sale must unload positive cargo")
+    {state, sold, remaining} =
+      TijaraTides.Domain.CargoLots.take(state, ship.cargo, quantity, good)
 
-    %{
+    next = %{
       ship
       | cargo: remaining,
         status: "unloading",
-        arrive_ms: now + CargoRules.handling_ms(quantity)
+        arrive_ms: state.clock_ms + CargoRules.handling_ms(quantity)
     }
+
+    {state, next, sold}
   end
 
   def begin_voyage(%__MODULE__{} = ship, destination, estimate, now, speedup) do
@@ -133,12 +136,6 @@ defmodule TijaraTides.Domain.Ship do
              (class["hold"] != "liquid" or length(liquids) <= 1),
            do: raise(ArgumentError, "Ship hold capacity or liquid segregation violated")
   end
-
-  defp quantities(cargo),
-    do:
-      Enum.reduce(cargo, %{}, fn b, acc ->
-        Map.update(acc, b["good"], b["quantity"], &(&1 + b["quantity"]))
-      end)
 
   defp docked!(%{status: "docked"}), do: :ok
   defp docked!(_), do: raise(ArgumentError, "Ship must finish its current operation first")
@@ -300,9 +297,10 @@ defmodule TijaraTides.Domain.Ship do
     store(state, record_purchase(ship, cargo, state.clock_ms, cleaning, catalogue))
   end
 
-  def unload_cargo(state, id, sold, remaining) do
+  def unload_cargo(state, id, good, quantity) do
     ship = State.get(state, "ships", id) |> from_row()
-    store(state, record_sale(ship, sold, remaining, state.clock_ms))
+    {state, ship, sold} = record_sale(state, ship, good, quantity)
+    {store(state, ship), sold}
   end
 
   def depart(state, id, destination, estimate, speedup) do

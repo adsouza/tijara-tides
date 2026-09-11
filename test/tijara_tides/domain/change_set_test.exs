@@ -30,4 +30,20 @@ defmodule TijaraTides.Domain.ChangeSetTest do
              {"financial_reports", "old"} => :delete
            }
   end
+
+  test "audit detects raw map updates and removals but allows declared writes" do
+    before = %{entities: %{"accounts" => %{"a" => %{"quota" => 0}}}}
+    raw = put_in(before, [:entities, "accounts", "a", "quota"], 1)
+    assert_raise ArgumentError, fn -> ChangeSet.assert_complete!(before, raw) end
+    deleted = put_in(before, [:entities, "accounts"], %{})
+    assert_raise ArgumentError, fn -> ChangeSet.assert_complete!(before, deleted) end
+
+    assert :ok ==
+             ChangeSet.assert_complete!(
+               before,
+               State.put(before, "accounts", "a", %{"quota" => 1})
+             )
+
+    assert :ok == ChangeSet.assert_complete!(before, State.delete(before, "accounts", "a"))
+  end
 end

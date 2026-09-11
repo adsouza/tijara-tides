@@ -375,3 +375,12 @@ entire world and historical journal totals. Out-of-band corruption of an unrelat
 company is therefore detected by its next affected commit or a full audit, not
 by every unrelated command. SQL writes, journals, reconciliation and receipts
 remain one transaction under the world lock. No database migration is needed.
+
+## Aggregate integrity checks
+
+Ship sales accept cargo identity and quantity, not caller-supplied replacement
+holds. The root creates lot splits and returns removed cargo for settlement.
+Test persistence audits actual row differences against the declared change set
+before acceptance and cache eviction. This deliberately expensive check is off
+in production. Domain purity checks also prohibit ambient clocks, I/O,
+configuration access, randomness and process-global state.

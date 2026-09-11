@@ -26,6 +26,15 @@ defmodule TijaraTides.Domain.DomainPurityTest do
   use ExUnit.Case, async: true
 
   @forbidden_modules [
+    File,
+    IO,
+    System,
+    Application,
+    :file,
+    :io,
+    :os,
+    :rand,
+    :persistent_term,
     GenServer,
     Agent,
     Task,
@@ -64,7 +73,15 @@ defmodule TijaraTides.Domain.DomainPurityTest do
     :whereis,
     :group_leader,
     :halt,
-    :now
+    :now,
+    :system_time,
+    :monotonic_time,
+    :timestamp,
+    :unique_integer,
+    :make_ref,
+    :put,
+    :erase,
+    :get
   ]
 
   test "no Domain module reaches OTP, Ecto, or Phoenix" do
@@ -81,6 +98,25 @@ defmodule TijaraTides.Domain.DomainPurityTest do
 
     assert violations == [],
            "Domain layer must stay pure. Violations:\n  " <> Enum.join(violations, "\n  ")
+  end
+
+  test "purity guard rejects clocks, IO, global state and randomness" do
+    for {module, function} <- [
+          {File, :read!},
+          {IO, :puts},
+          {System, :system_time},
+          {Application, :get_env},
+          {:erlang, :system_time},
+          {:erlang, :monotonic_time},
+          {:erlang, :put},
+          {:rand, :uniform},
+          {:file, :read_file}
+        ] do
+      assert forbidden?(module, function)
+    end
+
+    refute forbidden?(:erlang, :+)
+    refute forbidden?(Enum, :reduce)
   end
 
   defp domain_beams do
