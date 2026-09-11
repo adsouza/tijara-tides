@@ -285,6 +285,31 @@ defmodule TijaraTides.Domain.Ship do
     state |> cancel_automation(ship_id) |> State.delete("ships", ship_id)
   end
 
-  @doc false
-  def store(state, %__MODULE__{} = ship), do: State.put(state, "ships", ship.id, to_row(ship))
+  def commission(state, row) do
+    if State.get(state, "ships", row["id"]), do: raise(ArgumentError, "Ship already exists")
+    store(state, commission(row))
+  end
+
+  def load_cargo(state, id, cargo, cleaning, catalogue) do
+    ship = State.get(state, "ships", id) |> from_row()
+    store(state, record_purchase(ship, cargo, state.clock_ms, cleaning, catalogue))
+  end
+
+  def unload_cargo(state, id, sold, remaining) do
+    ship = State.get(state, "ships", id) |> from_row()
+    store(state, record_sale(ship, sold, remaining, state.clock_ms))
+  end
+
+  def depart(state, id, destination, estimate, speedup) do
+    ship = State.get(state, "ships", id) |> from_row()
+    store(state, begin_voyage(ship, destination, estimate, state.clock_ms, speedup))
+  end
+
+  def advance_hull(state, id, elapsed, bankrupt, speedup, book_value) do
+    ship = State.get(state, "ships", id) |> from_row()
+    {next, effects} = advance(ship, state.clock_ms, elapsed, bankrupt, speedup, book_value)
+    {store(state, next), effects}
+  end
+
+  defp store(state, %__MODULE__{} = ship), do: State.put(state, "ships", ship.id, to_row(ship))
 end

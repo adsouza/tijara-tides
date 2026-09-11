@@ -134,6 +134,14 @@ defmodule TijaraTides.Domain.Reporting do
     integrate(state, company, period, finish, until, capital)
   end
 
+  def restore_baseline(changed, baseline) do
+    Enum.reduce(["reporting_accounts", "financial_reports"], changed, fn kind, state ->
+      Enum.reduce(entities(baseline, kind), state, fn {id, row}, acc ->
+        put(acc, kind, id, row)
+      end)
+    end)
+  end
+
   def compact(state) do
     rows =
       entities(state, "financial_reports")

@@ -330,3 +330,11 @@ An architecture regression test guards account-owned writes, alongside the
 existing Ship, CompanyFinance and PortCargoMarket guards. Relational tables,
 world fencing, map-diff persistence and wire shapes are unchanged. No migration
 or authentication-policy change is required by this extraction.
+
+## Mutation API hardening
+
+Ship and PortCargoMarket row stores are private. Coordinators call named
+transitions that reload current rows and validate the operation before saving.
+Reporting restores its own baseline; application commit preparation no longer
+merges entity maps. Architecture checks cover public row-store exposure and
+application-layer generic mutations in addition to entity ownership checks.

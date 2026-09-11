@@ -122,7 +122,7 @@ defmodule TijaraTides.Domain.Fleet do
 
         state =
           state
-          |> TijaraTides.Domain.Ship.store(TijaraTides.Domain.Ship.commission(ship))
+          |> TijaraTides.Domain.Ship.commission(ship)
           |> CompanyFinance.post(
             company["id"],
             "ship_purchase",
@@ -168,25 +168,12 @@ defmodule TijaraTides.Domain.Fleet do
   def sail(state, account, id, destination, limit, catalogue) do
     state = TijaraTides.Domain.CompanyFinance.settle(state)
 
-    with {:ok, ship, company, estimate} <-
+    with {:ok, _ship, company, estimate} <-
            departure_check(state, account, id, destination, limit, catalogue) do
       owner = company["id"]
 
-      aggregate =
-        ship
-        |> TijaraTides.Domain.Ship.from_row()
-        |> TijaraTides.Domain.Ship.begin_voyage(
-          destination,
-          estimate,
-          state.clock_ms,
-          @voyage_speedup
-        )
-
-      ship = TijaraTides.Domain.Ship.to_row(aggregate)
-
-      state =
-        state
-        |> TijaraTides.Domain.Ship.store(aggregate)
+      state = TijaraTides.Domain.Ship.depart(state, id, destination, estimate, @voyage_speedup)
+      ship = get(state, "ships", id)
 
       state =
         CompanyFinance.post(
@@ -272,10 +259,10 @@ defmodule TijaraTides.Domain.Fleet do
 
       value = sale_value(row, now)
 
-      {ship, effects} =
-        TijaraTides.Domain.Ship.advance(
-          TijaraTides.Domain.Ship.from_row(row),
-          now,
+      {state, effects} =
+        TijaraTides.Domain.Ship.advance_hull(
+          state,
+          id,
           elapsed,
           company["bankruptcy_ms"] != nil,
           @voyage_speedup,
@@ -283,7 +270,6 @@ defmodule TijaraTides.Domain.Fleet do
         )
 
       state
-      |> TijaraTides.Domain.Ship.store(ship)
       |> CompanyFinance.ship_operations(company["id"], id, effects)
     end)
   end

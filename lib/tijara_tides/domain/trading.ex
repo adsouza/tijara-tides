@@ -158,24 +158,17 @@ defmodule TijaraTides.Domain.Trading do
           company["cash"] - company["reserved"] - cost - handling - cleaning}}
 
       true ->
-        {state, market_root, cargo} =
-          PortCargoMarket.supply(
+        {state, cargo} =
+          PortCargoMarket.release_stock(
             state,
-            PortCargoMarket.from_row(market),
+            market["port"],
+            market["good"],
             quantity,
             quote["ask"],
             item
           )
 
-        aggregate =
-          ship
-          |> TijaraTides.Domain.Ship.from_row()
-          |> TijaraTides.Domain.Ship.record_purchase(cargo, state.clock_ms, cleaning, catalogue)
-
-        state =
-          state
-          |> TijaraTides.Domain.Ship.store(aggregate)
-          |> PortCargoMarket.store(market_root)
+        state = TijaraTides.Domain.Ship.load_cargo(state, ship["id"], cargo, cleaning, catalogue)
 
         state =
           CompanyFinance.post(
@@ -215,18 +208,10 @@ defmodule TijaraTides.Domain.Trading do
         proceeds = quote["bid"] * quantity - handling
         paid = min(company["unpaid"], max(0, proceeds))
 
-        aggregate =
-          ship
-          |> TijaraTides.Domain.Ship.from_row()
-          |> TijaraTides.Domain.Ship.record_sale(sold, cargo, state.clock_ms)
-
-        market_root =
-          PortCargoMarket.receive_cargo(PortCargoMarket.from_row(market), quantity, quote["bid"])
-
         state =
           state
-          |> TijaraTides.Domain.Ship.store(aggregate)
-          |> PortCargoMarket.store(market_root)
+          |> TijaraTides.Domain.Ship.unload_cargo(ship["id"], sold, cargo)
+          |> PortCargoMarket.accept_cargo(market["port"], good, quantity, quote["bid"])
 
         state =
           CompanyFinance.post(

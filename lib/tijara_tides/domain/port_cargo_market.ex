@@ -13,8 +13,19 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   def to_row(%__MODULE__{} = market),
     do: Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(market, &1)})
 
-  def store(state, %__MODULE__{} = market),
+  defp store(state, %__MODULE__{} = market),
     do: put(state, "markets", market.port <> "|" <> market.good, to_row(market))
+
+  def release_stock(state, port, good, quantity, price, item) do
+    market = get(state, "markets", port <> "|" <> good) |> from_row()
+    {state, next, cargo} = supply(state, market, quantity, price, item)
+    {store(state, next), cargo}
+  end
+
+  def accept_cargo(state, port, good, quantity, price) do
+    market = get(state, "markets", port <> "|" <> good) |> from_row()
+    store(state, receive_cargo(market, quantity, price))
+  end
 
   def quote(state, catalogue, port, good) do
     market = get(state, "markets", port <> "|" <> good)

@@ -26,16 +26,7 @@ defmodule TijaraTides.UseCases.CommitPreparation do
 
     changed = Reporting.initialize(changed, adjustments)
 
-    entities =
-      Enum.reduce(["reporting_accounts", "financial_reports"], changed.entities, fn kind, rows ->
-        Map.put(
-          rows,
-          kind,
-          Map.merge(Map.get(rows, kind, %{}), Map.get(baseline.entities, kind, %{}))
-        )
-      end)
-
-    changed = %{changed | entities: entities}
+    changed = Reporting.restore_baseline(changed, baseline)
 
     changed =
       Enum.reduce(events, changed, fn event, state ->
