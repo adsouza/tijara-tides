@@ -13,6 +13,7 @@ defmodule TijaraTides.Domain do
       Commands,
       Ship,
       CompanyFinance,
+      PortCargoMarket,
       Fleet,
       Trading,
       CargoRules,

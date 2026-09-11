@@ -137,3 +137,7 @@ ownership, compatibility adapters, and remaining extraction work.
 Company balances and accounting entries are now applied together by the
 `CompanyFinance` root. See [company finance aggregate](docs/architecture.md#company-finance-aggregate)
 for ownership, settlement and the retained world transaction boundary.
+
+`PortCargoMarket` owns each port/cargo market's inventory, demand, budget and
+replenishment. Trading coordinates it with Ship and CompanyFinance; all three
+still commit atomically. See [market aggregate](docs/architecture.md#port-cargo-market-aggregate).

@@ -3,8 +3,8 @@ defmodule TijaraTides.Domain.Trading do
   import TijaraTides.Domain.State
   import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2, voyage_quote: 3]
   import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 1]
-  import TijaraTides.Domain.Markets, only: [quote: 4, handling_rate: 1]
-  alias TijaraTides.Domain.{CargoLots, CompanyFinance}
+  import TijaraTides.Domain.PortCargoMarket, only: [quote: 4, handling_rate: 1]
+  alias TijaraTides.Domain.{CargoLots, CompanyFinance, PortCargoMarket}
 
   def execute(state, account, %TijaraTides.Domain.Trade{} = trade, catalogue) do
     state = TijaraTides.Domain.CompanyFinance.settle(state)
@@ -158,18 +158,14 @@ defmodule TijaraTides.Domain.Trading do
           company["cash"] - company["reserved"] - cost - handling - cleaning}}
 
       true ->
-        {state, batches, remaining} =
-          if item["shelf_ms"] > 0 do
-            CargoLots.take(state, market["batches"], quantity, item["id"])
-          else
-            {next, lot} = CargoLots.create(state, item["id"], quantity, nil)
-            {next, [lot], []}
-          end
-
-        cargo =
-          Enum.map(batches, &Map.merge(&1, %{"good" => item["id"], "unit_cost" => quote["ask"]}))
-
-        market = %{market | "batches" => remaining, "budget" => market["budget"] + cost}
+        {state, market_root, cargo} =
+          PortCargoMarket.supply(
+            state,
+            PortCargoMarket.from_row(market),
+            quantity,
+            quote["ask"],
+            item
+          )
 
         aggregate =
           ship
@@ -179,10 +175,7 @@ defmodule TijaraTides.Domain.Trading do
         state =
           state
           |> TijaraTides.Domain.Ship.store(aggregate)
-          |> put("markets", market["port"] <> "|" <> market["good"], %{
-            market
-            | "stock" => market["stock"] - quantity
-          })
+          |> PortCargoMarket.store(market_root)
 
         state =
           CompanyFinance.post(
@@ -227,17 +220,13 @@ defmodule TijaraTides.Domain.Trading do
           |> TijaraTides.Domain.Ship.from_row()
           |> TijaraTides.Domain.Ship.record_sale(sold, cargo, state.clock_ms)
 
-        market = %{
-          market
-          | "demand" => market["demand"] - quantity,
-            "budget" => market["budget"] - quote["bid"] * quantity,
-            "stock" => market["stock"] + if(market["merchant"], do: quantity, else: 0)
-        }
+        market_root =
+          PortCargoMarket.receive_cargo(PortCargoMarket.from_row(market), quantity, quote["bid"])
 
         state =
           state
           |> TijaraTides.Domain.Ship.store(aggregate)
-          |> put("markets", market["port"] <> "|" <> good, market)
+          |> PortCargoMarket.store(market_root)
 
         state =
           CompanyFinance.post(

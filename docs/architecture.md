@@ -4,8 +4,8 @@ Tijara Tides is a modular monolith with a pure domain, a transport-independent
 application layer, PostgreSQL adapters, and Phoenix LiveView presentation. One
 GenServer remains the authoritative writer for each running world. The world is
 the current transaction boundary; the modules below are responsibility boundaries,
-not independently deployed services. Ship now has an explicit aggregate root;
-its changes still commit in the shared world transaction.
+not independently deployed services. Ship, CompanyFinance and PortCargoMarket
+have explicit aggregate roots; their changes commit in the shared world transaction.
 
 ## Responsibilities
 
@@ -16,9 +16,9 @@ its changes still commit in the shared world transaction.
 | Ship operation | `Domain.Ship`; `Fleet` coordinates financial settlement | Ownership and handling status before departure; fuel funding and reservation; capacity measured in kg/litres; fuel and crew costs settled once. |
 | Cargo | `Domain.CargoRules`, `CargoLots` | Hold compatibility, liquid mixing restrictions, freshness, stable lot identity and split lineage. |
 | Trading | `Domain.Trading` | Atomic cash, cargo, liquidity and accounting changes; destination funding rechecked before purchase. |
-| City markets | `Domain.Markets` | Bounded stock, demand and budgets; finite manufactured stock; no synthetic merchant inventory; world-time replenishment. |
-| Credit and insolvency | `Domain.Finance` | Fixed loan terms, oldest-due settlement, protected reservations, shared active-clock arrears, bankruptcy and replacement entitlement. |
-| Accounting | `Domain.Journal`, persistence ledger adapter | Balanced integer-cent entries; durable ledger and entity balances committed together and reconciled. |
+| City markets | `Domain.PortCargoMarket` | Bounded stock, demand and budgets; finite manufactured stock; no synthetic merchant inventory; world-time replenishment. |
+| Credit and insolvency | `Domain.CompanyFinance` | Fixed loan terms, oldest-due settlement, protected reservations, shared active-clock arrears, bankruptcy and replacement entitlement. |
+| Accounting | `Domain.CompanyFinance`, `Domain.Journal`, persistence ledger adapter | Balanced integer-cent entries; durable ledger and entity balances committed together and reconciled. |
 | Financial accumulation | `Domain.Reporting`, `UseCases.CommitPreparation` | Integer capital-time integration and accounting categories; apply pending journal events before commit, clear only after success. |
 | Visibility | `Domain.Visibility` | Public ships never expose cargo, balances, credentials or private instructions; owner projections require authentication. |
 | Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, settle finance before and after fleet operations, then market recovery, ship instructions and invitation expiry in the established order; commit all phases together. |
@@ -246,8 +246,7 @@ shape. `from_row`/`to_row` are adapters, and `from_world` assembles a ship and i
 owned children. Route orchestration still accepts the world as its internal
 coordination context: this is an incremental aggregate migration, not an
 independently loadable repository for every operation. CompanyFinance and
-PortCargoMarket are still subsequent aggregate extractions. Global map-diff
-persistence, the world lock, epoch fencing and atomic journals remain unchanged;
+PortCargoMarket ownership is described below. Global map-diff persistence, the world lock, epoch fencing and atomic journals remain unchanged;
 explicit changed-root persistence is deferred until all mutation paths have
 aggregate ownership. No schema migration or gameplay rebalance is required.
 
@@ -273,3 +272,26 @@ Lifecycle orchestration still uses the internal world context, including account
 suspension and cross-company guarantee settlement. This is not an independently
 committed repository: the world writer, fencing and atomic ledger persistence
 remain unchanged. No schema or financial-policy migration is required.
+
+## Port cargo market aggregate
+
+Each `PortCargoMarket` root is identified by a port/cargo pair and owns stock,
+demand, buyer budget, supplier freshness batches and the production cursor.
+`quote` derives the current bid and ask. `supply` releases available cargo and
+creates or splits permanent lots; `receive_cargo` consumes buyer demand and
+budget. Consumer purchases disappear into consumption; merchants retain stock.
+Neither transition can oversell inventory or overdraw buyer demand or funds.
+
+`replenish` removes expired supplier stock, replenishes raw production, and
+recovers demand and budgets using the existing active-world cadence. Manufactured
+supply remains finite and merchants never synthesize inventory. Trading
+coordinates market transitions with Ship and CompanyFinance in the same world
+transaction, so failed settlement cannot leave cargo or cash partially moved.
+The world context supplies the clock and lot identity sequence; `Markets` remains
+a compatibility facade. Persistence row shapes, pricing and replenishment policy
+are unchanged, and no database migration is needed.
+
+Architecture regression tests prohibit direct financial, market and ship entity
+writes outside their owning implementations. Generic state adapters remain
+internal. These guards supplement invariant and transaction tests; they do not
+make aggregates separate processes or independently committed units.
