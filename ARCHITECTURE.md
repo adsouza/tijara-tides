@@ -17,7 +17,7 @@ Browser / native webview
   → TijaraTidesWeb.GameLive and GameSessionController
   → Infrastructure.GameServer (transport and world ownership)
   → UseCases.GameCommands (authenticated command workflow)
-  → Domain.Commands → Domain.Accounts / Domain.Trading / Domain.Fleet
+  → Domain.Commands → Domain.Account / Domain.Trading / Domain.Fleet
 
 UseCases.GameCommands → UseCases.CommandStore (persistence port)
 Infrastructure.Persistence.CommandStore implements UseCases.CommandStore
@@ -141,3 +141,7 @@ for ownership, settlement and the retained world transaction boundary.
 `PortCargoMarket` owns each port/cargo market's inventory, demand, budget and
 replenishment. Trading coordinates it with Ship and CompanyFinance; all three
 still commit atomically. See [market aggregate](docs/architecture.md#port-cargo-market-aggregate).
+
+`Account` owns identity, sessions, invitations, company membership and personal
+bankruptcy history. Financial settlement invokes its lifecycle transitions rather
+than modifying account rows directly. See [account aggregate](docs/architecture.md#account-aggregate).

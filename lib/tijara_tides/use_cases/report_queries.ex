@@ -1,6 +1,6 @@
 defmodule TijaraTides.UseCases.ReportQueries do
   @moduledoc "Reporting selection, eligibility, privacy and presentation-neutral read models."
-  alias TijaraTides.Domain.{Accounts, Reporting}
+  alias TijaraTides.Domain.{Account, Reporting}
 
   @public ~w(id company_id name bankruptcies period period_index profit roi eligible complete end_ms)
   @limit 10
@@ -39,7 +39,7 @@ defmodule TijaraTides.UseCases.ReportQueries do
   # of one committed revision and belongs in whichever process asked for the page.
   def plan(game, session, wall_ms, params) do
     owner =
-      case Accounts.authenticate(game, session, wall_ms) do
+      case Account.authenticate(game, session, wall_ms) do
         {:ok, account} -> account["id"]
         _ -> nil
       end

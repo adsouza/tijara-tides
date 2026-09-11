@@ -4,14 +4,14 @@ Tijara Tides is a modular monolith with a pure domain, a transport-independent
 application layer, PostgreSQL adapters, and Phoenix LiveView presentation. One
 GenServer remains the authoritative writer for each running world. The world is
 the current transaction boundary; the modules below are responsibility boundaries,
-not independently deployed services. Ship, CompanyFinance and PortCargoMarket
-have explicit aggregate roots; their changes commit in the shared world transaction.
+not independently deployed services. Account, Ship, CompanyFinance and
+PortCargoMarket have explicit aggregate roots; their changes commit in the shared world transaction.
 
 ## Responsibilities
 
 | Area | Owner | Invariants |
 |---|---|---|
-| Identity and company formation | `Domain.Accounts` | Valid durable sessions; one active company per account; invitation entitlement lifecycle; zero-asset formation and explicit borrowing. |
+| Identity and company formation | `Domain.Account` | Valid durable sessions; one active company per account; invitation entitlement lifecycle; zero-asset formation and explicit borrowing. |
 | Repeating routes | `Domain.Ship` with internal `Ship.RoutePlan` | Private bounded stop templates; durable visit cursor and phase; fresh load shortfalls per visit; pause without cancelling committed movement. |
 | Ship operation | `Domain.Ship`; `Fleet` coordinates financial settlement | Ownership and handling status before departure; fuel funding and reservation; capacity measured in kg/litres; fuel and crew costs settled once. |
 | Cargo | `Domain.CargoRules`, `CargoLots` | Hold compatibility, liquid mixing restrictions, freshness, stable lot identity and split lineage. |
@@ -26,7 +26,7 @@ have explicit aggregate roots; their changes commit in the shared world transact
 `Domain.ReadState` exports only reads for application projections.
 `Domain.State` is unexported internal state-access machinery, not a general
 application write API. The compatibility facade exposes no generic put/delete
-operations; sign-out goes through `Accounts.sign_out/2`. A change to an entity belongs in the domain operation that owns its
+operations; sign-out goes through `Account.sign_out/2`. A change to an entity belongs in the domain operation that owns its
 rules. A row or map is not automatically a DDD aggregate.
 
 `Domain.Trade` is an explicit trade intention; execution still validates its
@@ -262,14 +262,14 @@ available cash, and settlement cannot overdraw reservations or payables.
 Fleet and Trading coordinate financial settlement with Ship transitions inside
 the existing atomic world transaction. `ship_operations` pays crew from free
 cash, consumes fuel reservations and records unpaid operating bills. Loan and
-bankruptcy lifecycle rules reside in the root; guarantee coordination resides
+company receivership rules reside in the root; guarantee coordination resides
 in `CompanyFinance.Guarantees`. A guarantee belongs to its sponsoring company's
 finances and references the beneficiary; it is not embedded in two aggregates.
 `Finance` and `Guarantees` remain compatibility entry points.
 
 The typed financial root can load its owned children with `from_world`.
 Lifecycle orchestration still uses the internal world context, including account
-suspension and cross-company guarantee settlement. This is not an independently
+lifecycle transitions through Account and cross-company guarantee settlement. This is not an independently
 committed repository: the world writer, fencing and atomic ledger persistence
 remain unchanged. No schema or financial-policy migration is required.
 
@@ -295,3 +295,38 @@ Architecture regression tests prohibit direct financial, market and ship entity
 writes outside their owning implementations. Generic state adapters remain
 internal. These guards supplement invariant and transaction tests; they do not
 make aggregates separate processes or independently committed units.
+
+## Account aggregate
+
+`Account` owns account identity, company association, device sessions, invitation
+quota and lifecycle, verified email credentials, bankruptcy history, suspension
+and reinstatement. Its typed root exposes current state and owned children via
+`from_world`. `Account.EmailIdentity` handles credential requests, redemption and
+delivery state; transport, hashing and sending mail stay outside the domain.
+`Accounts` and `EmailIdentity` remain compatibility facades.
+
+CompanyFinance closes the insolvent company's finances, then calls
+`Account.record_bankruptcy` to detach that company, append its history exactly
+once and apply account suspension. Recent-history counting and restart cooldown
+queries belong to Account; lending policy remains in CompanyFinance. Guarantee
+funds remain owned by the sponsoring company's finances. Account reinstatement
+requires a pledged guarantee from the original sponsor for that beneficiary.
+All these transitions still commit in one atomic world transaction.
+
+Company attachment validates ownership and exclusive active membership.
+Invitation commands reload current account state so stale snapshots cannot
+restore spent quota. Expiry restores unused quota only once. Verified email
+binding prevents identity and session reassignment across accounts. Delivery
+acknowledgements update current credential rows, preserving redemption that
+happened after dispatch. Existing wall-clock credential expiry and active-world
+invitation expiry are preserved.
+
+Account commands still use the shared world context to enforce unique email
+ownership, invitation redemption and company-name uniqueness across accounts.
+Seed invitations and anonymous email requests exist before an account does;
+they are handled by the same identity lifecycle implementation rather than
+attached to a fictitious player. Account is not a separately committed service.
+An architecture regression test guards account-owned writes, alongside the
+existing Ship, CompanyFinance and PortCargoMarket guards. Relational tables,
+world fencing, map-diff persistence and wire shapes are unchanged. No migration
+or authentication-policy change is required by this extraction.

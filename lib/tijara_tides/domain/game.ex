@@ -4,10 +4,10 @@ defmodule TijaraTides.Domain.Game do
   defdelegate entities(arg0, arg1), to: TijaraTides.Domain.ReadState
   defdelegate get(arg0, arg1, arg2), to: TijaraTides.Domain.ReadState
   defdelegate initialize(arg0, arg1), to: TijaraTides.Domain.Simulation
-  defdelegate authenticate(arg0, arg1, arg2), to: TijaraTides.Domain.Accounts
+  defdelegate authenticate(arg0, arg1, arg2), to: TijaraTides.Domain.Account
   defdelegate execute(arg0, arg1, arg2, arg3, arg4), to: TijaraTides.Domain.Commands
-  defdelegate seed_invite(arg0, arg1), to: TijaraTides.Domain.Accounts
-  defdelegate redeem(arg0, arg1, arg2, arg3), to: TijaraTides.Domain.Accounts
+  defdelegate seed_invite(arg0, arg1), to: TijaraTides.Domain.Account
+  defdelegate redeem(arg0, arg1, arg2, arg3), to: TijaraTides.Domain.Account
   defdelegate quote(arg0, arg1, arg2, arg3), to: TijaraTides.Domain.Markets
   defdelegate capacity(arg0, arg1), to: TijaraTides.Domain.Fleet
   defdelegate compatible_cargo?(arg0, arg1), to: TijaraTides.Domain.CargoRules

@@ -159,7 +159,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
     credit_floor: 10_000_000,
     grace_ms: 86_400_000,
     cooldown_ms: 1_200_000,
-    history_ms: 112 * 86_400_000
+    history_ms: TijaraTides.Domain.Account.history_ms()
   }
   def terms, do: @terms
 
@@ -171,21 +171,9 @@ defmodule TijaraTides.Domain.CompanyFinance do
   def credit_limit(state, account),
     do: max(@terms.credit_floor, div(@terms.credit_limit, 1 + counted(state, account)))
 
-  def history(state, account) do
-    entities(state, "bankruptcy_events")
-    |> Map.values()
-    |> Enum.filter(&(&1["account_id"] == account["id"]))
-  end
-
-  def counted(state, account),
-    do:
-      Enum.count(
-        history(state, account),
-        &(&1["created_ms"] + @terms.history_ms > state.clock_ms)
-      )
-
-  def restart_at(state, account),
-    do: history(state, account) |> Enum.map(& &1["restart_ms"]) |> Enum.max(fn -> 0 end)
+  defdelegate history(state, account), to: TijaraTides.Domain.Account
+  defdelegate counted(state, account), to: TijaraTides.Domain.Account
+  defdelegate restart_at(state, account), to: TijaraTides.Domain.Account
 
   def loans(state, company),
     do:
@@ -738,19 +726,6 @@ defmodule TijaraTides.Domain.CompanyFinance do
             |> Map.put("arrears_since", nil)
             |> Map.put("unpaid_since", nil)
           )
-          |> put("accounts", account["id"], %{
-            account
-            | "company_id" => nil,
-              "bankruptcies" => account["bankruptcies"] + 1
-          })
-          |> put("bankruptcy_events", company["id"], %{
-            "id" => company["id"],
-            "company_id" => company["id"],
-            "account_id" => account["id"],
-            "created_ms" => state.clock_ms,
-            "restart_ms" => state.clock_ms + @terms.cooldown_ms,
-            "reason" => reason
-          })
           |> __MODULE__.post(company["id"], "bankruptcy_payables", [
             {"payables", company["unpaid"]},
             {"receivership", -company["unpaid"]}
@@ -761,25 +736,14 @@ defmodule TijaraTides.Domain.CompanyFinance do
             "#{company["name"]} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes."
           )
 
-        account = get(state, "accounts", account["id"])
-
         state =
-          if counted(state, account) >= 5 do
-            state
-            |> put("accounts", account["id"], Map.put(account, "suspended_ms", state.clock_ms))
-            |> Notices.notice(
-              account["id"],
-              "suspension",
-              "Account suspended after five recent bankruptcies. Your original sponsor must pledge at least $50,000 to reinstate you."
-            )
-            |> Notices.notice(
-              account["inviter"],
-              "suspension:" <> account["id"],
-              "An invitee is suspended and needs your cash-backed guarantee. Review sponsor guarantees in the account menu."
-            )
-          else
-            state
-          end
+          TijaraTides.Domain.Account.record_bankruptcy(
+            state,
+            account["id"],
+            company["id"],
+            reason,
+            @terms.cooldown_ms
+          )
 
         {:ok, state, %{"bankrupt" => company["id"]}}
     end

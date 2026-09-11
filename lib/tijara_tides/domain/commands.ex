@@ -1,6 +1,6 @@
 defmodule TijaraTides.Domain.Commands do
   @moduledoc "Dispatch validated command shapes to the domain operation that owns their invariants."
-  import TijaraTides.Domain.Accounts, only: [create_company: 4, issue_invite: 3]
+  import TijaraTides.Domain.Account, only: [create_company: 4, issue_invite: 3]
   alias TijaraTides.Domain.{CompanyFinance, Ship, Trade, Trading}
   import TijaraTides.Domain.Fleet, only: [sail: 6]
 

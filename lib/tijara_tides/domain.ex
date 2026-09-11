@@ -8,6 +8,7 @@ defmodule TijaraTides.Domain do
       Game,
       Journal,
       Reporting,
+      Account,
       Accounts,
       EmailIdentity,
       Commands,

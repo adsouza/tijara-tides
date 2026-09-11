@@ -4,7 +4,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
   alias TijaraTides.Domain.Notices
   alias TijaraTides.Domain.CompanyFinance, as: Finance
 
-  def suspended?(account), do: not is_nil(account) and account["suspended_ms"] != nil
+  defdelegate suspended?(account), to: TijaraTides.Domain.Account
 
   def sponsor_eligible?(state, sponsor) do
     company = get(state, "companies", sponsor["company_id"])
@@ -72,7 +72,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
         state =
           state
           |> put("guarantees", id, g)
-          |> put("accounts", beneficiary_id, Map.put(beneficiary, "suspended_ms", nil))
+          |> TijaraTides.Domain.Account.reinstate(beneficiary_id, id)
           |> Finance.post(company["id"], "guarantee_pledge", [
             {"guarantee_escrow", amount},
             {"cash_available", -amount}

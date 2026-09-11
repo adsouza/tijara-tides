@@ -405,7 +405,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   end
 
   def handle_call({:sign_out, token}, _from, %{status: :ready} = state) do
-    game = TijaraTides.Domain.Accounts.sign_out(state.game, hash(token))
+    game = TijaraTides.Domain.Account.sign_out(state.game, hash(token))
     finish(state, game, %{}, nil, fn _ -> :ok end)
   end
 
