@@ -408,11 +408,14 @@ records per account. Successful acceptance prunes the same identity cache at
 most once per minute. Issued invitations remain until expiry processing restores
 quota. Cache eviction never deletes durable history or declares SQL writes.
 
-Lifecycle commands restore relevant historical credentials through the optional
-CommandStore read-through port before executing domain rules. This preserves
+Lifecycle commands restore relevant historical credentials through the
+CommandStore read-through port before executing domain rules. Every store
+implements it; one with nothing to reconstitute returns the world unchanged, so a
+missing implementation cannot masquerade as an empty lookup. This preserves
 redemption retries, request-ID retries, and device reuse checks after eviction or
-restart. Reconstituted rows form the transaction's baseline, not new writes.
-Direct maintenance claims omit the wall-clock filter by default.
+restart. Sign-out is excluded: a revoked session cannot be recreated, so reading
+one back buys nothing. Reconstituted rows form the transaction's baseline, not
+new writes. Direct maintenance claims omit the wall-clock filter by default.
 
 Derived indexes cover owner, account, email and credential lookups; mutations,
 reconstitution and eviction maintain them. They are not relational replacements

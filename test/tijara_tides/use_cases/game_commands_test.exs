@@ -8,6 +8,7 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
     @behaviour TijaraTides.UseCases.CommandStore
     def receipt(ops, account, id, fingerprint), do: ops.receipt.(account, id, fingerprint)
     def commit(ops, before, changed, receipt), do: ops.commit.(before, changed, receipt)
+    def restore(_ops, game, _operation), do: game
   end
 
   setup do

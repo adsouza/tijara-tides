@@ -12,11 +12,7 @@ defmodule TijaraTides.UseCases.CommitExecutor do
     end
   end
 
-  def restore(game, operation, {store, storage}) do
-    if Code.ensure_loaded?(store) and function_exported?(store, :restore, 3),
-      do: store.restore(storage, game, operation),
-      else: game
-  end
+  def restore(game, operation, {store, storage}), do: store.restore(storage, game, operation)
 
   def outcome(game, reply, committed?),
     do: {:ok, %CommandResult{game: game, reply: reply, committed?: committed?}}

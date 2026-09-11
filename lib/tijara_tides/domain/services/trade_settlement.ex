@@ -189,7 +189,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   end
 
   defp sell(state, company, ship, good, quantity, limit, market, quote, handling) do
-    available = Enum.sum(for b <- ship["cargo"], b["good"] == good, do: b["quantity"])
+    available = TijaraTides.Domain.Ship.cargo_available(state, ship["id"], good)
 
     cond do
       available < quantity ->

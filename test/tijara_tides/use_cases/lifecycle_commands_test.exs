@@ -4,6 +4,7 @@ defmodule TijaraTides.UseCases.LifecycleCommandsTest do
 
   defmodule Store do
     def commit(callback, before, changed, receipt), do: callback.(before, changed, receipt)
+    def restore(_callback, game, _operation), do: game
   end
 
   defp game, do: %{entities: %{}, clock_ms: 0, epoch: 1, revision: 0}

@@ -33,17 +33,11 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
   defp execute(game, {:advance, elapsed}, context),
     do: {:ok, Game.advance(game, elapsed, context.catalogue), %{}}
 
-  defp execute(game, {:email_request, session, purpose, address}, context) do
+  defp execute(game, {:email_request, account, purpose, address}, context) do
     if ReadState.get(game, "email_requests", context.id) do
       {:replay, %{"requested" => true}}
     else
-      EmailIdentity.request(
-        game,
-        account(game, session, context.wall_ms),
-        purpose,
-        address,
-        context
-      )
+      EmailIdentity.request(game, account, purpose, address, context)
     end
   end
 

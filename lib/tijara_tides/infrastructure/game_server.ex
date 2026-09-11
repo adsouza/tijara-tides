@@ -132,6 +132,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
     state = %{
       repo: repo,
+      wall_clock: Keyword.get(opts, :wall_clock, fn -> System.system_time(:millisecond) end),
       world_id: Keyword.get(opts, :world_id, "ocean"),
       status: :not_configured,
       game: nil,
@@ -146,7 +147,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
     if enabled do
       try do
         {:ok, game} =
-          GameStore.claim(repo, state.world_id, wall_ms: System.system_time(:millisecond))
+          GameStore.claim(repo, state.world_id, wall_ms: state.wall_clock.())
 
         initialized =
           TijaraTides.UseCases.CommitPreparation.prepare(
@@ -268,8 +269,13 @@ defmodule TijaraTides.Infrastructure.GameServer do
       when is_binary(request_id) and byte_size(request_id) in 1..128 and is_binary(requester) and
              byte_size(requester) <= 128 and is_binary(address) and byte_size(address) <= 254 and
              purpose in ["login", "link", "invite"] do
+    context = context(state)
+
+    # Authenticate once, against the clock the command itself runs on. A second
+    # lookup could straddle the session's expiry and attribute the rate-limit
+    # counter to an account the domain then treats as anonymous.
     account =
-      case account(state, token) do
+      case Game.authenticate(state.game, hash(token), context.wall_ms) do
         {:ok, a} -> a
         _ -> nil
       end
@@ -282,14 +288,13 @@ defmodule TijaraTides.Infrastructure.GameServer do
       )
 
     ctx =
-      context(state)
-      |> Map.merge(%{
+      Map.merge(context, %{
         id: id,
         hash: hash(email_token(id)),
         requester: hash(if(account, do: account["id"], else: requester))
       })
 
-    lifecycle(state, {:email_request, hash(token), purpose, address}, ctx)
+    lifecycle(state, {:email_request, account, purpose, address}, ctx)
   end
 
   def handle_call({:email_request, _, _, _, _, _}, _from, %{status: :ready} = state),
@@ -436,10 +441,10 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def handle_info(_message, state), do: {:noreply, state}
 
   defp context(state),
-    do: %{id: request_id(), wall_ms: System.system_time(:millisecond), catalogue: state.catalogue}
+    do: %{id: request_id(), wall_ms: state.wall_clock.(), catalogue: state.catalogue}
 
   defp account(state, token) when is_binary(token),
-    do: Game.authenticate(state.game, hash(token), System.system_time(:millisecond))
+    do: Game.authenticate(state.game, hash(token), state.wall_clock.())
 
   defp account(_state, _token), do: {:error, :invalid_session}
 

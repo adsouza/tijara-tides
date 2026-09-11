@@ -39,6 +39,75 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "email authorization and requester attribution share one clock at session expiry", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    session_id = GameServer.hash(token)
+    expiry = System.system_time(:millisecond) + 60_000
+    calls = :atomics.new(1, [])
+    clock = fn -> if :atomics.add_get(calls, 1, 1) == 1, do: expiry - 1, else: expiry end
+
+    Repo.query!("UPDATE game_sessions SET expires_at_ms=$3 WHERE world_id=$1 AND id=$2", [
+      c.world_id,
+      session_id,
+      expiry
+    ])
+
+    :sys.replace_state(c.server, fn state ->
+      session = %{state.game.entities["sessions"][session_id] | "expires_at" => expiry}
+
+      game =
+        TijaraTides.Domain.Account.restore_history(state.game, "sessions", session_id, session)
+
+      %{state | game: game, wall_clock: clock}
+    end)
+
+    account_id = :sys.get_state(c.server).game.entities["sessions"][session_id]["account_id"]
+
+    assert {:ok, _} =
+             GameServer.email_request(
+               token,
+               "link",
+               "boundary@example.test",
+               "before",
+               "client",
+               c.server
+             )
+
+    assert :atomics.get(calls, 1) == 1
+
+    assert {:error, :invalid_session} =
+             GameServer.email_request(
+               token,
+               "link",
+               "boundary@example.test",
+               "expired-link",
+               "client",
+               c.server
+             )
+
+    assert :atomics.get(calls, 1) == 2
+
+    assert {:ok, _} =
+             GameServer.email_request(
+               token,
+               "login",
+               "boundary@example.test",
+               "expired-login",
+               "client",
+               c.server
+             )
+
+    assert :atomics.get(calls, 1) == 3
+
+    assert Repo.query!(
+             "SELECT purpose,account_id,requester,created_ms FROM game_email_requests WHERE world_id=$1 ORDER BY created_ms",
+             [c.world_id]
+           ).rows == [
+             ["link", account_id, GameServer.hash(account_id), expiry - 1],
+             ["login", nil, GameServer.hash("client"), expiry]
+           ]
+  end
+
   test "identity history is evicted from cache but remains replayable after restart" do
     alias TijaraTides.Domain.{Account, ReadState}
     alias TijaraTides.UseCases.LifecycleCommands
