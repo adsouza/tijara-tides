@@ -30,7 +30,6 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
   end
 
   def pledge(state, sponsor, beneficiary_id, amount, id) do
-    state = Finance.settle(state, [sponsor["company_id"]])
     sponsor = get(state, "accounts", sponsor["id"])
     beneficiary = get(state, "accounts", beneficiary_id)
     company = get(state, "companies", sponsor["company_id"])
@@ -72,7 +71,6 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
         state =
           state
           |> put("guarantees", id, g)
-          |> TijaraTides.Domain.Account.reinstate(beneficiary_id, id)
           |> Finance.post(company["id"], "guarantee_pledge", [
             {"guarantee_escrow", amount},
             {"cash_available", -amount}

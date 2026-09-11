@@ -7,7 +7,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   alias TijaraTides.Domain.{CompanyFinance, PortCargoMarket}
 
   def execute(state, account, %TijaraTides.Domain.Trade{} = trade, catalogue) do
-    state = TijaraTides.Domain.CompanyFinance.settle(state, [account["company_id"]])
+    state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
 
     trade(
       state,
@@ -228,7 +228,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             %{ship: ship["id"], good: good}
           )
 
-        {:ok, TijaraTides.Domain.CompanyFinance.settle(state, [company["id"]]),
+        {:ok, TijaraTides.Domain.Services.FinancialSettlement.settle(state, [company["id"]]),
          %{"received" => proceeds, "quantity" => quantity}}
     end
   end
