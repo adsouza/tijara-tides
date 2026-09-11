@@ -39,13 +39,18 @@ mix precommit       # formatting, forced boundary checks, and tests
 See [testing and coverage](docs/testing-and-coverage.md) for report commands,
 coverage scope, and the explicit branch-scenario matrix.
 
-Enable the tracked pre-push hook once per clone:
+Enable the tracked Git hooks once per clone:
 
 ```sh
 git config core.hooksPath .githooks
 ```
 
-The hook runs `scripts/check-local.sh`: generated docs and catalogue checks,
+The pre-commit hook formats staged Elixir and HEEx files with `mix format` and
+stages the formatting automatically. Unstaged edits remain unstaged. If formatting
+overlaps an unstaged edit, the commit stops without changing files; reconcile or
+stage that edit before retrying. Python and installed Mix dependencies are required.
+
+The pre-push hook runs `scripts/check-local.sh`: generated docs and catalogue checks,
 Elixir validation and disposable PostgreSQL tests, desktop JavaScript tests,
 version checks, Rust formatting/Clippy/tests, and a production server release
 build. It requires Python with venv support, PostgreSQL, Node.js, Rust, and the

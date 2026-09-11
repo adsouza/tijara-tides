@@ -8,6 +8,7 @@ unset MIX_ENV PHX_SERVER
 export LC_ALL=C
 export PATH="/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:$PATH"
 
+python3 scripts/test-format-staged.py
 python3 -m venv tmp/check-catalogue-venv
 tmp/check-catalogue-venv/bin/python -m pip install -q -r scripts/game-data-requirements.txt
 tmp/check-catalogue-venv/bin/python scripts/check-generated.py
