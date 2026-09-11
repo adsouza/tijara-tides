@@ -256,10 +256,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def handle_call(:seed, _from, %{status: :ready} = state) do
     code = token()
 
-    case Game.seed_invite(state.game, hash(code)) do
-      {:ok, game, result} -> finish(state, game, result, nil, fn _ -> {:ok, code} end)
-      error -> {:reply, error, state}
-    end
+    lifecycle(state, {:seed, hash(code)}, context(state), fn _ -> {:ok, code} end)
   end
 
   def handle_call(
@@ -283,24 +280,15 @@ defmodule TijaraTides.Infrastructure.GameServer do
         )
       )
 
-    existing = TijaraTides.Domain.Game.get(state.game, "email_requests", id)
+    ctx =
+      context(state)
+      |> Map.merge(%{
+        id: id,
+        hash: hash(email_token(id)),
+        requester: hash(if(account, do: account["id"], else: requester))
+      })
 
-    if existing do
-      {:reply, {:ok, %{"requested" => true}}, state}
-    else
-      ctx =
-        context(state)
-        |> Map.merge(%{
-          id: id,
-          hash: hash(email_token(id)),
-          requester: hash(if(account, do: account["id"], else: requester))
-        })
-
-      case TijaraTides.Domain.EmailIdentity.request(state.game, account, purpose, address, ctx) do
-        {:ok, game, result} -> finish(state, game, result, nil, &{:ok, &1})
-        error -> {:reply, error, state}
-      end
-    end
+    lifecycle(state, {:email_request, hash(token), purpose, address}, ctx)
   end
 
   def handle_call({:email_request, _, _, _, _, _}, _from, %{status: :ready} = state),
@@ -309,25 +297,12 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def handle_call({:email_redeem, code, device, signed_in}, _from, %{status: :ready} = state)
       when is_binary(code) and byte_size(code) == 43 and is_binary(device) and
              byte_size(device) == 43 do
-    current =
-      case account(state, signed_in) do
-        {:ok, a} -> a
-        _ -> nil
-      end
-
-    case TijaraTides.Domain.EmailIdentity.redeem(
-           state.game,
-           hash(code),
-           hash(device),
-           current,
-           context(state)
-         ) do
-      {:ok, game, result} ->
-        finish(state, game, result, nil, fn _ -> {:ok, %{"session" => device}} end)
-
-      error ->
-        {:reply, error, state}
-    end
+    lifecycle(
+      state,
+      {:email_redeem, hash(code), hash(device), hash(signed_in)},
+      context(state),
+      fn _ -> {:ok, %{"session" => device}} end
+    )
   end
 
   def handle_call({:email_redeem, _, _, _}, _from, %{status: :ready} = state),
@@ -349,64 +324,24 @@ defmodule TijaraTides.Infrastructure.GameServer do
     {:reply, rows, state}
   end
 
-  def handle_call({:email_failed, id}, _from, %{status: :ready} = state) do
-    case Game.get(state.game, "email_requests", id) do
-      nil ->
-        {:reply, :ok, state}
-
-      row ->
-        finish(
-          state,
-          TijaraTides.Domain.EmailIdentity.delivery_failed(
-            state.game,
-            row,
-            System.system_time(:millisecond)
-          ),
-          %{},
-          nil,
-          fn _ -> :ok end
-        )
-    end
-  end
-
-  def handle_call({:email_delivered, id}, _from, %{status: :ready} = state) do
-    case Game.get(state.game, "email_requests", id) do
-      nil ->
-        {:reply, :ok, state}
-
-      row ->
-        finish(
-          state,
-          TijaraTides.Domain.EmailIdentity.delivered(state.game, row),
-          %{},
-          nil,
-          fn _ -> :ok end
-        )
-    end
+  def handle_call({action, id}, _from, %{status: :ready} = state)
+      when action in [:email_failed, :email_delivered] do
+    lifecycle(state, {action, id}, context(state), fn _ -> :ok end)
   end
 
   def handle_call({:redeem, code, session}, _from, %{status: :ready} = state)
       when is_binary(code) and byte_size(code) <= 100 and
              is_binary(session) and byte_size(session) == 43 do
-    ctx = context(state)
-
-    case Game.redeem(state.game, hash(String.trim(code)), hash(session), ctx) do
-      {:ok, game, result} ->
-        finish(state, game, result, nil, fn result ->
-          {:ok, Map.put(result, "session", session)}
-        end)
-
-      {:replay, result} ->
-        {:reply, {:ok, Map.put(result, "session", session)}, state}
-
-      error ->
-        {:reply, error, state}
-    end
+    lifecycle(
+      state,
+      {:redeem, hash(String.trim(code)), hash(session)},
+      context(state),
+      fn result -> {:ok, Map.put(result, "session", session)} end
+    )
   end
 
   def handle_call({:sign_out, token}, _from, %{status: :ready} = state) do
-    game = TijaraTides.Domain.Account.sign_out(state.game, hash(token))
-    finish(state, game, %{}, nil, fn _ -> :ok end)
+    lifecycle(state, {:sign_out, hash(token)}, context(state), fn _ -> :ok end)
   end
 
   def handle_call({:command, token, request, command}, _from, %{status: :ready} = state)
@@ -449,22 +384,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
              invitation
            ) do
         {:ok, outcome} ->
-          next =
-            if outcome.committed? do
-              next = accept_game(state, outcome.game)
-
-              Phoenix.PubSub.broadcast(
-                TijaraTides.PubSub,
-                @topic,
-                {:game_changed, outcome.game.revision}
-              )
-
-              next
-            else
-              state
-            end
-
-          {:reply, {:ok, outcome.reply}, next}
+          {:reply, {:ok, outcome.reply}, accept_outcome(state, outcome)}
 
         {:error, error} ->
           {:reply, {:error, error}, state}
@@ -488,16 +408,21 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def handle_info(:tick, %{status: :ready, active: true} = state) do
     now = System.monotonic_time(:millisecond)
     elapsed = max(0, now - state.last_mono)
-    game = Game.advance(state.game, elapsed, state.catalogue)
 
-    case persist(state, game, nil) do
-      {:ok, next} ->
+    case TijaraTides.UseCases.LifecycleCommands.run(
+           state.game,
+           {:advance, elapsed},
+           context(state),
+           store(state)
+         ) do
+      {:ok, outcome} ->
+        next = accept_outcome(state, outcome)
         if state.timer, do: Process.cancel_timer(state.timer)
 
         {:noreply,
          %{next | last_mono: now, timer: :erlang.start_timer(state.tick_ms, self(), :tick)}}
 
-      {:error, reason} ->
+      {:halt, reason} ->
         Logger.error("World progression paused: #{reason}")
         {:noreply, %{state | active: false, status: :unavailable}}
     end
@@ -544,36 +469,33 @@ defmodule TijaraTides.Infrastructure.GameServer do
       else: :internal_error
   end
 
-  defp finish(state, game, result, receipt, reply) do
-    case persist(state, game, receipt) do
-      {:ok, next} -> {:reply, reply.(result), next}
-      {:error, {:replay, result}} -> {:reply, reply.(result), state}
-      {:error, error} -> {:reply, {:error, error}, %{state | status: :unavailable, active: false}}
+  defp store(state),
+    do:
+      {TijaraTides.Infrastructure.Persistence.CommandStore,
+       %{repo: state.repo, world_id: state.world_id}}
+
+  defp lifecycle(state, operation, context, reply \\ &{:ok, &1}) do
+    case TijaraTides.UseCases.LifecycleCommands.run(state.game, operation, context, store(state)) do
+      {:ok, outcome} -> {:reply, reply.(outcome.reply), accept_outcome(state, outcome)}
+      {:error, error} -> {:reply, {:error, error}, state}
+      {:halt, error} -> {:reply, {:error, error}, %{state | status: :unavailable, active: false}}
     end
+  rescue
+    error ->
+      reason = log_failure("lifecycle", error, __STACKTRACE__)
+      {:reply, {:error, reason}, %{state | status: :unavailable, active: false}}
+  end
+
+  defp accept_outcome(state, %{committed?: false}), do: state
+
+  defp accept_outcome(state, outcome) do
+    next = accept_game(state, outcome.game)
+    Phoenix.PubSub.broadcast(TijaraTides.PubSub, @topic, {:game_changed, outcome.game.revision})
+    next
   end
 
   defp accept_game(state, game) do
     projection = TijaraTides.UseCases.WorldProjection.build(game, state.catalogue)
     %{state | game: game, projection: projection}
-  end
-
-  defp persist(state, game, receipt) do
-    game =
-      TijaraTides.UseCases.CommitPreparation.prepare(state.game, %{
-        game
-        | revision: state.game.revision + 1
-      })
-
-    case GameStore.commit(state.repo, state.world_id, game.epoch, state.game, game, receipt) do
-      {:ok, :ok} ->
-        next = accept_game(state, TijaraTides.UseCases.CommitPreparation.accepted(game))
-        Phoenix.PubSub.broadcast(TijaraTides.PubSub, @topic, {:game_changed, game.revision})
-        {:ok, next}
-
-      error ->
-        error
-    end
-  rescue
-    error -> {:error, log_failure("persistence", error, __STACKTRACE__)}
   end
 end

@@ -5,7 +5,7 @@ defmodule TijaraTides.UseCases.GameCommands do
   committed outcomes. Persistence and invitation credentials are supplied ports.
   """
   alias TijaraTides.Domain.{Account, Commands}
-  alias TijaraTides.UseCases.{CommandRequest, CommandResult}
+  alias TijaraTides.UseCases.{CommandRequest, CommitExecutor}
 
   def execute(state, account, command, context),
     do: Commands.execute(state, account, command, context)
@@ -21,7 +21,7 @@ defmodule TijaraTides.UseCases.GameCommands do
 
       case store.receipt(storage, account["id"], request.id, request.fingerprint) do
         {:replay, result} ->
-          outcome(game, decorate.(result), false)
+          CommitExecutor.outcome(game, decorate.(result), false)
 
         {:error, error} ->
           {:error, error}
@@ -31,28 +31,8 @@ defmodule TijaraTides.UseCases.GameCommands do
 
           case execute(game, account, request.payload, context) do
             {:ok, changed, result} ->
-              changed =
-                TijaraTides.UseCases.CommitPreparation.prepare(game, %{
-                  changed
-                  | revision: game.revision + 1
-                })
-
               receipt = {account["id"], request.id, request.fingerprint, result}
-
-              case store.commit(storage, game, changed, receipt) do
-                {:ok, :ok} ->
-                  outcome(
-                    TijaraTides.UseCases.CommitPreparation.accepted(changed),
-                    decorate.(result),
-                    true
-                  )
-
-                {:error, {:replay, result}} ->
-                  outcome(game, decorate.(result), false)
-
-                {:error, error} ->
-                  {:halt, error}
-              end
+              CommitExecutor.commit(game, changed, result, receipt, {store, storage}, decorate)
 
             error ->
               error
@@ -69,7 +49,4 @@ defmodule TijaraTides.UseCases.GameCommands do
       true -> :ok
     end
   end
-
-  defp outcome(game, reply, committed?),
-    do: {:ok, %CommandResult{game: game, reply: reply, committed?: committed?}}
 end
