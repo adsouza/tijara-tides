@@ -338,3 +338,13 @@ transitions that reload current rows and validate the operation before saving.
 Reporting restores its own baseline; application commit preparation no longer
 merges entity maps. Architecture checks cover public row-store exposure and
 application-layer generic mutations in addition to entity ownership checks.
+
+## Cross-aggregate services
+
+`Services.CompanyFormation`, `Services.TradeSettlement`, `Services.Bankruptcy`
+and `Services.AutomatedVisits` coordinate the named roots in a single world
+transaction. Automated visits submit trades and departures, then ask Ship to
+record progress; they do not write child rows. Bankruptcy asks CompanyFinance to
+close financial obligations, Ship to cancel automation and Account to record the
+personal consequences. Compatibility facades retain existing callers. No service
+commits independently or publishes intermediate results.

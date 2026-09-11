@@ -657,95 +657,63 @@ defmodule TijaraTides.Domain.CompanyFinance do
     end
   end
 
-  def bankrupt(state, account, reason \\ "voluntary") do
-    company = get(state, "companies", account["company_id"])
+  def close_in_receivership(state, company_id) do
+    company = get(state, "companies", company_id)
+    account = get(state, "accounts", company["account_id"])
 
-    cond do
-      is_nil(company) or company["account_id"] != account["id"] or company["bankruptcy_ms"] != nil ->
-        {:error, :finance_no_company}
+    state =
+      Enum.reduce(loans(state, company["id"]), state, fn loan, state ->
+        state
+        |> put("loans", loan["id"], %{
+          loan
+          | "remaining" => 0,
+            "principal_due" => 0,
+            "interest_due" => 0,
+            "interest_accrued" => 0,
+            "overdue_ms" => nil,
+            "status" => if(loan["status"] == "repaid", do: "repaid", else: "defaulted")
+        })
+        |> __MODULE__.post(company["id"], "bankruptcy_debt", [
+          {"loan_principal", loan["remaining"]},
+          {"loan_interest", loan["interest_due"] + loan["interest_accrued"]},
+          {"receivership", -loan["remaining"] - loan["interest_due"] - loan["interest_accrued"]}
+        ])
+      end)
 
-      reason == "voluntary" and not can_declare_bankruptcy?(state, account) ->
-        {:error, :bankruptcy_cash_covers_debts}
-
-      true ->
-        debt =
-          Enum.sum(
-            for loan <- loans(state, company["id"]),
-                do: loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
-          )
-
-        state = Guarantees.default(state, account, debt)
-        # A sponsor may itself be the bankrupt company; refresh after refunds.
-        company = get(state, "companies", company["id"])
-
-        state =
-          Enum.reduce(loans(state, company["id"]), state, fn loan, state ->
-            state
-            |> put("loans", loan["id"], %{
-              loan
-              | "remaining" => 0,
-                "principal_due" => 0,
-                "interest_due" => 0,
-                "interest_accrued" => 0,
-                "overdue_ms" => nil,
-                "status" => if(loan["status"] == "repaid", do: "repaid", else: "defaulted")
-            })
-            |> __MODULE__.post(company["id"], "bankruptcy_debt", [
-              {"loan_principal", loan["remaining"]},
-              {"loan_interest", loan["interest_due"] + loan["interest_accrued"]},
-              {"receivership",
-               -loan["remaining"] - loan["interest_due"] - loan["interest_accrued"]}
-            ])
+    state =
+      Enum.reduce(
+        ["operating_bills", "loan_installments"],
+        state,
+        fn kind, state ->
+          Enum.reduce(entities(state, kind), state, fn {id, row}, state ->
+            if row["company_id"] == company["id"], do: delete(state, kind, id), else: state
           end)
+        end
+      )
 
-        state =
-          Enum.reduce(entities(state, "ships"), state, fn {id, ship}, state ->
-            if ship["company_id"] == company["id"],
-              do: TijaraTides.Domain.Ship.cancel_automation(state, id),
-              else: state
-          end)
+    state =
+      state
+      |> put(
+        "companies",
+        company["id"],
+        company
+        |> Map.put("bankruptcy_ms", state.clock_ms)
+        |> Map.put("arrears_since", nil)
+        |> Map.put("unpaid_since", nil)
+      )
+      |> __MODULE__.post(company["id"], "bankruptcy_payables", [
+        {"payables", company["unpaid"]},
+        {"receivership", -company["unpaid"]}
+      ])
+      |> Notices.notice(
+        account["id"],
+        "bankruptcy:" <> company["id"],
+        "#{company["name"]} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes."
+      )
 
-        state =
-          Enum.reduce(
-            ["operating_bills", "loan_installments"],
-            state,
-            fn kind, state ->
-              Enum.reduce(entities(state, kind), state, fn {id, row}, state ->
-                if row["company_id"] == company["id"], do: delete(state, kind, id), else: state
-              end)
-            end
-          )
-
-        state =
-          state
-          |> put(
-            "companies",
-            company["id"],
-            company
-            |> Map.put("bankruptcy_ms", state.clock_ms)
-            |> Map.put("arrears_since", nil)
-            |> Map.put("unpaid_since", nil)
-          )
-          |> __MODULE__.post(company["id"], "bankruptcy_payables", [
-            {"payables", company["unpaid"]},
-            {"receivership", -company["unpaid"]}
-          ])
-          |> Notices.notice(
-            account["id"],
-            "bankruptcy:" <> company["id"],
-            "#{company["name"]} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes."
-          )
-
-        state =
-          TijaraTides.Domain.Account.record_bankruptcy(
-            state,
-            account["id"],
-            company["id"],
-            reason,
-            @terms.cooldown_ms
-          )
-
-        {:ok, state, %{"bankrupt" => company["id"]}}
-    end
+    state
   end
+
+  defdelegate bankrupt(state, account, reason \\ "voluntary"),
+    to: TijaraTides.Domain.Services.Bankruptcy
 end

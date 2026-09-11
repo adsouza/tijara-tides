@@ -260,7 +260,12 @@ defmodule TijaraTides.Domain.Ship do
     to: __MODULE__.VisitOrders,
     as: :depart
 
-  defdelegate execute_visits(state, catalogue), to: __MODULE__.VisitOrders, as: :advance
+  defdelegate visit_onwards(state, ship, port), to: __MODULE__.VisitOrders
+  defdelegate wait_for_departure(state, id, reason), to: __MODULE__.VisitOrders
+  defdelegate wait_for_order(state, id, reason, catalogue), to: __MODULE__.VisitOrders
+  defdelegate cancel_visit_order(state, id, reason, catalogue), to: __MODULE__.VisitOrders
+  defdelegate complete_visit_order(state, id, reason, catalogue), to: __MODULE__.VisitOrders
+  defdelegate record_visit_fill(state, id, quantity, spent, catalogue), to: __MODULE__.VisitOrders
 
   @automation ~w(route_rules route_stops ship_routes ship_instructions visit_plans)
   def cancel_automation(state, ship_id) do

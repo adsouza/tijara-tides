@@ -24,5 +24,5 @@ defmodule TijaraTides.Domain.ShipInstructions do
     to: TijaraTides.Domain.Ship,
     as: :consume_departure
 
-  defdelegate advance(state, catalogue), to: TijaraTides.Domain.Ship, as: :execute_visits
+  defdelegate advance(state, catalogue), to: TijaraTides.Domain.Services.AutomatedVisits
 end
