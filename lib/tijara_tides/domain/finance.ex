@@ -571,16 +571,15 @@ defmodule TijaraTides.Domain.Finance do
           end)
 
         state =
+          Enum.reduce(entities(state, "ships"), state, fn {id, ship}, state ->
+            if ship["company_id"] == company["id"],
+              do: TijaraTides.Domain.Ship.cancel_automation(state, id),
+              else: state
+          end)
+
+        state =
           Enum.reduce(
-            [
-              "route_rules",
-              "route_stops",
-              "ship_routes",
-              "ship_instructions",
-              "visit_plans",
-              "operating_bills",
-              "loan_installments"
-            ],
+            ["operating_bills", "loan_installments"],
             state,
             fn kind, state ->
               Enum.reduce(entities(state, kind), state, fn {id, row}, state ->

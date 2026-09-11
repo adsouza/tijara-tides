@@ -50,7 +50,7 @@ defmodule TijaraTides.Domain.Fleet do
 
         state =
           state
-          |> delete("ships", id)
+          |> TijaraTides.Domain.Ship.retire(id)
           |> put("companies", company["id"], %{
             company
             | "cash" => company["cash"] + value.proceeds,
@@ -68,65 +68,12 @@ defmodule TijaraTides.Domain.Fleet do
             %{ship: id}
           )
 
-        state =
-          Enum.reduce(entities(state, "ship_instructions"), state, fn {key, order}, acc ->
-            if order["ship_id"] == id, do: delete(acc, "ship_instructions", key), else: acc
-          end)
-
         {:ok, TijaraTides.Domain.Finance.settle(state),
          %{"sold" => id, "proceeds" => value.proceeds}}
     end
   end
 
-  def classes do
-    %{
-      "freighter" => %{
-        "name" => "Balanced freighter",
-        "price" => 4_000_000,
-        "weight" => 500_000,
-        "volume" => 900_000,
-        "hold" => "dry",
-        "speed" => 22,
-        "crew" => 30
-      },
-      "small_freighter" => %{
-        "name" => "Small freighter",
-        "price" => 3_000_000,
-        "weight" => 200_000,
-        "volume" => 400_000,
-        "hold" => "dry",
-        "speed" => 24,
-        "crew" => 20
-      },
-      "bulk" => %{
-        "name" => "Bulk carrier",
-        "price" => 5_000_000,
-        "weight" => 1_000_000,
-        "volume" => 1_200_000,
-        "hold" => "dry",
-        "speed" => 18,
-        "crew" => 40
-      },
-      "reefer" => %{
-        "name" => "Small refrigerated ship",
-        "price" => 5_000_000,
-        "weight" => 200_000,
-        "volume" => 400_000,
-        "hold" => "reefer",
-        "speed" => 24,
-        "crew" => 35
-      },
-      "tanker" => %{
-        "name" => "Small tanker",
-        "price" => 5_000_000,
-        "weight" => 500_000,
-        "volume" => 650_000,
-        "hold" => "liquid",
-        "speed" => 20,
-        "crew" => 35
-      }
-    }
-  end
+  defdelegate classes(), to: TijaraTides.Domain.ShipClass, as: :all
 
   def purchase(state, account, class_id, port, price_limit, context) do
     state = TijaraTides.Domain.Finance.settle(state)
@@ -181,7 +128,7 @@ defmodule TijaraTides.Domain.Fleet do
 
         state =
           state
-          |> put("ships", ship["id"], ship)
+          |> TijaraTides.Domain.Ship.store(TijaraTides.Domain.Ship.commission(ship))
           |> put("companies", company["id"], %{
             company
             | "cash" => company["cash"] - class["price"]
@@ -197,16 +144,8 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  def capacity(ship, catalogue) do
-    Enum.reduce(ship["cargo"], %TijaraTides.Domain.Capacity{}, fn batch, totals ->
-      item = catalogue["goods"][batch["good"]]
-
-      %TijaraTides.Domain.Capacity{
-        weight: totals.weight + item["weight_kg"] * batch["quantity"],
-        volume: totals.volume + item["volume_l"] * batch["quantity"]
-      }
-    end)
-  end
+  def capacity(ship, catalogue),
+    do: ship |> TijaraTides.Domain.Ship.from_row() |> TijaraTides.Domain.Ship.capacity(catalogue)
 
   def voyage_quote(ship, destination, catalogue) when is_binary(destination) do
     case catalogue["routes"][ship["port"] <> "|" <> destination] do
@@ -243,21 +182,21 @@ defmodule TijaraTides.Domain.Fleet do
            departure_check(state, account, id, destination, limit, catalogue) do
       owner = company["id"]
 
-      ship = %{
+      aggregate =
         ship
-        | "status" => "sailing",
-          "destination" => destination,
-          "depart_ms" => state.clock_ms,
-          "arrive_ms" => state.clock_ms + estimate["duration_ms"],
-          "fuel_total" => estimate["fuel"],
-          "fuel_burned" => 0
-      }
+        |> TijaraTides.Domain.Ship.from_row()
+        |> TijaraTides.Domain.Ship.begin_voyage(
+          destination,
+          estimate,
+          state.clock_ms,
+          @voyage_speedup
+        )
 
-      ship = Map.put(ship, "voyage_speedup", @voyage_speedup)
+      ship = TijaraTides.Domain.Ship.to_row(aggregate)
 
       state =
         state
-        |> put("ships", id, ship)
+        |> TijaraTides.Domain.Ship.store(aggregate)
         |> put("companies", owner, %{
           company
           | "reserved" => company["reserved"] + estimate["fuel"],
@@ -278,7 +217,7 @@ defmodule TijaraTides.Domain.Fleet do
           %{ship: id}
         )
 
-      state = TijaraTides.Domain.ShipInstructions.depart(state, id, destination, catalogue)
+      state = TijaraTides.Domain.Ship.consume_departure(state, id, destination, catalogue)
       {:ok, state, %{"arrive_ms" => ship["arrive_ms"], "fuel" => estimate["fuel"]}}
     end
   end
@@ -336,102 +275,41 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  # Older in-flight voyages used 60x. Preserve their progress when tuning changes;
-  # the persisted multiplier prevents applying this adjustment on later ticks.
-  defp retime_voyage(%{"status" => "sailing"} = ship, clock) do
-    previous = Map.get(ship, "voyage_speedup", 60)
-
-    if previous == @voyage_speedup do
-      ship
-    else
-      ship
-      |> Map.put(
-        "depart_ms",
-        clock - div((clock - ship["depart_ms"]) * previous, @voyage_speedup)
-      )
-      |> Map.put(
-        "arrive_ms",
-        clock + max(1, div((ship["arrive_ms"] - clock) * previous, @voyage_speedup))
-      )
-      |> Map.put("voyage_speedup", @voyage_speedup)
-    end
-  end
-
-  defp retime_voyage(ship, _clock), do: ship
-
   def advance(state, elapsed) do
     now = state.clock_ms
 
-    Enum.reduce(entities(state, "ships"), state, fn {id, ship}, state ->
-      ship = retime_voyage(ship, now - elapsed)
-
+    Enum.reduce(entities(state, "ships"), state, fn {id, row}, state ->
       company =
-        get(state, "companies", ship["company_id"]) ||
+        get(state, "companies", row["company_id"]) ||
           raise(
             ArgumentError,
             "ship #{id} has no owning company; retire or transfer ships before removing a company"
           )
 
-      value = sale_value(ship, now)
-      depreciation = ship["book_value"] - value.book
-      ship = Map.put(ship, "book_value", value.book)
-      company = %{company | "profit" => company["profit"] - depreciation}
+      value = sale_value(row, now)
 
-      state =
-        Journal.post(
-          state,
-          company["id"],
-          "ship_depreciation",
-          [{"depreciation_expense", depreciation}, {"fleet", -depreciation}],
-          %{ship: id}
+      {ship, effects} =
+        TijaraTides.Domain.Ship.advance(
+          TijaraTides.Domain.Ship.from_row(row),
+          now,
+          elapsed,
+          company["bankruptcy_ms"] != nil,
+          @voyage_speedup,
+          value.book
         )
 
-      class = classes()[ship["class"]]
-      end_ms = ship["arrive_ms"] || now
-
-      moving_ms =
-        if ship["status"] == "sailing",
-          do: max(0, min(now, end_ms) - ship["last_cost_ms"]),
-          else: 0
-
-      idle_ms = now - ship["last_cost_ms"] - moving_ms
-
-      crew_numerator =
-        ship["crew_remainder"] + moving_ms * class["crew"] * 2 + idle_ms * class["crew"]
-
-      crew = if company["bankruptcy_ms"] == nil, do: div(crew_numerator, 120_000), else: 0
-
-      fuel_burned =
-        if ship["status"] == "sailing",
-          do:
-            max(
-              ship["fuel_burned"],
-              min(
-                ship["fuel_total"],
-                div(
-                  ship["fuel_total"] * max(0, now - ship["depart_ms"]),
-                  ship["arrive_ms"] - ship["depart_ms"]
-                )
-              )
-            ),
-          else: ship["fuel_burned"]
-
-      fuel = fuel_burned - ship["fuel_burned"]
-      cash = company["cash"] - fuel
-      reserved = company["reserved"] - fuel
-      paid = min(crew, max(0, cash - reserved))
-
-      {expired, cargo} =
-        Enum.split_with(ship["cargo"], &(&1["expires_ms"] != nil and &1["expires_ms"] <= now))
-
-      spoilage = Enum.sum(Enum.map(expired, &(&1["unit_cost"] * &1["quantity"])))
+      cash = company["cash"] - effects.fuel
+      reserved = company["reserved"] - effects.fuel
+      paid = min(effects.crew, max(0, cash - reserved))
 
       company = %{
         company
         | "cash" => cash - paid,
           "reserved" => reserved,
-          "unpaid" => company["unpaid"] + crew - paid,
-          "profit" => company["profit"] - crew - fuel - spoilage
+          "unpaid" => company["unpaid"] + effects.crew - paid,
+          "profit" =>
+            company["profit"] - effects.depreciation - effects.crew - effects.fuel -
+              effects.spoilage
       }
 
       company =
@@ -441,43 +319,27 @@ defmodule TijaraTides.Domain.Fleet do
           if(company["unpaid"] > 0, do: company["unpaid_since"] || now)
         )
 
-      ship = %{
-        ship
-        | "fuel_burned" => fuel_burned,
-          "last_cost_ms" => now,
-          "crew_remainder" => rem(crew_numerator, 120_000),
-          "cargo" => cargo
-      }
-
-      ship =
-        if ship["status"] != "docked" and end_ms <= now do
-          %{
-            ship
-            | "port" => ship["destination"] || ship["port"],
-              "destination" => nil,
-              "status" => "docked",
-              "arrive_ms" => nil,
-              "depart_ms" => nil
-          }
-        else
-          ship
-        end
-
       state
-      |> put("ships", id, ship)
+      |> TijaraTides.Domain.Ship.store(ship)
       |> put("companies", company["id"], company)
-      |> TijaraTides.Domain.Finance.operating_bill(company["id"], crew - paid, now)
+      |> Journal.post(
+        company["id"],
+        "ship_depreciation",
+        [{"depreciation_expense", effects.depreciation}, {"fleet", -effects.depreciation}],
+        %{ship: id}
+      )
+      |> TijaraTides.Domain.Finance.operating_bill(company["id"], effects.crew - paid, now)
       |> Journal.post(
         company["id"],
         "operations",
         [
-          {"fuel_expense", fuel},
-          {"cash_reserved", -fuel},
-          {"crew_expense", crew},
+          {"fuel_expense", effects.fuel},
+          {"cash_reserved", -effects.fuel},
+          {"crew_expense", effects.crew},
           {"cash_available", -paid},
-          {"payables", -(crew - paid)},
-          {"spoilage_expense", spoilage},
-          {"inventory", -spoilage}
+          {"payables", -(effects.crew - paid)},
+          {"spoilage_expense", effects.spoilage},
+          {"inventory", -effects.spoilage}
         ],
         %{ship: id}
       )

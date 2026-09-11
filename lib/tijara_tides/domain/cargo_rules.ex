@@ -1,14 +1,14 @@
 defmodule TijaraTides.Domain.CargoRules do
   @moduledoc "Hold compatibility, handling durations and perishable freshness estimates."
-  import TijaraTides.Domain.Fleet, only: [classes: 0]
+  alias TijaraTides.Domain.ShipClass
 
   def compatible_class?(ship, item) do
-    hold = classes()[ship["class"]]["hold"]
+    hold = ShipClass.all()[ship["class"]]["hold"]
     item["hold"] == hold or (hold == "reefer" and item["hold"] == "dry")
   end
 
   def compatible_cargo?(ship, item) do
-    hold = classes()[ship["class"]]["hold"]
+    hold = ShipClass.all()[ship["class"]]["hold"]
 
     compatible_class?(ship, item) and
       (hold != "liquid" or Enum.all?(ship["cargo"], &(&1["good"] == item["id"])))

@@ -93,7 +93,7 @@ defmodule TijaraTides.Domain.ShipRoutesTest do
     assert lots(s) == 0
   end
 
-  for {constraint, stock} <- [{"supplier stock", 7}, {"hold capacity", 10_000}] do
+  for {constraint, stock} <- [{"supplier stock", 7}, {"hold capacity", 1_000}] do
     test "maximum purchase with excess cash stops at #{constraint} and can depart", c do
       s = route(c)
       company = Game.get(s, "companies", "company")
@@ -567,7 +567,7 @@ defmodule TijaraTides.Domain.ShipRoutesTest do
     s =
       State.put(s, "route_rules", "buy1", %{rule | "quantity" => 10000, "budget" => 1_000_000_000})
       |> put_in([:entities, "companies", c.account["company_id"], "cash"], 1_000_000_000)
-      |> put_in([:entities, "markets", "Jakarta|lumber", "stock"], 10000)
+      |> put_in([:entities, "markets", "Jakarta|lumber", "stock"], 1000)
       |> ShipInstructions.advance(c.catalogue)
 
     s = until(s, c, &(ship(&1)["status"] == "sailing"), 100)

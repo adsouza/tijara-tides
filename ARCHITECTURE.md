@@ -128,3 +128,8 @@ bounds, concurrent invitation redemption, retry conflicts, transaction rollback,
 ownership fencing, restart recovery, and a complete LiveView trade journey.
 CI checks both supported Elixir/OTP pairs, disposable PostgreSQL integration,
 generated catalogue consistency, assets, and a production release.
+
+The Ship aggregate now owns hull/hold transitions and route/visit lifecycle;
+Fleet and Trading coordinate economic settlement through its operations. See
+[the aggregate migration](docs/architecture.md#ship-aggregate-migration) for
+ownership, compatibility adapters, and remaining extraction work.

@@ -4,15 +4,16 @@ Tijara Tides is a modular monolith with a pure domain, a transport-independent
 application layer, PostgreSQL adapters, and Phoenix LiveView presentation. One
 GenServer remains the authoritative writer for each running world. The world is
 the current transaction boundary; the modules below are responsibility boundaries,
-not independently deployed services or independently committed aggregates.
+not independently deployed services. Ship now has an explicit aggregate root;
+its changes still commit in the shared world transaction.
 
 ## Responsibilities
 
 | Area | Owner | Invariants |
 |---|---|---|
 | Identity and company formation | `Domain.Accounts` | Valid durable sessions; one active company per account; invitation entitlement lifecycle; zero-asset formation and explicit borrowing. |
-| Repeating routes | `Domain.ShipRoutes` | Private bounded stop templates; durable visit cursor and phase; fresh load shortfalls per visit; pause without cancelling committed movement. |
-| Ship operation | `Domain.Fleet` | Ownership and handling status before departure; fuel funding and reservation; capacity measured in kg/litres; fuel and crew costs settled once. |
+| Repeating routes | `Domain.Ship` with internal `Ship.RoutePlan` | Private bounded stop templates; durable visit cursor and phase; fresh load shortfalls per visit; pause without cancelling committed movement. |
+| Ship operation | `Domain.Ship`; `Fleet` coordinates financial settlement | Ownership and handling status before departure; fuel funding and reservation; capacity measured in kg/litres; fuel and crew costs settled once. |
 | Cargo | `Domain.CargoRules`, `CargoLots` | Hold compatibility, liquid mixing restrictions, freshness, stable lot identity and split lineage. |
 | Trading | `Domain.Trading` | Atomic cash, cargo, liquidity and accounting changes; destination funding rechecked before purchase. |
 | City markets | `Domain.Markets` | Bounded stock, demand and budgets; finite manufactured stock; no synthetic merchant inventory; world-time replenishment. |
@@ -158,7 +159,7 @@ and summaries remain atomically committed; this is CQRS, not event sourcing.
 
 ## Single-visit ship instructions
 
-`Domain.ShipInstructions` owns private next-visit plans, partial-fill progress,
+`Domain.Ship` and its internal `Ship.VisitOrders` own private next-visit plans, partial-fill progress,
 spending caps and cancellation. `Domain.Commands` dispatches creation and
 cancellation through the existing receipt-protected command workflow. Successful
 manual departure cancels waiting remainders and incompatible destination plans.
@@ -197,11 +198,12 @@ until the normal world claim.
 
 ## Repeating route orchestration
 
-`ShipRoutes` validates private route templates and materializes one visit at a
-time into `ShipInstructions`. Sale instructions finish before loading targets
+`Ship.RoutePlan`, behind the `Ship` root, validates private route templates and
+materializes one visit at a time into `Ship.VisitOrders`. Sale instructions finish
+before loading targets
 are evaluated against retained cargo. The existing trading and fleet operations
 remain responsible for cash, cargo, handling and departure invariants.
-`ShipInstructions.depart` advances the route only after a successful departure;
+`Ship.consume_departure` advances the route only after a successful departure;
 failed commits cannot publish a new cursor. Paused routes emit no new fills or
 automatic departures. Bankruptcy removes route configuration and pending visits.
 
@@ -221,3 +223,30 @@ than argument values. Never deliberately include credentials or request bodies
 in exception messages. Process-exit payloads remain summarized because they can
 contain complete GenServer requests. Expected validation failures remain normal
 error results rather than exceptions.
+
+## Ship aggregate migration
+
+`Ship` is the root for hull, cargo, handling, voyage, route template and active
+visit lifecycle. `record_purchase`, `record_sale`, `begin_voyage`, `advance` and
+`retire` protect ship invariants. Trading and Fleet coordinate these transitions
+with company/market changes and journals; they no longer write ship rows.
+`advance` returns operating effects for settlement rather than mutating company
+balances itself. `ShipClass` holds immutable hull definitions independently of
+movement orchestration.
+
+`Ship.RoutePlan` separates editable templates from `Ship.VisitOrder` snapshots.
+`QuantityPolicy` represents fixed versus maximum intent; visit fills enforce
+monotonic quantity and spending bounds. Route and instruction command entry
+points go through `Ship`; the former top-level modules remain compatibility
+facades. The architecture test forbids direct writes to ship-owned entity kinds
+outside the Ship implementation. Bankruptcy invokes root lifecycle cleanup.
+
+The relational mapper and read projections continue to use the established row
+shape. `from_row`/`to_row` are adapters, and `from_world` assembles a ship and its
+owned children. Route orchestration still accepts the world as its internal
+coordination context: this is an incremental aggregate migration, not an
+independently loadable repository for every operation. CompanyFinance and
+PortCargoMarket are still subsequent aggregate extractions. Global map-diff
+persistence, the world lock, epoch fencing and atomic journals remain unchanged;
+explicit changed-root persistence is deferred until all mutation paths have
+aggregate ownership. No schema migration or gameplay rebalance is required.

@@ -171,15 +171,10 @@ defmodule TijaraTides.Domain.Trading do
 
         market = %{market | "batches" => remaining, "budget" => market["budget"] + cost}
 
-        ship = %{
+        aggregate =
           ship
-          | "cargo" => ship["cargo"] ++ cargo,
-            "status" => "loading",
-            "arrive_ms" =>
-              state.clock_ms + handling_ms(quantity) + if(cleaning > 0, do: 60_000, else: 0),
-            "last_liquid" =>
-              if(class["hold"] == "liquid", do: item["id"], else: ship["last_liquid"])
-        }
+          |> TijaraTides.Domain.Ship.from_row()
+          |> TijaraTides.Domain.Ship.record_purchase(cargo, state.clock_ms, cleaning, catalogue)
 
         company = %{
           company
@@ -189,7 +184,7 @@ defmodule TijaraTides.Domain.Trading do
 
         state =
           state
-          |> put("ships", ship["id"], ship)
+          |> TijaraTides.Domain.Ship.store(aggregate)
           |> put("companies", company["id"], company)
           |> put("markets", market["port"] <> "|" <> market["good"], %{
             market
@@ -241,12 +236,10 @@ defmodule TijaraTides.Domain.Trading do
             "profit" => company["profit"] + proceeds - cost
         }
 
-        ship = %{
+        aggregate =
           ship
-          | "cargo" => cargo,
-            "status" => "unloading",
-            "arrive_ms" => state.clock_ms + handling_ms(quantity)
-        }
+          |> TijaraTides.Domain.Ship.from_row()
+          |> TijaraTides.Domain.Ship.record_sale(sold, cargo, state.clock_ms)
 
         market = %{
           market
@@ -257,7 +250,7 @@ defmodule TijaraTides.Domain.Trading do
 
         state =
           state
-          |> put("ships", ship["id"], ship)
+          |> TijaraTides.Domain.Ship.store(aggregate)
           |> put("companies", company["id"], company)
           |> put("markets", market["port"] <> "|" <> good, market)
 
