@@ -39,7 +39,10 @@ defmodule TijaraTides.Infrastructure.ExceptionLogTest do
 
   # Postgrex appends detail as an unlabelled trailing paragraph, never as "DETAIL:", and
   # a repo query often carries no statement at all, leaving that paragraph unanchored.
-  for {label, query} <- [{"without a statement", nil}, {"with a statement", "INSERT INTO game_accounts (id) VALUES ($1)"}] do
+  for {label, query} <- [
+        {"without a statement", nil},
+        {"with a statement", "INSERT INTO game_accounts (id) VALUES ($1)"}
+      ] do
     test "a database violation #{label} keeps its diagnosis without the failing row" do
       error = %Postgrex.Error{
         query: unquote(query),
