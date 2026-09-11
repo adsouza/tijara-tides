@@ -145,7 +145,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
     if enabled do
       try do
-        {:ok, game} = GameStore.claim(repo, state.world_id)
+        {:ok, game} =
+          GameStore.claim(repo, state.world_id, wall_ms: System.system_time(:millisecond))
 
         initialized =
           TijaraTides.UseCases.CommitPreparation.prepare(

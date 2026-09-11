@@ -4,7 +4,7 @@ defmodule TijaraTides.Domain.ReadState do
   def get(state, kind, id), do: entities(state, kind)[id]
 
   def owned(state, kind, field, owner) do
-    case if(field in ["company_id", "borrower_company_id"],
+    case if(owner != nil and field in TijaraTides.Domain.EntityIndex.fields(),
            do: Map.fetch(state, :entity_index),
            else: :error
          ) do

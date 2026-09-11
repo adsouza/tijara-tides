@@ -1,6 +1,6 @@
 defmodule TijaraTides.Domain.Visibility do
   @moduledoc "Public and owner-only disclosure policies; no client filtering is trusted for privacy."
-  import TijaraTides.Domain.State, only: [get: 3, entities: 2]
+  import TijaraTides.Domain.State, only: [get: 3, entities: 2, owned: 4]
 
   def public(state, catalogue) do
     %{
@@ -34,11 +34,8 @@ defmodule TijaraTides.Domain.Visibility do
     %{
       "account" => Map.drop(account, ["inviter"]),
       "email_deliveries" =>
-        entities(state, "email_requests")
-        |> Map.values()
-        |> Enum.filter(
-          &(&1["account_id"] == account["id"] and &1["purpose"] in ["link", "invite"])
-        )
+        owned(state, "email_requests", "account_id", account["id"])
+        |> Enum.filter(&(&1["purpose"] in ["link", "invite"]))
         |> Enum.sort_by(& &1["created_ms"], :desc)
         |> Enum.take(10)
         |> Enum.map(&Map.take(&1, ["email", "purpose", "delivery", "expires_ms", "used_session"]))
@@ -49,29 +46,20 @@ defmodule TijaraTides.Domain.Visibility do
       "guarantees" => TijaraTides.Domain.Guarantees.view(state, account),
       "company" => get(state, "companies", account["company_id"]),
       "ships" =>
-        Map.filter(entities(state, "ships"), fn {_, s} ->
-          s["company_id"] == account["company_id"]
-        end),
+        Map.new(owned(state, "ships", "company_id", account["company_id"]), &{&1["id"], &1}),
       "ship_routes" =>
-        Map.filter(entities(state, "ship_routes"), fn {_, row} ->
-          row["company_id"] == account["company_id"]
-        end),
+        Map.new(owned(state, "ship_routes", "company_id", account["company_id"]), &{&1["id"], &1}),
       "route_stops" =>
-        Map.filter(entities(state, "route_stops"), fn {_, row} ->
-          row["company_id"] == account["company_id"]
-        end),
+        Map.new(owned(state, "route_stops", "company_id", account["company_id"]), &{&1["id"], &1}),
       "route_rules" =>
-        Map.filter(entities(state, "route_rules"), fn {_, row} ->
-          row["company_id"] == account["company_id"]
-        end),
+        Map.new(owned(state, "route_rules", "company_id", account["company_id"]), &{&1["id"], &1}),
       "visit_plans" =>
-        Map.filter(entities(state, "visit_plans"), fn {_, plan} ->
-          plan["company_id"] == account["company_id"]
-        end),
+        Map.new(owned(state, "visit_plans", "company_id", account["company_id"]), &{&1["id"], &1}),
       "ship_instructions" =>
-        Map.filter(entities(state, "ship_instructions"), fn {_, order} ->
-          order["company_id"] == account["company_id"]
-        end),
+        Map.new(
+          owned(state, "ship_instructions", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
       "notices" => Map.get(Map.get(state, :notices_by_account, %{}), account["id"], [])
     }
   end

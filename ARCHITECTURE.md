@@ -16,10 +16,11 @@ the linked specification when changing those contracts.
 Browser / native webview
   → TijaraTidesWeb.GameLive and GameSessionController
   → Infrastructure.GameServer (transport and world ownership)
-  → UseCases.GameCommands (authenticated command workflow)
+  → UseCases.GameCommands / LifecycleCommands (command workflows)
   → Domain.Commands → Domain.Account / Domain.Trading / Domain.Fleet
 
-UseCases.GameCommands → UseCases.CommandStore (persistence port)
+UseCases.GameCommands / LifecycleCommands
+  → UseCases.CommitExecutor → UseCases.CommandStore (persistence port)
 Infrastructure.Persistence.CommandStore implements UseCases.CommandStore
   → Infrastructure.Persistence.GameStore (atomic PostgreSQL transaction)
 
@@ -63,7 +64,9 @@ balanced journal events and new lot identities alongside state changes. The
 same transaction persists these, verifies ledger reconciliation, and writes the
 receipt. Pending events are cleared after commit; historical journals and lot
 lineage stay in PostgreSQL rather than accumulating in world-process memory.
-Startup audits ledger totals before serving gameplay.
+Startup audits ledger totals before serving gameplay. The active identity cache
+omits expired sessions and completed invitation/email history; lifecycle commands
+restore relevant durable records through the command-store port for retries.
 A superseded process cannot commit. Same-request retries replay the committed
 result; a changed payload under the same request ID is rejected. Publication and
 acknowledgement follow commit. Keep one server instance; fencing is overlap

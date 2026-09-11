@@ -207,7 +207,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   }
   @optional %{"ships" => ["voyage_speedup"], "invitations" => ["invitee"]}
 
-  def load(repo, world) do
+  def load(repo, world, wall_ms \\ nil) do
     Map.new(@kinds, fn kind ->
       fields = @specs[kind]
       columns = ["id" | Enum.map(fields, &elem(&1, 1))]
@@ -215,34 +215,69 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       rows =
         repo.query!(
           "SELECT #{Enum.join(columns, ",")} FROM game_#{kind} WHERE world_id=$1" <>
-            current_reports_filter(kind),
-          [
-            world
-          ]
+            current_reports_filter(kind) <> history_filter(kind, wall_ms),
+          if(wall_ms != nil and kind in ["sessions", "email_requests"],
+            do: [world, wall_ms],
+            else: [world]
+          )
         ).rows
 
       entities =
-        Map.new(rows, fn [id | values] ->
-          data =
-            fields
-            |> Enum.map(&elem(&1, 0))
-            |> Enum.zip(values)
-            |> Map.new(fn {key, value} ->
-              {key, if(key == "capital_ms", do: Decimal.to_integer(value), else: value)}
-            end)
-
-          data =
-            Enum.reduce(Map.get(@optional, kind, []), data, fn key, data ->
-              if is_nil(data[key]), do: Map.delete(data, key), else: data
-            end)
-
-          {id, data}
-        end)
+        Map.new(rows, &decode_row(kind, &1))
 
       {kind, load_children(repo, world, kind, entities)}
     end)
     |> Map.reject(fn {_, rows} -> map_size(rows) == 0 end)
   end
+
+  def lookup(repo, world, kind, value, field \\ "id")
+      when kind in ["sessions", "invitations", "email_requests"] and
+             field in ["id", "token_hash"] do
+    if field == "token_hash" and kind != "email_requests",
+      do: raise(ArgumentError, "Invalid history lookup")
+
+    columns = ["id" | Enum.map(@specs[kind], &elem(&1, 1))]
+
+    case repo.query!(
+           "SELECT #{Enum.join(columns, ",")} FROM game_#{kind} WHERE world_id=$1 AND #{field}=$2",
+           [world, value]
+         ).rows do
+      [] -> nil
+      [row] -> decode_row(kind, row)
+    end
+  end
+
+  defp decode_row(kind, [id | values]) do
+    data =
+      @specs[kind]
+      |> Enum.map(&elem(&1, 0))
+      |> Enum.zip(values)
+      |> Map.new(fn {key, value} ->
+        {key, if(key == "capital_ms", do: Decimal.to_integer(value), else: value)}
+      end)
+
+    data =
+      Enum.reduce(Map.get(@optional, kind, []), data, fn key, data ->
+        if is_nil(data[key]), do: Map.delete(data, key), else: data
+      end)
+
+    {id, data}
+  end
+
+  defp history_filter(_, nil), do: ""
+  defp history_filter("sessions", _), do: " AND expires_at_ms > $2"
+  defp history_filter("invitations", _), do: " AND status='issued'"
+
+  defp history_filter("email_requests", _),
+    do: """
+     AND (created_ms > $2::bigint - 3600000 OR
+       (delivery='pending' AND used_session IS NULL AND expires_ms > CASE WHEN purpose='invite'
+         THEN (SELECT clock_ms FROM game_worlds WHERE id=$1) ELSE $2::bigint END) OR
+       id IN (SELECT id FROM (SELECT id,row_number() OVER (PARTITION BY account_id ORDER BY created_ms DESC,id) AS n
+         FROM game_email_requests WHERE world_id=$1 AND purpose IN ('link','invite')) recent WHERE n<=10))
+    """
+
+  defp history_filter(_, _), do: ""
 
   defp current_reports_filter("financial_reports"),
     do:

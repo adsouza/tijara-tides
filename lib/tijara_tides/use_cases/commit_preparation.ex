@@ -38,6 +38,12 @@ defmodule TijaraTides.UseCases.CommitPreparation do
     Reporting.advance(%{changed | clock_ms: target_clock})
   end
 
-  def accepted(game),
-    do: game |> Journal.clear() |> Reporting.compact() |> TijaraTides.Domain.ChangeSet.accepted()
+  def accepted(game, wall_ms \\ nil) do
+    game =
+      game |> Journal.clear() |> Reporting.compact() |> TijaraTides.Domain.ChangeSet.accepted()
+
+    if is_integer(wall_ms),
+      do: TijaraTides.Domain.Account.compact_history(game, wall_ms),
+      else: game
+  end
 end

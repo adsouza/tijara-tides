@@ -4,10 +4,22 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
   alias TijaraTides.UseCases.CommitExecutor
 
   def run(game, operation, context, store) do
+    restore =
+      if match?({:email_request, _, _, _}, operation),
+        do: {:email_request_id, context.id},
+        else: operation
+
+    game = CommitExecutor.restore(game, restore, store)
+
     case execute(game, operation, context) do
-      {:ok, changed, result} -> CommitExecutor.commit(game, changed, result, nil, store)
-      {:replay, result} -> CommitExecutor.outcome(game, result, false)
-      {:error, _} = error -> error
+      {:ok, changed, result} ->
+        CommitExecutor.commit(game, changed, result, nil, store, & &1, Map.get(context, :wall_ms))
+
+      {:replay, result} ->
+        CommitExecutor.outcome(game, result, false)
+
+      {:error, _} = error ->
+        error
     end
   end
 

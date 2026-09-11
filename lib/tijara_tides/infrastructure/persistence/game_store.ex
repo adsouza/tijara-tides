@@ -2,7 +2,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
   @moduledoc "Atomic changed-entity writes, durable command receipts and world-owner fencing."
   alias TijaraTides.Infrastructure.Persistence.{Repo, GameRows, FinancialLedger}
 
-  def claim(repo \\ Repo, world_id \\ "ocean") do
+  def claim(repo \\ Repo, world_id \\ "ocean", opts \\ []) do
     repo.transaction(fn ->
       TijaraTides.Infrastructure.Persistence.SchemaMaintenance.lock_claim(repo)
       repo.query!("INSERT INTO game_worlds(id) VALUES ($1) ON CONFLICT DO NOTHING", [world_id])
@@ -14,7 +14,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
         )
 
       FinancialLedger.audit(repo, world_id)
-      entities = GameRows.load(repo, world_id)
+      entities = GameRows.load(repo, world_id, Keyword.get(opts, :wall_ms))
 
       %{
         epoch: epoch,
