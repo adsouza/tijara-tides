@@ -83,4 +83,48 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
     assert next.details["bankruptcy_ms"] == nil
     assert Enum.map(next.bills, & &1["id"]) == ["b"]
   end
+
+  for ownership <- [:missing, :detached, :reassigned] do
+    test "foreclosure cannot affect another company when the owner is #{ownership}" do
+      overdue =
+        Map.merge(company(), %{
+          "cash" => 0,
+          "unpaid" => 100,
+          "account_id" => "a",
+          "bankruptcy_ms" => nil,
+          "unpaid_since" => 0,
+          "arrears_since" => 0
+        })
+
+      current =
+        Map.merge(company(), %{"id" => "current", "account_id" => "a", "bankruptcy_ms" => nil})
+
+      account = %{
+        "id" => "a",
+        "company_id" => if(unquote(ownership) == :reassigned, do: "current"),
+        "bankruptcies" => 0
+      }
+
+      accounts = if unquote(ownership) == :missing, do: %{}, else: %{"a" => account}
+
+      state = %{
+        clock_ms: Finance.terms().grace_ms,
+        entities: %{
+          "companies" => %{"c" => overdue, "current" => current},
+          "accounts" => accounts,
+          "operating_bills" => %{
+            "b" => %{"id" => "b", "company_id" => "c", "due_ms" => 0, "remaining" => 100}
+          }
+        }
+      }
+
+      assert {_, %{receivership: true}} = Finance.settle_owned(state, "c")
+      next = TijaraTides.Domain.Services.FinancialSettlement.settle(state, ["c"])
+      assert next.entities["companies"]["current"] == current
+      assert next.entities["accounts"] == accounts
+      assert next.entities["companies"]["c"]["bankruptcy_ms"] == nil
+      assert next.entities["operating_bills"]["b"]["remaining"] == 100
+      assert Map.get(next.entities, "bankruptcy_events", %{}) == %{}
+    end
+  end
 end

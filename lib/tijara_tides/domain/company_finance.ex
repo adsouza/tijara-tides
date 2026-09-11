@@ -35,20 +35,20 @@ defmodule TijaraTides.Domain.CompanyFinance do
     end)
   end
 
+  # The one declaration of which struct field holds which owned entity kind.
+  # Loading, isolating and saving the aggregate all derive their pairing here.
+  @owned [
+    loans: "loans",
+    installments: "loan_installments",
+    bills: "operating_bills",
+    pledges: "guarantees"
+  ]
+
   def from_world(state, company_id) do
-    finance = from_row(get(state, "companies", company_id))
-
-    children = fn kind ->
-      owned(state, kind, "company_id", company_id)
-    end
-
-    %{
-      finance
-      | loans: children.("loans"),
-        installments: children.("loan_installments"),
-        bills: children.("operating_bills"),
-        pledges: children.("guarantees")
-    }
+    Enum.reduce(@owned, from_row(get(state, "companies", company_id)), fn {field, kind},
+                                                                          finance ->
+      Map.put(finance, field, owned(state, kind, "company_id", company_id))
+    end)
   end
 
   def open(state, row) do
@@ -195,11 +195,12 @@ defmodule TijaraTides.Domain.CompanyFinance do
     debt = Enum.sum(Enum.map(loans, & &1["remaining"]))
     base_limit = credit_limit(state, account)
     guarantee = Guarantees.active(state, account["id"])
+    rate = rate(state, account)
 
     limit =
       cond do
         guarantee -> min(base_limit, guarantee["amount"])
-        rate(state, account) == 1600 -> 0
+        rate == 1600 -> 0
         true -> base_limit
       end
 
@@ -222,10 +223,10 @@ defmodule TijaraTides.Domain.CompanyFinance do
       "deadline" =>
         if(company && company["arrears_since"], do: company["arrears_since"] + @terms.grace_ms),
       "restart_ms" => restart_at(state, account),
-      "rate_bps" => rate(state, account),
+      "rate_bps" => rate,
       "period_ms" => @terms.period_ms,
       "installments" => @terms.installments,
-      "requires_guarantee" => rate(state, account) == 1600 and is_nil(guarantee),
+      "requires_guarantee" => rate == 1600 and is_nil(guarantee),
       "loans" =>
         Enum.map(loans, fn loan ->
           loan
@@ -313,8 +314,10 @@ defmodule TijaraTides.Domain.CompanyFinance do
         {:recast, id, amount} -> recast_owned(local, account, id, amount)
       end
 
+    # Write effects only: a loan transition has no caller that can coordinate
+    # receivership, so it must not report a flag nothing acts on.
     with {:ok, changed, reply} <- result do
-      {:ok, from_world(changed, finance.id), financial_effects(changed, finance.id), reply}
+      {:ok, from_world(changed, finance.id), write_effects(changed), reply}
     end
   end
 
@@ -410,6 +413,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
   defp recast_owned(state, account, id, amount) do
     company = get(state, "companies", account["company_id"])
     loan = get(state, "loans", id)
+    actions = if company && loan, do: loan_actions(company, loan), else: %{}
 
     cond do
       is_nil(company) or company["account_id"] != account["id"] or is_nil(loan) or
@@ -417,11 +421,11 @@ defmodule TijaraTides.Domain.CompanyFinance do
           company["bankruptcy_ms"] != nil ->
         {:error, :loan_not_owned}
 
-      not loan_actions(company, loan)["recast_allowed"] ->
+      not actions["recast_allowed"] ->
         {:error, :loan_recast_unavailable}
 
-      not is_integer(amount) or amount < loan_actions(company, loan)["recast_min"] or
-          amount > loan_actions(company, loan)["recast_balance"] ->
+      not is_integer(amount) or amount < actions["recast_min"] or
+          amount > actions["recast_balance"] ->
         {:error, :loan_recast_amount}
 
       amount > company["cash"] - company["reserved"] ->
@@ -454,7 +458,6 @@ defmodule TijaraTides.Domain.CompanyFinance do
     end
   end
 
-  @owned ~w(loans loan_installments operating_bills guarantees)
   @doc "Settle only this loaded financial aggregate; return coordination effects separately."
   def settle_finances(%__MODULE__{} = finance, now) do
     local = local_state(finance, now)
@@ -469,27 +472,31 @@ defmodule TijaraTides.Domain.CompanyFinance do
   end
 
   defp local_state(finance, now) do
-    entities = %{
-      "companies" => %{finance.id => to_row(finance)},
-      "loans" => Map.new(finance.loans, &{&1["id"], &1}),
-      "loan_installments" => Map.new(finance.installments, &{&1["id"], &1}),
-      "operating_bills" => Map.new(finance.bills, &{&1["id"], &1}),
-      "guarantees" => Map.new(finance.pledges, &{&1["id"], &1})
-    }
+    entities =
+      Enum.reduce(@owned, %{"companies" => %{finance.id => to_row(finance)}}, fn {field, kind},
+                                                                                 entities ->
+        Map.put(entities, kind, Map.new(Map.fetch!(finance, field), &{&1["id"], &1}))
+      end)
 
     %{entities: entities, clock_ms: now} |> TijaraTides.Domain.EntityIndex.rebuild()
   end
 
+  # Rows the world adapter must write back, each notice keyed as the aggregate keyed it.
+  defp write_effects(local),
+    do: %{
+      journal: Map.get(local, :journal, []),
+      notices: Map.to_list(entities(local, "notices"))
+    }
+
   defp financial_effects(local, id) do
     row = get(local, "companies", id)
 
-    %{
-      journal: Map.get(local, :journal, []),
-      notices: Map.values(entities(local, "notices")),
-      receivership:
-        row["bankruptcy_ms"] == nil and row["arrears_since"] != nil and
-          local.clock_ms >= row["arrears_since"] + @terms.grace_ms
-    }
+    Map.put(
+      write_effects(local),
+      :receivership,
+      row["bankruptcy_ms"] == nil and row["arrears_since"] != nil and
+        local.clock_ms >= row["arrears_since"] + @terms.grace_ms
+    )
   end
 
   def settle_owned(state, id) do
@@ -500,11 +507,10 @@ defmodule TijaraTides.Domain.CompanyFinance do
   defp save_finances(state, finance, effects) do
     id = finance.id
     state = put(state, "companies", id, to_row(finance))
-    children = [finance.loans, finance.installments, finance.bills, finance.pledges]
 
     state =
-      Enum.zip(@owned, children)
-      |> Enum.reduce(state, fn {kind, rows}, state ->
+      Enum.reduce(@owned, state, fn {field, kind}, state ->
+        rows = Map.fetch!(finance, field)
         retained = MapSet.new(rows, & &1["id"])
 
         state =
@@ -525,12 +531,9 @@ defmodule TijaraTides.Domain.CompanyFinance do
         })
       end)
 
-    state =
-      Enum.reduce(effects.notices, state, fn notice, state ->
-        Notices.notice(state, notice["account_id"], "arrears:" <> id, notice["text"])
-      end)
-
-    state
+    Enum.reduce(effects.notices, state, fn {notice_id, notice}, state ->
+      Notices.notice(state, notice["account_id"], notice_id, notice["text"])
+    end)
   end
 
   defp accrue(state, %{"status" => "open"} = loan) do

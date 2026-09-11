@@ -182,7 +182,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
 
     %{
       "pending" => pending,
-      "eligible" => sponsor_eligible?(state, account),
+      "eligible" => eligible,
       "has_sponsor" => account["inviter"] != nil,
       "active" => active(state, account["id"]),
       "pledges" =>

@@ -41,9 +41,6 @@ defmodule TijaraTides.Infrastructure.Persistence.CommandStore do
         {action, id} when action in [:email_failed, :email_delivered] ->
           [{"email_requests", id, "id"}]
 
-        {:sign_out, device} ->
-          [{"sessions", device, "id"}]
-
         _ ->
           []
       end

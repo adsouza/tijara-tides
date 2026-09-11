@@ -1,6 +1,8 @@
 defmodule TijaraTides.Domain.EntityIndex do
   @moduledoc "Derived ownership lookup for bounded company operations; rebuilt on world load, never persisted."
-  @fields ~w(company_id borrower_company_id account_id inviter sponsor_id beneficiary_id ship_id stop_id token_hash email requester purpose status)
+  # Only fields with an `owned/4` reader belong here: every entry costs a MapSet
+  # update on each row mutation and a bucket per distinct value on rebuild.
+  @fields ~w(company_id borrower_company_id account_id inviter token_hash email requester)
   def fields, do: @fields
 
   def rebuild(state) do

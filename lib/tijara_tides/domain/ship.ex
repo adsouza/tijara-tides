@@ -77,9 +77,8 @@ defmodule TijaraTides.Domain.Ship do
 
   def record_sale(state, %__MODULE__{} = ship, good, quantity) do
     docked!(ship)
-    available = Enum.sum(for batch <- ship.cargo, batch["good"] == good, do: batch["quantity"])
 
-    unless is_integer(quantity) and quantity > 0 and quantity <= available,
+    unless is_integer(quantity) and quantity > 0 and quantity <= aboard(ship, good),
       do: raise(ArgumentError, "Sale requires a positive integer quantity available aboard")
 
     {state, sold, remaining} =
@@ -302,6 +301,13 @@ defmodule TijaraTides.Domain.Ship do
     {state, ship, sold} = record_sale(state, ship, good, quantity)
     {store(state, ship), sold}
   end
+
+  @doc "Lots of one good aboard. Callers must bound a sale by this, not by an older snapshot."
+  def cargo_available(state, id, good),
+    do: aboard(State.get(state, "ships", id) |> from_row(), good)
+
+  defp aboard(%__MODULE__{cargo: cargo}, good),
+    do: Enum.sum(for batch <- cargo, batch["good"] == good, do: batch["quantity"])
 
   def depart(state, id, destination, estimate, speedup) do
     ship = State.get(state, "ships", id) |> from_row()
