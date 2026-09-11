@@ -39,6 +39,64 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "identity history is evicted from cache but remains replayable after restart" do
+    alias TijaraTides.Domain.{Account, ReadState}
+    alias TijaraTides.UseCases.LifecycleCommands
+    alias TijaraTides.Infrastructure.Persistence.CommandStore
+
+    world = Ecto.UUID.generate()
+    {:ok, game} = GameStore.claim(Repo, world)
+    store = {CommandStore, %{repo: Repo, world_id: world}}
+    context = %{wall_ms: 0, id: "account"}
+    {:ok, seeded} = LifecycleCommands.run(game, {:seed, "invitation"}, context, store)
+
+    {:ok, redeemed} =
+      LifecycleCommands.run(seeded.game, {:redeem, "invitation", "device"}, context, store)
+
+    email_context = %{wall_ms: 0, id: "request", hash: "token", requester: "requester"}
+
+    {:ok, requested} =
+      LifecycleCommands.run(
+        redeemed.game,
+        {:email_request, nil, "login", "unknown@example.test"},
+        email_context,
+        store
+      )
+
+    now = 7_200_000
+    compact = Account.compact_history(requested.game, now)
+    refute ReadState.get(compact, "invitations", "invitation")
+    refute ReadState.get(compact, "email_requests", "request")
+    assert compact.changes == %{}
+    {:ok, restarted} = GameStore.claim(Repo, world, wall_ms: now)
+
+    for kind <- ["sessions", "invitations", "email_requests"] do
+      assert ReadState.entities(restarted, kind) == ReadState.entities(compact, kind)
+    end
+
+    assert [[1]] =
+             Repo.query!("SELECT count(*) FROM game_email_requests WHERE world_id=$1", [world]).rows
+
+    assert {:ok, %{committed?: false, reply: %{"account_id" => "account"}}} =
+             LifecycleCommands.run(
+               restarted,
+               {:redeem, "invitation", "device"},
+               %{context | wall_ms: now},
+               store
+             )
+
+    assert {:error, :already_exists} =
+             LifecycleCommands.run(restarted, {:seed, "invitation"}, context, store)
+
+    assert {:ok, %{committed?: false}} =
+             LifecycleCommands.run(
+               restarted,
+               {:email_request, nil, "login", "different@example.test"},
+               %{email_context | wall_ms: now},
+               store
+             )
+  end
+
   test "repeating route UI, receipts, private templates and active visit survive restart", c do
     Application.put_env(:tijara_tides, :game_server, c.server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)

@@ -399,3 +399,26 @@ pledge bounds and eligibility; credit summaries indicate whether a guarantee is
 required. Presentation converts units and formats controls, without independently
 reimplementing financial authorization. Action projections are derived from
 current cash and obligations, never stored as loan terms.
+
+## Active identity cache and retained history
+
+Normal server startup loads live device sessions, issued invitations, recent
+email rate-limit records, pending deliveries, and the ten most recent link/invite
+records per account. Successful acceptance prunes the same identity cache at
+most once per minute. Issued invitations remain until expiry processing restores
+quota. Cache eviction never deletes durable history or declares SQL writes.
+
+Lifecycle commands restore relevant historical credentials through the optional
+CommandStore read-through port before executing domain rules. This preserves
+redemption retries, request-ID retries, and device reuse checks after eviction or
+restart. Reconstituted rows form the transaction's baseline, not new writes.
+Direct maintenance claims omit the wall-clock filter by default.
+
+Derived indexes cover owner, account, email and credential lookups; mutations,
+reconstitution and eviction maintain them. They are not relational replacements
+or separate sources of truth. `scripts/benchmark-state.exs` measures isolated
+snapshots, email requests and commit preparation with 1,000 companies and 50,000
+old email records, both before and after cache compaction. It is not a fleet or
+concurrent-client load test. World ticks and public projection rebuilds remain
+global; closed loan history remains loaded. Further pruning or partitioning must
+preserve financial reconciliation and should follow measurements of those paths.

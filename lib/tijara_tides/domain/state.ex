@@ -32,6 +32,12 @@ defmodule TijaraTides.Domain.State do
     end
   end
 
+  @doc "Reconstitute a durable row into the cache without declaring a database write."
+  def cache(state, kind, id, row) do
+    %{state | entities: Map.update(state.entities, kind, %{id => row}, &Map.put(&1, id, row))}
+    |> TijaraTides.Domain.EntityIndex.update(kind, id, get(state, kind, id), row)
+  end
+
   def evict(state, kind, id) do
     row = get(state, kind, id)
 

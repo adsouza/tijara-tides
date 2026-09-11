@@ -2,14 +2,20 @@ defmodule TijaraTides.UseCases.CommitExecutor do
   @moduledoc "One atomic acceptance path for player commands, lifecycle operations and world ticks."
   alias TijaraTides.UseCases.{CommitPreparation, CommandResult}
 
-  def commit(before, changed, result, receipt, {store, storage}, decorate \\ & &1) do
+  def commit(before, changed, result, receipt, {store, storage}, decorate \\ & &1, wall_ms \\ nil) do
     changed = CommitPreparation.prepare(before, %{changed | revision: before.revision + 1})
 
     case store.commit(storage, before, changed, receipt) do
-      {:ok, :ok} -> outcome(CommitPreparation.accepted(changed), decorate.(result), true)
+      {:ok, :ok} -> outcome(CommitPreparation.accepted(changed, wall_ms), decorate.(result), true)
       {:error, {:replay, result}} -> outcome(before, decorate.(result), false)
       {:error, reason} -> {:halt, reason}
     end
+  end
+
+  def restore(game, operation, {store, storage}) do
+    if Code.ensure_loaded?(store) and function_exported?(store, :restore, 3),
+      do: store.restore(storage, game, operation),
+      else: game
   end
 
   def outcome(game, reply, committed?),

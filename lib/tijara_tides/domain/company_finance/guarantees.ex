@@ -163,10 +163,9 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
     eligible = sponsor_eligible?(state, account)
 
     pending =
-      entities(state, "accounts")
-      |> Map.values()
+      owned(state, "accounts", "inviter", account["id"])
       |> Enum.filter(
-        &(&1["inviter"] == account["id"] and (suspended?(&1) or Finance.rate(state, &1) == 1600) and
+        &((suspended?(&1) or Finance.rate(state, &1) == 1600) and
             active(state, &1["id"]) == nil)
       )
       |> Enum.sort_by(& &1["id"])

@@ -32,7 +32,16 @@ defmodule TijaraTides.UseCases.GameCommands do
           case execute(game, account, request.payload, context) do
             {:ok, changed, result} ->
               receipt = {account["id"], request.id, request.fingerprint, result}
-              CommitExecutor.commit(game, changed, result, receipt, {store, storage}, decorate)
+
+              CommitExecutor.commit(
+                game,
+                changed,
+                result,
+                receipt,
+                {store, storage},
+                decorate,
+                context.wall_ms
+              )
 
             error ->
               error

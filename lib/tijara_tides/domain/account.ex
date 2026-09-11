@@ -9,6 +9,52 @@ defmodule TijaraTides.Domain.Account do
   @history_ms 112 * 86_400_000
   def history_ms, do: @history_ms
 
+  @doc "Reconstitute identity history supplied by the persistence read-through port."
+  def restore_history(state, kind, id, row)
+      when kind in ["sessions", "invitations", "email_requests"],
+      do: cache(state, kind, id, row)
+
+  def compact_history(state, wall_ms) do
+    if wall_ms < Map.get(state, :identity_compacted_at, -60_000) + 60_000 do
+      state
+    else
+      state =
+        Enum.reduce(entities(state, "sessions"), state, fn {id, row}, acc ->
+          if row["expires_at"] <= wall_ms, do: evict(acc, "sessions", id), else: acc
+        end)
+
+      state =
+        Enum.reduce(entities(state, "invitations"), state, fn {id, row}, acc ->
+          if row["status"] != "issued", do: evict(acc, "invitations", id), else: acc
+        end)
+
+      recent_deliveries =
+        entities(state, "email_requests")
+        |> Map.values()
+        |> Enum.filter(&(&1["purpose"] in ["link", "invite"]))
+        |> Enum.group_by(& &1["account_id"])
+        |> Enum.flat_map(fn {_, rows} ->
+          Enum.sort_by(rows, &{-&1["created_ms"], &1["id"]}) |> Enum.take(10)
+        end)
+        |> MapSet.new(& &1["id"])
+
+      state =
+        Enum.reduce(entities(state, "email_requests"), state, fn {id, row}, acc ->
+          live_delivery =
+            row["delivery"] == "pending" and row["used_session"] == nil and
+              row["expires_ms"] >
+                if(row["purpose"] == "invite", do: state.clock_ms, else: wall_ms)
+
+          if row["created_ms"] > wall_ms - 3_600_000 or live_delivery or
+               MapSet.member?(recent_deliveries, id),
+             do: acc,
+             else: evict(acc, "email_requests", id)
+        end)
+
+      Map.put(state, :identity_compacted_at, wall_ms)
+    end
+  end
+
   def from_row(row),
     do: struct!(__MODULE__, Map.new(@fields, &{&1, row[Atom.to_string(&1)]}))
 
@@ -19,7 +65,7 @@ defmodule TijaraTides.Domain.Account do
     account = from_row(get(state, "accounts", id))
 
     owned = fn kind, field ->
-      entities(state, kind) |> Map.values() |> Enum.filter(&(&1[field] == id))
+      TijaraTides.Domain.State.owned(state, kind, field, id)
     end
 
     %{
@@ -62,9 +108,7 @@ defmodule TijaraTides.Domain.Account do
     account = from_row(get(state, "accounts", account_id))
 
     collision =
-      Enum.any?(entities(state, "accounts"), fn {id, other} ->
-        id != account_id and other["email"] == email
-      end)
+      Enum.any?(owned(state, "accounts", "email", email), &(&1["id"] != account_id))
 
     existing_session = get(state, "sessions", session)
 
@@ -82,9 +126,7 @@ defmodule TijaraTides.Domain.Account do
   end
 
   def history(state, account) do
-    entities(state, "bankruptcy_events")
-    |> Map.values()
-    |> Enum.filter(&(&1["account_id"] == account["id"]))
+    owned(state, "bankruptcy_events", "account_id", account["id"])
   end
 
   def counted(state, account),

@@ -32,15 +32,13 @@ defmodule TijaraTides.Domain.Account.EmailIdentity do
 
   def request(state, account, purpose, address, context) do
     with {:ok, email} <- normalize(address) do
-      recent =
-        entities(state, "email_requests")
-        |> Map.values()
-        |> Enum.filter(&(&1["created_ms"] > context.wall_ms - 3_600_000))
+      recent_count = fn field, value ->
+        owned(state, "email_requests", field, value)
+        |> Enum.count(&(&1["created_ms"] > context.wall_ms - 3_600_000))
+      end
 
       owner =
-        Enum.find_value(entities(state, "accounts"), fn {_, a} ->
-          if a["email"] == email, do: a
-        end)
+        List.first(owned(state, "accounts", "email", email))
 
       cond do
         purpose not in ["login", "link", "invite"] ->
@@ -52,8 +50,8 @@ defmodule TijaraTides.Domain.Account.EmailIdentity do
         purpose == "invite" and Account.suspended?(account) ->
           {:error, :account_suspended}
 
-        Enum.count(recent, &(&1["requester"] == context.requester)) >= 10 or
-            Enum.count(recent, &(&1["email"] == email)) >= 3 ->
+        recent_count.("requester", context.requester) >= 10 or
+            recent_count.("email", email) >= 3 ->
           {:error, :email_rate_limited}
 
         (purpose in ["link", "invite"] and owner) &&
@@ -97,9 +95,7 @@ defmodule TijaraTides.Domain.Account.EmailIdentity do
 
   def redeem(state, hash, session, signed_in, context) do
     row =
-      Enum.find_value(entities(state, "email_requests"), fn {_, row} ->
-        if row["token_hash"] == hash, do: row
-      end)
+      List.first(owned(state, "email_requests", "token_hash", hash))
 
     cond do
       is_nil(row) ->
@@ -131,9 +127,7 @@ defmodule TijaraTides.Domain.Account.EmailIdentity do
 
       true ->
         owner =
-          Enum.find_value(entities(state, "accounts"), fn {_, a} ->
-            if a["email"] == row["email"], do: a
-          end)
+          List.first(owned(state, "accounts", "email", row["email"]))
 
         if owner && (row["purpose"] == "invite" or owner["id"] != row["account_id"]) do
           {:error, :email_unavailable}
