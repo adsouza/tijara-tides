@@ -47,3 +47,4 @@ npm-debug.log
 # Local server credentials; never included in a client or release.
 /.env*
 !/.env.example
+scripts/__pycache__

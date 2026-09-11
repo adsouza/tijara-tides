@@ -79,6 +79,9 @@ Ctrl-C stops both services while retaining your game. If the local database is
 already running, the launcher verifies and reuses it, leaving it running on exit.
 Use `--seed` to issue
 another launch invitation or `--web-port 4001` for another web port.
+Server output goes to `tmp/local-game/server-4000.log` (using the selected port).
+Each start replaces that server log. The PostgreSQL log is also reset when the
+launcher starts PostgreSQL; reusing a running database leaves its log untouched.
 
 Accounts currently use a durable, revocable device credential. Email magic links,
 Google linking, and cross-device recovery are a following milestone. Losing the

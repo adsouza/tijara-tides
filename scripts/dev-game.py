@@ -3,6 +3,7 @@
 import argparse
 import os
 import shutil
+import socket
 import subprocess
 from pathlib import Path
 
@@ -12,6 +13,11 @@ parser.add_argument('--web-port',type=int,default=4000)
 parser.add_argument('--db-port',type=int,default=55439)
 parser.add_argument('--seed',action='store_true',help='issue another explicit launch-root invitation')
 args=parser.parse_args()
+# Refuse before touching logs or storage if this server is still running.
+with socket.socket() as probe:
+    probe.settimeout(1)
+    if probe.connect_ex(('127.0.0.1', args.web_port)) == 0:
+        raise SystemExit(f'Port {args.web_port} is already in use; stop that server before restarting.')
 binary=shutil.which('initdb')
 if not binary:
     candidates=[Path('/opt/homebrew/opt/postgresql@18/bin/initdb')]+sorted(Path('/usr/lib/postgresql').glob('*/bin/initdb'),reverse=True)
@@ -40,6 +46,8 @@ if not started_database:
         raise SystemExit(f'The local database is already running, but could not be verified on port {args.db_port}. Check {base / "data/postmaster.pid"} for its port and use --db-port with that value.')
     print(f'Reusing local database on port {args.db_port}; it will remain running on exit.',flush=True)
 else:
+    # Only reset PostgreSQL's log when its old process has stopped.
+    (base/'postgres.log').write_text('')
     # TCP listens on loopback only; the filesystem cluster is private to this launcher.
     subprocess.run([str(bin_dir/'pg_ctl'),'-D',str(base/'data'),'-l',str(base/'postgres.log'),'-o',f'-h 127.0.0.1 -p {args.db_port} -k /tmp','-w','start'],check=True,env=env)
 try:
@@ -53,12 +61,16 @@ try:
         subprocess.run(['mix','run','--no-start','scripts/seed_game.exs'],cwd=root,env=env,check=True)
     shutdown='server and database' if started_database else 'server (the existing database stays running)'
     print(f'Play at http://localhost:{args.web_port}/play. Ctrl-C stops {shutdown}; data is retained.',flush=True)
-    app=subprocess.Popen(['mix','phx.server'],cwd=root,env=env)
-    try:
-        app.wait()
-    except KeyboardInterrupt:
-        app.terminate()
-        app.wait(timeout=20)
+    server_log=base/f'server-{args.web_port}.log'
+    print(f'Server log: {server_log} (replaced on each start).',flush=True)
+    # Write mode discards the previous run instead of appending indefinitely.
+    with server_log.open('w') as output:
+        app=subprocess.Popen(['mix','phx.server'],cwd=root,env=env,stdout=output,stderr=subprocess.STDOUT)
+        try:
+            app.wait()
+        except KeyboardInterrupt:
+            app.terminate()
+            app.wait(timeout=20)
 finally:
     if started_database:
         subprocess.run([str(bin_dir/'pg_ctl'),'-D',str(base/'data'),'-m','fast','-w','stop'],check=True,env=env)
