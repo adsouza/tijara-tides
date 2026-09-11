@@ -81,9 +81,11 @@ transaction use the same result-decoration path. Plaintext invitation credential
 remain outside durable receipts.
 
 `CommandResult.committed?` distinguishes new commits from replay, so replay does
-not increment the revision or publish a fictitious change. Seed, redemption,
-sign-out and simulation progression retain their established lifecycle handlers
-and share the same commit-before-publication discipline.
+not increment the revision or publish a fictitious change. Seed, redemption, email identity, sign-out and simulation progression run through
+`LifecycleCommands`. Both lifecycle and player workflows use `CommitExecutor`
+for preparation, persistence, replay and acceptance. GameServer supplies clocks
+and credentials, serializes execution, and publishes accepted outcomes. Lifecycle
+domain exceptions use the same fail-closed classification as player commands.
 
 Before splitting world transactions into smaller aggregates, explicitly resolve
 cross-company trades, liquidity competition, cargo ownership and financial
