@@ -278,8 +278,11 @@ defmodule TijaraTides.Domain.CompanyFinance do
   end
 
   def borrow(state, account, amount, id) do
+    guarantee = Guarantees.active(state, account["id"])
+
     facts = %{
       account_id: account["id"],
+      guarantee_id: if(guarantee, do: guarantee["id"]),
       available: summary(state, account)["available"],
       rate_bps: rate(state, account),
       suspended: Guarantees.suspended?(get(state, "accounts", account["id"]))
@@ -363,6 +366,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
           period_ms: @terms.period_ms,
           periods_left: @terms.installments,
           rate_bps: facts.rate_bps,
+          guarantee_id: Map.get(facts, :guarantee_id),
           installment: div(amount + @terms.installments - 1, @terms.installments),
           status: "open",
           created_ms: state.clock_ms

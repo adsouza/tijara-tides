@@ -88,16 +88,10 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
     end
   end
 
-  def drawn(state, account) do
-    case active(state, account["id"]) do
-      nil ->
-        state
-
-      g ->
-        put(state, "guarantees", g["id"], %{g | "borrower_company_id" => account["company_id"]})
-    end
-  end
-
+  @doc """
+  Settle escrow held by these sponsoring companies. The guarantee row is the sponsor's,
+  so only the sponsor's own transaction closes it; borrower state is read, never written.
+  """
   def settle(state, company_ids \\ :all) do
     guarantees =
       if company_ids == :all,
@@ -105,24 +99,38 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
         else:
           Enum.flat_map(
             Enum.uniq(company_ids) -- [nil],
-            &owned(state, "guarantees", "borrower_company_id", &1)
+            &owned(state, "guarantees", "company_id", &1)
           )
 
     Enum.reduce(guarantees, state, fn g, acc ->
-      if g["status"] == "pledged" and g["borrower_company_id"] != nil and
-           Enum.all?(Finance.loans(acc, g["borrower_company_id"]), &(&1["status"] == "repaid")) do
-        close(acc, g, 0)
-      else
-        acc
+      case outcome(acc, g) do
+        nil -> acc
+        {_reason, loss} -> close(acc, g, loss)
       end
     end)
   end
 
-  def default(state, account, debt) do
-    case active(state, account["id"]) do
-      nil -> state
-      g -> close(state, g, min(g["amount"], debt))
+  @doc "The settlement a pledged guarantee is already owed, before its sponsor has settled it."
+  def outcome(state, %{"status" => "pledged"} = g) do
+    case failure(state, g) do
+      %{"guaranteed_debt" => debt} ->
+        {"claim", min(g["amount"], debt || 0)}
+
+      nil ->
+        loans = owned(state, "loans", "guarantee_id", g["id"])
+        repaid? = loans != [] and Enum.all?(loans, &(&1["status"] == "repaid"))
+
+        if repaid?, do: {"release", 0}, else: nil
     end
+  end
+
+  def outcome(_state, _g), do: nil
+
+  # The closure names the escrow it consumed, so prior bankruptcies — the very history
+  # that made this beneficiary need a sponsor — never resolve a live guarantee.
+  defp failure(state, g) do
+    owned(state, "bankruptcy_events", "account_id", g["beneficiary_id"])
+    |> Enum.find(&(&1["guarantee_id"] == g["id"]))
   end
 
   defp close(state, g, loss) do
@@ -189,6 +197,12 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
         entities(state, "guarantees")
         |> Map.values()
         |> Enum.filter(&(&1["sponsor_id"] == account["id"]))
+        |> Enum.map(fn g ->
+          case outcome(state, g) do
+            nil -> Map.merge(g, %{"settlement" => nil, "settlement_amount" => 0})
+            {reason, loss} -> Map.merge(g, %{"settlement" => reason, "settlement_amount" => loss})
+          end
+        end)
     }
   end
 end

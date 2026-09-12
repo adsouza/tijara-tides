@@ -96,7 +96,8 @@ defmodule TijaraTides.Domain.GuaranteesTest do
     refute Guarantees.sponsor_eligible?(accrued, c.sponsor)
   end
 
-  test "pledge reinstates, caps borrowing, fixes loan rate, and releases on repayment", c do
+  test "pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles",
+       c do
     assert {:error, :guarantee_amount} =
              Guarantees.pledge(c.state, c.sponsor, "beneficiary", 4_999_999, "g")
 
@@ -138,20 +139,166 @@ defmodule TijaraTides.Domain.GuaranteesTest do
     assert Game.get(state, "loans", "loan")["rate_bps"] == 1600
     assert Guarantees.active(state, "beneficiary") != nil
     {:ok, state, _} = Credit.repay(state, beneficiary, "loan")
+
+    # The escrow is the sponsor's to release, so repaying does not write its books.
+    assert Guarantees.active(state, "beneficiary") != nil
+    assert Game.get(state, "companies", "sponsor-company")["cash"] == 3_000_000
+    assert [%{"settlement" => "release"}] = Guarantees.view(state, c.sponsor)["pledges"]
+
+    state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, ["sponsor-company"])
     assert Guarantees.active(state, "beneficiary") == nil
     assert Game.get(state, "companies", "sponsor-company")["cash"] == 8_000_000
     assert CompanyFinance.summary(state, beneficiary)["available"] == 0
   end
 
-  test "default caps sponsor losses and refunds excess even to a bankrupt sponsor", c do
+  test "settlement caps sponsor losses and refunds excess even to a bankrupt sponsor", c do
     {:ok, state, _} = Guarantees.pledge(c.state, c.sponsor, "beneficiary", 5_000_000, "g")
     state = put_in(state, [:entities, "companies", "sponsor-company", "bankruptcy_ms"], 0)
-    settled = Guarantees.default(state, c.beneficiary, 2_000_000)
+
+    forfeit = fn debt ->
+      state
+      |> put_in([:entities, "bankruptcy_events", "failed"], %{
+        "id" => "failed",
+        "company_id" => "failed",
+        "account_id" => "beneficiary",
+        "created_ms" => 0,
+        "restart_ms" => 0,
+        "reason" => "forced",
+        "guarantee_id" => "g",
+        "guaranteed_debt" => debt
+      })
+      |> TijaraTides.Domain.Services.FinancialSettlement.settle(["sponsor-company"])
+    end
+
+    settled = forfeit.(2_000_000)
     assert Game.get(settled, "guarantees", "g")["forfeited"] == 2_000_000
     assert Game.get(settled, "companies", "sponsor-company")["cash"] == 6_000_000
     assert Game.get(settled, "companies", "sponsor-company")["profit"] == -2_000_000
-    assert Guarantees.default(settled, c.beneficiary, 9_000_000) == settled
-    capped = Guarantees.default(state, c.beneficiary, 9_000_000)
-    assert Game.get(capped, "guarantees", "g")["forfeited"] == 5_000_000
+
+    # Settling again is a no-op: the guarantee is no longer pledged.
+    assert TijaraTides.Domain.Services.FinancialSettlement.settle(settled, ["sponsor-company"]) ==
+             settled
+
+    assert Game.get(forfeit.(9_000_000), "guarantees", "g")["forfeited"] == 5_000_000
+  end
+
+  test "a refundable pledge pays sponsor arrears before foreclosure", c do
+    state = guaranteed_loan(c)
+    borrower = Game.get(state, "accounts", "beneficiary")
+    {:ok, state, _} = Credit.repay(state, borrower, "loan")
+    company = Game.get(state, "companies", "sponsor-company")
+
+    state =
+      TijaraTides.Domain.State.put(state, "companies", "sponsor-company", %{
+        company
+        | "cash" => 0,
+          "unpaid" => 1_000_000,
+          "unpaid_since" => 0,
+          "arrears_since" => 0
+      })
+
+    state = %{state | clock_ms: CompanyFinance.terms().grace_ms + 1}
+    settled = TijaraTides.Domain.Services.FinancialSettlement.settle(state, ["sponsor-company"])
+    company = Game.get(settled, "companies", "sponsor-company")
+    assert company["bankruptcy_ms"] == nil
+    assert company["unpaid"] == 0
+    assert company["cash"] == 4_000_000
+    assert Game.get(settled, "accounts", "sponsor")["company_id"] == "sponsor-company"
+  end
+
+  test "drawing records the guarantee on the loan without writing sponsor children", c do
+    {:ok, state, _} = Guarantees.pledge(c.state, c.sponsor, "beneficiary", 5_000_000, "g")
+
+    {:ok, state, _} =
+      CompanyFormation.create_company(
+        state,
+        Game.get(state, "accounts", "beneficiary"),
+        "Restart",
+        %{id: "restart"}
+      )
+
+    before = state
+
+    {:ok, state, _} =
+      Credit.borrow(state, Game.get(state, "accounts", "beneficiary"), 5_000_000, "loan")
+
+    assert Game.get(state, "loans", "loan")["guarantee_id"] == "g"
+    assert Game.get(state, "guarantees", "g") == Game.get(before, "guarantees", "g")
+
+    assert Game.get(state, "companies", "sponsor-company") ==
+             Game.get(before, "companies", "sponsor-company")
+
+    refute Enum.any?(TijaraTides.Domain.ChangeSet.since(before, state), fn {{kind, _}, _} ->
+             kind == "guarantees"
+           end)
+  end
+
+  # Two-legged forfeit: a beneficiary's bankruptcy must not write the sponsor's books.
+  defp guaranteed_loan(c) do
+    {:ok, state, _} = Guarantees.pledge(c.state, c.sponsor, "beneficiary", 5_000_000, "g")
+
+    {:ok, state, _} =
+      CompanyFormation.create_company(
+        state,
+        Game.get(state, "accounts", "beneficiary"),
+        "Restart",
+        %{id: "restart"}
+      )
+
+    {:ok, state, _} =
+      Credit.borrow(state, Game.get(state, "accounts", "beneficiary"), 5_000_000, "loan")
+
+    state
+  end
+
+  test "beneficiary bankruptcy records the debt without touching the sponsor's books", c do
+    state = guaranteed_loan(c)
+    sponsor_company = Game.get(state, "companies", "sponsor-company")
+
+    {:ok, state, _} =
+      TijaraTides.Domain.Services.Bankruptcy.bankrupt(
+        state,
+        Game.get(state, "accounts", "beneficiary"),
+        "forced"
+      )
+
+    assert Game.get(state, "companies", "sponsor-company") == sponsor_company
+    assert Game.get(state, "guarantees", "g")["status"] == "pledged"
+    assert Game.get(state, "bankruptcy_events", "restart")["guaranteed_debt"] == 5_000_000
+  end
+
+  test "the sponsor's own settlement forfeits the escrow recorded by the bankruptcy", c do
+    state = guaranteed_loan(c)
+
+    {:ok, state, _} =
+      TijaraTides.Domain.Services.Bankruptcy.bankrupt(
+        state,
+        Game.get(state, "accounts", "beneficiary"),
+        "forced"
+      )
+
+    # The expense must land when the sponsor settles, not when the beneficiary fails.
+    assert Game.get(state, "companies", "sponsor-company")["profit"] == 0
+
+    settled = TijaraTides.Domain.Services.FinancialSettlement.settle(state, ["sponsor-company"])
+
+    assert Game.get(settled, "guarantees", "g")["status"] == "claimed"
+    assert Game.get(settled, "guarantees", "g")["forfeited"] == 5_000_000
+    assert Game.get(settled, "companies", "sponsor-company")["profit"] == -5_000_000
+  end
+
+  test "a forfeit awaiting the sponsor's settlement is reported as pending", c do
+    state = guaranteed_loan(c)
+
+    {:ok, state, _} =
+      TijaraTides.Domain.Services.Bankruptcy.bankrupt(
+        state,
+        Game.get(state, "accounts", "beneficiary"),
+        "forced"
+      )
+
+    [pledge] = Guarantees.view(state, c.sponsor)["pledges"]
+    assert pledge["settlement"] == "claim"
+    assert pledge["settlement_amount"] == 5_000_000
   end
 end

@@ -21,7 +21,14 @@ defmodule TijaraTides.Domain.Services.Bankruptcy do
                 do: loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
           )
 
-        state = Guarantees.default(state, account, debt)
+        # The escrow belongs to the sponsor's books. Record what it owes and let the
+        # sponsor's own settlement forfeit it; this transaction stays single-company.
+        escrow =
+          case Guarantees.active(state, account["id"]) do
+            nil -> nil
+            guarantee -> {guarantee["id"], min(guarantee["amount"], debt)}
+          end
+
         state = CompanyFinance.close_in_receivership(state, company["id"])
 
         state =
@@ -35,7 +42,8 @@ defmodule TijaraTides.Domain.Services.Bankruptcy do
             account["id"],
             company["id"],
             reason,
-            CompanyFinance.terms().cooldown_ms
+            CompanyFinance.terms().cooldown_ms,
+            escrow
           )
 
         {:ok, state, %{"bankrupt" => company["id"]}}

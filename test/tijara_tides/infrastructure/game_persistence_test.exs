@@ -775,8 +775,13 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     {:ok, _} =
       GameServer.command(token, "repay", %{"action" => "repay", "loan" => loan}, c.server)
 
-    assert GameServer.snapshot(token, c.server).private["guarantees"]["active"] == nil
-    assert GameServer.snapshot(token, c.server).private["finance"]["available"] == 0
+    # Release is the sponsor's own write, so repayment only makes it pending. The
+    # beneficiary keeps borrowing power against the escrow until the sponsor settles.
+    assert GameServer.snapshot(token, c.server).private["guarantees"]["active"] != nil
+    assert GameServer.snapshot(token, c.server).private["finance"]["available"] == 5_000_000
+
+    assert [%{"settlement" => "release"}] =
+             GameServer.snapshot(sponsor, c.server).private["guarantees"]["pledges"]
 
     pledge = %{
       "action" => "guarantee",
@@ -786,6 +791,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     {:ok, result} = GameServer.command(sponsor, "pledge-again", pledge, c.server)
     assert {:ok, ^result} = GameServer.command(sponsor, "pledge-again", pledge, c.server)
+
+    # That command settled the pending release from the sponsor's own books first.
+    assert ["pledged", "released"] ==
+             GameServer.snapshot(sponsor, c.server).private["guarantees"]["pledges"]
+             |> Enum.map(& &1["status"])
+             |> Enum.sort()
 
     {:ok, _} =
       GameServer.command(
@@ -819,9 +830,22 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert {:ok, ^result} = GameServer.command(sponsor, "pledge-again", pledge, replacement)
     assert GameServer.snapshot(token, replacement).private["account"]["suspended_ms"] != nil
+
+    # The beneficiary's failure recorded the debt; the forfeit is the sponsor's own
+    # write, so it is still pending after the restart.
+    pending = GameServer.snapshot(sponsor, replacement).private["guarantees"]["pledges"]
+
+    assert Enum.any?(
+             pending,
+             &(&1["settlement"] == "claim" and &1["settlement_amount"] == 5_000_000)
+           )
+
+    {:ok, _} = GameServer.command(sponsor, "invite-again", %{"action" => "invite"}, replacement)
+
     pledges = GameServer.snapshot(sponsor, replacement).private["guarantees"]["pledges"]
     assert Enum.any?(pledges, &(&1["status"] == "claimed" and &1["forfeited"] == 5_000_000))
     assert Enum.any?(pledges, &(&1["status"] == "released" and &1["forfeited"] == 0))
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
   end
 
   test "selling removes the ship while preserving audited history and replay after reload", c do

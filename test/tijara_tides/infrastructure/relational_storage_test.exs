@@ -113,6 +113,43 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     assert [[9000]] == MigrationRepo.query!("SELECT nextval('game_lot_id_seq')").rows
   end
 
+  test "loan-link migration preserves pending release of an existing guarantee", %{
+    migrations: migrations
+  } do
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_260_912_000_001, log: false)
+    MigrationRepo.query!("INSERT INTO game_worlds(id) VALUES ('upgrade')")
+
+    MigrationRepo.query!(
+      "INSERT INTO game_accounts(world_id,id,bankruptcies,invite_quota,created_ms) VALUES ('upgrade','sponsor',0,0,0),('upgrade','borrower',0,0,0)"
+    )
+
+    MigrationRepo.query!(
+      "INSERT INTO game_companies(world_id,id,account_id,name,cash_cents,reserved_cents,profit_cents,unpaid_cents,created_ms,last_invite_year) VALUES ('upgrade','sponsor','sponsor','Sponsor',0,0,0,0,0,0),('upgrade','borrower','borrower','Borrower',0,0,0,0,0,0)"
+    )
+
+    MigrationRepo.query!(
+      "INSERT INTO game_guarantees(world_id,id,company_id,sponsor_id,beneficiary_id,borrower_company_id,amount,status,created_ms) VALUES ('upgrade','g','sponsor','sponsor','borrower','borrower',5000000,'pledged',0)"
+    )
+
+    MigrationRepo.query!(
+      "INSERT INTO game_loans(world_id,id,company_id,principal,remaining,principal_due,interest_due,next_due_ms,period_ms,periods_left,rate_bps,installment,status,created_ms) VALUES ('upgrade','loan','borrower',5000000,0,0,0,1,1,0,1600,1,'repaid',0)"
+    )
+
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+
+    assert [["g"]] ==
+             MigrationRepo.query!("SELECT guarantee_id FROM game_loans WHERE world_id='upgrade'").rows
+
+    entities = TijaraTides.Infrastructure.Persistence.GameRows.load(MigrationRepo, "upgrade")
+    state = TijaraTides.Domain.EntityIndex.rebuild(%{entities: entities, clock_ms: 0})
+
+    assert {"release", 0} ==
+             TijaraTides.Domain.CompanyFinance.Guarantees.outcome(
+               state,
+               entities["guarantees"]["g"]
+             )
+  end
+
   defp legacy_state do
     catalogue = GameCatalogue.all()
     state = Game.initialize(%{entities: %{}, clock_ms: 0, epoch: 2, revision: 10}, catalogue)

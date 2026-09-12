@@ -47,6 +47,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"remaining", "remaining"}
     ],
     "loans" => [
+      {"guarantee_id", "guarantee_id"},
       {"id", "id"},
       {"company_id", "company_id"},
       {"principal", "principal"},
@@ -71,7 +72,9 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"account_id", "account_id"},
       {"created_ms", "created_ms"},
       {"restart_ms", "restart_ms"},
-      {"reason", "reason"}
+      {"reason", "reason"},
+      {"guaranteed_debt", "guaranteed_debt_cents"},
+      {"guarantee_id", "guarantee_id"}
     ],
     "ship_routes" =>
       Enum.map(
@@ -317,7 +320,14 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     if unknown != [], do: raise(ArgumentError, "Unsupported entity kinds: #{inspect(unknown)}")
     grouped = Enum.group_by(changes, fn {{kind, _}, _} -> kind end)
 
-    for kind <- @kinds, {{_, id}, operation} <- Map.get(grouped, kind, []) do
+    # Rows that already exist are written first. One transaction may move a unique key
+    # from an old row to a new one — a sponsor releasing an escrow while pledging the
+    # next — and a partial unique index rejects the pair if the insert lands first.
+    for kind <- @kinds,
+        {{_, id}, operation} <-
+          Enum.sort_by(Map.get(grouped, kind, []), fn {{_, row_id}, _} ->
+            if get_in(before, [:entities, kind, row_id]) == nil, do: 1, else: 0
+          end) do
       old = get_in(before, [:entities, kind, id])
 
       case operation do

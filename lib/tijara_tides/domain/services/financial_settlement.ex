@@ -10,6 +10,8 @@ defmodule TijaraTides.Domain.Services.FinancialSettlement do
         do: Map.keys(State.entities(state, "companies")),
         else: Enum.uniq(company_ids) -- [nil]
 
+    state = Guarantees.settle(state, company_ids)
+
     state =
       Enum.reduce(ids, state, fn id, state ->
         case State.get(state, "companies", id) do

@@ -316,10 +316,13 @@ delivery state; transport, hashing and sending mail stay outside the domain.
 The Bankruptcy service closes the insolvent company's finances, then calls
 `Account.record_bankruptcy` to detach that company, append its history exactly
 once and apply account suspension. Recent-history counting and restart cooldown
-queries belong to Account; lending policy remains in CompanyFinance. Guarantee
-funds remain owned by the sponsoring company's finances. Account reinstatement
-requires a pledged guarantee from the original sponsor for that beneficiary.
-All these transitions still commit in one atomic world transaction.
+queries belong to Account; lending policy remains in CompanyFinance. Account
+reinstatement requires a pledged guarantee from the original sponsor for that
+beneficiary. Guarantee funds remain owned by the sponsoring company's finances,
+so a failure records the escrow it consumed instead of spending it: the closure
+names the guarantee and the debt it must cover, and the sponsor forfeits from
+its own books when that company next settles. Each of these transitions writes a
+single company, and all of them still commit in one atomic world transaction.
 
 Company attachment validates ownership and exclusive active membership.
 Invitation commands reload current account state so stale snapshots cannot
@@ -541,3 +544,37 @@ receipt replay also refreshes the cache without fabricating a new commit. Storag
 failures and ownership loss still halt operation. Initialization uses the same
 bounded retry policy but cannot expose a world whose initialization never commits.
 Independent writers still require the existing cross-root settlement guarantees.
+
+## Single-company guarantee settlement
+
+A guarantee row belongs to the sponsoring company, so only that company's own
+transaction writes it. A beneficiary's bankruptcy records the escrow it consumed
+— the guarantee identifier and the debt it must cover — on its own closure row
+and never touches the sponsor. Repayment likewise only clears the borrower's
+loans. Each guaranteed loan records its guarantee ID on the borrower-owned row;
+borrowing does not write the sponsor's guarantee. The sponsor's settlement reads
+those linked loans and the bankruptcy closure and forfeits or
+releases the escrow from its own books. The closure names the guarantee rather
+than matching on time, so the prior bankruptcies that made a beneficiary need a
+sponsor never resolve a live pledge.
+
+Escrowed cash leaves spendable balance when pledged, so deferring settlement
+cannot let a sponsor spend what it already owes, and the ledger reconciles
+throughout the window: the escrow balance matches the still-pledged guarantee
+until its sponsor closes it. Known refunds settle before the sponsor's bills and
+foreclosure checks, so refundable escrow can clear arrears before bankruptcy.
+Sponsor views report the settlement a pledge is
+already owed, so a pending forfeit or release is visible before it is applied.
+One transaction may now move a unique key between rows — releasing one escrow
+while pledging the next — so persistence writes existing rows before inserts.
+
+This removes the last domain operation that wrote two companies' books in one
+transaction. Cargo ownership and financial conservation still span the Ship and
+CompanyFinance roots, so a per-company writer boundary remains the open design
+question rather than a mechanical change.
+
+
+Existing active guarantees are migrated from the legacy `borrower_company_id`
+marker to borrower-owned loan links. That legacy marker remains for migration
+compatibility but no longer drives live settlement or receives draw updates.
+An unused pledge has no linked loans and cannot be released as an empty loan set.

@@ -1,15 +1,12 @@
 defmodule TijaraTides.Domain.Services.Credit do
   @moduledoc "Credit workflow coordinates company finances with sponsor obligations."
   alias TijaraTides.Domain.CompanyFinance
-  alias TijaraTides.Domain.CompanyFinance.Guarantees
   alias TijaraTides.Domain.Services.FinancialSettlement
 
   def borrow(state, account, amount, id) do
     state = FinancialSettlement.settle(state, [account["company_id"]])
 
-    with {:ok, changed, result} <- CompanyFinance.borrow(state, account, amount, id) do
-      {:ok, Guarantees.drawn(changed, account), result}
-    end
+    CompanyFinance.borrow(state, account, amount, id)
   end
 
   def repay(state, account, id), do: repay_or_recast(state, account, {:repay, id})

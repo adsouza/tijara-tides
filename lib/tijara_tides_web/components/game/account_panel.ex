@@ -192,7 +192,17 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               :for={g <- @view.private["guarantees"]["pledges"]}
               :if={g["status"] == "pledged"}
             >
-              {money(g["amount"])} locked as a guarantee. It is returned to the sponsoring company after the guaranteed loans are repaid; on bankruptcy, unpaid loan debt is covered up to this cap and the rest is refunded.
+              <p :if={is_nil(g["settlement"])}>
+                {money(g["amount"])} locked as a guarantee. It is returned to the sponsoring company after the guaranteed loans are repaid; on bankruptcy, unpaid loan debt is covered up to this cap and the rest is refunded.
+              </p>
+              <p :if={g["settlement"] == "release"} class="rounded border border-emerald-700 p-2">
+                The guaranteed loans are repaid. {money(g["amount"])} returns to your company the next time it settles — within a few seconds, or on your next action.
+              </p>
+              <p :if={g["settlement"] == "claim"} class="rounded border border-amber-700 p-2">
+                Your invitee has gone bankrupt. {money(g["settlement_amount"])} of this {money(
+                  g["amount"]
+                )} guarantee will be forfeited and {money(g["amount"] - g["settlement_amount"])} returned, the next time your company settles.
+              </p>
             </div>
             <.form
               :for={candidate <- @view.private["guarantees"]["pending"]}

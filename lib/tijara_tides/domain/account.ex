@@ -135,7 +135,11 @@ defmodule TijaraTides.Domain.Account do
   def restart_at(state, account),
     do: history(state, account) |> Enum.map(& &1["restart_ms"]) |> Enum.max(fn -> 0 end)
 
-  def record_bankruptcy(state, account_id, company_id, reason, cooldown) do
+  @doc """
+  Record the closure. `escrow` names the guarantee this failure consumed and the debt it
+  must cover, as `{guarantee_id, cents}`; the sponsor forfeits it from its own books later.
+  """
+  def record_bankruptcy(state, account_id, company_id, reason, cooldown, escrow \\ nil) do
     account = from_row(get(state, "accounts", account_id))
     company = get(state, "companies", company_id)
 
@@ -159,7 +163,9 @@ defmodule TijaraTides.Domain.Account do
         "account_id" => account_id,
         "created_ms" => state.clock_ms,
         "restart_ms" => state.clock_ms + cooldown,
-        "reason" => reason
+        "reason" => reason,
+        "guarantee_id" => if(escrow, do: elem(escrow, 0)),
+        "guaranteed_debt" => if(escrow, do: elem(escrow, 1), else: 0)
       })
 
     if counted(state, to_row(account)) >= 5 do
