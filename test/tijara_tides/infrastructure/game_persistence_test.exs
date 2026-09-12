@@ -39,6 +39,30 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "real repository queries feed the database timing metrics" do
+    event = [:tijara_tides, :infrastructure, :persistence, :repo, :query]
+    handler = "db-timing-#{System.unique_integer([:positive])}"
+    pid = self()
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        event,
+        fn _, measurements, _, _ ->
+          if self() == pid, do: send(pid, {:db_timing, measurements})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    Repo.query!("SELECT 1", [])
+    assert_received {:db_timing, %{query_time: query, total_time: total}}
+    assert is_integer(query) and query >= 0
+    assert total >= query
+    assert TijaraTidesWeb.Telemetry.scrape() =~ "tijara_database_query_time_seconds_count"
+  end
+
   test "market versions reject stale stock and budget writes and roll back other roots", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
     before = :sys.get_state(c.server).game

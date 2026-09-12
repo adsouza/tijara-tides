@@ -54,6 +54,50 @@ email login remain available anonymously; domain rules enforce authenticated
 email linking/invitations, resource ownership and business eligibility. Token
 redemption and idempotent sign-out retain their dedicated domain semantics.
 
+## Adapter failure handling
+
+`Infrastructure.OperationBoundary` classifies raised exceptions and translates
+command/lifecycle outcomes into replies: ordinary rejection preserves state,
+conflict exhaustion installs the refreshed snapshot, and a fatal halt pauses the
+world. It wraps `Operation`, which records the exception once before re-raising;
+the boundary then applies the explicit recovery policy. Reporting returns
+`:report_unavailable` without pausing gameplay. Initialization and progression
+retain their startup/timer-specific response shapes. Exits and throws propagate.
+
+Domain errors remain tagged results, and `UseCases.CommitExecutor` owns conflict
+reload/replan. Neither logging nor exception translation retries writes or turns
+unexpected exceptions into successful operations.
+
+## Monitoring and profiling
+
+`GET /metrics` exposes process-local Prometheus text metrics through the existing
+HTTP endpoint. It creates no browser session, queries no database and does not
+activate the world. Configure an external collector to scrape it every 15–30
+seconds; no collector or alerting service is provisioned by the application.
+Counters reset when the process restarts. Scraping a hosted service may prevent
+its hosting platform from suspending it, although game-time activity still follows
+player connections.
+
+Metrics use seconds for durations and fixed labels, excluding query text,
+parameters, credentials and player/company IDs:
+
+| Metric | Meaning |
+| --- | --- |
+| `tijara_database_query_time_seconds` | SQL execution time, from Ecto's repository query telemetry. |
+| `tijara_database_queue_time_seconds` | Time waiting for a database connection. |
+| `tijara_database_decode_time_seconds` | Result decoding time. |
+| `tijara_database_total_time_seconds` | Ecto total query time, not whole transaction duration. |
+| `tijara_owner_mailbox_depth` | Messages waiting for the owner, sampled every five seconds without calling it; zero when absent. |
+| `tijara_tick_lag_seconds` | Lateness relative to the scheduled timer, measured when an active tick starts; excludes intentional interval and suspended time. |
+| `tijara_conflicts_total{outcome}` | Actual retries, exhausted retry budgets, and failed conflict reloads (`retry`, `exhausted`, `reload_failed`). |
+
+Operation durations/outcomes, snapshot build/reply-copy timings, Phoenix timings
+and VM gauges are also exported. Histograms are periodically aggregated locally
+even without an external scraper. `UseCases.Observation` is an application port
+for retry observations; the composition root supplies `Infrastructure.Measurements`.
+Domain operations contain no monitoring dependency. Detailed profiling remains
+opt-in through the benchmark and profiling scripts.
+
 ## Command execution and atomicity
 
 ```mermaid

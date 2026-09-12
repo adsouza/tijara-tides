@@ -66,6 +66,7 @@ defmodule TijaraTides.MixProject do
        compile: false,
        depth: 1},
       {:telemetry_metrics, "~> 1.0"},
+      {:telemetry_metrics_prometheus_core, "~> 1.2"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:remote_ip, "~> 1.2"},

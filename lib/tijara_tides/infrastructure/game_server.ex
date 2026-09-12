@@ -3,7 +3,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   use GenServer
   require Logger
   alias TijaraTides.Domain.Game
-  alias TijaraTides.Infrastructure.GameCatalogue
+  alias TijaraTides.Infrastructure.{GameCatalogue, OperationBoundary}
   alias TijaraTides.Infrastructure.Persistence.{GameStore, Repo, ReportStore}
   @topic "game:ocean"
   @call_timeout 30_000
@@ -39,11 +39,11 @@ defmodule TijaraTides.Infrastructure.GameServer do
   end
 
   defp read_reports(plan, store) do
-    TijaraTides.UseCases.ReportQueries.fetch(plan, store)
-  rescue
-    error ->
-      log_failure("report query", error, __STACKTRACE__)
-      {:error, :report_unavailable}
+    OperationBoundary.run(
+      :report_query,
+      fn -> TijaraTides.UseCases.ReportQueries.fetch(plan, store) end,
+      fn _ -> {:error, :report_unavailable} end
+    )
   end
 
   def command(token, request, command, server \\ default_server()),
@@ -141,51 +141,52 @@ defmodule TijaraTides.Infrastructure.GameServer do
       active: false,
       last_mono: System.monotonic_time(:millisecond),
       tick_ms: Keyword.get(opts, :tick_ms, 5000),
-      timer: nil
+      timer: nil,
+      tick_due_mono: nil
     }
 
     if enabled do
-      try do
-        {:ok, game} =
-          GameStore.claim(repo, state.world_id, wall_ms: state.wall_clock.())
+      OperationBoundary.run(
+        :initialization,
+        fn ->
+          {:ok, game} =
+            GameStore.claim(repo, state.world_id, wall_ms: state.wall_clock.())
 
-        result =
-          TijaraTides.UseCases.CommitExecutor.replan(game, store(state), fn fresh ->
-            initialized =
-              TijaraTides.UseCases.CommitPreparation.prepare(
-                fresh,
-                TijaraTides.UseCases.LotAllocation.run(
+          result =
+            TijaraTides.UseCases.CommitExecutor.replan(game, store(state), fn fresh ->
+              initialized =
+                TijaraTides.UseCases.CommitPreparation.prepare(
                   fresh,
-                  store(state),
-                  &Game.initialize(&1, state.catalogue)
-                )
-              )
-
-            # Initial market creation may take longer than an ordinary gameplay call.
-            case GameStore.commit(repo, state.world_id, fresh.epoch, fresh, initialized, nil,
-                   timeout: 120_000
-                 ) do
-              {:ok, :ok} ->
-                TijaraTides.UseCases.CommitExecutor.outcome(
-                  TijaraTides.UseCases.CommitPreparation.accepted(initialized),
-                  %{},
-                  true
+                  TijaraTides.UseCases.LotAllocation.run(
+                    fresh,
+                    store(state),
+                    &Game.initialize(&1, state.catalogue)
+                  )
                 )
 
-              {:error, reason} ->
-                {:halt, reason}
-            end
-          end)
+              # Initial market creation may take longer than an ordinary gameplay call.
+              case GameStore.commit(repo, state.world_id, fresh.epoch, fresh, initialized, nil,
+                     timeout: 120_000
+                   ) do
+                {:ok, :ok} ->
+                  TijaraTides.UseCases.CommitExecutor.outcome(
+                    TijaraTides.UseCases.CommitPreparation.accepted(initialized),
+                    %{},
+                    true
+                  )
 
-        case result do
-          {:ok, outcome} -> {:ok, accept_game(%{state | status: :ready}, outcome.game)}
-          _ -> {:ok, %{state | status: :unavailable}}
-        end
-      rescue
-        error ->
-          log_failure("initialization", error, __STACKTRACE__)
-          {:ok, %{state | status: :unavailable}}
-      end
+                {:error, reason} ->
+                  {:halt, reason}
+              end
+            end)
+
+          case result do
+            {:ok, outcome} -> {:ok, accept_game(%{state | status: :ready}, outcome.game)}
+            _ -> {:ok, %{state | status: :unavailable}}
+          end
+        end,
+        fn _ -> {:ok, OperationBoundary.pause(state)} end
+      )
     else
       {:ok, state}
     end
@@ -193,26 +194,28 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   @impl true
   def handle_call({:report_plan, token, selection}, _from, state) do
-    result =
-      if state.status == :ready do
-        plan =
-          TijaraTides.UseCases.ReportQueries.plan(
-            state.game,
-            hash(token),
-            System.system_time(:millisecond),
-            selection
-          )
+    OperationBoundary.run(
+      :report_plan,
+      fn ->
+        result =
+          if state.status == :ready do
+            plan =
+              TijaraTides.UseCases.ReportQueries.plan(
+                state.game,
+                hash(token),
+                System.system_time(:millisecond),
+                selection
+              )
 
-        {:ok, plan, {ReportStore, %{repo: state.repo, world_id: state.world_id}}}
-      else
-        {:error, :unavailable}
-      end
+            {:ok, plan, {ReportStore, %{repo: state.repo, world_id: state.world_id}}}
+          else
+            {:error, :unavailable}
+          end
 
-    {:reply, result, state}
-  rescue
-    error ->
-      log_failure("report plan", error, __STACKTRACE__)
-      {:reply, {:error, :report_unavailable}, state}
+        {:reply, result, state}
+      end,
+      fn _ -> {:reply, {:error, :report_unavailable}, state} end
+    )
   end
 
   @impl true
@@ -280,6 +283,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
                state
                | active: true,
                  last_mono: System.monotonic_time(:millisecond),
+                 tick_due_mono: System.monotonic_time(:millisecond) + state.tick_ms,
                  timer: :erlang.start_timer(state.tick_ms, self(), :tick)
              }}
 
@@ -403,35 +407,22 @@ defmodule TijaraTides.Infrastructure.GameServer do
       %{hash: hash(invite), decorate: decorate}
     end
 
-    try do
-      TijaraTides.Infrastructure.Operation.run(:command, fn ->
-        case TijaraTides.UseCases.GameCommands.run(
-               state.game,
-               hash(token),
-               request,
-               context(state),
-               {TijaraTides.Infrastructure.Persistence.CommandStore,
-                %{repo: state.repo, world_id: state.world_id}},
-               invitation
-             ) do
-          {:ok, outcome} ->
-            {:reply, {:ok, outcome.reply}, accept_outcome(state, outcome)}
-
-          {:error, error, fresh} ->
-            {:reply, {:error, error}, refresh_game(state, fresh)}
-
-          {:error, error} ->
-            {:reply, {:error, error}, state}
-
-          {:halt, error} ->
-            {:reply, {:error, error}, %{state | status: :unavailable, active: false}}
-        end
-      end)
-    rescue
-      error ->
-        reason = failure_reason(error)
-        {:reply, {:error, reason}, %{state | status: :unavailable, active: false}}
-    end
+    OperationBoundary.call(
+      :command,
+      state,
+      fn ->
+        TijaraTides.UseCases.GameCommands.run(
+          state.game,
+          hash(token),
+          request,
+          context(state),
+          store(state),
+          invitation
+        )
+      end,
+      &accept_outcome/2,
+      &refresh_game/2
+    )
   end
 
   def handle_call(_request, _from, state), do: {:reply, {:error, state.status}, state}
@@ -441,39 +432,48 @@ defmodule TijaraTides.Infrastructure.GameServer do
     do: handle_info(:tick, state)
 
   def handle_info(:tick, %{status: :ready, active: true} = state) do
-    TijaraTides.Infrastructure.Operation.run(:progression, fn ->
-      now = System.monotonic_time(:millisecond)
-      elapsed = max(0, now - state.last_mono)
+    OperationBoundary.run(
+      :progression,
+      fn ->
+        now = System.monotonic_time(:millisecond)
+        TijaraTides.Infrastructure.Measurements.tick_lag(state.tick_due_mono, now)
+        elapsed = max(0, now - state.last_mono)
 
-      case TijaraTides.UseCases.LifecycleCommands.run(
-             state.game,
-             {:advance, elapsed},
-             context(state),
-             store(state)
-           ) do
-        {:ok, outcome} ->
-          next = accept_outcome(state, outcome)
-          if state.timer, do: Process.cancel_timer(state.timer)
+        case TijaraTides.UseCases.LifecycleCommands.run(
+               state.game,
+               {:advance, elapsed},
+               context(state),
+               store(state)
+             ) do
+          {:ok, outcome} ->
+            next = accept_outcome(state, outcome)
+            if state.timer, do: Process.cancel_timer(state.timer)
 
-          {:noreply,
-           %{next | last_mono: now, timer: :erlang.start_timer(state.tick_ms, self(), :tick)}}
+            {:noreply, %{schedule_tick(next) | last_mono: now}}
 
-        {:error, :market_busy, fresh} ->
-          next = refresh_game(state, fresh)
-          if state.timer, do: Process.cancel_timer(state.timer)
-          {:noreply, %{next | timer: :erlang.start_timer(state.tick_ms, self(), :tick)}}
+          {:error, :market_busy, fresh} ->
+            next = refresh_game(state, fresh)
+            if state.timer, do: Process.cancel_timer(state.timer)
+            {:noreply, schedule_tick(next)}
 
-        {:halt, reason} ->
-          Logger.error("World progression paused: #{reason}")
-          {:noreply, %{state | active: false, status: :unavailable}}
-      end
-    end)
-  rescue
-    _error ->
-      {:noreply, %{state | active: false, status: :unavailable}}
+          {:halt, reason} ->
+            Logger.error("World progression paused: #{reason}")
+            {:noreply, OperationBoundary.pause(state)}
+        end
+      end,
+      fn _ -> {:noreply, OperationBoundary.pause(state)} end
+    )
   end
 
   def handle_info(_message, state), do: {:noreply, state}
+
+  defp schedule_tick(state) do
+    %{
+      state
+      | tick_due_mono: System.monotonic_time(:millisecond) + state.tick_ms,
+        timer: :erlang.start_timer(state.tick_ms, self(), :tick)
+    }
+  end
 
   defp context(state),
     do: %{id: request_id(), wall_ms: state.wall_clock.(), catalogue: state.catalogue}
@@ -500,48 +500,22 @@ defmodule TijaraTides.Infrastructure.GameServer do
         "tijara-tides/invite-key/v1"
       )
 
-  defp log_failure(operation, error, stacktrace) do
-    TijaraTides.Infrastructure.ExceptionLog.error("Game #{operation} failed", error, stacktrace)
-
-    failure_reason(error)
-  end
-
-  defp failure_reason(error) do
-    if is_struct(error, Postgrex.Error) or is_struct(error, DBConnection.ConnectionError),
-      do: :storage_unavailable,
-      else: :internal_error
-  end
-
   defp store(state),
     do:
       {TijaraTides.Infrastructure.Persistence.CommandStore,
        %{repo: state.repo, world_id: state.world_id}}
 
   defp lifecycle(state, operation, context, reply \\ &{:ok, &1}) do
-    TijaraTides.Infrastructure.Operation.run(:lifecycle, fn ->
-      case TijaraTides.UseCases.LifecycleCommands.run(
-             state.game,
-             operation,
-             context,
-             store(state)
-           ) do
-        {:ok, outcome} ->
-          {:reply, reply.(outcome.reply), accept_outcome(state, outcome)}
-
-        {:error, error, fresh} ->
-          {:reply, {:error, error}, refresh_game(state, fresh)}
-
-        {:error, error} ->
-          {:reply, {:error, error}, state}
-
-        {:halt, error} ->
-          {:reply, {:error, error}, %{state | status: :unavailable, active: false}}
-      end
-    end)
-  rescue
-    error ->
-      reason = failure_reason(error)
-      {:reply, {:error, reason}, %{state | status: :unavailable, active: false}}
+    OperationBoundary.call(
+      :lifecycle,
+      state,
+      fn ->
+        TijaraTides.UseCases.LifecycleCommands.run(state.game, operation, context, store(state))
+      end,
+      &accept_outcome/2,
+      &refresh_game/2,
+      reply
+    )
   end
 
   defp accept_outcome(state, %{committed?: false, refreshed?: true, game: game}),

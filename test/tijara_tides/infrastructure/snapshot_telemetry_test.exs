@@ -56,7 +56,7 @@ defmodule TijaraTides.Infrastructure.SnapshotTelemetryTest do
           metric.event_name == [:tijara_tides, :snapshot],
           do: {metric.name, metric.tags}
 
-    assert {[:tijara_tides, :snapshot, :duration], []} in names
-    assert {[:tijara_tides, :snapshot, :reply], []} in names
+    assert {[:tijara, :snapshot, :build, :seconds], []} in names
+    assert {[:tijara, :snapshot, :reply, :seconds], []} in names
   end
 end

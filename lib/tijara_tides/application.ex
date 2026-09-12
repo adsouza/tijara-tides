@@ -14,7 +14,8 @@ defmodule TijaraTides.Application do
       repo_children() ++
         [
           TijaraTides.Infrastructure.Persistence.Readiness,
-          TijaraTidesWeb.Telemetry,
+          {TijaraTidesWeb.Telemetry,
+           measurements: [{TijaraTides.Infrastructure.Measurements, :poll_owner, []}]},
           {Phoenix.PubSub, name: TijaraTides.PubSub},
           {TijaraTides.Infrastructure.WorldServer, name: TijaraTides.Infrastructure.WorldServer},
           TijaraTides.Infrastructure.GameServer,

@@ -9,6 +9,7 @@ import Config
 
 config :tijara_tides,
   start_repo: false,
+  observation_adapter: TijaraTides.Infrastructure.Measurements,
   game_runtime: TijaraTides.Infrastructure.GameRuntime,
   ecto_repos: [TijaraTides.Infrastructure.Persistence.Repo],
   generators: [timestamp_type: :utc_datetime]

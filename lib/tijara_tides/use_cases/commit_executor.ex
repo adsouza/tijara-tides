@@ -12,11 +12,16 @@ defmodule TijaraTides.UseCases.CommitExecutor do
           {:ok, fresh} ->
             fresh = TijaraTides.Domain.ReadState.rebuild_notice_index(fresh)
 
-            if remaining > 0,
-              do: replan(fresh, port, operation, remaining - 1, true),
-              else: {:error, :market_busy, fresh}
+            if remaining > 0 do
+              TijaraTides.UseCases.Observation.record(:conflict_retry)
+              replan(fresh, port, operation, remaining - 1, true)
+            else
+              TijaraTides.UseCases.Observation.record(:conflict_exhausted)
+              {:error, :market_busy, fresh}
+            end
 
           {:error, reason} ->
+            TijaraTides.UseCases.Observation.record(:conflict_reload_failed)
             {:halt, reason}
         end
 

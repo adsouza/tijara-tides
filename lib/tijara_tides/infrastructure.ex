@@ -5,6 +5,7 @@ defmodule TijaraTides.Infrastructure do
       TijaraTides.Domain,
       TijaraTides.UseCases,
       Phoenix.PubSub,
+      Postgrex,
       Ecto,
       Ecto.Repo,
       Ecto.Adapters.Postgres,
@@ -12,6 +13,7 @@ defmodule TijaraTides.Infrastructure do
     ],
     exports: [
       ExceptionLog,
+      Measurements,
       OperationLogger,
       GameServer,
       Mailer,
