@@ -47,16 +47,37 @@ defmodule TijaraTides.Domain.CompanyFinance do
     pledges: "guarantees"
   ]
 
-  def from_world(state, company_id) do
+  @doc """
+  Load the aggregate: the company, the loans it still owes on, and the other children.
+
+  A settled loan is history and no invariant here depends on it, but a command may still
+  name one — repaying twice must stay idempotent rather than report an unknown loan — so
+  the loans an operation addresses are loaded alongside the open ones. Children are
+  written back from declared mutations rather than by diffing what was loaded, so a
+  narrower load drops no row.
+  """
+  def from_world(state, company_id, addressed \\ []) do
     Enum.reduce(@owned, from_row(get(state, "companies", company_id)), fn {field, kind},
                                                                           finance ->
       Map.put(
         finance,
         field,
-        Enum.map(owned(state, kind, "company_id", company_id), &decode_child(kind, &1))
+        Enum.map(children(state, kind, company_id, addressed), &decode_child(kind, &1))
       )
     end)
   end
+
+  defp children(state, "loans", company_id, addressed) do
+    settled =
+      addressed
+      |> Enum.map(&get(state, "loans", &1))
+      |> Enum.filter(&(&1 && &1["company_id"] == company_id && &1["status"] != "open"))
+
+    owned(state, "loans", "open_company_id", company_id) ++ settled
+  end
+
+  defp children(state, kind, company_id, _addressed),
+    do: owned(state, kind, "company_id", company_id)
 
   def open(state, row) do
     finance = from_row(row)
@@ -195,11 +216,23 @@ defmodule TijaraTides.Domain.CompanyFinance do
       owned(state, "loans", "company_id", company)
       |> Enum.sort_by(&{&1["created_ms"], &1["id"]})
 
+  @doc """
+  Loans the company is still paying. Every per-command path reads this rather than
+  `loans/2`: a settled loan is history, and a company's history is unbounded while the
+  loans it owes on are capped at #{8}.
+  """
+  def open_loans(state, company),
+    do:
+      owned(state, "loans", "open_company_id", company)
+      |> Enum.sort_by(&{&1["created_ms"], &1["id"]})
+
   def summary(state, account) do
     company = get(state, "companies", account["company_id"])
 
-    loans = loans(state, account["company_id"])
-    debt = Enum.sum(Enum.map(loans, & &1["remaining"]))
+    open = open_loans(state, account["company_id"])
+
+    # Anything still owed keeps a loan open, so narrowing the sum cannot change it.
+    debt = Enum.sum(Enum.map(open, & &1["remaining"]))
     base_limit = credit_limit(state, account)
     guarantee = Guarantees.active(state, account["id"])
     rate = rate(state, account)
@@ -212,7 +245,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
       end
 
     arrears =
-      Enum.sum(for l <- loans, l["status"] == "open", do: l["principal_due"] + l["interest_due"]) +
+      Enum.sum(for l <- open, do: l["principal_due"] + l["interest_due"]) +
         if(company, do: company["unpaid"], else: 0)
 
     available =
@@ -235,7 +268,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
       "installments" => @terms.installments,
       "requires_guarantee" => rate == 1600 and is_nil(guarantee),
       "loans" =>
-        Enum.map(loans, fn loan ->
+        Enum.map(open, fn loan ->
           loan
           |> Map.put("schedule", schedule(loan))
           |> Map.put("actions", loan_actions(company, loan))
@@ -302,7 +335,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
     else
       with {:ok, next, effects, result} <-
              loan_transition(
-               from_world(state, company["id"]),
+               from_world(state, company["id"], addressed(operation)),
                account["id"],
                operation,
                state.clock_ms
@@ -311,6 +344,11 @@ defmodule TijaraTides.Domain.CompanyFinance do
       end
     end
   end
+
+  # Loans a command names by identity, which it must see even once they are settled.
+  defp addressed({:repay, id}), do: [id]
+  defp addressed({:recast, id, _amount}), do: [id]
+  defp addressed(_operation), do: []
 
   @doc "Loan transitions receive only the financial root, authenticated owner and explicit credit facts."
   def loan_transition(%__MODULE__{} = finance, owner, operation, now) do
@@ -347,7 +385,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
       amount > facts.available ->
         {:error, :loan_limit}
 
-      length(Enum.filter(loans(state, company["id"]), &(&1["status"] == "open"))) >= 8 ->
+      length(open_loans(state, company["id"])) >= 8 ->
         {:error, :loan_count_limit}
 
       true ->
@@ -808,7 +846,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
       liabilities =
         company["unpaid"] +
           Enum.sum(
-            for loan <- loans(state, company["id"]),
+            for loan <- open_loans(state, company["id"]),
                 do: loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
           )
 

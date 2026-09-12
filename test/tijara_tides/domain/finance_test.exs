@@ -385,4 +385,53 @@ defmodule TijaraTides.Domain.FinanceTest do
     assert CompanyFinance.summary(restored, a)["limit"] == 25_000_000
     assert a["bankruptcies"] == 1
   end
+
+  describe "retained loan history" do
+    test "a repaid loan leaves the open-loan lookup but is kept as history", c do
+      {:ok, state, _} = loan(c)
+      {:ok, state, _} = Credit.borrow(state, c.account, 100_000, "second")
+
+      assert ["loan", "second"] == open_ids(state)
+
+      {:ok, state, _} = Credit.repay(state, c.account, "loan")
+
+      # The lookup narrows to the loans finance still acts on. The loan itself stays:
+      # the journal is the audit record, but history must not be walked per command.
+      assert ["second"] == open_ids(state)
+      assert ["loan", "second"] == Enum.map(CompanyFinance.loans(state, "company"), & &1["id"])
+    end
+
+    test "the finance view carries open loans only, and its totals are unchanged", c do
+      {:ok, state, _} = loan(c)
+      {:ok, state, _} = Credit.borrow(state, c.account, 250_000, "second")
+      {:ok, state, _} = Credit.repay(state, c.account, "loan")
+
+      summary = CompanyFinance.summary(state, Game.get(state, "accounts", "account"))
+
+      assert ["second"] == Enum.map(summary["loans"], & &1["id"])
+
+      # A loan with anything left to pay is open, so narrowing the sum cannot change it.
+      assert summary["debt"] == Game.get(state, "loans", "second")["remaining"]
+      assert summary["arrears"] == 0
+    end
+
+    test "repaid loans do not count against the open-loan limit", c do
+      state =
+        Enum.reduce(1..8, c.state, fn n, state ->
+          {:ok, state, _} = Credit.borrow(state, c.account, 100_000, "loan-#{n}")
+          state
+        end)
+
+      assert {:error, :loan_count_limit} = Credit.borrow(state, c.account, 100_000, "loan-9")
+
+      {:ok, state, _} = Credit.repay(state, c.account, "loan-1")
+      assert {:ok, _, _} = Credit.borrow(state, c.account, 100_000, "loan-9")
+    end
+  end
+
+  defp open_ids(state),
+    do:
+      TijaraTides.Domain.ReadState.owned(state, "loans", "open_company_id", "company")
+      |> Enum.map(& &1["id"])
+      |> Enum.sort()
 end

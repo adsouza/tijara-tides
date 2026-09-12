@@ -17,7 +17,12 @@ defmodule TijaraTides.Domain.ReadState do
         |> Enum.map(&get(state, kind, &1))
 
       :error ->
-        entities(state, kind) |> Map.values() |> Enum.filter(&(&1[field] == owner))
+        # Derived keys are computed the same way here as when the index is built, so an
+        # unindexed state answers identically rather than by reading a column that a
+        # derived key does not have.
+        entities(state, kind)
+        |> Map.values()
+        |> Enum.filter(&(TijaraTides.Domain.EntityIndex.value(kind, field, &1) == owner))
     end
   end
 end
