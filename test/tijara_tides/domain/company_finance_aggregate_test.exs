@@ -81,7 +81,7 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
     {next, effects} = Finance.settle_finances(root, Finance.terms().grace_ms)
     assert effects.receivership
     assert next.unpaid == 100
-    assert next.details["bankruptcy_ms"] == nil
+    assert next.bankruptcy_ms == nil
     assert Enum.map(next.bills, & &1["id"]) == ["b"]
   end
 
@@ -162,5 +162,29 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
     refute Map.has_key?(paid.entities["operating_bills"], "bill")
     assert {"operating_bills", "bill", :delete, nil} in effects.children
     assert paid.entities["companies"]["c"]["cash"] == 900
+  end
+
+  test "loan and installment children stay typed through borrowing and accrual" do
+    alias TijaraTides.Domain.CompanyFinance.{Loan, Installment}
+    root = Finance.from_row(Map.merge(company(), %{"account_id" => "a", "bankruptcy_ms" => nil}))
+
+    assert {:ok, borrowed, _, _} =
+             Finance.loan_transition(
+               root,
+               "a",
+               {:borrow, 10_000, "loan", %{suspended: false, available: 10_000, rate_bps: 800}},
+               0
+             )
+
+    assert [%Loan{remaining: 10_000, rate_bps: 800} = loan] = borrowed.loans
+    row = Loan.to_row(loan)
+    assert Loan.from_row(row) == loan
+    assert_raise KeyError, fn -> Loan.from_row(Map.delete(row, "interest_remainder")) end
+    assert_raise ArgumentError, fn -> Loan.from_row(Map.put(row, "future_column", 1)) end
+    {settled, _} = Finance.settle_finances(%{borrowed | cash: 0}, Finance.terms().period_ms)
+    assert [%Installment{loan_id: "loan", principal_due: 2500} = bill] = settled.installments
+    assert Installment.from_row(Installment.to_row(bill)) == bill
+    assert_raise ArgumentError, fn -> Finance.from_row(Map.put(company(), "future_column", 1)) end
+    assert Finance.from_row(Finance.to_row(root)) == root
   end
 end

@@ -2,38 +2,41 @@ defmodule TijaraTides.Domain.CompanyFinance do
   @moduledoc "Bank credit, active-clock installments, arrears and company receivership. All settlement is pure."
   import TijaraTides.Domain.State
   alias TijaraTides.Domain.{Journal, Notices}
-  alias TijaraTides.Domain.CompanyFinance.Guarantees
+  alias TijaraTides.Domain.CompanyFinance.{Guarantees, Loan, Installment}
+
+  @fields ~w(id cash reserved unpaid profit account_id name created_ms last_invite_year unpaid_since arrears_since bankruptcy_ms)a
   @enforce_keys [:id, :cash, :reserved, :unpaid, :profit]
-  defstruct [
-    :details,
-    :id,
-    :cash,
-    :reserved,
-    :unpaid,
-    :profit,
-    loans: [],
-    installments: [],
-    bills: [],
-    pledges: []
-  ]
+  defstruct @fields ++ [loans: [], installments: [], bills: [], pledges: []]
+  @type t :: %__MODULE__{loans: [Loan.t()], installments: [Installment.t()]}
 
   @expenses ~w(cost_of_goods handling_expense cleaning_expense fuel_expense crew_expense spoilage_expense canal_expense interest_expense depreciation_expense ship_disposal_expense guarantee_expense)
 
   def from_row(row) do
+    unknown = Map.keys(row) -- Enum.map(@fields, &Atom.to_string/1)
+    if unknown != [], do: raise(ArgumentError, "Unknown company fields: #{inspect(unknown)}")
+
     struct!(
       __MODULE__,
-      Map.new([:id, :cash, :reserved, :unpaid, :profit], fn key ->
-        {key, Map.fetch!(row, Atom.to_string(key))}
+      Map.new(@fields, fn key ->
+        value =
+          if key in @enforce_keys,
+            do: Map.fetch!(row, Atom.to_string(key)),
+            else: row[Atom.to_string(key)]
+
+        {key, value}
       end)
-      |> Map.put(:details, Map.drop(row, ~w(id cash reserved unpaid profit)))
     )
   end
 
-  def to_row(%__MODULE__{} = finance) do
-    Enum.reduce([:id, :cash, :reserved, :unpaid, :profit], finance.details, fn key, row ->
-      Map.put(row, Atom.to_string(key), Map.fetch!(finance, key))
-    end)
-  end
+  def to_row(%__MODULE__{} = finance),
+    do: Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(finance, &1)})
+
+  defp decode_child("loans", row), do: Loan.from_row(row)
+  defp decode_child("loan_installments", row), do: Installment.from_row(row)
+  defp decode_child(_, row), do: row
+  defp encode_child(%Loan{} = child), do: Loan.to_row(child)
+  defp encode_child(%Installment{} = child), do: Installment.to_row(child)
+  defp encode_child(row), do: row
 
   # The one declaration of which struct field holds which owned entity kind.
   # Loading, isolating and saving the aggregate all derive their pairing here.
@@ -47,7 +50,11 @@ defmodule TijaraTides.Domain.CompanyFinance do
   def from_world(state, company_id) do
     Enum.reduce(@owned, from_row(get(state, "companies", company_id)), fn {field, kind},
                                                                           finance ->
-      Map.put(finance, field, owned(state, kind, "company_id", company_id))
+      Map.put(
+        finance,
+        field,
+        Enum.map(owned(state, kind, "company_id", company_id), &decode_child(kind, &1))
+      )
     end)
   end
 
@@ -341,29 +348,29 @@ defmodule TijaraTides.Domain.CompanyFinance do
         {:error, :loan_count_limit}
 
       true ->
-        loan = %{
-          "id" => id,
-          "company_id" => company["id"],
-          "principal" => amount,
-          "remaining" => amount,
-          "principal_due" => 0,
-          "interest_due" => 0,
-          "interest_accrued" => 0,
-          "interest_remainder" => 0,
-          "interest_at_ms" => state.clock_ms,
-          "overdue_ms" => nil,
-          "next_due_ms" => state.clock_ms + @terms.period_ms,
-          "period_ms" => @terms.period_ms,
-          "periods_left" => @terms.installments,
-          "rate_bps" => facts.rate_bps,
-          "installment" => div(amount + @terms.installments - 1, @terms.installments),
-          "status" => "open",
-          "created_ms" => state.clock_ms
+        loan = %Loan{
+          id: id,
+          company_id: company["id"],
+          principal: amount,
+          remaining: amount,
+          principal_due: 0,
+          interest_due: 0,
+          interest_accrued: 0,
+          interest_remainder: 0,
+          interest_at_ms: state.clock_ms,
+          overdue_ms: nil,
+          next_due_ms: state.clock_ms + @terms.period_ms,
+          period_ms: @terms.period_ms,
+          periods_left: @terms.installments,
+          rate_bps: facts.rate_bps,
+          installment: div(amount + @terms.installments - 1, @terms.installments),
+          status: "open",
+          created_ms: state.clock_ms
         }
 
         state =
           state
-          |> put("loans", id, loan)
+          |> put("loans", id, Loan.to_row(loan))
           |> __MODULE__.post(company["id"], "loan_draw", [
             {"cash_available", amount},
             {"loan_principal", -amount}
@@ -375,33 +382,33 @@ defmodule TijaraTides.Domain.CompanyFinance do
 
   defp repay_owned(state, account, id) do
     company = get(state, "companies", account["company_id"])
-    loan = get(state, "loans", id)
+    loan = get(state, "loans", id) |> Loan.from_row()
 
     cond do
       is_nil(company) or company["account_id"] != account["id"] or is_nil(loan) or
-          loan["company_id"] != company["id"] ->
+          loan.company_id != company["id"] ->
         {:error, :loan_not_owned}
 
-      loan["status"] == "repaid" ->
+      loan.status == "repaid" ->
         {:ok, state, %{"repaid" => 0}}
 
-      loan["status"] != "open" ->
+      loan.status != "open" ->
         {:error, :loan_not_owned}
 
-      not loan_actions(company, loan)["repay_enabled"] ->
+      not loan_actions(company, Loan.to_row(loan))["repay_enabled"] ->
         {:error, :loan_repayment_funds}
 
       true ->
-        amount = loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
+        amount = loan.remaining + loan.interest_due + loan.interest_accrued
 
         state =
           pay_loan(
             state,
             %{
               loan
-              | "principal_due" => loan["remaining"],
-                "interest_due" => loan["interest_due"] + loan["interest_accrued"],
-                "interest_accrued" => 0
+              | principal_due: loan.remaining,
+                interest_due: loan.interest_due + loan.interest_accrued,
+                interest_accrued: 0
             },
             amount
           )
@@ -412,12 +419,12 @@ defmodule TijaraTides.Domain.CompanyFinance do
 
   defp recast_owned(state, account, id, amount) do
     company = get(state, "companies", account["company_id"])
-    loan = get(state, "loans", id)
-    actions = if company && loan, do: loan_actions(company, loan), else: %{}
+    loan = get(state, "loans", id) |> Loan.from_row()
+    actions = if company && loan, do: loan_actions(company, Loan.to_row(loan)), else: %{}
 
     cond do
       is_nil(company) or company["account_id"] != account["id"] or is_nil(loan) or
-        loan["company_id"] != company["id"] or loan["status"] != "open" or
+        loan.company_id != company["id"] or loan.status != "open" or
           company["bankruptcy_ms"] != nil ->
         {:error, :loan_not_owned}
 
@@ -431,27 +438,27 @@ defmodule TijaraTides.Domain.CompanyFinance do
       amount > company["cash"] - company["reserved"] ->
         {:error, :loan_repayment_funds}
 
-      amount == loan["remaining"] + loan["interest_accrued"] ->
+      amount == loan.remaining + loan.interest_accrued ->
         repay_owned(state, account, id)
 
       true ->
-        principal = amount - loan["interest_accrued"]
+        principal = amount - loan.interest_accrued
 
         state =
           pay_loan(
             state,
             %{
               loan
-              | "principal_due" => principal,
-                "interest_due" => loan["interest_accrued"],
-                "interest_accrued" => 0
+              | principal_due: principal,
+                interest_due: loan.interest_accrued,
+                interest_accrued: 0
             },
             amount
           )
 
-        loan = get(state, "loans", id)
-        installment = div(loan["remaining"] + loan["periods_left"] - 1, loan["periods_left"])
-        state = put(state, "loans", id, %{loan | "installment" => installment})
+        loan = get(state, "loans", id) |> Loan.from_row()
+        installment = div(loan.remaining + loan.periods_left - 1, loan.periods_left)
+        state = put(state, "loans", id, Loan.to_row(%{loan | installment: installment}))
 
         {:ok, state,
          %{"paid" => amount, "principal_reduction" => principal, "installment" => installment}}
@@ -475,7 +482,14 @@ defmodule TijaraTides.Domain.CompanyFinance do
     entities =
       Enum.reduce(@owned, %{"companies" => %{finance.id => to_row(finance)}}, fn {field, kind},
                                                                                  entities ->
-        Map.put(entities, kind, Map.new(Map.fetch!(finance, field), &{&1["id"], &1}))
+        Map.put(
+          entities,
+          kind,
+          Map.new(Map.fetch!(finance, field), fn child ->
+            row = encode_child(child)
+            {row["id"], row}
+          end)
+        )
       end)
 
     %{entities: entities, clock_ms: now} |> TijaraTides.Domain.EntityIndex.rebuild()
@@ -543,15 +557,15 @@ defmodule TijaraTides.Domain.CompanyFinance do
     end)
   end
 
-  defp accrue(state, %{"status" => "open"} = loan) do
-    due = loan["next_due_ms"]
-    scheduled = loan["periods_left"] > 0
+  defp accrue(state, %Loan{status: "open"} = loan) do
+    due = loan.next_due_ms
+    scheduled = loan.periods_left > 0
     until = if scheduled, do: min(state.clock_ms, due), else: state.clock_ms
-    denominator = loan["period_ms"] * 10_000
+    denominator = loan.period_ms * 10_000
 
     numerator =
-      loan["interest_remainder"] +
-        max(0, until - loan["interest_at_ms"]) * loan["remaining"] * loan["rate_bps"]
+      loan.interest_remainder +
+        max(0, until - loan.interest_at_ms) * loan.remaining * loan.rate_bps
 
     # Round cumulative interest up to cents, carrying the fractional credit so
     # tick frequency never changes the total and short loans are not free.
@@ -559,51 +573,55 @@ defmodule TijaraTides.Domain.CompanyFinance do
 
     loan = %{
       loan
-      | "interest_accrued" => loan["interest_accrued"] + interest,
-        "interest_remainder" => numerator - interest * denominator,
-        "interest_at_ms" => until
+      | interest_accrued: loan.interest_accrued + interest,
+        interest_remainder: numerator - interest * denominator,
+        interest_at_ms: until
     }
 
-    company = get(state, "companies", loan["company_id"])
+    company = get(state, "companies", loan.company_id)
 
     state =
       state
-      |> put("loans", loan["id"], loan)
+      |> put("loans", loan.id, Loan.to_row(loan))
       |> __MODULE__.post(company["id"], "loan_interest", [
         {"interest_expense", interest},
         {"loan_interest", -interest}
       ])
 
-    if (scheduled and due <= state.clock_ms) or (not scheduled and loan["interest_accrued"] > 0) do
-      bill_due = if scheduled, do: due, else: due - loan["period_ms"]
-      id = loan["id"] <> ":" <> to_string(bill_due)
-      old = get(state, "loan_installments", id) || %{"principal_due" => 0, "interest_due" => 0}
+    if (scheduled and due <= state.clock_ms) or (not scheduled and loan.interest_accrued > 0) do
+      bill_due = if scheduled, do: due, else: due - loan.period_ms
+      id = loan.id <> ":" <> to_string(bill_due)
+      old = get(state, "loan_installments", id) |> Installment.from_row()
 
       principal =
         if scheduled,
-          do: min(loan["remaining"] - loan["principal_due"], loan["installment"]),
+          do: min(loan.remaining - loan.principal_due, loan.installment),
           else: 0
 
-      bill = %{
-        "id" => id,
-        "loan_id" => loan["id"],
-        "company_id" => company["id"],
-        "due_ms" => bill_due,
-        "principal_due" => old["principal_due"] + principal,
-        "interest_due" => old["interest_due"] + loan["interest_accrued"]
+      bill = %Installment{
+        id: id,
+        loan_id: loan.id,
+        company_id: company["id"],
+        due_ms: bill_due,
+        principal_due: if(old, do: old.principal_due, else: 0) + principal,
+        interest_due: if(old, do: old.interest_due, else: 0) + loan.interest_accrued
       }
 
       loan = %{
         loan
-        | "principal_due" => loan["principal_due"] + principal,
-          "interest_due" => loan["interest_due"] + loan["interest_accrued"],
-          "interest_accrued" => 0,
-          "overdue_ms" => loan["overdue_ms"] || bill_due,
-          "next_due_ms" => if(scheduled, do: due + loan["period_ms"], else: due),
-          "periods_left" => max(0, loan["periods_left"] - 1)
+        | principal_due: loan.principal_due + principal,
+          interest_due: loan.interest_due + loan.interest_accrued,
+          interest_accrued: 0,
+          overdue_ms: loan.overdue_ms || bill_due,
+          next_due_ms: if(scheduled, do: due + loan.period_ms, else: due),
+          periods_left: max(0, loan.periods_left - 1)
       }
 
-      state = state |> put("loan_installments", id, bill) |> put("loans", loan["id"], loan)
+      state =
+        state
+        |> put("loan_installments", id, Installment.to_row(bill))
+        |> put("loans", loan.id, Loan.to_row(loan))
+
       if scheduled, do: accrue(state, loan), else: state
     else
       state
@@ -677,7 +695,13 @@ defmodule TijaraTides.Domain.CompanyFinance do
           ])
         else
           row = get(state, "loan_installments", elem(bill, 1))
-          pay_loan(state, get(state, "loans", row["loan_id"]), available, row)
+
+          pay_loan(
+            state,
+            Loan.from_row(get(state, "loans", row["loan_id"])),
+            available,
+            Installment.from_row(row)
+          )
         end
       end)
 
@@ -726,48 +750,46 @@ defmodule TijaraTides.Domain.CompanyFinance do
     end
   end
 
-  defp pay_loan(state, loan, available, bill \\ nil) do
-    interest = min(available, (bill || loan)["interest_due"])
-    principal = min(available - interest, (bill || loan)["principal_due"])
+  defp pay_loan(state, %Loan{} = loan, available, bill \\ nil) do
+    interest = min(available, (bill || loan).interest_due)
+    principal = min(available - interest, (bill || loan).principal_due)
 
     state =
       if bill do
         bill = %{
           bill
-          | "principal_due" => bill["principal_due"] - principal,
-            "interest_due" => bill["interest_due"] - interest
+          | principal_due: bill.principal_due - principal,
+            interest_due: bill.interest_due - interest
         }
 
-        if bill["principal_due"] + bill["interest_due"] == 0,
-          do: delete(state, "loan_installments", bill["id"]),
-          else: put(state, "loan_installments", bill["id"], bill)
+        if bill.principal_due + bill.interest_due == 0,
+          do: delete(state, "loan_installments", bill.id),
+          else: put(state, "loan_installments", bill.id, Installment.to_row(bill))
       else
         Enum.reduce(entities(state, "loan_installments"), state, fn {id, bill}, state ->
-          if bill["loan_id"] == loan["id"],
+          if bill["loan_id"] == loan.id,
             do: delete(state, "loan_installments", id),
             else: state
         end)
       end
 
-    c = get(state, "companies", loan["company_id"])
+    c = get(state, "companies", loan.company_id)
 
     loan = %{
       loan
-      | "interest_due" => loan["interest_due"] - interest,
-        "principal_due" => loan["principal_due"] - principal,
-        "remaining" => loan["remaining"] - principal
+      | interest_due: loan.interest_due - interest,
+        principal_due: loan.principal_due - principal,
+        remaining: loan.remaining - principal
     }
 
     loan = %{
       loan
-      | "status" =>
-          if(loan["remaining"] == 0 and loan["interest_due"] == 0, do: "repaid", else: "open"),
-        "overdue_ms" =>
-          if(loan["principal_due"] + loan["interest_due"] > 0, do: loan["overdue_ms"])
+      | status: if(loan.remaining == 0 and loan.interest_due == 0, do: "repaid", else: "open"),
+        overdue_ms: if(loan.principal_due + loan.interest_due > 0, do: loan.overdue_ms)
     }
 
     state
-    |> put("loans", loan["id"], loan)
+    |> put("loans", loan.id, Loan.to_row(loan))
     |> __MODULE__.post(c["id"], "loan_repayment", [
       {"loan_principal", principal},
       {"loan_interest", interest},

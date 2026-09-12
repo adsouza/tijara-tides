@@ -447,3 +447,13 @@ child from a loaded root is never interpreted as deleting that row. Paid bills
 and cancelled installments emit named deletions; writeback validates ownership.
 The transaction's ledger reconciliation remains necessary: an incomplete load
 can still make a financial calculation inconsistent, and must not be committed.
+
+Ship holds contain `Ship.CargoBatch` values. CompanyFinance loads typed `Loan`
+and `Installment` children and explicit company fields rather than a `details`
+bag. Child transitions use named fields; row adapters encode their output for the
+existing relational tables and wire projections. Loan/installment decoders reject
+missing and unknown fields; cargo decoding rejects unknown fields and validates
+its required quantity and good. Pure planning fixtures may omit lot metadata,
+while durable cargo still receives permanent identities from CargoLots. Structs
+improve field checking but are not a static proof of round-trip correctness;
+strict decoding, mutation audits, and round-trip tests remain complementary.
