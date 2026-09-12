@@ -1,5 +1,6 @@
 defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
   use ExUnit.Case, async: true
+  alias TijaraTides.Domain.Services.{FinancialSettlement}
   alias TijaraTides.Domain.CompanyFinance, as: Finance
 
   defp company do
@@ -119,12 +120,47 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
       }
 
       assert {_, %{receivership: true}} = Finance.settle_owned(state, "c")
-      next = TijaraTides.Domain.Services.FinancialSettlement.settle(state, ["c"])
+      next = FinancialSettlement.settle(state, ["c"])
       assert next.entities["companies"]["current"] == current
       assert next.entities["accounts"] == accounts
       assert next.entities["companies"]["c"]["bankruptcy_ms"] == nil
       assert next.entities["operating_bills"]["b"]["remaining"] == 100
       assert Map.get(next.entities, "bankruptcy_events", %{}) == %{}
     end
+  end
+
+  test "an omitted child is not a deletion, while paying a loaded bill explicitly removes it" do
+    row =
+      Map.merge(company(), %{
+        "account_id" => "a",
+        "bankruptcy_ms" => nil,
+        "unpaid" => 100,
+        "unpaid_since" => 0,
+        "arrears_since" => 0
+      })
+
+    bill = %{"id" => "bill", "company_id" => "c", "due_ms" => 0, "remaining" => 100}
+
+    state =
+      %{
+        clock_ms: 1,
+        entities: %{"companies" => %{"c" => row}, "operating_bills" => %{"bill" => bill}}
+      }
+      |> TijaraTides.Domain.EntityIndex.rebuild()
+
+    # Simulate an incomplete loader: its index omits a persisted child.
+    partial = %{
+      state
+      | entity_index: Map.delete(state.entity_index, {"operating_bills", "company_id", "c"})
+    }
+
+    {unchanged_children, effects} = Finance.settle_owned(partial, "c")
+    assert unchanged_children.entities["operating_bills"]["bill"] == bill
+    refute {"operating_bills", "bill", :delete, nil} in effects.children
+
+    {paid, effects} = Finance.settle_owned(state, "c")
+    refute Map.has_key?(paid.entities["operating_bills"], "bill")
+    assert {"operating_bills", "bill", :delete, nil} in effects.children
+    assert paid.entities["companies"]["c"]["cash"] == 900
   end
 end

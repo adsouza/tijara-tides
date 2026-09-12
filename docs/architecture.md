@@ -441,3 +441,9 @@ commit handling remain authoritative. Pure UI calculations call
 
 The compiler enforces the dependency direction; web tests can substitute the
 runtime port without starting a game owner or connecting to PostgreSQL.
+
+Financial child persistence consumes explicit transition mutations. Omitting a
+child from a loaded root is never interpreted as deleting that row. Paid bills
+and cancelled installments emit named deletions; writeback validates ownership.
+The transaction's ledger reconciliation remains necessary: an incomplete load
+can still make a financial calculation inconsistent, and must not be committed.

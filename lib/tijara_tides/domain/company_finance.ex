@@ -485,7 +485,13 @@ defmodule TijaraTides.Domain.CompanyFinance do
   defp write_effects(local),
     do: %{
       journal: Map.get(local, :journal, []),
-      notices: Map.to_list(entities(local, "notices"))
+      notices: Map.to_list(entities(local, "notices")),
+      children:
+        for(
+          {{kind, id}, operation} <- TijaraTides.Domain.ChangeSet.since(%{}, local),
+          kind in Keyword.values(@owned),
+          do: {kind, id, operation, get(local, kind, id)}
+        )
     }
 
   defp financial_effects(local, id) do
@@ -509,18 +515,19 @@ defmodule TijaraTides.Domain.CompanyFinance do
     state = put(state, "companies", id, to_row(finance))
 
     state =
-      Enum.reduce(@owned, state, fn {field, kind}, state ->
-        rows = Map.fetch!(finance, field)
-        retained = MapSet.new(rows, & &1["id"])
+      Enum.reduce(effects.children, state, fn {kind, child_id, operation, row}, state ->
+        existing = get(state, kind, child_id)
 
-        state =
-          Enum.reduce(owned(state, kind, "company_id", id), state, fn row, state ->
-            if MapSet.member?(retained, row["id"]),
-              do: state,
-              else: delete(state, kind, row["id"])
-          end)
+        unless kind in Keyword.values(@owned) and
+                 (existing == nil or existing["company_id"] == id) and
+                 (row == nil or row["company_id"] == id),
+               do:
+                 raise(ArgumentError, "Financial transition cannot write another company's child")
 
-        Enum.reduce(rows, state, fn row, state -> put(state, kind, row["id"], row) end)
+        case operation do
+          :put -> put(state, kind, child_id, row)
+          :delete -> delete(state, kind, child_id)
+        end
       end)
 
     state =
