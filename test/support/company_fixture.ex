@@ -1,7 +1,7 @@
 defmodule TijaraTides.CompanyFixture do
   @moduledoc "Explicit capitalized companies for trading tests; production formation grants nothing."
   use Boundary, deps: [TijaraTides.Domain, TijaraTides.Infrastructure, TijaraTides.UseCases]
-  alias TijaraTides.Domain.{Accounts, Fleet, Game, Journal}
+  alias TijaraTides.Domain.{Fleet, Game, Journal}
 
   def packages,
     do: %{
@@ -34,7 +34,13 @@ defmodule TijaraTides.CompanyFixture do
   end
 
   def create_company(state, account, name, port, package, context) do
-    with {:ok, state, reply} <- Accounts.create_company(state, account, name, context) do
+    with {:ok, state, reply} <-
+           TijaraTides.Domain.Commands.execute(
+             state,
+             account,
+             %{"action" => "company", "name" => name},
+             context
+           ) do
       {:ok,
        fund(state, state.entities["accounts"][account["id"]], port, package, context.catalogue),
        reply}

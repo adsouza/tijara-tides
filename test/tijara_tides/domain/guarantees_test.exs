@@ -1,12 +1,13 @@
 defmodule TijaraTides.Domain.GuaranteesTest do
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Accounts, Finance, Game, Guarantees, Journal}
+  alias TijaraTides.Domain.Services.{Credit, CompanyFormation}
+  alias TijaraTides.Domain.{Account, CompanyFinance, Game, Guarantees, Journal}
 
   setup do
     catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
     state = Game.initialize(%{entities: %{}, clock_ms: 0, epoch: 1, revision: 0}, catalogue)
-    {:ok, state, _} = Accounts.seed_invite(state, "invite")
-    {:ok, state, _} = Accounts.redeem(state, "invite", "session", %{id: "sponsor", wall_ms: 0})
+    {:ok, state, _} = Account.seed_invite(state, "invite")
+    {:ok, state, _} = Account.redeem(state, "invite", "session", %{id: "sponsor", wall_ms: 0})
 
     {:ok, state, _} =
       TijaraTides.CompanyFixture.create_company(
@@ -58,15 +59,20 @@ defmodule TijaraTides.Domain.GuaranteesTest do
       state =
         put_in(c.state, [:entities, "bankruptcy_events"], if(count == 0, do: %{}, else: events))
 
-      assert Finance.rate(state, c.beneficiary) == rate
+      assert CompanyFinance.rate(state, c.beneficiary) == rate
     end
 
-    aged = %{c.state | clock_ms: Finance.terms().history_ms}
-    assert Finance.rate(aged, c.beneficiary) == 800
+    aged = %{c.state | clock_ms: CompanyFinance.terms().history_ms}
+    assert CompanyFinance.rate(aged, c.beneficiary) == 800
     assert Guarantees.suspended?(Game.get(aged, "accounts", "beneficiary"))
 
     assert {:error, :account_suspended} =
-             Accounts.create_company(aged, c.beneficiary, "Blocked", %{id: "blocked"})
+             CompanyFormation.create_company(
+               aged,
+               c.beneficiary,
+               "Blocked",
+               %{id: "blocked"}
+             )
 
     assert {:error, :account_suspended} =
              Game.execute(c.state, c.beneficiary, %{"action" => "invite"}, %{}, c.catalogue)
@@ -74,7 +80,10 @@ defmodule TijaraTides.Domain.GuaranteesTest do
 
   test "sponsor must cover own debt including interest with unreserved cash", c do
     assert Guarantees.sponsor_eligible?(c.state, c.sponsor)
-    {:ok, state, _} = Finance.borrow(c.state, c.sponsor, 10_000_000, "sponsor-loan")
+
+    {:ok, state, _} =
+      Credit.borrow(c.state, c.sponsor, 10_000_000, "sponsor-loan")
+
     locked = put_in(state, [:entities, "companies", "sponsor-company", "reserved"], 8_000_001)
     refute Guarantees.sponsor_eligible?(locked, c.sponsor)
 
@@ -105,18 +114,33 @@ defmodule TijaraTides.Domain.GuaranteesTest do
     assert {:error, :guarantee_exists} =
              Guarantees.pledge(state, c.sponsor, "beneficiary", 5_000_000, "g2")
 
-    {:ok, state, _} = Accounts.create_company(state, beneficiary, "Restart", %{id: "restart"})
+    {:ok, state, _} =
+      CompanyFormation.create_company(
+        state,
+        beneficiary,
+        "Restart",
+        %{id: "restart"}
+      )
+
     beneficiary = Game.get(state, "accounts", "beneficiary")
-    assert {:error, :loan_limit} = Finance.borrow(state, beneficiary, 5_000_001, "loan")
-    {:ok, state, _} = Finance.borrow(state, beneficiary, 5_000_000, "loan")
+
+    assert {:error, :loan_limit} =
+             Credit.borrow(state, beneficiary, 5_000_001, "loan")
+
+    {:ok, state, _} =
+      Credit.borrow(state, beneficiary, 5_000_000, "loan")
+
     assert Game.get(state, "loans", "loan")["rate_bps"] == 1600
-    {:ok, state, _} = Finance.recast(state, beneficiary, "loan", 1_000_000)
+
+    {:ok, state, _} =
+      Credit.recast(state, beneficiary, "loan", 1_000_000)
+
     assert Game.get(state, "loans", "loan")["rate_bps"] == 1600
     assert Guarantees.active(state, "beneficiary") != nil
-    {:ok, state, _} = Finance.repay(state, beneficiary, "loan")
+    {:ok, state, _} = Credit.repay(state, beneficiary, "loan")
     assert Guarantees.active(state, "beneficiary") == nil
     assert Game.get(state, "companies", "sponsor-company")["cash"] == 8_000_000
-    assert Finance.summary(state, beneficiary)["available"] == 0
+    assert CompanyFinance.summary(state, beneficiary)["available"] == 0
   end
 
   test "default caps sponsor losses and refunds excess even to a bankrupt sponsor", c do
