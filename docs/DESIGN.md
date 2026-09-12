@@ -905,6 +905,12 @@ created refrigerated shipping.
 
 ## 7. Markets, remote trading, and reservations
 
+Replace the Ships destination dropdown with a port-by-cargo popup matrix. Green outbound and
+red return discs scale by ROI radius; negative ROI uses a black skull. Rank ports by the sum of
+the best ROI in each direction, then distance. Clicking a port selects it and dismisses the
+popup.
+
+
 A shared exchange interface exposes separate local markets at each port.
 Players have free worldwide access to current prices, order-book depth, recent
 trades, and auction listings. Destination prices are current information, not

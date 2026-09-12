@@ -185,3 +185,24 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 [dir="rtl"] input[name="code"], [dir="rtl"] input[name="token"] { direction: ltr; }
 [dir="rtl"] .text-left { text-align: right; }
 [dir="rtl"] .text-right { text-align: left; }
+
+.destination-picker-backdrop { position: fixed; inset: 0; z-index: 80; background: #020617b3; display: grid; place-items: center; padding: 16px; }
+#destination-picker-focus { min-width: 0; max-width: 100%; }
+.destination-picker { box-sizing: border-box; min-width: 0; max-width: 100%; width: min(1400px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; border: 1px solid #475569; border-radius: 12px; background: #0f172a; padding: 16px; box-shadow: 0 12px 40px #0008; }
+@media (orientation: landscape) {
+  .destination-picker { width: calc(100vw - 32px); }
+}
+.destination-matrix-scroll { overflow: auto; min-width: 0; max-width: 100%; min-height: 0; }
+.destination-matrix { border-collapse: separate; border-spacing: 0; width: 100%; text-align: start; }
+.destination-matrix th, .destination-matrix td { padding: 10px 12px; border-bottom: 1px solid #334155; vertical-align: top; }
+.destination-matrix thead th { position: sticky; top: 0; z-index: 2; background: #1e293b; min-width: 115px; }
+.destination-matrix .destination-port { position: sticky; inset-inline-start: 0; z-index: 1; background: #0f172a; min-width: 135px; }
+.destination-matrix thead .destination-port { z-index: 3; background: #1e293b; }
+.destination-matrix button[aria-pressed=true] { font-weight: 700; color: #fff; }
+.opportunity-cell { white-space: nowrap; }
+.opportunity-disc { display: inline-block; position: relative; vertical-align: middle; outline-offset: 2px; }
+.opportunity-disc.outbound { color: #4ade80; }
+.opportunity-disc.inbound { color: #f87171; }
+.opportunity-tooltip { display: none; position: absolute; inset-inline-end: 0; top: 100%; z-index: 5; background: #020617; color: #e2e8f0; padding: 6px 8px; border: 1px solid #475569; border-radius: 6px; font-size: 12px; white-space: normal; width: 180px; }
+.opportunity-disc:hover .opportunity-tooltip, .opportunity-disc:focus .opportunity-tooltip { display: block; }
+.opportunity-skull { display: inline-flex; width: 48px; height: 48px; align-items: center; justify-content: center; font-size: 30px; color: #000; text-shadow: -1px 0 #e2e8f0, 1px 0 #e2e8f0, 0 -1px #e2e8f0, 0 1px #e2e8f0; }

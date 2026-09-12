@@ -147,6 +147,73 @@ defmodule TijaraTides.UseCases.GameQueries do
     %{status: :ready, public: projection.public, private: private, markets: projection.markets}
   end
 
+  @doc "Read-only market spreads for choosing a destination; quantities are market availability, not executable orders."
+  def destination_matrix(definitions, view, ship) do
+    if ship && ship["status"] == "docked" do
+      goods =
+        definitions.catalogue["goods"]
+        |> Enum.filter(fn {_, item} ->
+          item["manual"] && CargoRules.compatible_class?(ship, item)
+        end)
+        |> Enum.sort_by(fn {id, item} -> {item["name"], id} end)
+
+      rows =
+        for port <- Map.keys(definitions.catalogue["ports"]),
+            port != ship["port"],
+            distance = route_distance(definitions, ship, port),
+            is_number(distance) do
+          cells =
+            Map.new(goods, fn {id, _} ->
+              local = view.markets[ship["port"] <> "|" <> id]
+              remote = view.markets[port <> "|" <> id]
+
+              {id,
+               %{
+                 outbound: market_opportunity(local, remote),
+                 inbound: market_opportunity(remote, local)
+               }}
+            end)
+
+          best =
+            for direction <- [:outbound, :inbound] do
+              cells
+              |> Map.values()
+              |> Enum.flat_map(fn cell ->
+                if cell[direction], do: [cell[direction].roi], else: []
+              end)
+              |> Enum.max(fn -> 0 end)
+            end
+            |> Enum.sum()
+
+          %{port: port, distance: distance, cells: cells, best: best}
+        end
+
+      rows = Enum.sort_by(rows, &{is_nil(&1.best), -(&1.best || 0), &1.distance, &1.port})
+
+      goods =
+        Enum.filter(goods, fn {id, _} ->
+          Enum.any?(rows, fn row -> row.cells[id].outbound || row.cells[id].inbound end)
+        end)
+
+      %{goods: goods, rows: rows}
+    else
+      %{goods: [], rows: []}
+    end
+  end
+
+  defp market_opportunity(supplier, buyer) do
+    if supplier && buyer && supplier["manual"] && buyer["manual"] &&
+         supplier["stock"] > 0 && buyer["demand"] > 0 &&
+         supplier["ask"] + supplier["handling_fee"] > 0 do
+      %{
+        roi:
+          (buyer["bid"] - buyer["handling_fee"] - supplier["ask"] - supplier["handling_fee"]) /
+            (supplier["ask"] + supplier["handling_fee"]),
+        lots: min(supplier["stock"], buyer["demand"])
+      }
+    end
+  end
+
   def destination_options(definitions, view, ship, destination) do
     if ship && ship["status"] == "docked" && ship["port"] != destination do
       space = Fleet.capacity(ship, definitions.catalogue)

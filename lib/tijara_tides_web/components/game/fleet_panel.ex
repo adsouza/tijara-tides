@@ -5,6 +5,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
   alias TijaraTides.UseCases.GameQueries
 
   attr :definitions, :any, required: true
+  attr :destination_picker_open, :boolean, default: false
   attr :destination, :any, required: true
   attr :fleet_status, :any, required: true
   attr :inspected_ship, :any, required: true
@@ -381,31 +382,28 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 </tbody>
               </table>
             </div>
-            <.form
+            <button
               :if={@ship["status"] == "docked"}
-              for={%{}}
-              id="voyage-preview"
-              phx-submit="preview"
-              phx-change="preview"
-              class="mt-4 flex gap-3"
+              id="destination-picker-trigger"
+              type="button"
+              phx-click={
+                JS.remove_attribute("open", to: "#company-menu") |> JS.push("destination-picker-open")
+              }
+              aria-haspopup="dialog"
+              aria-expanded={to_string(@destination_picker_open)}
+              class="mt-4 rounded border border-teal-700 px-3 py-2 text-teal-200"
             >
-              <select
-                name="destination"
-                aria-label={gettext("Destination")}
-                class="rounded bg-slate-800 px-3 py-2"
-              ><option value="" selected={is_nil(@destination) or @destination == ""}>
-                {gettext("Choose a destination before buying")}
-              </option><option
-                :for={
-                  name <-
-                    Enum.sort(Map.keys(@definitions.catalogue["ports"])) -- [@ship["port"]]
-                }
-                value={name}
-                selected={name == @destination}
-              >
-                {l10n(name)}
-              </option></select>
-            </.form>
+              {if @destination,
+                do: gettext("Destination: %{port}", port: l10n(@destination)),
+                else: gettext("Choose destination")}
+            </button>
+            <TijaraTidesWeb.GameUI.DestinationPicker.panel
+              :if={@destination_picker_open && @ship["status"] == "docked"}
+              definitions={@definitions}
+              view={@view}
+              ship={@ship}
+              destination={@destination}
+            />
             <div :if={@preview} class="mt-3 flex flex-wrap items-center gap-3">
               <span>
                 {gettext(

@@ -1217,15 +1217,15 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     refute has_element?(view, "details[id^=instructions-]")
 
-    view |> form("#voyage-preview", %{"destination" => "Jakarta"}) |> render_change()
+    select_destination(view, "Jakarta")
     assert has_element?(view, instruction_form, "Instructions at Jakarta")
 
     refute has_element?(view, instruction_form <> " option[value='aluminium_scrap']")
 
     refute has_element?(view, instruction_form <> " select[name=port]")
-    view |> form("#voyage-preview", %{"destination" => "Dubai"}) |> render_change()
+    select_destination(view, "Dubai")
     assert has_element?(view, instruction_form, "Instructions at Dubai")
-    view |> form("#voyage-preview", %{"destination" => "Jakarta"}) |> render_change()
+    select_destination(view, "Jakarta")
     render_change(view, "edit-instruction", %{"port" => "Dubai"})
     assert has_element?(view, instruction_form, "Instructions at Jakarta")
 
@@ -1519,7 +1519,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       assert snapshot.private["visit_plans"][company <> ":1|Jakarta"]["onward"] == "Singapore"
       conn = build_conn() |> init_test_session(%{account_token: token})
       {:ok, view, _} = live(conn, "/play")
-      view |> form("#voyage-preview", %{"destination" => "Jakarta"}) |> render_change()
+      select_destination(view, "Jakarta")
 
       assert has_element?(
                view,
@@ -1557,7 +1557,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       advance(replacement, quote["duration_ms"] + 1)
 
       unless unquote(auto_depart),
-        do: assert(has_element?(view, "#voyage-preview option[value=Singapore][selected]"))
+        do: assert(has_element?(view, "#destination-picker-trigger", "Singapore"))
 
       assert GameServer.snapshot(token, replacement).private["ships"][company <> ":1"]["cargo"] ==
                []
@@ -2048,7 +2048,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#destination-planner tr[data-good=lumber]", "$275")
     assert has_element?(view, "#destination-planner tr[data-good='iron_ore']", "No demand")
     view |> element("#set-port-destination") |> render_click()
-    assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
+    assert has_element?(view, "#destination-picker-trigger", "Singapore")
     assert has_element?(view, "#port-selector[data-selected='Singapore']")
     assert has_element?(view, "#set-port-destination[disabled]", "Selected destination")
     assert has_element?(view, "button[phx-click=sail]", "Reserve fuel and sail")
@@ -2152,7 +2152,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#aboard-lumber", "0")
     render_change(view, "preview", %{"destination" => "Singapore"})
     assert has_element?(view, "#port-selector[data-selected='Jakarta']")
-    assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
+    assert has_element?(view, "#destination-picker-trigger", "Singapore")
 
     assert has_element?(
              view,
@@ -2263,7 +2263,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert has_element?(view, "#quantity-buy-lumber[value='#{new_limit}']")
     assert has_element?(view, "button[phx-click=sail]", "Reserve fuel and sail")
-    assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
+    assert has_element?(view, "#destination-picker-trigger", "Singapore")
 
     render_submit(view, "trade", %{
       "action" => "buy",
@@ -2421,7 +2421,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     render_change(view, "preview", %{"destination" => "Singapore"})
     assert has_element?(view, "#port-selector[data-selected='Jakarta']")
-    assert has_element?(view, "#voyage-preview option[selected]", "Singapore")
+    assert has_element?(view, "#destination-picker-trigger", "Singapore")
 
     assert has_element?(
              view,
@@ -2435,7 +2435,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#trade-buy-fruit", "Estimates may change")
     view |> form("#trade-buy-fruit", %{"quantity" => "20"}) |> render_submit()
     advance(server, 11_000)
-    view |> form("#voyage-preview", %{"destination" => "Singapore"}) |> render_change()
+    select_destination(view, "Singapore")
     assert has_element?(view, ".voyage-freshness", "Fruit: estimated time to first expiry")
     assert has_element?(view, ".voyage-freshness", "after unloading")
     render_click(view, "sail")
@@ -2828,5 +2828,19 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert Enum.sort(rows) ==
              Enum.sort([[GameServer.hash("8.8.8.8"), 10], [GameServer.hash("9.9.9.9"), 1]])
+  end
+
+  defp select_destination(view, port) do
+    view |> element("#destination-picker-trigger") |> render_click()
+    assert has_element?(view, "#destination-picker[role=dialog]")
+    send(view.pid, {:game_changed, 0})
+    assert has_element?(view, "#destination-picker")
+
+    view
+    |> element(~s(#destination-picker button[phx-value-destination="#{port}"]))
+    |> render_click()
+
+    refute has_element?(view, "#destination-picker")
+    assert has_element?(view, "#destination-picker-trigger", port)
   end
 end

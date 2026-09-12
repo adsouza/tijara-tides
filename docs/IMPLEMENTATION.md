@@ -105,6 +105,17 @@ not silently change that selection. The Cargo demand table adds sea-route
 distance in nautical miles from the selected docked ship, after price and demand
 as the third default sort key. Unknown distances remain last.
 
+The Ships destination selector opens a port-by-cargo opportunity matrix. Port
+names select the destination and close the popup, returning to the current
+port's Buy view. Compatible cargo columns show green outbound and red return
+discs; radius is proportional to positive ROI on one shared scale, with hollow
+discs for zero ROI and black skulls for negative ROI. ROI is the current bid minus ask and both handling
+fees, divided by ask plus purchase handling. Hover/focus exposes ROI and market
+lots. These are market comparisons, excluding cash, capacity, cleaning, voyage
+costs and spoilage, rather than executable trade quotes. Ports sort by the sum of their best
+ROI in each direction (missing directions contribute zero), then sea distance. The popup supports Escape, explicit dismissal,
+keyboard focus containment, Arabic labels and RTL layout.
+
 Inspecting another port with a docked ship opens a destination comparison using
 compatible stock at the ship's current port. Each candidate load is capped by
 source supply, destination demand, and remaining weight and volume capacity.

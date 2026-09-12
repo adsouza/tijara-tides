@@ -26,6 +26,7 @@ defmodule TijaraTidesWeb.GameLive do
         definitions: Game.definitions(),
         selected_port: "Singapore",
         route_drafts: %{},
+        destination_picker_open: false,
         report_open: false,
         report_data: nil,
         report_error: nil,
@@ -237,7 +238,13 @@ defmodule TijaraTidesWeb.GameLive do
 
       {:noreply,
        socket
-       |> assign(selected_ship: id, selected_port: port, inspected_ship: id, preview: nil)
+       |> assign(
+         selected_ship: id,
+         selected_port: port,
+         inspected_ship: id,
+         preview: nil,
+         destination_picker_open: false
+       )
        |> refresh()}
     else
       {:noreply, socket}
@@ -535,9 +542,17 @@ defmodule TijaraTidesWeb.GameLive do
     run(socket, params)
   end
 
+  def handle_event("destination-picker-open", _, socket) do
+    open = socket.assigns.ship && socket.assigns.ship["status"] == "docked"
+    {:noreply, assign(socket, destination_picker_open: !!open, report_open: false)}
+  end
+
+  def handle_event("destination-picker-close", _, socket),
+    do: {:noreply, assign(socket, destination_picker_open: false)}
+
   def handle_event("preview", %{"destination" => dest}, socket) do
     preview = Game.preview(socket.assigns.token, socket.assigns.selected_ship, dest)
-    socket = assign(socket, destination: dest, preview: preview)
+    socket = assign(socket, destination: dest, preview: preview, destination_picker_open: false)
 
     socket =
       if is_binary(dest) && socket.assigns.definitions.catalogue["ports"][dest] &&
@@ -689,6 +704,13 @@ defmodule TijaraTidesWeb.GameLive do
           )
           |> List.first()
       end
+
+    socket =
+      assign(
+        socket,
+        :destination_picker_open,
+        socket.assigns.destination_picker_open && not is_nil(ship) && ship["status"] == "docked"
+      )
 
     planned =
       if ship && view.private,
@@ -1036,6 +1058,7 @@ defmodule TijaraTidesWeb.GameLive do
                 view={@view}
               />
               <TijaraTidesWeb.GameUI.FleetPanel.panel
+                destination_picker_open={@destination_picker_open}
                 definitions={@definitions}
                 destination={@destination}
                 fleet_status={@fleet_status}

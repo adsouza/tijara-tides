@@ -1957,3 +1957,33 @@ msgstr "فالنسيا"
 
 msgid "Spanish Mediterranean exporter of citrus, pork, appliances and apparel, and of construction and agricultural machinery, with strong reefer capacity and moderate costs."
 msgstr "ميناء إسباني على المتوسط يصدّر الحمضيات ولحم الخنزير والأجهزة المنزلية والملابس وآلات البناء والزراعة، مع سعة كبيرة للشحن المبرد وتكاليف معتدلة."
+
+msgid "Destination: %{port}"
+msgstr "الوجهة: %{port}"
+
+msgid "Choose destination"
+msgstr "اختر الوجهة"
+
+msgid "Trade opportunities from %{port}"
+msgstr "فرص التجارة من %{port}"
+
+msgid "Disc radius shows ROI after handling, on a shared scale. Green: buy here, sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow discs mean zero ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; cash and capacity are not checked. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
+msgstr "يمثل نصف قطر القرص العائد على الاستثمار بعد المناولة بمقياس موحد. الأخضر: اشترِ هنا وبع هناك. الأحمر: اشترِ هناك وبع هنا. الجماجم تعني عائدًا سالبًا؛ والأقراص المجوفة تعني عائدًا صفريًا. مرّر المؤشر أو ركّز لعرض التفاصيل. لا تشمل التقديرات الوقود والقنوات والتشغيل والتنظيف والتلف، ولا تتحقق من النقد والسعة. تُرتّب الموانئ حسب مجموع أفضل عائد في كل اتجاه ثم المسافة. اختر ميناءً لتخطيط رحلتك."
+
+msgid "Distance (nm)"
+msgstr "المسافة (ميل بحري)"
+
+msgid "%{direction}: %{roi} ROI · %{lots} market lots"
+msgstr "%{direction}: عائد %{roi} · %{lots} دفعة متاحة في السوق"
+
+msgid "Outbound"
+msgstr "الذهاب"
+
+msgid "Return"
+msgstr "العودة"
+
+msgid "No trade opportunity"
+msgstr "لا توجد فرصة تجارية"
+
+msgid "No compatible trade opportunities right now. You can still choose a port."
+msgstr "لا توجد فرص تجارية مناسبة حاليًا. لا يزال بإمكانك اختيار ميناء."
