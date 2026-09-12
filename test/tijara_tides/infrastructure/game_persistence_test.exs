@@ -102,6 +102,35 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              ]).rows
   end
 
+  test "a conflicting market insert cannot overwrite stock or bypass its version", c do
+    before = :sys.get_state(c.server).game
+    {id, market} = Enum.find(before.entities["markets"], fn {_, row} -> row["batches"] == [] end)
+
+    Repo.query!("UPDATE game_markets SET stock_lots=123, version=7 WHERE world_id=$1 AND id=$2", [
+      c.world_id,
+      id
+    ])
+
+    # Model a writer whose snapshot predates the other writer's market creation.
+    stale = put_in(before, [:entities, "markets"], Map.delete(before.entities["markets"], id))
+    proposed = TijaraTides.Domain.State.put(stale, "markets", id, Map.put(market, "stock", 456))
+
+    error =
+      assert_raise Postgrex.Error, fn ->
+        Repo.transaction(fn ->
+          TijaraTides.Infrastructure.Persistence.GameRows.write(Repo, c.world_id, stale, proposed)
+        end)
+      end
+
+    assert error.postgres.code == :unique_violation
+
+    assert [[123, 7]] ==
+             Repo.query!(
+               "SELECT stock_lots,version FROM game_markets WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows
+  end
+
   test "progression reloads a conflicted market without losing ownership or pausing", c do
     before = :sys.get_state(c.server).game
     {id, _} = Enum.find(before.entities["markets"], fn {_, row} -> row["seller"] end)

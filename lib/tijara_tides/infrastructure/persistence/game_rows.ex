@@ -323,31 +323,138 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     # Rows that already exist are written first. One transaction may move a unique key
     # from an old row to a new one — a sponsor releasing an escrow while pledging the
     # next — and a partial unique index rejects the pair if the insert lands first.
-    for kind <- @kinds,
-        {{_, id}, operation} <-
-          Enum.sort_by(Map.get(grouped, kind, []), fn {{_, row_id}, _} ->
-            if get_in(before, [:entities, kind, row_id]) == nil, do: 1, else: 0
-          end) do
-      old = get_in(before, [:entities, kind, id])
+    # Existing rows and new rows use separate batches, preserving that ordering.
+    for kind <- @kinds, rows = Map.get(grouped, kind, []), rows != [] do
+      {deletes, puts} =
+        rows
+        |> Enum.sort_by(fn {{_, row_id}, _} ->
+          if get_in(before, [:entities, kind, row_id]) == nil, do: 1, else: 0
+        end)
+        |> Enum.split_with(fn {_, operation} -> operation == :delete end)
 
-      case operation do
-        :put ->
-          data =
-            get_in(after_state, [:entities, kind, id]) ||
-              raise(ArgumentError, "Changed row missing before persistence")
-
-          if data != old do
-            check_market_version(repo, world, kind, id, old, before)
-            write_entity(repo, world, kind, id, old, data)
-          end
-
-        :delete ->
-          if old != nil do
-            check_market_version(repo, world, kind, id, old, before)
-            repo.query!("DELETE FROM game_#{kind} WHERE world_id=$1 AND id=$2", [world, id])
-          end
-      end
+      write_batch(repo, world, kind, before, after_state, puts)
+      delete_batch(repo, world, kind, before, deletes)
     end
+
+    :ok
+  end
+
+  # Batch existing rows separately from inserts: a tick changes every moving ship,
+  # and a round trip each would dominate the commit. New rows must reject collisions.
+  defp write_batch(_repo, _world, _kind, _before, _after_state, []), do: :ok
+
+  defp write_batch(repo, world, kind, before, after_state, puts) do
+    # Assignments inside a comprehension act as filters, which would silently drop every
+    # insert here, where `old` is nil. Keep the lookups outside one.
+    pending =
+      puts
+      |> Enum.map(fn {{_, id}, _} ->
+        data =
+          get_in(after_state, [:entities, kind, id]) ||
+            raise(ArgumentError, "Changed row missing before persistence")
+
+        {id, get_in(before, [:entities, kind, id]), data}
+      end)
+      |> Enum.filter(fn {_, old, data} -> data != old end)
+
+    for {id, old, data} <- pending do
+      check_market_version(repo, world, kind, id, old, before)
+      validate_entity!(kind, id, old, data)
+    end
+
+    fields = Enum.reject(@specs[kind], fn {_, column} -> column == "id" end)
+    columns = ["world_id", "id" | Enum.map(fields, &elem(&1, 1))]
+
+    assignments =
+      Enum.map_join(fields, ",", fn {_, column} -> "#{column}=EXCLUDED.#{column}" end)
+
+    # Bind parameters are capped per statement, so very large batches are chunked.
+    pending
+    |> Enum.chunk_by(fn {_, old, _} -> is_nil(old) end)
+    |> Enum.flat_map(&Enum.chunk_every(&1, max(1, div(60_000, length(columns)))))
+    |> Enum.each(fn chunk ->
+      values =
+        Enum.flat_map(chunk, fn {id, _, data} ->
+          [world, id | Enum.map(fields, fn {key, _} -> column_value(key, data[key]) end)]
+        end)
+
+      placeholders =
+        chunk
+        |> Enum.with_index()
+        |> Enum.map_join(",", fn {_, row} ->
+          "(" <>
+            Enum.map_join(1..length(columns), ",", fn n ->
+              "$#{row * length(columns) + n}"
+            end) <> ")"
+        end)
+
+      # A missing row in the caller's snapshot is an insert, never permission to
+      # overwrite another writer's row (which would also bypass the market CAS).
+      conflict =
+        case hd(chunk) do
+          {_, nil, _} -> ""
+          _ -> " ON CONFLICT (world_id,id) DO UPDATE SET #{assignments}"
+        end
+
+      repo.query!(
+        "INSERT INTO game_#{kind}(#{Enum.join(columns, ",")}) VALUES #{placeholders}" <>
+          conflict,
+        values
+      )
+    end)
+
+    case @children[kind] do
+      nil ->
+        :ok
+
+      {key, table, parent, child} ->
+        for {id, old, data} <- pending do
+          write_children(
+            repo,
+            world,
+            id,
+            table,
+            parent,
+            child,
+            if(old, do: old[key], else: []),
+            data[key]
+          )
+        end
+    end
+
+    :ok
+  end
+
+  defp delete_batch(_repo, _world, _kind, _before, []), do: :ok
+
+  defp delete_batch(repo, world, kind, before, deletes) do
+    ids =
+      for {{_, id}, _} <- deletes, get_in(before, [:entities, kind, id]) != nil do
+        check_market_version(repo, world, kind, id, get_in(before, [:entities, kind, id]), before)
+        id
+      end
+
+    if ids != [],
+      do: repo.query!("DELETE FROM game_#{kind} WHERE world_id=$1 AND id=ANY($2)", [world, ids])
+
+    :ok
+  end
+
+  defp column_value("capital_ms", value), do: Decimal.new(value)
+  defp column_value(_key, value), do: value
+
+  defp validate_entity!(kind, id, _old, data) do
+    keys = Enum.map(@specs[kind], &elem(&1, 0))
+
+    keys =
+      case @children[kind] do
+        nil -> keys
+        {key, _, _, _} -> [key | keys]
+      end
+
+    if Map.keys(data) -- keys != [], do: raise(ArgumentError, "Unsupported fields for #{kind}")
+    if "id" in keys and data["id"] != id, do: raise(ArgumentError, "Entity ID mismatch")
+    :ok
   end
 
   defp check_market_version(repo, world, "markets", id, old, before) when not is_nil(old) do
@@ -363,73 +470,6 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   end
 
   defp check_market_version(_, _, _, _, _, _), do: :ok
-
-  defp write_entity(repo, world, kind, id, old, data) do
-    fields = @specs[kind]
-    keys = Enum.map(fields, &elem(&1, 0))
-
-    keys =
-      case @children[kind] do
-        nil -> keys
-        {key, _, _, _} -> [key | keys]
-      end
-
-    if Map.keys(data) -- keys != [], do: raise(ArgumentError, "Unsupported fields for #{kind}")
-    if "id" in keys and data["id"] != id, do: raise(ArgumentError, "Entity ID mismatch")
-    # Primary keys never change; an update sets only columns changed by this action.
-    fields = Enum.reject(fields, fn {_, column} -> column == "id" end)
-
-    if is_nil(old) do
-      columns = ["world_id", "id" | Enum.map(fields, &elem(&1, 1))]
-
-      values = [
-        world,
-        id
-        | Enum.map(fields, fn {key, _} ->
-            if(key == "capital_ms", do: Decimal.new(data[key]), else: data[key])
-          end)
-      ]
-
-      repo.query!(
-        "INSERT INTO game_#{kind}(#{Enum.join(columns, ",")}) VALUES (#{params(length(values))})",
-        values
-      )
-    else
-      changed = Enum.filter(fields, fn {key, _} -> old[key] != data[key] end)
-
-      if changed != [] do
-        assignments =
-          changed
-          |> Enum.with_index(3)
-          |> Enum.map_join(",", fn {{_, column}, index} -> "#{column}=$#{index}" end)
-
-        repo.query!("UPDATE game_#{kind} SET #{assignments} WHERE world_id=$1 AND id=$2", [
-          world,
-          id
-          | Enum.map(changed, fn {key, _} ->
-              if(key == "capital_ms", do: Decimal.new(data[key]), else: data[key])
-            end)
-        ])
-      end
-    end
-
-    case @children[kind] do
-      nil ->
-        :ok
-
-      {key, table, parent, fields} ->
-        write_children(
-          repo,
-          world,
-          id,
-          table,
-          parent,
-          fields,
-          if(old, do: old[key], else: []),
-          data[key]
-        )
-    end
-  end
 
   defp write_children(repo, world, id, _table, parent, fields, old, new) do
     if old != new do
@@ -467,6 +507,4 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       )
     end
   end
-
-  defp params(count), do: Enum.map_join(1..count, ",", &"$#{&1}")
 end

@@ -219,6 +219,11 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def handle_call(:readiness, _from, state), do: {:reply, state.status, state}
 
   def handle_call({:snapshot, token}, _from, state) do
+    # Reads are the owner's highest-frequency work, so they are measured with one bare
+    # event: no correlation identifier, no start event and no log line, each of which
+    # would cost more than the snapshot on this path. See UseCases.GameQueries.snapshot.
+    started = System.monotonic_time()
+
     view =
       if state.status == :ready do
         TijaraTides.UseCases.GameQueries.snapshot(
@@ -230,6 +235,12 @@ defmodule TijaraTides.Infrastructure.GameServer do
       else
         %{status: state.status, public: nil, private: nil, markets: %{}}
       end
+
+    :telemetry.execute(
+      [:tijara_tides, :snapshot],
+      %{duration: System.monotonic_time() - started},
+      %{}
+    )
 
     {:reply, view, state}
   end

@@ -60,6 +60,13 @@ defmodule TijaraTidesWeb.Telemetry do
         unit: {:native, :millisecond}
       ),
 
+      # Untagged on purpose: the owner serializes every snapshot, so the distribution
+      # of this one number is the queueing signal. Tags would add per-call work to it.
+      distribution("tijara_tides.snapshot.duration",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [0.1, 0.5, 1, 5, 10, 50, 100]]
+      ),
+
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
