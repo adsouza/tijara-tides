@@ -23,6 +23,14 @@ readers = String.to_integer(System.get_env("LOAD_CLIENTS", "32"))
 writers = String.to_integer(System.get_env("LOAD_WRITERS", "1"))
 seconds = String.to_integer(System.get_env("LOAD_SECONDS", "10"))
 tick_ms = String.to_integer(System.get_env("LOAD_TICK_MS", "5000"))
+
+# Pacing. Workers that loop without pausing do not model players; they model a machine
+# with no idle time, and on a host shared with PostgreSQL they oversubscribe the cores.
+# A span measured there records waiting for a scheduler, not work. Zero keeps the old
+# flat-out behaviour, which is a throughput ceiling rather than a workload.
+think_ms = String.to_integer(System.get_env("LOAD_THINK_MS", "0"))
+read_think_ms = String.to_integer(System.get_env("LOAD_READ_THINK_MS", "0"))
+think = fn ms -> if ms > 0, do: Process.sleep(ms) end
 port = System.fetch_env!("TIJARA_TEST_DB_PORT") |> String.to_integer()
 
 # The harness runs in MIX_ENV=test for its database configuration, which also turns on
@@ -98,7 +106,6 @@ tokens =
   end
 
 token = hd(tokens)
-command = fn id, payload -> GameServer.command(token, id, payload, server) end
 seed_ms = System.monotonic_time(:millisecond) - seed_started
 
 :ok = GameServer.connect(token, server)
@@ -110,6 +117,7 @@ IO.puts("""
 world #{String.slice(world, 0, 8)}: #{companies} companies, #{total_ships} ships \
 (seeded in #{seed_ms}ms), audit_mutations off
 #{readers} readers + #{writers} writers x #{seconds}s, tick #{tick_ms}ms
+think #{think_ms}ms between commands, #{read_think_ms}ms between reads
 """)
 
 # Collect only the measured workload; company formation and hull purchases are setup.
@@ -118,12 +126,19 @@ table = :ets.new(:samples, [:public, :duplicate_bag])
 :telemetry.attach_many(
   "load-harness",
   [[:tijara_tides, :operation, :stop], [:tijara_tides, :snapshot]],
-  fn event, %{duration: duration}, metadata, _config ->
-    micro = System.convert_time_unit(duration, :native, :microsecond)
+  fn event, measurements, metadata, _config ->
+    micro = &System.convert_time_unit(&1, :native, :microsecond)
 
     case event do
-      [:tijara_tides, :snapshot] -> :ets.insert(table, {:"snapshot handler", :ok, micro})
-      _ -> :ets.insert(table, {metadata.operation, metadata.outcome, micro})
+      # Two halves of one read: building the view, then flattening it into the caller.
+      # The second is the larger, and is invisible to a span that ends with the callback.
+      [:tijara_tides, :snapshot] ->
+        :ets.insert(table, {"snapshot build", :ok, micro.(measurements.duration)})
+        :ets.insert(table, {"snapshot reply copy", :ok, micro.(measurements.reply)})
+
+      _ ->
+        label = "#{metadata.operation} (handler)"
+        :ets.insert(table, {label, metadata.outcome, micro.(measurements.duration)})
     end
   end,
   nil
@@ -164,7 +179,9 @@ reading =
       |> Enum.reduce_while([], fn started, taken ->
         if started < deadline do
           GameServer.snapshot(mine, server)
-          {:cont, [System.monotonic_time(:microsecond) - started | taken]}
+          taken = [System.monotonic_time(:microsecond) - started | taken]
+          think.(read_think_ms)
+          {:cont, taken}
         else
           {:halt, taken}
         end
@@ -174,18 +191,26 @@ reading =
 
 # Writers exercise the commit path — ledger reconciliation included — by alternating a
 # draw and its repayment, the cheapest pair that is always valid against fresh credit.
+# Each writer drives its own company: concurrent draws against one company would contend
+# on that company's row and measure the conflict path instead of the commit path.
 writing =
   for w <- 1..writers do
+    mine = Enum.at(tokens, rem(w - 1, length(tokens)))
+    command = fn id, payload -> GameServer.command(mine, id, payload, server) end
+
     Task.async(fn ->
       Stream.iterate(0, &(&1 + 1))
       |> Enum.reduce_while(0, fn n, committed ->
         if System.monotonic_time(:microsecond) < deadline do
           case command.("load-#{w}-#{n}", %{"action" => "borrow", "amount" => 100_000}) do
             {:ok, %{"loan_id" => loan}} ->
+              think.(think_ms)
               command.("load-#{w}-#{n}-repay", %{"action" => "repay", "loan" => loan})
+              think.(think_ms)
               {:cont, committed + 2}
 
             _ ->
+              think.(think_ms)
               {:cont, committed}
           end
         else
@@ -239,15 +264,25 @@ row.("snapshot round trip", Enum.map(latencies, &(&1 / 1000)))
 |> Enum.filter(fn {_, outcome, _} -> outcome == :ok end)
 |> Enum.group_by(fn {operation, _, _} -> operation end, fn {_, _, micro} -> micro / 1000 end)
 |> Enum.sort_by(fn {_, values} -> -length(values) end)
-|> Enum.each(fn {operation, values} -> row.(to_string(operation) <> " (handler)", values) end)
+|> Enum.each(fn {label, values} -> row.(label, values) end)
+
+# Every span above is work done inside the one owner process, so their sum over the run
+# is the fraction of that process which is busy. Only instrumented work counts, so this
+# is a floor: garbage collection and uninstrumented callbacks are not in it.
+busy =
+  :ets.tab2list(table)
+  |> Enum.map(fn {_, _, micro} -> micro end)
+  |> Enum.sum()
 
 sampled = :ets.tab2list(depths) |> Enum.map(fn {:depth, n} -> n end)
 mean_depth = Enum.sum(sampled) / length(sampled)
 
 IO.puts("""
 
-Round trip is client call to reply; handler rows are time inside the owner and
+Round trip is client call to reply; the rows above are time inside the owner and
 exclude mailbox waiting. The two are not subtractable.
+
+Owner busy at least #{Float.round(busy / (seconds * 10_000), 1)}% of the run.
 
 Mean wait by Little's law (mean depth / arrival rate): \
 #{Float.round(mean_depth / arrivals * 1000, 2)} ms \

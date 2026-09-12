@@ -67,6 +67,14 @@ defmodule TijaraTidesWeb.Telemetry do
         reporter_options: [buckets: [0.1, 0.5, 1, 5, 10, 50, 100]]
       ),
 
+      # The companion to the line above, and usually the larger of the two: what the
+      # owner spends copying the reply into the caller. Without it, a build time of a
+      # few microseconds reads as "reads are free" when they are not.
+      distribution("tijara_tides.snapshot.reply",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 10]]
+      ),
+
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),

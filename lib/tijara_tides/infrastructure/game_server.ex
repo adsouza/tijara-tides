@@ -218,7 +218,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   @impl true
   def handle_call(:readiness, _from, state), do: {:reply, state.status, state}
 
-  def handle_call({:snapshot, token}, _from, state) do
+  def handle_call({:snapshot, token}, from, state) do
     # Reads are the owner's highest-frequency work, so they are measured with one bare
     # event: no correlation identifier, no start event and no log line, each of which
     # would cost more than the snapshot on this path. See UseCases.GameQueries.snapshot.
@@ -236,13 +236,22 @@ defmodule TijaraTides.Infrastructure.GameServer do
         %{status: state.status, public: nil, private: nil, markets: %{}}
       end
 
+    built = System.monotonic_time()
+
+    # Building the view is cheap because it shares structure with the owner's heap. The
+    # term is flattened into the caller's heap when it is sent, and the owner pays for
+    # that: on a large world it costs several times the build. Returning {:reply, view,
+    # state} would leave that copy outside the callback where no span can see it, so the
+    # reply is sent here instead. It is the same send, only somewhere it can be timed.
+    GenServer.reply(from, view)
+
     :telemetry.execute(
       [:tijara_tides, :snapshot],
-      %{duration: System.monotonic_time() - started},
+      %{duration: built - started, reply: System.monotonic_time() - built},
       %{}
     )
 
-    {:reply, view, state}
+    {:noreply, state}
   end
 
   def handle_call({:preview, token, id, destination}, _from, %{status: :ready} = state) do
