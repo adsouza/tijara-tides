@@ -457,3 +457,13 @@ its required quantity and good. Pure planning fixtures may omit lot metadata,
 while durable cargo still receives permanent identities from CargoLots. Structs
 improve field checking but are not a static proof of round-trip correctness;
 strict decoding, mutation audits, and round-trip tests remain complementary.
+
+## Game presentation components
+
+GameLive owns shared selection, navigation, command submission and refreshes.
+`GameUI.AccountPanel`, `PortsPanel`, `FleetPanel`, `MapPanel` and `CargoPanel`
+render explicit assigns as stateless function components. FleetPanel composes
+MapPanel to preserve the three-column layout. Existing DOM IDs, event names and
+client hooks remain stable; splitting presentation does not introduce independent
+component state or extra subscriptions. Shared formatting lives in
+`GameUI.Presentation`; financial authorization remains in the application/domain.
