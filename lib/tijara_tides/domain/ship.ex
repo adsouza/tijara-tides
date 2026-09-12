@@ -6,12 +6,15 @@ defmodule TijaraTides.Domain.Ship do
   """
   alias TijaraTides.Domain.{CargoRules, ShipClass, State}
 
+  alias __MODULE__.CargoBatch
+
   @fields ~w(id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
 
   def from_row(row) do
     struct!(__MODULE__, Map.new(@fields, &{&1, row[Atom.to_string(&1)]}))
+    |> Map.update!(:cargo, &Enum.map(&1 || [], fn batch -> CargoBatch.from_row(batch) end))
   end
 
   def from_world(state, id) do
@@ -34,6 +37,7 @@ defmodule TijaraTides.Domain.Ship do
 
   def to_row(%__MODULE__{} = ship) do
     Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(ship, &1)})
+    |> Map.put("cargo", Enum.map(ship.cargo, &CargoBatch.to_row/1))
     |> then(fn row ->
       if ship.voyage_speedup == nil, do: Map.delete(row, "voyage_speedup"), else: row
     end)
@@ -50,21 +54,22 @@ defmodule TijaraTides.Domain.Ship do
 
   def record_purchase(%__MODULE__{} = ship, cargo, now, cleaning, catalogue) do
     docked!(ship)
+    cargo = Enum.map(cargo, &CargoBatch.from_row/1)
     row = to_row(ship)
 
     unless Enum.all?(cargo, fn batch ->
-             batch["quantity"] > 0 and
-               CargoRules.compatible_cargo?(row, catalogue["goods"][batch["good"]])
+             batch.quantity > 0 and
+               CargoRules.compatible_cargo?(row, catalogue["goods"][batch.good])
            end),
            do: raise(ArgumentError, "Purchased cargo is incompatible with the ship")
 
     next = %{ship | cargo: ship.cargo ++ cargo}
     capacity!(next, catalogue)
-    quantity = Enum.sum(Enum.map(cargo, & &1["quantity"]))
+    quantity = Enum.sum(Enum.map(cargo, & &1.quantity))
 
     last =
       if ShipClass.all()[ship.class]["hold"] == "liquid",
-        do: hd(cargo)["good"],
+        do: hd(cargo).good,
         else: ship.last_liquid
 
     %{
@@ -82,7 +87,7 @@ defmodule TijaraTides.Domain.Ship do
       do: raise(ArgumentError, "Sale requires a positive integer quantity available aboard")
 
     {state, sold, remaining} =
-      TijaraTides.Domain.CargoLots.take(state, ship.cargo, quantity, good)
+      CargoBatch.take(state, ship.cargo, quantity, good)
 
     next = %{
       ship
@@ -116,12 +121,12 @@ defmodule TijaraTides.Domain.Ship do
 
   def capacity(%__MODULE__{} = ship, catalogue) do
     Enum.reduce(ship.cargo, %TijaraTides.Domain.Capacity{}, fn batch, totals ->
-      item = catalogue["goods"][batch["good"]]
+      item = catalogue["goods"][batch.good]
 
       %{
         totals
-        | weight: totals.weight + item["weight_kg"] * batch["quantity"],
-          volume: totals.volume + item["volume_l"] * batch["quantity"]
+        | weight: totals.weight + item["weight_kg"] * batch.quantity,
+          volume: totals.volume + item["volume_l"] * batch.quantity
       }
     end)
   end
@@ -129,7 +134,7 @@ defmodule TijaraTides.Domain.Ship do
   defp capacity!(ship, catalogue) do
     space = capacity(ship, catalogue)
     class = ShipClass.all()[ship.class]
-    liquids = Enum.uniq(Enum.map(ship.cargo, & &1["good"]))
+    liquids = Enum.uniq(Enum.map(ship.cargo, & &1.good))
 
     unless space.weight <= class["weight"] and space.volume <= class["volume"] and
              (class["hold"] != "liquid" or length(liquids) <= 1),
@@ -140,70 +145,70 @@ defmodule TijaraTides.Domain.Ship do
   defp docked!(_), do: raise(ArgumentError, "Ship must finish its current operation first")
 
   def advance(%__MODULE__{} = aggregate, now, elapsed, bankrupt, speedup, book_value) do
-    ship = aggregate |> to_row() |> retime_voyage(now - elapsed, speedup)
-    depreciation = ship["book_value"] - book_value
-    ship = Map.put(ship, "book_value", book_value)
-    class = ShipClass.all()[ship["class"]]
-    end_ms = ship["arrive_ms"] || now
+    ship = aggregate |> retime_voyage(now - elapsed, speedup)
+    depreciation = ship.book_value - book_value
+    ship = %{ship | book_value: book_value}
+    class = ShipClass.all()[ship.class]
+    end_ms = ship.arrive_ms || now
 
     moving_ms =
-      if ship["status"] == "sailing",
-        do: max(0, min(now, end_ms) - ship["last_cost_ms"]),
+      if ship.status == "sailing",
+        do: max(0, min(now, end_ms) - ship.last_cost_ms),
         else: 0
 
-    idle_ms = now - ship["last_cost_ms"] - moving_ms
+    idle_ms = now - ship.last_cost_ms - moving_ms
 
     crew_numerator =
-      ship["crew_remainder"] + moving_ms * class["crew"] * 2 + idle_ms * class["crew"]
+      ship.crew_remainder + moving_ms * class["crew"] * 2 + idle_ms * class["crew"]
 
     crew = if not bankrupt, do: div(crew_numerator, 120_000), else: 0
 
     fuel_burned =
-      if ship["status"] == "sailing",
+      if ship.status == "sailing",
         do:
           max(
-            ship["fuel_burned"],
+            ship.fuel_burned,
             min(
-              ship["fuel_total"],
+              ship.fuel_total,
               div(
-                ship["fuel_total"] * max(0, now - ship["depart_ms"]),
-                ship["arrive_ms"] - ship["depart_ms"]
+                ship.fuel_total * max(0, now - ship.depart_ms),
+                ship.arrive_ms - ship.depart_ms
               )
             )
           ),
-        else: ship["fuel_burned"]
+        else: ship.fuel_burned
 
-    fuel = fuel_burned - ship["fuel_burned"]
+    fuel = fuel_burned - ship.fuel_burned
 
     {expired, cargo} =
-      Enum.split_with(ship["cargo"], &(&1["expires_ms"] != nil and &1["expires_ms"] <= now))
+      Enum.split_with(ship.cargo, &(&1.expires_ms != nil and &1.expires_ms <= now))
 
-    spoilage = Enum.sum(Enum.map(expired, &(&1["unit_cost"] * &1["quantity"])))
+    spoilage = Enum.sum(Enum.map(expired, &(&1.unit_cost * &1.quantity)))
 
     ship = %{
       ship
-      | "fuel_burned" => fuel_burned,
-        "last_cost_ms" => now,
-        "crew_remainder" => rem(crew_numerator, 120_000),
-        "cargo" => cargo
+      | fuel_burned: fuel_burned,
+        last_cost_ms: now,
+        crew_remainder: rem(crew_numerator, 120_000),
+        cargo: cargo
     }
 
     ship =
-      if ship["status"] != "docked" and end_ms <= now do
+      if ship.status != "docked" and end_ms <= now do
         %{
           ship
-          | "port" => ship["destination"] || ship["port"],
-            "destination" => nil,
-            "status" => "docked",
-            "arrive_ms" => nil,
-            "depart_ms" => nil
+          | port: ship.destination || ship.port,
+            destination: nil,
+            status: "docked",
+            arrive_ms: nil,
+            depart_ms: nil
         }
       else
         ship
       end
 
     next = %{
-      from_row(ship)
+      ship
       | route_plan: aggregate.route_plan,
         visit_orders: aggregate.visit_orders,
         visit_plans: aggregate.visit_plans
@@ -214,22 +219,22 @@ defmodule TijaraTides.Domain.Ship do
 
   # Older in-flight voyages used 60x. Preserve their progress when tuning changes;
   # the persisted multiplier prevents applying this adjustment on later ticks.
-  defp retime_voyage(%{"status" => "sailing"} = ship, clock, speedup) do
-    previous = Map.get(ship, "voyage_speedup", 60)
+  defp retime_voyage(%__MODULE__{status: "sailing"} = ship, clock, speedup) do
+    previous = ship.voyage_speedup || 60
 
     if previous == speedup do
       ship
     else
       ship
       |> Map.put(
-        "depart_ms",
-        clock - div((clock - ship["depart_ms"]) * previous, speedup)
+        :depart_ms,
+        clock - div((clock - ship.depart_ms) * previous, speedup)
       )
       |> Map.put(
-        "arrive_ms",
-        clock + max(1, div((ship["arrive_ms"] - clock) * previous, speedup))
+        :arrive_ms,
+        clock + max(1, div((ship.arrive_ms - clock) * previous, speedup))
       )
-      |> Map.put("voyage_speedup", speedup)
+      |> Map.put(:voyage_speedup, speedup)
     end
   end
 
@@ -299,7 +304,7 @@ defmodule TijaraTides.Domain.Ship do
   def unload_cargo(state, id, good, quantity) do
     ship = State.get(state, "ships", id) |> from_row()
     {state, ship, sold} = record_sale(state, ship, good, quantity)
-    {store(state, ship), sold}
+    {store(state, ship), Enum.map(sold, &CargoBatch.to_row/1)}
   end
 
   @doc "Lots of one good aboard. Callers must bound a sale by this, not by an older snapshot."
@@ -307,7 +312,7 @@ defmodule TijaraTides.Domain.Ship do
     do: aboard(State.get(state, "ships", id) |> from_row(), good)
 
   defp aboard(%__MODULE__{cargo: cargo}, good),
-    do: Enum.sum(for batch <- cargo, batch["good"] == good, do: batch["quantity"])
+    do: Enum.sum(for batch <- cargo, batch.good == good, do: batch.quantity)
 
   def depart(state, id, destination, estimate, speedup) do
     ship = State.get(state, "ships", id) |> from_row()

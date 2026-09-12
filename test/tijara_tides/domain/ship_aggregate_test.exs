@@ -1,7 +1,7 @@
 defmodule TijaraTides.Domain.ShipAggregateTest do
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.Ship
-  alias Ship.VisitOrder
+  alias Ship.{VisitOrder, CargoBatch}
 
   defp vessel do
     %Ship{
@@ -46,7 +46,7 @@ defmodule TijaraTides.Domain.ShipAggregateTest do
     state = %{clock_ms: 0}
     {state, batch} = TijaraTides.Domain.CargoLots.create(state, "crude_oil", 4, 90_000)
     batch = Map.merge(batch, %{"good" => "crude_oil", "unit_cost" => 123})
-    ship = %{vessel() | cargo: [batch]}
+    ship = %{vessel() | cargo: [CargoBatch.from_row(batch)]}
 
     for quantity <- [-1, 0, 5, 1.5] do
       assert_raise ArgumentError, fn -> Ship.record_sale(state, ship, "crude_oil", quantity) end
@@ -58,20 +58,20 @@ defmodule TijaraTides.Domain.ShipAggregateTest do
     assert next.status == "unloading"
 
     for part <- [sold, remaining] do
-      assert part["quantity"] == 2
-      assert part["unit_cost"] == 123
-      assert part["expires_ms"] == 90_000
-      assert part["good"] == "crude_oil"
-      assert part["lot_id"] != batch["lot_id"]
+      assert part.quantity == 2
+      assert part.unit_cost == 123
+      assert part.expires_ms == 90_000
+      assert part.good == "crude_oil"
+      assert part.lot_id != batch["lot_id"]
 
-      assert Enum.find(changed.new_lots, &(&1["id"] == part["lot_id"]))["parent_lot_id"] ==
+      assert Enum.find(changed.new_lots, &(&1["id"] == part.lot_id))["parent_lot_id"] ==
                batch["lot_id"]
     end
 
-    assert sold["lot_id"] != remaining["lot_id"]
+    assert sold.lot_id != remaining.lot_id
     {_, empty, [whole]} = Ship.record_sale(state, ship, "crude_oil", 4)
     assert empty.cargo == []
-    assert whole == batch
+    assert CargoBatch.to_row(whole) == batch
   end
 
   test "arrival burns fuel once and preserves the aggregate's automation" do
@@ -106,5 +106,21 @@ defmodule TijaraTides.Domain.ShipAggregateTest do
     complete = VisitOrder.record_fill(partial, 3, 40)
     assert complete.status == "filled"
     assert_raise ArgumentError, fn -> VisitOrder.record_fill(complete, 1, 0) end
+  end
+
+  test "cargo decoding preserves every persisted field and rejects unrecognized fields" do
+    row = %{
+      "lot_id" => "lot:1",
+      "good" => "grain",
+      "quantity" => 7,
+      "unit_cost" => 123,
+      "expires_ms" => 456
+    }
+
+    batch = CargoBatch.from_row(row)
+    assert %CargoBatch{quantity: 7, unit_cost: 123, expires_ms: 456} = batch
+    assert CargoBatch.to_row(batch) == row
+    assert_raise ArgumentError, fn -> CargoBatch.from_row(Map.put(row, "future_column", 1)) end
+    assert_raise ArgumentError, fn -> CargoBatch.from_row(Map.delete(row, "quantity")) end
   end
 end
