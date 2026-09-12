@@ -31,8 +31,8 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
           aria-controls="map-panel"
           class="map-expand rounded border border-slate-600 px-3 py-1 text-xs"
         >
-          <span class="map-expand-label">Expand <span class="map-button-word">map ⛶</span></span>
-          <span class="map-restore-label">Restore main screen ↙</span>
+          <span class="map-expand-label">{gettext("Expand map ⛶")}</span>
+          <span class="map-restore-label">{gettext("Restore main screen ↙")}</span>
         </button>
         <button
           id="map-filter-toggle"
@@ -41,7 +41,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
           aria-controls="map-filters"
           class="rounded border border-slate-600 px-3 py-1 text-xs"
         >
-          Ship <span class="map-button-word">filters {if @map_filters_open, do: "▴", else: "▾"}</span>
+          {gettext("Ship filters %{arrow}", arrow: if(@map_filters_open, do: "▴", else: "▾"))}
         </button>
         <form
           :if={@map_filters_open}
@@ -50,7 +50,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
           class="mt-2 rounded border border-slate-600 bg-slate-900 p-3 text-xs"
         >
           <fieldset>
-            <legend class="mb-2 text-slate-400">Ship types</legend>
+            <legend class="mb-2 text-slate-400">{gettext("Ship types")}</legend>
             <input type="hidden" name="classes[]" value="" />
             <div class="grid grid-cols-2 gap-2">
               <label
@@ -66,7 +66,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
                   value={id}
                   checked={MapSet.member?(@map_ship_classes, id)}
                 />
-                {ship_class["name"]}
+                {l10n(ship_class["name"])}
               </label>
             </div>
           </fieldset>
@@ -80,7 +80,8 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
               name="show_others"
               value="true"
               checked={@map_show_others}
-            /> Show other companies’ ships
+            />
+            {gettext("Show other companies’ ships")}
           </label>
         </form>
       </div>
@@ -88,14 +89,16 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
         :if={@map_region}
         class="map-region-heading flex items-center justify-between px-4 py-3"
       >
-        <h2 class="text-lg">{@map_region}</h2>
-        <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2">World view</button>
+        <h2 class="text-lg">{l10n(@map_region)}</h2>
+        <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2">{gettext(
+          "World view"
+        )}</button>
       </div>
       <svg
         id="world-map"
         viewBox={viewport.box}
         role="group"
-        aria-label="World ports and public ship positions on a Equal Earth map"
+        aria-label={gettext("World ports and public ship positions on a Equal Earth map")}
         class="w-full"
       >
         <polygon
@@ -150,8 +153,12 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
           tabindex="0"
           aria-label={
             if length(marker.ports) > 1,
-              do: "#{marker.name}: #{length(marker.ports)} ports",
-              else: "Select #{marker.name}"
+              do:
+                gettext("%{region}: %{count} ports",
+                  region: l10n(marker.name),
+                  count: display_number(length(marker.ports))
+                ),
+              else: gettext("Select %{port}", port: l10n(marker.name))
           }
           phx-click={if length(marker.ports) > 1, do: "map-region", else: "port"}
           phx-keydown={if length(marker.ports) > 1, do: "map-region", else: "port"}
@@ -180,9 +187,9 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
             vector-effect="non-scaling-stroke"
           >
             <title>
-              {marker.name} — {if length(marker.ports) > 1,
-                do: Enum.join(marker.ports, ", "),
-                else: @definitions.catalogue["ports"][marker.name]["harbor"]}
+              {l10n(marker.name)} — {if length(marker.ports) > 1,
+                do: Enum.map_join(marker.ports, ", ", &l10n/1),
+                else: l10n(@definitions.catalogue["ports"][marker.name]["harbor"])}
             </title>
           </circle>
           <text
@@ -205,7 +212,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
             paint-order="stroke"
             pointer-events="none"
           >
-            {marker.name}
+            {l10n(marker.name)}
           </text>
           <text
             :if={length(marker.ports) > 1}
@@ -218,7 +225,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
             fill="#0f172a"
             pointer-events="none"
           >
-            {length(marker.ports)}
+            {display_number(length(marker.ports))}
           </text>
         </g>
         <g :for={{id, s} <- @map_ships} data-map-ship={id}>
@@ -234,31 +241,33 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
             role="button"
             tabindex="0"
             class="cursor-pointer"
-            aria-label={"Inspect #{s["name"]}"}
+            aria-label={gettext("Inspect %{ship}", ship: s["name"])}
             phx-click="inspect-ship"
             phx-value-id={id}
             phx-keydown="inspect-ship"
             phx-key="Enter"
           >
             <title>
-              {s["name"]} · {@view.public["companies"][s["company_id"]]["name"]} · {@definitions.classes[
-                s["class"]
-              ]["name"]}
+              {s["name"]} · {@view.public["companies"][s["company_id"]]["name"]} · {l10n(
+                @definitions.classes[s["class"]]["name"]
+              )}
             </title>
           </circle>
         </g>
       </svg>
       <p class="px-4 pb-3 text-xs text-slate-400">
-        Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic
+        {gettext(
+          "Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic"
+        )}
       </p>
       <div :if={@map_region} id="region-ports" class="border-t border-slate-700 p-4">
         <p class="mb-3 text-sm text-slate-300">
-          Choose a port in {@map_region} to inspect its market.
+          {gettext("Choose a port in %{value1} to inspect its market.", value1: l10n(@map_region))}
         </p>
         <div class="flex flex-wrap gap-3">
           <button
             :for={name <- Enum.sort(@definitions.catalogue["clusters"][@map_region])}
-            title={@definitions.catalogue["ports"][name]["harbor"]}
+            title={l10n(@definitions.catalogue["ports"][name]["harbor"])}
             phx-click="port"
             phx-value-id={name}
             aria-pressed={if name == @selected_port, do: "true", else: "false"}
@@ -270,16 +279,16 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
               )
             ]}
           >
-            <strong>{name}</strong><span class="block text-sm text-slate-400">{@definitions.catalogue[
-              "ports"
-            ][name]["harbor"]}</span>
+            <strong>{l10n(name)}</strong><span class="block text-sm text-slate-400">{l10n(
+              @definitions.catalogue["ports"][name]["harbor"]
+            )}</span>
           </button>
         </div>
       </div>
       <aside
         :if={@inspected_ship && @view.public["ships"][@inspected_ship]}
         id="map-ship-overlay"
-        aria-label="Selected ship"
+        aria-label={gettext("Selected ship")}
         class="map-ship-overlay"
       >
         <% inspected = @view.public["ships"][@inspected_ship] %>
@@ -287,7 +296,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
         <button
           type="button"
           phx-click="close-map-ship"
-          aria-label="Dismiss ship information"
+          aria-label={gettext("Dismiss ship information")}
           class="float-right ml-3 rounded px-2 py-1 text-slate-300"
         >✕</button>
         <h2 class="text-base font-semibold text-teal-200">{inspected["name"]}</h2>
@@ -296,24 +305,28 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
           :if={@view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil}
           class="text-red-300"
         >
-          Company in bankruptcy — assets in receivership
+          {gettext("Company in bankruptcy — assets in receivership")}
         </p>
-        <p>{@definitions.classes[inspected["class"]]["name"]} · {inspected["status"]}</p>
+        <p>{l10n(@definitions.classes[inspected["class"]]["name"])} · {l10n(inspected["status"])}</p>
         <p>
-          {inspected["port"]}<span :if={inspected["destination"]}> → {inspected[
-            "destination"
-          ]}</span>
+          {l10n(inspected["port"])}<span :if={inspected["destination"]}>{sailing_arrow()} {l10n(
+            inspected["destination"]
+          )}</span>
         </p>
         <p :if={inspected["status"] in ["sailing", "loading", "unloading"]}>
-          {minutes(max(0, inspected["arrive_ms"] - @view.public["clock_ms"]))} min remaining
+          {gettext("%{value1} min remaining",
+            value1: minutes(max(0, inspected["arrive_ms"] - @view.public["clock_ms"]))
+          )}
         </p>
         <div :if={own} class="mt-2 border-t border-slate-600 pt-2">
-          <p class="font-semibold">Cargo aboard</p>
-          <p :if={own["cargo"] == []} class="text-slate-400">Empty hold</p>
-          <table :if={own["cargo"] != []} class="w-full" aria-label="Selected ship cargo">
+          <p class="font-semibold">{gettext("Cargo aboard")}</p>
+          <p :if={own["cargo"] == []} class="text-slate-400">{gettext("Empty hold")}</p>
+          <table :if={own["cargo"] != []} class="w-full" aria-label={gettext("Selected ship cargo")}>
             <thead>
               <tr>
-                <th class="text-left">Cargo</th><th class="text-right">Lots</th>
+                <th class="text-left">{gettext("Cargo")}</th><th class="text-right">
+                  {gettext("Lots")}
+                </th>
               </tr>
             </thead>
             <tbody>

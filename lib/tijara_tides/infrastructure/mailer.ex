@@ -43,16 +43,12 @@ defmodule TijaraTides.Infrastructure.EmailDelivery do
             message =
               new()
               |> to(row["email"])
-              |> from({"Tijara Tides", Application.fetch_env!(:tijara_tides, :email_from)})
-              |> subject(
-                if(row["purpose"] == "invite",
-                  do: "Your Tijara Tides invitation",
-                  else: "Your Tijara Tides sign-in link"
-                )
+              |> from(
+                {TijaraTides.Localization.Email.sender_name(row),
+                 Application.fetch_env!(:tijara_tides, :email_from)}
               )
-              |> text_body(
-                "Open this link to verify your email and continue to Tijara Tides:\n\n#{url}\n\nUsing the desktop app? Paste this sign-in token into the app instead:\n\n#{token}\n\nThe link and token can be used only once, on one device.\n\n#{if row["purpose"] == "invite", do: "This invitation expires after three days of active world time.", else: "This link expires in 15 minutes."}\n\nDo not share this link or token. If you did not request it, ignore this email."
-              )
+              |> subject(TijaraTides.Localization.Email.subject(row))
+              |> text_body(TijaraTides.Localization.Email.body(row, url, token))
 
             case deliver(message) do
               {:ok, _} -> GameServer.email_delivered(row["id"])

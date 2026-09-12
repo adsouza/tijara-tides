@@ -4,7 +4,7 @@ defmodule TijaraTides.Domain.Account do
   import TijaraTides.Domain.Notices, only: [notice: 4]
   @invite_ms 3 * 86_400_000
 
-  @fields ~w(id company_id inviter bankruptcies suspended_ms email invite_quota created_ms)a
+  @fields ~w(id company_id inviter bankruptcies suspended_ms email invite_quota created_ms locale)a
   defstruct @fields ++ [sessions: [], invitations: [], email_requests: [], bankruptcy_events: []]
   @history_ms 112 * 86_400_000
   def history_ms, do: @history_ms
@@ -56,10 +56,22 @@ defmodule TijaraTides.Domain.Account do
   end
 
   def from_row(row),
-    do: struct!(__MODULE__, Map.new(@fields, &{&1, row[Atom.to_string(&1)]}))
+    do:
+      struct!(
+        __MODULE__,
+        Map.new(
+          @fields,
+          &{&1, if(&1 == :locale, do: row["locale"] || "en", else: row[Atom.to_string(&1)])}
+        )
+      )
 
   def to_row(%__MODULE__{} = account),
-    do: Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(account, &1)})
+    do:
+      Map.new(
+        @fields,
+        &{Atom.to_string(&1),
+         if(&1 == :locale, do: account.locale || "en", else: Map.fetch!(account, &1))}
+      )
 
   def from_world(state, id) do
     account = from_row(get(state, "accounts", id))
@@ -174,12 +186,12 @@ defmodule TijaraTides.Domain.Account do
       |> notice(
         account_id,
         "suspension",
-        "Account suspended after five recent bankruptcies. Your original sponsor must pledge at least $50,000 to reinstate you."
+        {"account.suspended", %{}}
       )
       |> notice(
         account.inviter,
         "suspension:" <> account_id,
-        "An invitee is suspended and needs your cash-backed guarantee. Review sponsor guarantees in the account menu."
+        {"account.invitee_suspended", %{}}
       )
     else
       state
@@ -201,6 +213,13 @@ defmodule TijaraTides.Domain.Account do
 
     store(state, %{account | suspended_ms: nil})
   end
+
+  def set_locale(state, account, locale) when locale in ["en", "ar"] do
+    current = from_world(state, account["id"])
+    {:ok, store(state, %{current | locale: locale}), %{}}
+  end
+
+  def set_locale(_state, _account, _locale), do: {:error, :invalid_locale}
 
   def sign_out(state, session_hash), do: delete(state, "sessions", session_hash)
 
@@ -271,6 +290,7 @@ defmodule TijaraTides.Domain.Account do
         "bankruptcies" => 0,
         "suspended_ms" => nil,
         "email" => nil,
+        "locale" => "en",
         "invite_quota" => if(invite["seed"], do: 3, else: 0),
         "created_ms" => state.clock_ms
       }
@@ -289,7 +309,7 @@ defmodule TijaraTides.Domain.Account do
           state,
           invite["inviter"],
           "accepted:" <> id,
-          "Your invitation was accepted. Company formation is pending."
+          {"invitation.accepted", %{}}
         )
 
       {:ok, state, %{"account_id" => id}}

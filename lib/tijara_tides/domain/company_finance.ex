@@ -595,7 +595,12 @@ defmodule TijaraTides.Domain.CompanyFinance do
       end)
 
     Enum.reduce(effects.notices, state, fn {notice_id, notice}, state ->
-      Notices.notice(state, notice["account_id"], notice_id, notice["text"])
+      Notices.notice(
+        state,
+        notice["account_id"],
+        notice_id,
+        if(notice["code"], do: {notice["code"], notice["arguments"]}, else: notice["text"])
+      )
     end)
   end
 
@@ -776,7 +781,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
           state,
           company["account_id"],
           "arrears:" <> id,
-          "All overdue payments have been cleared. The bankruptcy grace period has ended."
+          {"finance.arrears_cleared", %{}}
         )
 
       since != nil and prior_since != since ->
@@ -784,7 +789,8 @@ defmodule TijaraTides.Domain.CompanyFinance do
           state,
           company["account_id"],
           "arrears:" <> id,
-          "Payments overdue. Clear all arrears within #{div(max(0, since + @terms.grace_ms - state.clock_ms), 60_000)} active-world minutes to avoid bankruptcy."
+          {"finance.arrears",
+           %{"minutes" => div(max(0, since + @terms.grace_ms - state.clock_ms), 60_000)}}
         )
 
       true ->
@@ -907,7 +913,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
       |> Notices.notice(
         account["id"],
         "bankruptcy:" <> company["id"],
-        "#{company["name"]} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes."
+        {"company.bankrupt", %{"company" => company["name"]}}
       )
 
     state

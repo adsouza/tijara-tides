@@ -8,6 +8,9 @@ defmodule TijaraTides.Domain.Commands do
   def execute(state, account, command, context, catalogue),
     do: execute(state, account, command, Map.put(context, :catalogue, catalogue))
 
+  def execute(state, account, %{"action" => "locale", "locale" => locale}, _context),
+    do: TijaraTides.Domain.Account.set_locale(state, account, locale)
+
   def execute(state, account, command, context) do
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
     current_account = TijaraTides.Domain.State.get(state, "accounts", account["id"]) || account

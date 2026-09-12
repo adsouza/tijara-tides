@@ -4,6 +4,18 @@ defmodule TijaraTides.Domain.Notices do
 
   def notice(state, nil, _id, _text), do: state
 
+  def notice(state, account, id, {code, arguments}) when is_binary(code) and is_map(arguments) do
+    state
+    |> put("notices", id, %{
+      "account_id" => account,
+      "code" => code,
+      "arguments" => arguments,
+      "clock_ms" => state.clock_ms
+    })
+    |> prune_notices()
+  end
+
+  # Existing persisted English notices remain readable during the migration.
   def notice(state, account, id, text) do
     state
     |> put("notices", id, %{

@@ -128,6 +128,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"created_ms", "created_ms"}
     ],
     "accounts" => [
+      {"locale", "locale"},
       {"id", "id"},
       {"company_id", "company_id"},
       {"inviter", "inviter_account_id"},
@@ -190,7 +191,13 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"seed", "seed"},
       {"invitee", "invitee_account_id"}
     ],
-    "notices" => [{"account_id", "account_id"}, {"text", "message"}, {"clock_ms", "clock_ms"}]
+    "notices" => [
+      {"account_id", "account_id"},
+      {"text", "message"},
+      {"code", "code"},
+      {"arguments", "arguments"},
+      {"clock_ms", "clock_ms"}
+    ]
   }
   @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
 
@@ -264,8 +271,12 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
         if is_nil(data[key]), do: Map.delete(data, key), else: data
       end)
 
+    data = if kind == "notices", do: normalize_notice(data), else: data
     {id, data}
   end
+
+  defp normalize_notice(%{"code" => nil} = data), do: Map.drop(data, ["code", "arguments"])
+  defp normalize_notice(data), do: Map.delete(data, "text")
 
   defp history_filter(_, nil), do: ""
   defp history_filter("sessions", _), do: " AND expires_at_ms > $2"
@@ -440,6 +451,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     :ok
   end
 
+  defp column_value("locale", nil), do: "en"
+  defp column_value("arguments", nil), do: %{}
   defp column_value("capital_ms", value), do: Decimal.new(value)
   defp column_value(_key, value), do: value
 

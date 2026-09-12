@@ -19,9 +19,9 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
 
   def panel(assigns) do
     ~H"""
-    <section id="ports-panel" class="workspace-panel" aria-label="Ports">
-      <h2 class="panel-title">Ports</h2>
-      <div class="panel-content" tabindex="0" aria-label="Port details and trading">
+    <section id="ports-panel" class="workspace-panel" aria-label={gettext("Ports")}>
+      <h2 class="panel-title">{gettext("Ports")}</h2>
+      <div class="panel-content" tabindex="0" aria-label={gettext("Port details and trading")}>
         <section class="my-6 rounded-xl border border-slate-700 p-5">
           <div class="flex flex-wrap gap-3">
             <form
@@ -32,7 +32,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               data-selected={@selected_port}
             >
               <select
-                aria-label="Inspect port"
+                aria-label={gettext("Inspect port")}
                 name="id"
                 class="rounded bg-slate-800 px-3 py-2"
               ><option
@@ -40,7 +40,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                 value={name}
                 selected={name == @selected_port}
               >
-                {name}
+                {l10n(name)}
               </option></select>
             </form>
           </div>
@@ -50,21 +50,26 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             type="button"
             phx-click="port-destination"
             disabled={@destination == @selected_port}
-            title={"Set #{@selected_port} as the destination for #{@ship["name"]}"}
+            title={
+              gettext("Set %{port} as the destination for %{ship}",
+                port: l10n(@selected_port),
+                ship: @ship["name"]
+              )
+            }
             class="my-2 rounded border border-teal-700 px-3 py-2 text-sm text-teal-200 disabled:opacity-60"
           >
             {if @destination == @selected_port,
-              do: "Selected destination",
-              else: "Set as destination"}
+              do: gettext("Selected destination"),
+              else: gettext("Set as destination")}
           </button>
           <details
             id="about-port"
             phx-mounted={JS.ignore_attributes("open")}
             class="my-2 text-sm text-slate-400"
           >
-            <summary class="cursor-pointer">About this port</summary>
+            <summary class="cursor-pointer">{gettext("About this port")}</summary>
             <p class="mt-2">
-              {@definitions.catalogue["ports"][@selected_port]["identity"]}
+              {l10n(@definitions.catalogue["ports"][@selected_port]["identity"])}
             </p>
           </details>
           <section
@@ -74,27 +79,38 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
           >
             <% distance = route_distance(@definitions, @ship, @selected_port) %>
             <h3 class="text-sm text-teal-200">
-              From {@ship["port"]} · {if distance,
-                do: "#{round(distance)} nautical miles",
-                else: "No route available"}
+              {gettext("From %{value1} · %{value2}",
+                value1: l10n(@ship["port"]),
+                value2:
+                  if(distance,
+                    do:
+                      gettext("%{distance} nautical miles", distance: display_number(round(distance))),
+                    else: gettext("No route available")
+                  )
+              )}
             </h3>
             <p class="my-2 text-xs text-slate-400">
-              Cargo available at {@ship["port"]}. Profit estimates use the listed load, current prices, handling, cleaning, fuel, canals, and estimated fleet upkeep. Cash affordability and spoilage are not included; prices and demand can change.
+              {gettext(
+                "Cargo available at %{value1}. Profit estimates use the listed load, current prices, handling, cleaning, fuel, canals, and estimated fleet upkeep. Cash affordability and spoilage are not included; prices and demand can change.",
+                value1: l10n(@ship["port"])
+              )}
             </p>
             <% options =
               GameQueries.destination_options(@definitions, @view, @ship, @selected_port) %>
             <p :if={options == []} class="text-sm text-slate-400">
-              No compatible cargo available at the current port.
+              {gettext("No compatible cargo available at the current port.")}
             </p>
             <table
               :if={options != []}
               class="w-full text-xs"
-              aria-label="Destination trade opportunities"
+              aria-label={gettext("Destination trade opportunities")}
             >
               <thead>
                 <tr>
-                  <th>Cargo / supply</th><th>Buy / lot</th><th>Bid / demand</th><th>
-                    Load / est. profit
+                  <th>{gettext("Cargo / supply")}</th><th>{gettext("Buy / lot")}</th><th>
+                    {gettext("Bid / demand")}
+                  </th><th>
+                    {gettext("Load / est. profit")}
                   </th>
                 </tr>
               </thead>
@@ -111,20 +127,25 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                       phx-value-good={option.good}
                       class="text-left text-teal-300 underline"
                     >{cargo_name(option.good)}</button><p>
-                      {option.source["stock"]} lots · {cargo_volume(
-                        option.item,
-                        option.source["stock"]
+                      {gettext("%{value1} lots · %{value2}",
+                        value1: display_number(option.source["stock"]),
+                        value2:
+                          cargo_volume(
+                            option.item,
+                            option.source["stock"]
+                          )
                       )}
                     </p>
                   </td>
                   <td>{money(option.source["ask"])}</td>
                   <td>
                     {if option.demand > 0,
-                      do: "#{money(option.buyer["bid"])} / #{option.demand}",
-                      else: "No demand"}
+                      do: "#{money(option.buyer["bid"])} / #{display_number(option.demand)}",
+                      else: gettext("No demand")}
                   </td>
                   <td>
-                    {option.lots} lots<p class={
+                    {gettext("%{value1} lots", value1: display_number(option.lots))}
+                    <p class={
                       if option.profit && option.profit >= 0,
                         do: "text-teal-300",
                         else: "text-red-400"
@@ -143,9 +164,11 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             grouping={@traffic_grouping}
           />
           <p class="mb-3 text-sm text-slate-400">
-            Whole lots · finite local supply and demand · trades require your selected ship to be docked here. Handling takes time.
+            {gettext(
+              "Whole lots · finite local supply and demand · trades require your selected ship to be docked here. Handling takes time."
+            )}
           </p>
-          <div class="mb-3 flex gap-2" role="group" aria-label="Port market side">
+          <div class="mb-3 flex gap-2" role="group" aria-label={gettext("Port market side")}>
             <button
               :for={{side, label} <- [{"buy", "Buy / supply"}, {"sell", "Sell / demand"}]}
               type="button"
@@ -159,7 +182,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                   else: "bg-slate-800 text-slate-400"
                 )
               ]}
-            >{label}</button>
+            >{l10n(label)}</button>
           </div>
           <% market_rows =
             visible_market_rows(@definitions, @view, @ship, @selected_port)
@@ -183,7 +206,10 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             id="destination-market-note"
             class="mb-3 text-xs text-slate-400"
           >
-            Destination bids: {comparison_port}. Gross profit excludes handling and voyage costs; demand and prices may change before arrival.
+            {gettext(
+              "Destination bids: %{value1}. Gross profit excludes handling and voyage costs; demand and prices may change before arrival.",
+              value1: l10n(comparison_port)
+            )}
           </p>
           <% purchase =
             if @port_market_side == "buy" && selected_ship_here &&
@@ -215,11 +241,16 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               class="mb-3 text-sm text-slate-300"
               role="status"
             >
-              For {quantity} lots of {cargo_name(good)}, keep {money(voyage["required"])} for {@destination}: fuel {money(
-                voyage["fuel"]
-              )}, canals {money(voyage["canal_fees"])}, estimated fleet upkeep {money(
-                voyage["upkeep"]
-              )} through loading and arrival.
+              {gettext(
+                "For %{value1} lots of %{value2}, keep %{value3} for %{value4}: fuel %{value5}, canals %{value6}, estimated fleet upkeep %{value7} through loading and arrival.",
+                value1: display_number(quantity),
+                value2: cargo_name(good),
+                value3: money(voyage["required"]),
+                value4: @destination,
+                value5: money(voyage["fuel"]),
+                value6: money(voyage["canal_fees"]),
+                value7: money(voyage["upkeep"])
+              )}
             </p>
           <% end %>
           <p
@@ -230,27 +261,35 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             id="purchase-destination-reminder"
             class="mb-3 text-sm text-amber-200"
           >
-            Choose a destination port before buying.
+            {gettext("Choose a destination port before buying.")}
           </p>
           <p :if={market_rows == []} class="py-4 text-slate-400">
-            No cargo is available to {@port_market_side} here right now.
+            {gettext("No cargo is available to %{value1} here right now.",
+              value1: l10n(@port_market_side)
+            )}
           </p>
           <div :if={market_rows != []} class="overflow-x-auto">
             <table
               id="port-market-table"
               class="w-full text-left text-sm"
-              aria-label={if(@port_market_side == "buy", do: "Port supply", else: "Port demand")}
+              aria-label={
+                if(@port_market_side == "buy",
+                  do: gettext("Port supply"),
+                  else: gettext("Port demand")
+                )
+              }
             >
               <thead class="text-slate-400">
                 <tr>
-                  <th class="cargo-description-column py-2">Cargo / lot size</th><th class="market-price-column">
+                  <th class="cargo-description-column py-2">{gettext("Cargo / lot size")}</th><th class="market-price-column">
                     {if @port_market_side == "buy",
-                      do: "Buy / supply",
-                      else: "Sell / demand"}
+                      do: gettext("Buy / supply"),
+                      else: gettext("Sell / demand")}
                   </th><th :if={show_ship_columns} class="aboard-column">
-                    Aboard<br /><span class="font-normal">(lots)</span>
+                    {gettext("Aboard")}
+                    <br /><span class="font-normal">{gettext("(lots)")}</span>
                   </th><th :if={show_ship_columns}>
-                    Trade
+                    {gettext("Trade")}
                   </th>
                 </tr>
               </thead><tbody>
@@ -267,18 +306,23 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                       type="button"
                       phx-click="market-good"
                       phx-value-good={good}
-                      aria-label={"View markets for #{cargo_name(good)}"}
+                      aria-label={gettext("View markets for %{cargo}", cargo: cargo_name(good))}
                       class="rounded text-left text-teal-300 underline decoration-teal-700 underline-offset-2 hover:text-teal-100 focus-visible:outline-2 focus-visible:outline-teal-300"
                     >{cargo_name(good)}</button>
                     <p class="text-xs text-slate-400">
-                      {item["weight_kg"]} kg · {cargo_volume(item, 1)}
-                      <span :if={q["manual"]}> · handling {money(q["handling_fee"])} / lot</span>
+                      {gettext("%{value1} kg · %{value2}",
+                        value1: display_number(item["weight_kg"]),
+                        value2: cargo_volume(item, 1)
+                      )}
+                      <span :if={q["manual"]}>{gettext("· handling %{value1} / lot",
+                        value1: money(q["handling_fee"])
+                      )}</span>
                     </p>
                   </td>
                   <td class="market-price-column">
-                    {money(q[if(@port_market_side == "buy", do: "ask", else: "bid")])} / {q[
-                      if(@port_market_side == "buy", do: "stock", else: "demand")
-                    ]}
+                    {money(q[if(@port_market_side == "buy", do: "ask", else: "bid")])} / {display_number(
+                      q[if(@port_market_side == "buy", do: "stock", else: "demand")]
+                    )}
                     <div
                       :if={
                         destination_quote && destination_quote["manual"] &&
@@ -287,15 +331,18 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                       class="destination-bid mt-1 text-xs"
                       data-good={good}
                     >
-                      <span class="block text-slate-300">{money(destination_quote["bid"])} bid</span>
+                      <span class="block text-slate-300">{gettext("%{value1} bid",
+                        value1: money(destination_quote["bid"])
+                      )}</span>
                       <span class={
                         if destination_quote["bid"] >= q["ask"],
                           do: "text-teal-300",
                           else: "text-red-400"
                       }>
-                        {if destination_quote["bid"] > q["ask"], do: "+"}{money(
-                          destination_quote["bid"] - q["ask"]
-                        )} gross profit / lot
+                        {gettext("%{value1}%{value2} gross profit / lot",
+                          value1: if(destination_quote["bid"] > q["ask"], do: "+"),
+                          value2: money(destination_quote["bid"] - q["ask"])
+                        )}
                       </span>
                       <% profit_lots =
                         if selected_ship_here,
@@ -315,9 +362,14 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                           )
                         ]}
                       >
-                        {money((destination_quote["bid"] - q["ask"]) * profit_lots)} gross on {profit_lots} lots
+                        {gettext("%{value1} gross on %{value2} lots",
+                          value1: money((destination_quote["bid"] - q["ask"]) * profit_lots),
+                          value2: display_number(profit_lots)
+                        )}
                       </span>
-                      <span class="block text-slate-400">{destination_quote["demand"]} lots demand</span>
+                      <span class="block text-slate-400">{gettext("%{value1} lots demand",
+                        value1: display_number(destination_quote["demand"])
+                      )}</span>
                     </div>
                   </td>
                   <td
@@ -325,10 +377,12 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                     id={"aboard-#{String.replace(good, " ", "-")}"}
                     class="aboard-column font-semibold text-teal-200"
                   >
-                    {if selected_ship_here, do: cargo_aboard(@ship, good), else: "—"}
+                    {if selected_ship_here, do: display_number(cargo_aboard(@ship, good)), else: "—"}
                   </td>
                   <td :if={show_ship_columns}>
-                    <span :if={!q["manual"]} class="text-slate-500">Available in a later market milestone</span>
+                    <span :if={!q["manual"]} class="text-slate-500">{gettext(
+                      "Available in a later market milestone"
+                    )}</span>
                     <.form
                       :for={side <- [@port_market_side]}
                       :if={
@@ -376,7 +430,12 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                         step="1"
                         value={quantity}
                         disabled={available < 1}
-                        aria-label={"#{String.capitalize(side)} #{cargo_name(good)} quantity slider"}
+                        aria-label={
+                          gettext("%{side} %{cargo} quantity slider",
+                            side: l10n(String.capitalize(side)),
+                            cargo: cargo_name(good)
+                          )
+                        }
                         class="w-full basis-full accent-teal-400"
                       />
                       <input
@@ -387,7 +446,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                         max={max(0, min(10_000, available))}
                         disabled={available <= 0}
                         value={quantity}
-                        aria-label={"#{cargo_name(good)} quantity"}
+                        aria-label={gettext("%{cargo} quantity", cargo: cargo_name(good))}
                         class="w-16 rounded bg-slate-800 px-2"
                       />
                       <button
@@ -397,12 +456,15 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                             do:
                               if(side == "buy",
                                 do:
-                                  "No feasible purchase: check destination, funds, stock, and capacity",
-                                else: "No feasible sale: check cargo, demand, and buyer funds"
+                                  gettext(
+                                    "No feasible purchase: check destination, funds, stock, and capacity"
+                                  ),
+                                else:
+                                  gettext("No feasible sale: check cargo, demand, and buyer funds")
                               )
                         }
                         class="rounded bg-teal-700 px-3 py-1 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:opacity-60"
-                      >{String.capitalize(side)}</button>
+                      >{l10n(String.capitalize(side))}</button>
                       <%= if side == "buy" and available > 0 and quantity > 0 do %>
                         <% total = GameQueries.purchase_total(q, @ship, item, quantity) %>
                         <% voyage =
@@ -429,12 +491,17 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                           title={
                             if unaffordable,
                               do:
-                                "Choose a valid destination and leave enough cash for fuel, canal fees, and estimated fleet upkeep after purchasing. Includes handling and any tanker cleaning fee.",
-                              else: "Includes handling and any tanker cleaning fee."
+                                gettext(
+                                  "Choose a valid destination and leave enough cash for fuel, canal fees, and estimated fleet upkeep after purchasing. Includes handling and any tanker cleaning fee."
+                                ),
+                              else: gettext("Includes handling and any tanker cleaning fee.")
                           }
                           role="status"
                         >
-                          {money(total)} total<span :if={unaffordable} class="sr-only"> — insufficient available funds</span>
+                          {gettext("%{value1} total", value1: money(total))}
+                          <span :if={unaffordable} class="sr-only">{gettext(
+                            "— insufficient available funds"
+                          )}</span>
                         </span>
                       <% end %>
                       <p
@@ -442,12 +509,17 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                         class="w-full text-xs text-amber-200"
                         role="status"
                       >
-                        {quantity} lots: first expiry in {minutes(freshness["remaining_ms"])} min now;
-                        estimated {minutes(freshness["after_ms"])} min remaining after {minutes(
-                          freshness["handling_ms"]
-                        )} min handling.
-                        <strong :if={freshness["after_ms"] == 0}>Expected to expire during handling.</strong>
-                        Estimates may change before settlement.
+                        {gettext(
+                          "%{value1} lots: first expiry in %{value2} min now; estimated %{value3} min remaining after %{value4} min handling.",
+                          value1: display_number(quantity),
+                          value2: minutes(freshness["remaining_ms"]),
+                          value3: minutes(freshness["after_ms"]),
+                          value4: minutes(freshness["handling_ms"])
+                        )}
+                        <strong :if={freshness["after_ms"] == 0}>{gettext(
+                          "Expected to expire during handling."
+                        )}</strong>
+                        {gettext("Estimates may change before settlement.")}
                       </p>
                     </.form>
                   </td>

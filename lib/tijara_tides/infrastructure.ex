@@ -4,6 +4,7 @@ defmodule TijaraTides.Infrastructure do
     deps: [
       TijaraTides.Domain,
       TijaraTides.UseCases,
+      TijaraTides.Localization,
       Phoenix.PubSub,
       Postgrex,
       Ecto,

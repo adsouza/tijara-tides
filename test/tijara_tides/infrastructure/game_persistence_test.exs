@@ -39,6 +39,43 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "language preference survives reload and does not require a company", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "locale-ar",
+               %{"action" => "locale", "locale" => "ar"},
+               c.server
+             )
+
+    assert {:error, :invalid_locale} =
+             GameServer.command(
+               token,
+               "bad-locale",
+               %{"action" => "locale", "locale" => "xx"},
+               c.server
+             )
+
+    state = :sys.get_state(c.server).game
+    [account] = Map.values(state.entities["accounts"])
+
+    changed =
+      TijaraTides.Domain.Notices.notice(
+        state,
+        account["id"],
+        "localized",
+        {"company.formed", %{"company" => "العالم"}}
+      )
+
+    plan = TijaraTides.UseCases.CommitPreparation.prepare(state, changed)
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, state.epoch, state, plan)
+    {:ok, reloaded} = GameStore.claim(Repo, c.world_id)
+    assert reloaded.entities["notices"]["localized"] == changed.entities["notices"]["localized"]
+    assert [%{"locale" => "ar"}] = Map.values(reloaded.entities["accounts"])
+  end
+
   test "real repository queries feed the database timing metrics" do
     event = [:tijara_tides, :infrastructure, :persistence, :repo, :query]
     handler = "db-timing-#{System.unique_integer([:positive])}"
@@ -2162,7 +2199,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "quantity" => "10"
     })
 
-    assert has_element?(view, "#trade-buy-lumber .purchase-total", "$2270 total")
+    assert has_element?(view, "#trade-buy-lumber .purchase-total", "$2,270 total")
     assert has_element?(view, "#purchase-voyage-summary", "For 10 lots of Lumber")
     refute has_element?(view, "#port-market-table .purchase-voyage")
     refute has_element?(view, "#trade-buy-lumber .purchase-total.text-red-400")

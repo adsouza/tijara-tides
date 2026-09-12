@@ -259,7 +259,7 @@ defmodule TijaraTides.Domain.GameTest do
       end)
 
     pending = Game.get(state, "notices", "accepted:child")
-    assert pending["text"] == "Your invitation was accepted. Company formation is pending."
+    assert pending["code"] == "invitation.accepted"
 
     {:ok, state, _} =
       TijaraTides.CompanyFixture.execute(
@@ -277,8 +277,8 @@ defmodule TijaraTides.Domain.GameTest do
 
     assert Game.get(state, "notices", "accepted:child") == nil
 
-    assert Game.get(state, "notices", "company:child-company")["text"] ==
-             "Your invitee now runs Tygre Trafficking."
+    assert Game.get(state, "notices", "company:child-company")["arguments"] ==
+             %{"company" => "Tygre Trafficking"}
 
     assert Game.get(state, "notices", "accepted:other") != nil
     assert length(state.notices_by_account["account"]) == 2

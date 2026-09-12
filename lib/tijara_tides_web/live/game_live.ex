@@ -5,6 +5,7 @@ defmodule TijaraTidesWeb.GameLive do
 
   @impl true
   def mount(_params, session, socket) do
+    TijaraTides.Localization.put_locale(session["locale"])
     token = session["account_token"]
 
     if connected?(socket) do
@@ -19,8 +20,9 @@ defmodule TijaraTidesWeb.GameLive do
     socket =
       assign(socket,
         token: token,
+        preferred_locale: if(session["locale_explicit"], do: session["locale"]),
         browser_id: session["player_id"],
-        page_title: "Your shipping company",
+        page_title: gettext("Your shipping company"),
         definitions: Game.definitions(),
         selected_port: "Singapore",
         route_drafts: %{},
@@ -302,7 +304,7 @@ defmodule TijaraTidesWeb.GameLive do
            |> assign(request_id: Game.request_id())
            |> put_flash(
              :info,
-             "Email queued. Check the recipient's inbox for the verification link."
+             gettext("Email queued. Check the recipient's inbox for the verification link.")
            )
            |> refresh()}
 
@@ -311,7 +313,11 @@ defmodule TijaraTidesWeb.GameLive do
       end
     else
       {:noreply,
-       put_flash(socket, :error, "Email delivery has not been configured on this server.")}
+       put_flash(
+         socket,
+         :error,
+         gettext("Email delivery has not been configured on this server.")
+       )}
     end
   end
 
@@ -563,7 +569,8 @@ defmodule TijaraTidesWeb.GameLive do
     if ship && ship["status"] == "docked" && ship["port"] != destination do
       case Game.preview(socket.assigns.token, ship["id"], destination) do
         nil ->
-          {:noreply, put_flash(socket, :error, "No voyage is available to this port right now.")}
+          {:noreply,
+           put_flash(socket, :error, gettext("No voyage is available to this port right now."))}
 
         preview ->
           {:noreply, socket |> assign(destination: destination, preview: preview) |> refresh()}
@@ -600,7 +607,7 @@ defmodule TijaraTidesWeb.GameLive do
         {:noreply,
          socket
          |> assign(preview: nil, request_id: Game.request_id())
-         |> put_flash(:info, "Done.")
+         |> put_flash(:info, gettext("Done."))
          |> refresh()}
 
       {:error, reason} ->
@@ -641,6 +648,30 @@ defmodule TijaraTidesWeb.GameLive do
 
   defp refresh(socket) do
     view = Game.snapshot(socket.assigns.token)
+
+    TijaraTides.Localization.put_locale(
+      socket.assigns.preferred_locale || (view.private && view.private["account"]["locale"]) ||
+        TijaraTides.Localization.locale()
+    )
+
+    latest_notice = if view.private, do: List.first(view.private["notices"] || [])
+
+    socket =
+      if latest_notice && Map.has_key?(socket.assigns, :latest_notice) &&
+           latest_notice != socket.assigns.latest_notice do
+        put_flash(
+          socket,
+          :info,
+          TijaraTides.Localization.Notifications.render(
+            latest_notice,
+            socket.assigns.definitions.catalogue["goods"]
+          )
+        )
+      else
+        socket
+      end
+
+    socket = assign(socket, :latest_notice, latest_notice)
 
     if connected?(socket) do
       if view.private,
@@ -739,7 +770,10 @@ defmodule TijaraTidesWeb.GameLive do
               if(assigns.cargo_filter_ship, do: assigns.ship)
             ) do
         label =
-          "bid #{if quote.bid, do: money(quote.bid), else: "—"} / ask #{if quote.ask, do: money(quote.ask), else: "—"}"
+          gettext("bid %{bid} / ask %{ask}",
+            bid: if(quote.bid, do: money(quote.bid), else: "—"),
+            ask: if(quote.ask, do: money(quote.ask), else: "—")
+          )
 
         {good, Map.put(quote, :label, label)}
       end
@@ -765,6 +799,7 @@ defmodule TijaraTidesWeb.GameLive do
 
     ~H"""
     <Layouts.app flash={@flash}>
+      <Layouts.language_selector :if={is_nil(@view.private)} />
       <main
         id="game-screen"
         phx-hook="PopupAnchor"
@@ -775,8 +810,8 @@ defmodule TijaraTidesWeb.GameLive do
       >
         <header class="game-header flex items-center justify-between gap-3">
           <div>
-            <a href="/" class="text-sm text-teal-300">Tijara Tides</a><h1 class="game-tagline text-sm font-semibold">
-              Build a company. Trade the world.
+            <a href="/" class="text-sm text-teal-300">{gettext("Tijara Tides")}</a><h1 class="game-tagline text-sm font-semibold">
+              {gettext("Build a company. Trade the world.")}
             </h1>
           </div>
           <div :if={@view.status == :ready} class="game-header-actions">
@@ -797,11 +832,13 @@ defmodule TijaraTidesWeb.GameLive do
           id="game-unavailable"
           class="rounded-xl border border-amber-700 bg-slate-900 p-8"
         >
-          <h2 class="text-xl">The trading world is not available yet</h2>
+          <h2 class="text-xl">{gettext("The trading world is not available yet")}</h2>
           <p class="mt-3">
-            The lobby is open. The operator must configure game storage and apply its migrations before companies can begin trading.
+            {gettext(
+              "The lobby is open. The operator must configure game storage and apply its migrations before companies can begin trading."
+            )}
           </p>
-          <a href="/" class="mt-4 inline-block underline">Return to lobby</a>
+          <a href="/" class="mt-4 inline-block underline">{gettext("Return to lobby")}</a>
         </div>
         <div :if={@view.status == :ready} class="game-body">
           <section
@@ -809,7 +846,7 @@ defmodule TijaraTidesWeb.GameLive do
             class="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6"
           >
             <h2 :if={Application.get_env(:tijara_tides, :email_enabled, false)} class="text-xl">
-              Sign in with email
+              {gettext("Sign in with email")}
             </h2>
             <.form
               :if={Application.get_env(:tijara_tides, :email_enabled, false)}
@@ -825,10 +862,10 @@ defmodule TijaraTidesWeb.GameLive do
                 required
                 maxlength="254"
                 autocomplete="email"
-                aria-label="Sign-in email"
+                aria-label={gettext("Sign-in email")}
                 class="rounded bg-slate-800 p-2"
               />
-              <button class="rounded border p-2">Email me a sign-in link</button>
+              <button class="rounded border p-2">{gettext("Email me a sign-in link")}</button>
             </.form>
             <details
               :if={Application.get_env(:tijara_tides, :email_enabled, false)}
@@ -836,9 +873,13 @@ defmodule TijaraTidesWeb.GameLive do
               phx-mounted={JS.ignore_attributes("open")}
               class="mb-4"
             >
-              <summary class="cursor-pointer">Use an emailed token on this device</summary>
+              <summary class="cursor-pointer">
+                {gettext("Use an emailed token on this device")}
+              </summary>
               <p class="my-2 text-sm text-slate-300">
-                In the desktop app, copy the sign-in token from your email and paste it here. Do not use the email link in a browser first.
+                {gettext(
+                  "In the desktop app, copy the sign-in token from your email and paste it here. Do not use the email link in a browser first."
+                )}
               </p>
               <.form
                 for={%{}}
@@ -854,29 +895,31 @@ defmodule TijaraTidesWeb.GameLive do
                   required
                   maxlength="2048"
                   autocomplete="off"
-                  aria-label="Emailed sign-in token"
-                  placeholder="Paste your sign-in token"
+                  aria-label={gettext("Emailed sign-in token")}
+                  placeholder={gettext("Paste your sign-in token")}
                   class="min-w-0 flex-1 rounded bg-slate-800 p-2"
                 />
-                <button class="rounded border p-2">Continue on this device</button>
+                <button class="rounded border p-2">{gettext("Continue on this device")}</button>
               </.form>
             </details>
-            <h2 class="text-xl">Start with an invitation</h2>
+            <h2 class="text-xl">{gettext("Start with an invitation")}</h2>
             <p class="my-3 text-slate-300">
-              You can explore the world without an account. Redeem a shareable invitation to establish your company on this device.
+              {gettext(
+                "You can explore the world without an account. Redeem a shareable invitation to establish your company on this device."
+              )}
             </p>
             <.form for={%{}} action={~p"/session/redeem"} class="flex flex-wrap gap-3">
               <input
                 name="code"
                 required
                 maxlength="100"
-                placeholder="Invitation code"
-                aria-label="Invitation code"
+                placeholder={gettext("Invitation code")}
+                aria-label={gettext("Invitation code")}
                 autocomplete="off"
                 size="48"
                 class="min-w-0 w-full max-w-lg rounded bg-slate-800 px-4 py-2"
               />
-              <button class="rounded bg-teal-600 px-4 py-2">Redeem invitation</button>
+              <button class="rounded bg-teal-600 px-4 py-2">{gettext("Redeem invitation")}</button>
             </.form>
           </section>
           <section
@@ -886,9 +929,12 @@ defmodule TijaraTidesWeb.GameLive do
             }
             class="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6"
           >
-            <h2 class="text-xl">Name your company</h2>
+            <h2 class="text-xl">{gettext("Name your company")}</h2>
             <p class="my-3 text-slate-300">
-              Start with $0 and no ships. Borrow up to {money(@view.private["finance"]["limit"])} to buy ships and fund cargo and voyages. Interest accrues while the world runs; prior bankruptcies reduce your credit limit.
+              {gettext(
+                "Start with $0 and no ships. Borrow up to %{value1} to buy ships and fund cargo and voyages. Interest accrues while the world runs; prior bankruptcies reduce your credit limit.",
+                value1: money(@view.private["finance"]["limit"])
+              )}
             </p>
             <.form
               for={%{}}
@@ -903,18 +949,18 @@ defmodule TijaraTidesWeb.GameLive do
                 value={@company_draft["name"]}
                 required
                 maxlength="60"
-                placeholder="Company name"
-                aria-label="Company name"
+                placeholder={gettext("Company name")}
+                aria-label={gettext("Company name")}
                 class="rounded bg-slate-800 px-3 py-2"
               />
               <button
                 disabled={@view.private["finance"]["restart_ms"] > @view.public["clock_ms"]}
                 class="rounded bg-teal-600 px-4 py-2 disabled:opacity-40"
-              >Establish company</button>
+              >{gettext("Establish company")}</button>
               <p :if={@view.private["finance"]["restart_ms"] > @view.public["clock_ms"]}>
-                Replacement company available in {minutes(
-                  @view.private["finance"]["restart_ms"] - @view.public["clock_ms"]
-                )} active-world minutes.
+                {gettext("Replacement company available in %{value1} active-world minutes.",
+                  value1: minutes(@view.private["finance"]["restart_ms"] - @view.public["clock_ms"])
+                )}
               </p>
             </.form>
           </section>
@@ -923,12 +969,16 @@ defmodule TijaraTidesWeb.GameLive do
             id="account-suspension"
             class="rounded border border-red-500 p-4"
           >
-            <h2>Account suspended</h2>
+            <h2>{gettext("Account suspended")}</h2>
             <p>
-              Five bankruptcies within 112 active-world days trigger suspension. Aging out does not lift it. Your original sponsor must pledge at least $50,000 to reinstate you.
+              {gettext(
+                "Five bankruptcies within 112 active-world days trigger suspension. Aging out does not lift it. Your original sponsor must pledge at least $50,000 to reinstate you."
+              )}
             </p>
             <p :if={not @view.private["guarantees"]["has_sponsor"]}>
-              This account has no sponsor. Contact the operator; there is no automatic reinstatement.
+              {gettext(
+                "This account has no sponsor. Contact the operator; there is no automatic reinstatement."
+              )}
             </p>
           </section>
           <section
@@ -939,27 +989,36 @@ defmodule TijaraTidesWeb.GameLive do
               <h2 class="text-2xl">{@view.private["company"]["name"]}</h2>
             </div>
             <div>
-              Available cash<p class="text-2xl">
+              {gettext("Available cash")}
+              <p class="text-2xl">
                 {money(@view.private["company"]["cash"] - @view.private["company"]["reserved"])}
               </p>
             </div>
             <div>
-              Reserved fuel<p class="text-2xl">{money(@view.private["company"]["reserved"])}</p>
+              {gettext("Reserved fuel")}
+              <p class="text-2xl">{money(@view.private["company"]["reserved"])}</p>
             </div>
             <div>
-              Trading result<p class="text-2xl">{money(@view.private["company"]["profit"])}</p><p
+              {gettext("Trading result")}
+              <p class="text-2xl">{money(@view.private["company"]["profit"])}</p><p
                 :if={@view.private["company"]["unpaid"] > 0}
                 class="text-amber-300"
               >
-                Unpaid: {money(@view.private["company"]["unpaid"])}
+                {gettext("Unpaid: %{value1}", value1: money(@view.private["company"]["unpaid"]))}
               </p>
             </div>
           </section>
           <div id="game-workspace" phx-hook="Workspace" class="game-workspace">
-            <nav class="workspace-tabs" aria-label="Game panels">
-              <button type="button" data-panel="0" aria-controls="ports-panel" aria-current="false">Ports</button>
-              <button type="button" data-panel="1" aria-controls="ships-panel" aria-current="true">Ships</button>
-              <button type="button" data-panel="2" aria-controls="cargo-panel" aria-current="false">Cargo</button>
+            <nav class="workspace-tabs" aria-label={gettext("Game panels")}>
+              <button type="button" data-panel="0" aria-controls="ports-panel" aria-current="false">{gettext(
+                "Ports"
+              )}</button>
+              <button type="button" data-panel="1" aria-controls="ships-panel" aria-current="true">{gettext(
+                "Ships"
+              )}</button>
+              <button type="button" data-panel="2" aria-controls="cargo-panel" aria-current="false">{gettext(
+                "Cargo"
+              )}</button>
             </nav>
             <div class="workspace-panels">
               <TijaraTidesWeb.GameUI.PortsPanel.panel

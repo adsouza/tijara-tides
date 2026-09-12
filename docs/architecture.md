@@ -636,3 +636,10 @@ Existing active guarantees are migrated from the legacy `borrower_company_id`
 marker to borrower-owned loan links. That legacy marker remains for migration
 compatibility but no longer drives live settlement or receives draw updates.
 An unused pledge has no linked loans and cannot be released as an empty loan set.
+
+## Localization boundary
+
+[Localization](localization.md) keeps catalogs, formatting and per-process locale
+selection outside Domain and UseCases. Account locale is persisted domain data;
+notifications carry stable codes and arguments rather than translated text. Web
+and email render those values using the shared presentation boundary.

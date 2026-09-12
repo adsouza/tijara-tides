@@ -351,3 +351,11 @@ Route cargo choices use ship-class compatibility rather than the current load.
 A tanker can plan to sell refined fuel and then buy crude at the same stop.
 Actual execution still forbids mixing liquid cargoes and applies cleaning costs;
 unsold incompatible cargo must be cleared before the purchase can proceed.
+
+## Localization foundation
+
+English and Arabic UI and email catalogs, RTL layout, locale-aware currency
+formatting and plural forms are implemented. Account language preferences persist
+across web and embedded desktop sessions. New notifications store codes and
+arguments; existing text notices remain readable. See [localization](localization.md)
+for conventions and the remaining translation scope.

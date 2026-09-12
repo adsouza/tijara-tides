@@ -25,8 +25,8 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
 
   def panel(assigns) do
     ~H"""
-    <section id="ships-panel" class="workspace-panel" aria-label="Ships">
-      <h2 class="panel-title">Ships</h2>
+    <section id="ships-panel" class="workspace-panel" aria-label={gettext("Ships")}>
+      <h2 class="panel-title">{gettext("Ships")}</h2>
       <TijaraTidesWeb.GameUI.MapPanel.panel
         definitions={@definitions}
         inspected_ship={@inspected_ship}
@@ -38,7 +38,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
         selected_port={@selected_port}
         view={@view}
       />
-      <div class="panel-content" tabindex="0" aria-label="Fleet and ship details">
+      <div class="panel-content" tabindex="0" aria-label={gettext("Fleet and ship details")}>
         <section
           :if={
             @inspected_ship && @view.public["ships"][@inspected_ship] &&
@@ -61,14 +61,14 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               <button
                 type="button"
                 phx-click="close-map-ship"
-                aria-label="Dismiss ship information"
+                aria-label={gettext("Dismiss ship information")}
                 class="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-white"
               >✕</button>
             </div>
             <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
-              <span class="rounded-full border border-slate-600 px-2 py-1 text-slate-300">{@definitions.classes[
-                inspected["class"]
-              ]["name"]}</span>
+              <span class="rounded-full border border-slate-600 px-2 py-1 text-slate-300">{l10n(
+                @definitions.classes[inspected["class"]]["name"]
+              )}</span>
               <span
                 :if={inspected["status"] != "sailing"}
                 class="rounded-full bg-teal-950 px-2 py-1 capitalize text-teal-200"
@@ -80,31 +80,35 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               :if={@view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil}
               class="mt-3 rounded border border-red-900 bg-red-950/40 p-2 text-sm text-red-300"
             >
-              Company in bankruptcy — assets in receivership
+              {gettext("Company in bankruptcy — assets in receivership")}
             </p>
             <div class="mt-3 border-t border-slate-700 pt-3">
               <p class="mb-1 text-xs text-slate-400">
-                {if inspected["destination"], do: "Route", else: "Port"}
+                {if inspected["destination"], do: gettext("Route"), else: gettext("Port")}
               </p>
               <p class="flex flex-wrap items-center gap-2 text-sm font-medium">
-                <span>{inspected["port"]}</span>
-                <span :if={inspected["destination"]} aria-label="to" class="text-teal-400">→</span>
-                <span :if={inspected["destination"]}>{inspected["destination"]}</span>
+                <span>{l10n(inspected["port"])}</span>
+                <span :if={inspected["destination"]} aria-label={gettext("to")} class="text-teal-400">{sailing_arrow()}</span>
+                <span :if={inspected["destination"]}>{l10n(inspected["destination"])}</span>
               </p>
             </div>
           </div>
         </section>
         <section :if={@view.private && @view.private["company"]} class="my-6">
-          <h2 class="mb-3 text-xl font-semibold">Your fleet</h2>
+          <h2 class="mb-3 text-xl font-semibold">{gettext("Your fleet")}</h2>
           <details
             id="shipyard"
             phx-mounted={JS.ignore_attributes("open")}
             open={map_size(@view.private["ships"]) == 0}
             class="mb-3 rounded border border-slate-600 p-3"
           >
-            <summary class="cursor-pointer">Buy a ship at {@selected_port}</summary>
+            <summary class="cursor-pointer">
+              {gettext("Buy a ship at %{value1}", value1: l10n(@selected_port))}
+            </summary>
             <p class="my-2 text-sm">
-              Choose a port in the Ports panel to buy there. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew.
+              {gettext(
+                "Choose a port in the Ports panel to buy there. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew."
+              )}
             </p>
             <button
               type="button"
@@ -113,7 +117,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 |> JS.push("report-close")
               }
               class="mb-2 rounded border border-teal-600 px-3 py-1"
-            >Arrange a loan</button>
+            >{gettext("Arrange a loan")}</button>
             <.form
               :for={{class, spec} <- Enum.sort(@definitions.classes)}
               for={%{}}
@@ -124,23 +128,25 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               <input type="hidden" name="request_id" value={@request_id} />
               <input type="hidden" name="class" value={class} />
               <input type="hidden" name="price_limit" value={spec["price"]} />
-              <span>{spec["name"]} · {money(spec["price"])}<br /><small>{div(
-                spec["weight"],
-                1000
-              )} tonnes · {div(spec["volume"], 1000)} m³ capacity</small></span>
+              <span>{l10n(spec["name"])} · {money(spec["price"])}<br /><small>
+                {gettext("%{value1} tonnes · %{value2} m³ capacity",
+                  value1: display_number(div(spec["weight"], 1000)),
+                  value2: display_number(div(spec["volume"], 1000))
+                )}
+              </small></span>
               <button
                 disabled={
                   spec["price"] >
                     @view.private["company"]["cash"] - @view.private["company"]["reserved"]
                 }
-                phx-disable-with="Buying…"
+                phx-disable-with={gettext("Buying…")}
                 class="rounded bg-teal-700 px-3 py-1 disabled:opacity-40"
-              >Buy ship</button>
+              >{gettext("Buy ship")}</button>
             </.form>
           </details>
 
           <form id="fleet-filter" phx-change="fleet-status" class="mb-3 text-sm">
-            <label for="fleet-status">Ship status</label>
+            <label for="fleet-status">{gettext("Ship status")}</label>
             <select
               id="fleet-status"
               name="status"
@@ -159,7 +165,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 value={value}
                 selected={@fleet_status == value}
               >
-                {label}
+                {l10n(label)}
               </option>
             </select>
           </form>
@@ -171,7 +177,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             }
             class="mb-3 text-sm text-slate-400"
           >
-            No ships with this status.
+            {gettext("No ships with this status.")}
           </p>
           <div class="fleet-list">
             <button
@@ -189,12 +195,16 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               ]}
             >
               <strong>{s["name"]}</strong><p>
-                {@definitions.classes[s["class"]]["name"]} · {s["status"]}
+                {l10n(@definitions.classes[s["class"]]["name"])} · {l10n(s["status"])}
               </p><p>
-                {s["port"]}<span :if={s["destination"]}> → {s["destination"]}</span>
+                {l10n(s["port"])}<span :if={s["destination"]}>{sailing_arrow()} {l10n(
+                  s["destination"]
+                )}</span>
               </p>
               <p :if={s["arrive_ms"]} class="text-teal-300">
-                {minutes(max(0, s["arrive_ms"] - @view.public["clock_ms"]))} min remaining
+                {gettext("%{value1} min remaining",
+                  value1: minutes(max(0, s["arrive_ms"] - @view.public["clock_ms"]))
+                )}
               </p>
             </button>
           </div>
@@ -205,8 +215,10 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 @view.public["clock_ms"]
               ) %>
             <p class="text-sm">
-              Book value: {finance_money(ship_value.book)}
-              <span class="ml-2 text-xs text-slate-400">Depreciates over 28 active-world days to 20% of build value.</span>
+              {gettext("Book value: %{value1}", value1: finance_money(ship_value.book))}
+              <span class="ml-2 text-xs text-slate-400">{gettext(
+                "Depreciates over 28 active-world days to 20% of build value."
+              )}</span>
             </p>
             <details
               :if={@ship["status"] != "sailing"}
@@ -214,7 +226,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               phx-mounted={JS.ignore_attributes("open")}
               class="my-2"
             >
-              <summary class="cursor-pointer">Shipyard offer</summary>
+              <summary class="cursor-pointer">{gettext("Shipyard offer")}</summary>
               <.form
                 :if={@ship["status"] == "docked" && @ship["cargo"] == []}
                 for={%{}}
@@ -228,13 +240,17 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 <button
                   type="submit"
                   class="rounded border px-3 py-1"
-                  phx-disable-with="Selling…"
-                  data-confirm="Sell this ship to the shipyard? The ship will leave your fleet."
-                >Sell ship for {finance_money(ship_value.proceeds)}</button>
-                <span class="text-xs text-slate-400">90% of book value.</span>
+                  phx-disable-with={gettext("Selling…")}
+                  data-confirm={
+                    gettext("Sell this ship to the shipyard? The ship will leave your fleet.")
+                  }
+                >{gettext("Sell ship for %{value1}", value1: finance_money(ship_value.proceeds))}</button>
+                <span class="text-xs text-slate-400">{gettext("90% of book value.")}</span>
               </.form>
             </details>
-            <h3 class="mt-4 mb-2 text-lg font-semibold">{@ship["name"]} — Manifest</h3>
+            <h3 class="mt-4 mb-2 text-lg font-semibold">
+              {gettext("%{value1} — Manifest", value1: @ship["name"])}
+            </h3>
             <% occupied =
               Enum.reduce(@ship["cargo"], %{weight: 0, volume: 0}, fn batch, used ->
                 good = @definitions.catalogue["goods"][batch["good"]]
@@ -245,26 +261,27 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 }
               end) %>
             <p id="ship-capacity" class="text-sm text-slate-400 tabular-nums">
-              Capacity used: {occupied.weight} / {@definitions.classes[@ship["class"]][
-                "weight"
-              ]} kg · {cubic_meters(occupied.volume)} / {cubic_meters(
-                @definitions.classes[@ship["class"]]["volume"]
+              {gettext("Capacity used: %{value1} / %{value2} kg · %{value3} / %{value4}",
+                value1: display_number(occupied.weight),
+                value2: display_number(@definitions.classes[@ship["class"]]["weight"]),
+                value3: cubic_meters(occupied.volume),
+                value4: cubic_meters(@definitions.classes[@ship["class"]]["volume"])
               )}
             </p>
-            <p :if={@ship["cargo"] == []} class="mt-2 text-slate-400">Empty hold</p>
+            <p :if={@ship["cargo"] == []} class="mt-2 text-slate-400">{gettext("Empty hold")}</p>
             <div :if={@ship["cargo"] != []} class="mt-3 overflow-x-auto">
-              <table class="w-full text-sm" aria-label="Ship cargo manifest">
+              <table class="w-full text-sm" aria-label={gettext("Ship cargo manifest")}>
                 <thead class="border-b border-slate-700 text-slate-400">
                   <tr>
                     <th
                       :for={
                         {column, label} <- [
-                          {"good", "Cargo"},
-                          {"quantity", "Lots"},
-                          {"weight", "Weight"},
-                          {"volume", "Volume"},
-                          {"average_cost", "Avg. cost"},
-                          {"expires_ms", "First expiry"}
+                          {"good", gettext("Cargo")},
+                          {"quantity", gettext("Lots")},
+                          {"weight", gettext("Weight")},
+                          {"volume", gettext("Volume")},
+                          {"average_cost", gettext("Avg. cost")},
+                          {"expires_ms", gettext("First expiry")}
                         ]
                       }
                       scope="col"
@@ -289,22 +306,22 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                         phx-value-column={column}
                         class="whitespace-nowrap rounded hover:text-teal-300 focus-visible:outline-2 focus-visible:outline-teal-300"
                       >
-                        {label}<span aria-hidden="true" class="ml-1">{if elem(
-                                                                           @manifest_sort,
-                                                                           0
-                                                                         ) ==
-                                                                           column,
-                                                                         do:
-                                                                           if(
-                                                                             elem(
-                                                                               @manifest_sort,
-                                                                               1
-                                                                             ) ==
-                                                                               :asc,
-                                                                             do: "↑",
-                                                                             else: "↓"
-                                                                           ),
-                                                                         else: "↕"}</span>
+                        {l10n(label)}<span aria-hidden="true" class="ml-1">{if elem(
+                                                                                 @manifest_sort,
+                                                                                 0
+                                                                               ) ==
+                                                                                 column,
+                                                                               do:
+                                                                                 if(
+                                                                                   elem(
+                                                                                     @manifest_sort,
+                                                                                     1
+                                                                                   ) ==
+                                                                                     :asc,
+                                                                                   do: "↑",
+                                                                                   else: "↓"
+                                                                                 ),
+                                                                               else: "↕"}</span>
                       </button>
                     </th>
                   </tr>
@@ -327,14 +344,20 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                         type="button"
                         phx-click="market-good"
                         phx-value-good={b["good"]}
-                        aria-label={"View markets for #{cargo_name(b["good"])}"}
+                        aria-label={
+                          gettext("View markets for %{cargo}", cargo: cargo_name(b["good"]))
+                        }
                         class="rounded text-left text-teal-300 underline decoration-teal-700 underline-offset-2 hover:text-teal-100 focus-visible:outline-2 focus-visible:outline-teal-300"
                       >{cargo_name(b["good"])}</button>
                     </th>
-                    <td class="px-4 py-3 text-right tabular-nums">{b["quantity"]}</td>
+                    <td class="px-4 py-3 text-right tabular-nums">{display_number(b["quantity"])}</td>
                     <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">
-                      {b["quantity"] *
-                        @definitions.catalogue["goods"][b["good"]]["weight_kg"]} kg
+                      {gettext("%{value1} kg",
+                        value1:
+                          display_number(
+                            b["quantity"] * @definitions.catalogue["goods"][b["good"]]["weight_kg"]
+                          )
+                      )}
                     </td>
                     <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">
                       {cargo_volume(
@@ -347,9 +370,11 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                     </td>
                     <td class="whitespace-nowrap py-3 pl-4 text-right tabular-nums">
                       <%= if b["expires_ms"] do %>
-                        {div(max(0, b["expires_ms"] - @view.public["clock_ms"]), 60_000)} min
+                        {gettext("%{value1} min",
+                          value1: div(max(0, b["expires_ms"] - @view.public["clock_ms"]), 60_000)
+                        )}
                       <% else %>
-                        <span aria-label="Does not expire">—</span>
+                        <span aria-label={gettext("Does not expire")}>—</span>
                       <% end %>
                     </td>
                   </tr>
@@ -366,10 +391,10 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             >
               <select
                 name="destination"
-                aria-label="Destination"
+                aria-label={gettext("Destination")}
                 class="rounded bg-slate-800 px-3 py-2"
               ><option value="" selected={is_nil(@destination) or @destination == ""}>
-                Choose a destination before buying
+                {gettext("Choose a destination before buying")}
               </option><option
                 :for={
                   name <-
@@ -378,17 +403,23 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 value={name}
                 selected={name == @destination}
               >
-                {name}
+                {l10n(name)}
               </option></select>
             </.form>
             <div :if={@preview} class="mt-3 flex flex-wrap items-center gap-3">
-              <span>{minutes(@preview["duration_ms"])} min · fuel {money(@preview["fuel"])} · estimated crew {money(
-                @preview["crew_estimate"]
-              )} · canals {money(@preview["canal_fees"])}</span><button
+              <span>
+                {gettext(
+                  "%{value1} min · fuel %{value2} · estimated crew %{value3} · canals %{value4}",
+                  value1: minutes(@preview["duration_ms"]),
+                  value2: money(@preview["fuel"]),
+                  value3: money(@preview["crew_estimate"]),
+                  value4: money(@preview["canal_fees"])
+                )}
+              </span><button
                 phx-click="sail"
                 phx-value-request_id={@request_id}
                 class="rounded bg-teal-600 px-4 py-2"
-              >Reserve fuel and sail</button>
+              >{gettext("Reserve fuel and sail")}</button>
               <.voyage_freshness
                 id={"preview-freshness-" <> @ship["id"]}
                 estimates={@preview["freshness"]}
@@ -415,10 +446,12 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               class="mt-4 rounded border border-slate-700 p-3"
             >
               <summary class="cursor-pointer font-semibold">
-                Next port cargo instructions
+                {gettext("Next port cargo instructions")}
               </summary>
               <p class="my-2 text-sm text-slate-400">
-                Execute when berthed. Sales unload before purchases load. Partial fills retry while waiting; sailing cancels any remainder. Prices are per lot, excluding handling. A purchase cap includes all purchase costs and does not reserve cash.
+                {gettext(
+                  "Execute when berthed. Sales unload before purchases load. Partial fills retry while waiting; sailing cancels any remainder. Prices are per lot, excluding handling. A purchase cap includes all purchase costs and does not reserve cash."
+                )}
               </p>
               <% visit_port = instruction_port(@ship, @destination, @definitions) %>
               <% instruction =
@@ -444,7 +477,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 GameQueries.instruction_onwards(@view.private, @ship["id"], visit_port) %>
 
               <p :if={is_nil(visit_port)} class="my-3 text-sm text-amber-200">
-                Choose a destination in the voyage controls before adding instructions.
+                {gettext("Choose a destination in the voyage controls before adding instructions.")}
               </p>
               <.form
                 :if={visit_port != nil}
@@ -455,12 +488,14 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 class="grid grid-cols-2 gap-2 text-sm"
               >
                 <input type="hidden" name="request_id" value={@request_id} />
-                <p class="col-span-2 font-semibold">Instructions at {visit_port}</p>
+                <p class="col-span-2 font-semibold">
+                  {gettext("Instructions at %{value1}", value1: l10n(visit_port))}
+                </p>
                 <label>
-                  Action
+                  {gettext("Action")}
                   <select
                     name="side"
-                    aria-label="Instruction action"
+                    aria-label={gettext("Instruction action")}
                     class="block w-full rounded bg-slate-800 p-2"
                   ><option
                     value="sell"
@@ -469,24 +504,24 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                         "sell"
                     }
                   >
-                    Sell
+                    {gettext("Sell")}
                   </option><option
                     value="buy"
                     selected={instruction_value(@instruction_drafts, @ship, "side", "sell") == "buy"}
                   >
-                    Buy
+                    {gettext("Buy")}
                   </option></select>
                 </label>
                 <label>
-                  Cargo
+                  {gettext("Cargo")}
                   <select
                     name="good"
-                    aria-label="Instruction cargo"
+                    aria-label={gettext("Instruction cargo")}
                     disabled={instruction.goods == []}
                     class="block w-full rounded bg-slate-800 p-2"
                   >
                     <option :if={instruction.goods == []} value="">
-                      No cargo available
+                      {gettext("No cargo available")}
                     </option>
                     <option
                       :for={{good, _item} <- instruction.goods}
@@ -502,9 +537,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   phx-hook="TradeQuantity"
                   data-max={instruction.maximum}
                   data-quantity={instruction.quantity}
-                >Target lots<input
+                >{gettext("Target lots")}<input
                   name="quantity"
-                  aria-label="Instruction target lots"
+                  aria-label={gettext("Instruction target lots")}
                   type="number"
                   min={if instruction.maximum < 1, do: 0, else: 1}
                   max={instruction.maximum}
@@ -513,9 +548,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   required
                   class="block w-full rounded bg-slate-800 p-2"
                 /></label>
-                <label>Limit price ($/lot)<input
+                <label>{gettext("Limit price ($/lot)")}<input
                   name="limit"
-                  aria-label="Instruction limit price"
+                  aria-label={gettext("Instruction limit price")}
                   type="number"
                   min="0"
                   max="10000000000"
@@ -524,9 +559,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   required
                   class="block w-full rounded bg-slate-800 p-2"
                 /></label>
-                <label>Purchase cap ($; buys only)<input
+                <label>{gettext("Purchase cap ($; buys only)")}<input
                   name="budget"
-                  aria-label="Instruction purchase cap"
+                  aria-label={gettext("Instruction purchase cap")}
                   disabled={instruction_value(@instruction_drafts, @ship, "side", "sell") == "sell"}
                   type="number"
                   min="1"
@@ -543,19 +578,21 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   :if={instruction.side == "buy" and length(onwards) != 1}
                   class="col-span-2 text-amber-200"
                 >
-                  Save an onward destination below before adding buy instructions.
+                  {gettext("Save an onward destination below before adding buy instructions.")}
                 </p>
                 <p :if={duplicate_sell} class="col-span-2 text-amber-200">
-                  An active sell instruction already exists for this cargo. Cancel it before adding another.
+                  {gettext(
+                    "An active sell instruction already exists for this cargo. Cancel it before adding another."
+                  )}
                 </p>
                 <button
-                  phx-disable-with="Adding…"
+                  phx-disable-with={gettext("Adding…")}
                   disabled={
                     duplicate_sell or instruction.maximum < 1 or is_nil(instruction.good) or
                       (instruction.side == "buy" and length(onwards) != 1)
                   }
                   class="self-end rounded bg-teal-700 p-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >Add instruction</button>
+                >{gettext("Add instruction")}</button>
               </.form>
               <div
                 :for={order <- ship_instructions(@view.private, @ship["id"])}
@@ -563,30 +600,41 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 class="mt-3 border-t border-slate-700 pt-2 text-sm"
               >
                 <p>
-                  <strong>{String.capitalize(order["side"])} {cargo_name(order["good"])}</strong>
-                  at {order["port"]} · {order["filled"]}/{order["quantity"]} lots · {if order[
-                                                                                          "side"
-                                                                                        ] ==
-                                                                                          "buy",
-                                                                                        do: "maximum",
-                                                                                        else:
-                                                                                          "minimum"} {money(
-                    order["limit"]
-                  )}/lot
+                  <strong>{l10n(String.capitalize(order["side"]))} {cargo_name(order["good"])}</strong>
+                  {gettext("at %{value1} · %{value2}/%{value3} lots · %{value4} %{value5}/lot",
+                    value1: l10n(order["port"]),
+                    value2: display_number(order["filled"]),
+                    value3: display_number(order["quantity"]),
+                    value4:
+                      if(
+                        order[
+                          "side"
+                        ] ==
+                          "buy",
+                        do: gettext("maximum"),
+                        else: gettext("minimum")
+                      ),
+                    value5: money(order["limit"])
+                  )}
                 </p>
                 <p :if={order["side"] == "buy"}>
-                  {money(order["spent"])} spent / {money(order["budget"])} cap
+                  {gettext("%{value1} spent / %{value2} cap",
+                    value1: money(order["spent"]),
+                    value2: money(order["budget"])
+                  )}
                 </p>
-                <p>{String.capitalize(order["status"])} · {order["reason"]}</p>
+                <p>{l10n(order["status"])} · {l10n(order["reason"] || "")}</p>
                 <button
                   :if={order["status"] in ["planned", "waiting"]}
                   phx-click="cancel-instruction"
                   phx-value-id={order["id"]}
                   class="mt-1 rounded border border-slate-500 px-2 py-1"
-                >Cancel order</button>
+                >{gettext("Cancel order")}</button>
               </div>
               <p class="my-2 text-sm text-slate-400">
-                Plan an onward destination with or without cargo orders. Departure is manual unless automatic departure is enabled for this visit.
+                {gettext(
+                  "Plan an onward destination with or without cargo orders. Departure is manual unless automatic departure is enabled for this visit."
+                )}
               </p>
               <.form
                 :for={
@@ -601,17 +649,17 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 <input type="hidden" name="port" value={shared_port} />
                 <input type="hidden" name="request_id" value={@request_id} />
                 <label>
-                  Onward destination after {shared_port}
+                  {gettext("Onward destination after %{value1}", value1: l10n(shared_port))}
                   <select
                     name="onward"
-                    aria-label="Shared onward port"
+                    aria-label={gettext("Shared onward port")}
                     class="block w-full rounded bg-slate-800 p-2"
                   >
                     <option :if={shared_onwards == []} value="">
-                      Choose onward destination
+                      {gettext("Choose onward destination")}
                     </option>
                     <option :if={length(shared_onwards) > 1} value="">
-                      Resolve conflicting destinations
+                      {gettext("Resolve conflicting destinations")}
                     </option>
                     <option
                       :for={
@@ -622,7 +670,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                       value={port}
                       selected={shared_onwards == [port]}
                     >
-                      {port}
+                      {l10n(port)}
                     </option>
                   </select>
                 </label>
@@ -639,10 +687,13 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                         "auto_depart"
                       ]) == true
                     }
-                  /> Depart automatically after orders and handling finish
+                  />
+                  {gettext("Depart automatically after orders and handling finish")}
                 </label>
                 <p class="text-xs text-slate-400">
-                  Waits for every order to be filled or cancelled and for sufficient sailing funds. Save to apply.
+                  {gettext(
+                    "Waits for every order to be filled or cancelled and for sufficient sailing funds. Save to apply."
+                  )}
                 </p>
                 <p
                   :if={
@@ -654,19 +705,23 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   }
                   class="text-amber-300"
                 >
-                  {get_in(@view.private, [
-                    "visit_plans",
-                    @ship["id"] <> "|" <> shared_port,
-                    "departure_wait"
-                  ])}
+                  {l10n(
+                    get_in(@view.private, [
+                      "visit_plans",
+                      @ship["id"] <> "|" <> shared_port,
+                      "departure_wait"
+                    ])
+                  )}
                 </p>
                 <p :if={length(shared_onwards) > 1} class="text-amber-300">
-                  Existing buy instructions disagree. Purchases are paused until you choose one onward port.
+                  {gettext(
+                    "Existing buy instructions disagree. Purchases are paused until you choose one onward port."
+                  )}
                 </p>
                 <button
-                  phx-disable-with="Updating…"
+                  phx-disable-with={gettext("Updating…")}
                   class="rounded border border-slate-500 px-2 py-1"
-                >Save onward destination</button>
+                >{gettext("Save onward destination")}</button>
               </.form>
             </details>
           </div>

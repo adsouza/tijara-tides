@@ -25,8 +25,8 @@ defmodule TijaraTidesWeb.PortTraffic do
         label =
           case assigns.grouping do
             "company" -> company(assigns.public, key)
-            "kind" -> get_in(assigns.classes, [key, "name"]) || key || "Unknown kind"
-            _ -> key
+            "kind" -> l10n(get_in(assigns.classes, [key, "name"]) || key || "Unknown kind")
+            _ -> l10n(key)
           end
 
         %{key: key, label: label, ships: Enum.sort_by(ships, &{&1["name"], &1["id"]})}
@@ -38,26 +38,28 @@ defmodule TijaraTidesWeb.PortTraffic do
     ~H"""
     <section id="port-traffic" class="my-5 rounded-lg border border-slate-700 p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h3 class="text-lg font-semibold">Port traffic · {ship_count(@total)}</h3>
+        <h3 class="text-lg font-semibold">
+          {gettext("Port traffic · %{value1}", value1: ship_count(@total))}
+        </h3>
         <form id="traffic-grouping" phx-change="traffic-grouping">
           <label class="text-sm text-slate-300">
-            Group by
+            {gettext("Group by")}
             <select
               name="grouping"
-              aria-label="Group port traffic"
+              aria-label={gettext("Group port traffic")}
               class="ml-2 rounded bg-slate-800 px-3 py-2"
             >
-              <option value="status" selected={@grouping == "status"}>Status</option>
-              <option value="company" selected={@grouping == "company"}>Company</option>
-              <option value="kind" selected={@grouping == "kind"}>Kind</option>
+              <option value="status" selected={@grouping == "status"}>{gettext("Status")}</option>
+              <option value="company" selected={@grouping == "company"}>{gettext("Company")}</option>
+              <option value="kind" selected={@grouping == "kind"}>{gettext("Kind")}</option>
             </select>
           </label>
         </form>
       </div>
       <p class="mt-2 text-sm text-slate-400">
-        Ships currently at {@port}; vessels at sea are excluded.
+        {gettext("Ships currently at %{value1}; vessels at sea are excluded.", value1: l10n(@port))}
       </p>
-      <p :if={@total == 0} class="mt-3 text-slate-300">No ships at this port.</p>
+      <p :if={@total == 0} class="mt-3 text-slate-300">{gettext("No ships at this port.")}</p>
       <details
         :for={group <- @groups}
         id={group_id(@port, @grouping, group.key)}
@@ -74,9 +76,9 @@ defmodule TijaraTidesWeb.PortTraffic do
               class="text-teal-200 underline underline-offset-2"
             >{ship["name"]}</button>
             <span class="text-slate-400"> · {if @grouping == "company",
-              do: status(ship["status"]),
+              do: l10n(status(ship["status"])),
               else: company(@public, ship["company_id"])}</span>
-            <span :if={@grouping == "kind"} class="text-slate-400"> · {status(ship["status"])}</span>
+            <span :if={@grouping == "kind"} class="text-slate-400"> · {l10n(status(ship["status"]))}</span>
           </li>
         </ul>
       </details>
@@ -91,10 +93,11 @@ defmodule TijaraTidesWeb.PortTraffic do
       "port-traffic-group-" <>
         Base.url_encode64(Jason.encode!([port, grouping, key]), padding: false)
 
-  defp ship_count(1), do: "1 ship"
-  defp ship_count(count), do: "#{count} ships"
+  defp ship_count(count), do: ngettext("%{count} ship", "%{count} ships", count)
 
-  defp company(public, id), do: get_in(public, ["companies", id, "name"]) || "Unknown company"
+  defp company(public, id),
+    do: get_in(public, ["companies", id, "name"]) || gettext("Unknown company")
+
   defp status("docked"), do: "Berthed"
   defp status("anchored"), do: "At anchorage"
   defp status(status), do: status |> String.replace("_", " ") |> String.capitalize()

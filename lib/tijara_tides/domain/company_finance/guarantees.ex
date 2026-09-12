@@ -81,7 +81,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
           |> Notices.notice(
             beneficiary_id,
             "guarantee:" <> id,
-            "Your sponsor has funded a guarantee. Your account is reinstated; the bankruptcy restart cooldown still applies."
+            {"guarantee.funded", %{}}
           )
 
         {:ok, state, %{"guarantee_id" => id, "pledged" => amount}}
@@ -151,7 +151,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
     |> Notices.notice(
       g["sponsor_id"],
       "guarantee:" <> g["id"],
-      "Your guarantee has settled: $#{div(loss, 100)} forfeited and $#{div(refund, 100)} returned to the sponsoring company."
+      {"guarantee.settled", %{"loss" => loss, "refund" => refund}}
     )
   end
 

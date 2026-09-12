@@ -16,9 +16,9 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
 
   def panel(assigns) do
     ~H"""
-    <section id="cargo-panel" class="workspace-panel" aria-label="Cargo">
-      <h2 class="panel-title">Cargo</h2>
-      <div class="panel-content" tabindex="0" aria-label="Cargo markets">
+    <section id="cargo-panel" class="workspace-panel" aria-label={gettext("Cargo")}>
+      <h2 class="panel-title">{gettext("Cargo")}</h2>
+      <div class="panel-content" tabindex="0" aria-label={gettext("Cargo markets")}>
         <section id="cargo-markets" class="my-6 rounded-xl border border-slate-700 p-5">
           <div class="space-y-3">
             <details
@@ -26,9 +26,11 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
               phx-mounted={JS.ignore_attributes("open")}
               class="mb-3 text-sm text-slate-400"
             >
-              <summary class="cursor-pointer">About cargo markets</summary>
+              <summary class="cursor-pointer">{gettext("About cargo markets")}</summary>
               <p class="mt-2">
-                Supply and demand in lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market.
+                {gettext(
+                  "Supply and demand in lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
+                )}
               </p>
             </details>
             <form
@@ -44,7 +46,10 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                   name="compatible"
                   value="true"
                   checked={@cargo_filter_ship}
-                /> Show only cargo carried by {@definitions.classes[@ship["class"]]["name"]}
+                />
+                {gettext("Show only cargo carried by %{value1}",
+                  value1: l10n(@definitions.classes[@ship["class"]]["name"])
+                )}
               </label>
             </form>
             <div
@@ -64,7 +69,7 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
               >
                 <span>{if @market_good,
                   do: cargo_name(@market_good),
-                  else: "No cargo markets available"}</span>
+                  else: gettext("No cargo markets available")}</span>
                 <span class="cargo-spread">{if @market_good,
                   do: (List.keyfind(@cargo_options, @market_good, 0) |> elem(1)).label} ▾</span>
               </button>
@@ -73,10 +78,12 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                 id="cargo-options"
                 class="cargo-options"
                 role="group"
-                aria-label="Choose cargo"
+                aria-label={gettext("Choose cargo")}
               >
                 <div class="cargo-menu-row cargo-menu-heading px-3 py-2" aria-hidden="true">
-                  <span>Cargo</span><span class="cargo-spread">Bid / ask</span><span class="cargo-roi">ROI</span>
+                  <span>{gettext("Cargo")}</span><span class="cargo-spread">{gettext("Bid / ask")}</span><span class="cargo-roi">{gettext(
+                    "ROI"
+                  )}</span>
                 </div>
                 <button
                   :for={{good, range} <- @cargo_options}
@@ -88,11 +95,11 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                 >
                   <span>{cargo_name(good)}</span>
                   <span class="cargo-spread">{range.label}</span>
-                  <span class="cargo-roi" aria-label={"ROI " <> cargo_roi(range.roi)}>{cargo_roi(
+                  <span class="cargo-roi" aria-label={gettext("ROI") <> " " <> cargo_roi(range.roi)}>{cargo_roi(
                     range.roi
                   )}</span>
                 </button>
-                <p :if={@cargo_options == []} class="p-3">No cargo markets available</p>
+                <p :if={@cargo_options == []} class="p-3">{gettext("No cargo markets available")}</p>
               </div>
             </div>
           </div>
@@ -104,16 +111,22 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
           >
             <label class="flex shrink-0 items-center gap-2 whitespace-nowrap">
               <input type="hidden" name="roi" value="false" />
-              <input type="checkbox" name="roi" value="true" checked={@cargo_sort_roi} /> Sort by ROI
+              <input type="checkbox" name="roi" value="true" checked={@cargo_sort_roi} />
+              {gettext("Sort by ROI")}
             </label>
             <p class="text-xs leading-5 text-slate-400">
-              Highest first: (best bid − best ask) ÷ best ask, before handling and voyage costs.
+              {gettext(
+                "Highest first: (best bid − best ask) ÷ best ask, before handling and voyage costs."
+              )}
             </p>
           </form>
           <p class="mt-2 mb-2 text-xs text-slate-400">
             {if @ship && @ship["status"] == "docked",
-              do: "Sea-route distances from #{@ship["port"]} in nautical miles.",
-              else: "Select a docked ship to compare sea-route distances."}
+              do:
+                gettext("Sea-route distances from %{port} in nautical miles.",
+                  port: l10n(@ship["port"])
+                ),
+              else: gettext("Select a docked ship to compare sea-route distances.")}
           </p>
           <div class="cargo-comparison grid gap-2 md:grid-cols-2">
             <div
@@ -127,11 +140,11 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
             >
               <% sort = @market_sort[side] %>
               <% rows = cargo_markets(@definitions, @view, @market_good, side, sort, @ship) %>
-              <h3 class="mb-2 text-lg font-medium">{heading}</h3>
+              <h3 class="mb-2 text-lg font-medium">{l10n(heading)}</h3>
               <table
                 id={"cargo-#{side}"}
                 class="w-full text-sm"
-                aria-label={heading <> " for selected cargo"}
+                aria-label={gettext("%{side} for selected cargo", side: l10n(heading))}
               >
                 <thead class="border-b border-slate-700 text-slate-400">
                   <tr>
@@ -139,7 +152,7 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                       :for={
                         {column, label} <-
                           [
-                            {"port", "Port"},
+                            {"port", gettext("Port")},
                             {quantity_key, if(side == "demand", do: "Lots", else: heading)},
                             {price_key, if(side == "supply", do: "Buy price", else: "Sell price")}
                           ] ++
@@ -167,16 +180,16 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                         phx-value-column={column}
                         class="whitespace-nowrap rounded hover:text-teal-300 focus-visible:outline-2 focus-visible:outline-teal-300"
                       >
-                        {label}<span aria-hidden="true" class="ml-1">{if elem(sort, 0) ==
-                                                                           column,
-                                                                         do:
-                                                                           if(
-                                                                             elem(sort, 1) ==
-                                                                               :asc,
-                                                                             do: "↑",
-                                                                             else: "↓"
-                                                                           ),
-                                                                         else: "↕"}</span>
+                        {l10n(label)}<span aria-hidden="true" class="ml-1">{if elem(sort, 0) ==
+                                                                                 column,
+                                                                               do:
+                                                                                 if(
+                                                                                   elem(sort, 1) ==
+                                                                                     :asc,
+                                                                                   do: "↑",
+                                                                                   else: "↓"
+                                                                                 ),
+                                                                               else: "↕"}</span>
                       </button>
                     </th>
                   </tr>
@@ -193,22 +206,24 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                         phx-click="port"
                         phx-value-id={quote["port"]}
                         class="text-teal-300 underline decoration-teal-800 underline-offset-4"
-                      >{quote["port"]}</button>
+                      >{l10n(quote["port"])}</button>
                     </th>
                     <%= if quote["manual"] do %>
                       <td class="px-3 py-2 text-right tabular-nums">
-                        {quote[quantity_key]}
+                        {display_number(quote[quantity_key])}
                       </td>
                       <td class="px-3 py-2 text-right tabular-nums">
                         {if quote[quantity_key] > 0, do: money(quote[price_key]), else: "—"}
                       </td>
                     <% else %>
                       <td colspan="2" class="px-3 py-2 text-right text-slate-400">
-                        Trading not available yet
+                        {gettext("Trading not available yet")}
                       </td>
                     <% end %>
                     <td :if={side == "demand"} class="text-right tabular-nums">
-                      {if is_nil(quote["distance"]), do: "—", else: round(quote["distance"])}
+                      {if is_nil(quote["distance"]),
+                        do: "—",
+                        else: display_number(round(quote["distance"]))}
                     </td>
                   </tr>
                   <tr :if={rows == []}>
@@ -216,7 +231,7 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                       colspan={if(side == "demand", do: 4, else: 3)}
                       class="py-3 text-slate-400"
                     >
-                      No ports for this cargo.
+                      {gettext("No ports for this cargo.")}
                     </td>
                   </tr>
                 </tbody>

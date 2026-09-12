@@ -5,6 +5,7 @@ export const Workspace = {
     this.buttons = [...this.el.querySelectorAll("[data-panel]")]
     this.activePanel = 1
     this.mapExpanded = false
+    this.direction = () => this.el.ownerDocument?.documentElement.dir === "rtl" ? -1 : 1
     this.portrait = () => matchMedia("(orientation: portrait)").matches
     this.sizeMapLabels = () => {
       const svg = this.el.querySelector("#world-map")
@@ -32,7 +33,7 @@ export const Workspace = {
     this.selectPanel = index => {
       this.activePanel = index
       this.markPanel()
-      if (this.portrait()) this.track.scrollTo({left: index * this.track.clientWidth, behavior: "instant"})
+      if (this.portrait()) this.track.scrollTo({left: this.direction() * index * this.track.clientWidth, behavior: "instant"})
     }
     this.onClick = event => {
       if (event.target.closest("[data-map-expand]")) {
@@ -60,7 +61,7 @@ export const Workspace = {
       }
       if (!event.target.matches("[data-panel]")) return
       const index = Number(event.target.dataset.panel)
-      const next = {ArrowLeft: Math.max(0, index - 1), ArrowRight: Math.min(2, index + 1), Home: 0, End: 2}[event.key]
+      const next = {ArrowLeft: Math.max(0, Math.min(2, index - this.direction())), ArrowRight: Math.max(0, Math.min(2, index + this.direction())), Home: 0, End: 2}[event.key]
       if (next === undefined) return
       event.preventDefault()
       this.selectPanel(next)
@@ -68,7 +69,7 @@ export const Workspace = {
     }
     this.onScroll = () => {
       if (this.portrait() && this.track.clientWidth) {
-        this.activePanel = Math.round(this.track.scrollLeft / this.track.clientWidth)
+        this.activePanel = Math.round(Math.abs(this.track.scrollLeft) / this.track.clientWidth)
         this.markPanel()
       }
     }

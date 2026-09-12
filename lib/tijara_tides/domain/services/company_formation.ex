@@ -51,7 +51,12 @@ defmodule TijaraTides.Domain.Services.CompanyFormation do
           |> Account.attach_company(account["id"], id)
 
         state =
-          notice(state, account["inviter"], "company:" <> id, "Your invitee now runs #{name}.")
+          notice(
+            state,
+            account["inviter"],
+            "company:" <> id,
+            {"company.formed", %{"company" => name}}
+          )
 
         {:ok, state, %{"company_id" => id}}
     end

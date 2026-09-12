@@ -22,14 +22,19 @@ defmodule TijaraTidesWeb.GameSessionController do
 
       {:error, :missing_device} ->
         conn
-        |> put_flash(:error, "Open the invitation form again and allow cookies before redeeming.")
+        |> put_flash(
+          :error,
+          gettext("Open the invitation form again and allow cookies before redeeming.")
+        )
         |> redirect(to: ~p"/play")
 
       {:error, _} ->
         conn
         |> put_flash(
           :error,
-          "That invitation could not be redeemed. Check the code and that the game is available."
+          gettext(
+            "That invitation could not be redeemed. Check the code and that the game is available."
+          )
         )
         |> redirect(to: ~p"/play")
     end

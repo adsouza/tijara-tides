@@ -43,6 +43,51 @@ defmodule TijaraTidesWeb.FinancialReportsTest do
     assert own_html =~ "Next companies"
   end
 
+  test "Arabic reports translate both eligibility branches and preserve selection values" do
+    row = %{
+      "name" => "Company",
+      "profit" => 1200,
+      "roi" => 5.0,
+      "revenue" => 1500,
+      "cargo_cost" => 100,
+      "operating" => 100,
+      "depreciation" => 100,
+      "average_capital" => 24000
+    }
+
+    for {eligible, expected} <- [{false, "مؤقتة / غير مصنفة"}, {true, "النتائج النهائية"}] do
+      data = %{
+        period: "quarter",
+        metric: "profit",
+        selected: 0,
+        current: 0,
+        minimum: 0,
+        ranked: [],
+        provisional: [],
+        own: [Map.put(row, "eligible", eligible)],
+        page: 0,
+        limit: 10,
+        ranked_count: 0,
+        provisional_count: 0,
+        own_count: 1
+      }
+
+      html =
+        TijaraTides.Localization.with_locale("ar", fn ->
+          render_component(&FinancialReports.panel/1, data: data, open: true)
+        end)
+
+      tree = LazyHTML.from_fragment(html)
+      assert LazyHTML.query(tree, "section h3") |> LazyHTML.text() =~ expected
+      refute html =~ "Provisional / unranked"
+      refute html =~ "Final results"
+      refute html =~ "In progress"
+      assert html =~ ~s(value="quarter")
+      assert html =~ ~s(value="profit")
+      assert html =~ "١٢"
+    end
+  end
+
   test "closed panel contains no results, and query errors have a retry action" do
     html = render_component(&FinancialReports.panel/1)
     refute html =~ "Company results &amp; leaderboards"

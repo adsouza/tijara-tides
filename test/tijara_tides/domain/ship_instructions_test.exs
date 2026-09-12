@@ -107,8 +107,8 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     assert Game.get(sailing, "companies", "company")["reserved"] == ship["fuel_total"]
     assert ShipInstructions.advance(sailing, c.catalogue) == sailing
 
-    assert Game.get(sailing, "notices", "auto-depart:company:1|Singapore")["text"] =~
-             "automatically departed"
+    assert Game.get(sailing, "notices", "auto-depart:company:1|Singapore")["code"] ==
+             "ship.departed"
   end
 
   test "automatic departure waits through partial fills and handling, then sails", c do

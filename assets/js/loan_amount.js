@@ -15,7 +15,7 @@ export const LoanAmount = {
       this.el.querySelector('input[type="number"]').value = this.amount
       const slider = this.el.querySelector('input[type="range"]')
       slider.value = this.amount === maximum ? Math.ceil(maximum / 10000) : Math.round(this.amount / 10000)
-      slider.setAttribute("aria-valuetext", `$${this.amount.toLocaleString("en-US")}`)
+      slider.setAttribute("aria-valuetext", new Intl.NumberFormat(this.el.ownerDocument?.documentElement.lang || "en", {style: "currency", currency: "USD", maximumFractionDigits: 0}).format(this.amount))
     }
     this.el.addEventListener("input", this.sync)
     this.renderAmount()

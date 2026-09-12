@@ -1,0 +1,1974 @@
+msgid ""
+msgstr ""
+"Language: ar\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);\n"
+
+msgid "%{company} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes."
+msgstr "أُعلنت شركة %{company} مفلسة. تبقى أصولها تحت التصفية. يمكن إنشاء شركة بديلة بعد 20 دقيقة من وقت العالم النشط."
+
+msgid "%{reason}"
+msgstr "%{reason}"
+
+msgid "%{ship} at %{port}: %{side} %{cargo}, %{filled}/%{quantity} lots filled. %{reason}."
+msgstr "%{ship} في %{port}: %{side} %{cargo}، تم تنفيذ %{filled}/%{quantity} من الدفعات. %{reason}."
+
+msgid "%{ship} automatically departed %{port} for %{destination}."
+msgstr "أبحرت %{ship} تلقائياً من %{port} إلى %{destination}."
+
+msgid "%{ship}: automatic departure to %{destination} paused. %{reason}."
+msgstr "%{ship}: توقف الإبحار التلقائي إلى %{destination}. %{reason}."
+
+msgid "%{value1} %{value2} · %{value3} $%{value4} / lot"
+msgstr "%{value1} %{value2} · %{value3} $%{value4} / دفعة"
+
+msgid "%{value1} %{value2}: %{value3}/%{value4} lots · %{value5}"
+msgstr "%{value1} %{value2}: %{value3}/%{value4} دفعة · %{value5}"
+
+msgid "%{value1} bid"
+msgstr "سعر الشراء في %{value1}"
+
+msgid "%{value1} gross on %{value2} lots"
+msgstr "%{value1} إجمالي الربح على %{value2} دفعة"
+
+msgid "%{value1} kg"
+msgstr "%{value1} كغ"
+
+msgid "%{value1} kg · %{value2}"
+msgstr "%{value1} كغ · %{value2}"
+
+msgid "%{value1} loan · %{value2}% per period · %{value3} · %{value4} principal remaining"
+msgstr "قرض بقيمة %{value1} · %{value2}% لكل فترة · %{value3} · المتبقي من أصل الدين %{value4}"
+
+msgid "%{value1} locked as a guarantee. It is returned to the sponsoring company after the guaranteed loans are repaid; on bankruptcy, unpaid loan debt is covered up to this cap and the rest is refunded."
+msgstr "تم حجز %{value1} كضمان. يُعاد إلى الشركة الضامنة بعد سداد القروض المضمونة؛ وعند الإفلاس يُستخدم لتغطية الدين غير المسدد حتى هذا الحد، ويُعاد الباقي."
+
+msgid "%{value1} lots"
+msgstr "%{value1} دفعة"
+
+msgid "%{value1} lots demand"
+msgstr "طلب على %{value1} دفعة"
+
+msgid "%{value1} lots · %{value2}"
+msgstr "%{value1} دفعة · %{value2}"
+
+msgid "%{value1} lots: first expiry in %{value2} min now; estimated %{value3} min remaining after %{value4} min handling."
+msgstr "%{value1} دفعة: أقرب انتهاء صلاحية بعد %{value2} دقيقة؛ ويُتوقع بقاء %{value3} دقيقة بعد %{value4} دقيقة من المناولة."
+
+msgid "%{value1} min"
+msgstr "%{value1} دقيقة"
+
+msgid "%{value1} min remaining"
+msgstr "متبقٍ %{value1} دقيقة"
+
+msgid "%{value1} min · fuel %{value2} · estimated crew %{value3} · canals %{value4}"
+msgstr "%{value1} دقيقة · الوقود %{value2} · الطاقم تقديرياً %{value3} · القنوات %{value4}"
+
+msgid "%{value1} spent / %{value2} cap"
+msgstr "المصروف %{value1} / الحد %{value2}"
+
+msgid "%{value1} tonnes · %{value2} m³ capacity"
+msgstr "السعة %{value1} طن · %{value2} م³"
+
+msgid "%{value1} total"
+msgstr "الإجمالي %{value1}"
+
+msgid "%{value1} — Manifest"
+msgstr "%{value1} — بيان الحمولة"
+
+msgid "%{value1}%{value2} gross profit / lot"
+msgstr "%{value1}%{value2} إجمالي الربح / دفعة"
+
+msgid "%{value1}: %{value2} profit · %{value3} ROI · %{value4} lifetime bankruptcies"
+msgstr "%{value1}: الربح %{value2} · العائد %{value3} · حالات الإفلاس الكلية %{value4}"
+
+msgid "%{value1}: estimated time to first expiry — %{value2} min at arrival; %{value3} min after unloading."
+msgstr "%{value1}: الوقت المتوقع حتى أقرب انتهاء صلاحية — %{value2} دقيقة عند الوصول؛ %{value3} دقيقة بعد التفريغ."
+
+msgid "(lots)"
+msgstr "(دفعات)"
+
+msgid "90% of book value."
+msgstr "90% من القيمة الدفترية."
+
+msgid "A shared world awaits"
+msgstr "عالم مشترك بانتظارك"
+
+msgid "Aboard"
+msgstr "على متن السفينة"
+
+msgid "About cargo markets"
+msgstr "عن أسواق البضائع"
+
+msgid "About financial reports"
+msgstr "عن التقارير المالية"
+
+msgid "About repeating routes"
+msgstr "عن المسارات المتكررة"
+
+msgid "About this port"
+msgstr "عن هذا الميناء"
+
+msgid "Account suspended"
+msgstr "الحساب معلّق"
+
+msgid "Account suspended after five recent bankruptcies. Your original sponsor must pledge at least $50,000 to reinstate you."
+msgstr "عُلّق الحساب بعد خمس حالات إفلاس حديثة. يجب أن يقدم كفيلك الأصلي ضماناً لا يقل عن 50,000 دولار لإعادة تفعيله."
+
+msgid "Account, finance & invitations"
+msgstr "الحساب والتمويل والدعوات"
+
+msgid "Accrued interest not yet due: %{value1} · Currently due: %{value2}"
+msgstr "الفائدة المتراكمة غير المستحقة بعد: %{value1} · المستحق حالياً: %{value2}"
+
+msgid "Action"
+msgstr "الإجراء"
+
+msgid "Add instruction"
+msgstr "إضافة تعليمات"
+
+msgid "Add stop"
+msgstr "إضافة محطة"
+
+msgid "Adding…"
+msgstr "جارٍ الإضافة…"
+
+msgid "Addresses already linked to another account cannot be used."
+msgstr "لا يمكن استخدام عنوان مرتبط بحساب آخر."
+
+msgid "After the final stop, return to %{value1}."
+msgstr "بعد المحطة الأخيرة، العودة إلى %{value1}."
+
+msgid "All overdue payments have been cleared. The bankruptcy grace period has ended."
+msgstr "سُددت جميع المتأخرات. انتهت مهلة الإفلاس."
+
+msgid "An active sell instruction already exists for this cargo. Cancel it before adding another."
+msgstr "توجد تعليمات بيع نشطة لهذه البضاعة. ألغِها قبل إضافة تعليمات أخرى."
+
+msgid "An invitee is suspended and needs your cash-backed guarantee. Review sponsor guarantees in the account menu."
+msgstr "عُلّق حساب لاعب دعوتَه ويحتاج إلى ضمان نقدي منك. راجع ضمانات الكفيل في قائمة الحساب."
+
+msgid "An ocean of possibilities. A multiplayer marine trading game, beginning here."
+msgstr "محيط من الفرص. تبدأ هنا لعبة التجارة البحرية متعددة اللاعبين."
+
+msgid "Apply"
+msgstr "تطبيق"
+
+msgid "Arrange a loan"
+msgstr "الحصول على قرض"
+
+msgid "Arrears: %{value1}. Bankruptcy deadline in %{value2} active-world minutes. World suspension pauses this countdown."
+msgstr "المتأخرات: %{value1}. تبدأ إجراءات الإفلاس بعد %{value2} دقيقة من وقت العالم النشط. يتوقف العد عند تعليق العالم."
+
+msgid "Assumes unloading all current cargo. Estimates update with the voyage and may change with delays."
+msgstr "يفترض تفريغ كل الحمولة الحالية. تتحدث التقديرات مع الرحلة وقد تتغير بسبب التأخير."
+
+msgid "Available cash"
+msgstr "النقد المتاح"
+
+msgid "Available in a later market milestone"
+msgstr "متاح في مرحلة لاحقة من تطوير السوق"
+
+msgid "Available invitations: %{value1}"
+msgstr "الدعوات المتاحة: %{value1}"
+
+msgid "Available invitations: 0"
+msgstr "الدعوات المتاحة: 0"
+
+msgid "Average capital employed"
+msgstr "متوسط رأس المال المستخدم"
+
+msgid "Bid / ask"
+msgstr "سعر الشراء / البيع"
+
+msgid "Bid / demand"
+msgstr "سعر الشراء / الطلب"
+
+msgid "Book value: %{value1}"
+msgstr "القيمة الدفترية: %{value1}"
+
+msgid "Borrow"
+msgstr "اقتراض"
+
+msgid "Borrowing…"
+msgstr "جارٍ الاقتراض…"
+
+msgid "Build a company. Trade the world."
+msgstr "أسّس شركة. تاجر حول العالم."
+
+msgid "Buy"
+msgstr "شراء"
+
+msgid "Buy / load target"
+msgstr "هدف الشراء / التحميل"
+
+msgid "Buy / lot"
+msgstr "شراء / دفعة"
+
+msgid "Buy a ship at %{value1}"
+msgstr "شراء سفينة في %{value1}"
+
+msgid "Buy ship"
+msgstr "شراء سفينة"
+
+msgid "Buying…"
+msgstr "جارٍ الشراء…"
+
+msgid "Cancel edit"
+msgstr "إلغاء التعديل"
+
+msgid "Cancel order"
+msgstr "إلغاء الأمر"
+
+msgid "Capacity used: %{value1} / %{value2} kg · %{value3} / %{value4}"
+msgstr "السعة المستخدمة: %{value1} / %{value2} كغ · %{value3} / %{value4}"
+
+msgid "Cargo"
+msgstr "البضائع"
+
+msgid "Cargo / lot size"
+msgstr "البضاعة / حجم الدفعة"
+
+msgid "Cargo / supply"
+msgstr "البضاعة / المعروض"
+
+msgid "Cargo aboard"
+msgstr "البضائع على المتن"
+
+msgid "Cargo available at %{value1}. Profit estimates use the listed load, current prices, handling, cleaning, fuel, canals, and estimated fleet upkeep. Cash affordability and spoilage are not included; prices and demand can change."
+msgstr "البضائع المتاحة في %{value1}. تشمل تقديرات الربح الحمولة المبينة والأسعار الحالية والمناولة والتنظيف والوقود والقنوات وصيانة الأسطول المقدرة. لا تشمل القدرة النقدية أو التلف؛ وقد تتغير الأسعار والطلب."
+
+msgid "Cargo freshness"
+msgstr "صلاحية البضائع"
+
+msgid "Cargo markets"
+msgstr "أسواق البضائع"
+
+msgid "Cargo sold at cost"
+msgstr "تكلفة البضائع المباعة"
+
+msgid "Choose a destination before buying"
+msgstr "اختر وجهة قبل الشراء"
+
+msgid "Choose a destination in the voyage controls before adding instructions."
+msgstr "اختر وجهة من أدوات الرحلة قبل إضافة التعليمات."
+
+msgid "Choose a destination port before buying."
+msgstr "اختر ميناء وجهة قبل الشراء."
+
+msgid "Choose a port in %{value1} to inspect its market."
+msgstr "اختر ميناء في %{value1} لعرض سوقه."
+
+msgid "Choose a port in the Ports panel to buy there. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew."
+msgstr "اختر ميناء من لوحة الموانئ للشراء فيه. تصل السفن فوراً فارغة وراسية. احتفظ بنقد للبضائع والوقود والطاقم."
+
+msgid "Choose cargo"
+msgstr "اختر بضاعة"
+
+msgid "Choose onward destination"
+msgstr "اختر الوجهة التالية"
+
+msgid "Close"
+msgstr "إغلاق"
+
+msgid "Close account, finance and invitations"
+msgstr "إغلاق الحساب والتمويل والدعوات"
+
+msgid "Close ✕"
+msgstr "إغلاق ✕"
+
+msgid "Company"
+msgstr "الشركة"
+
+msgid "Company in bankruptcy — assets in receivership"
+msgstr "الشركة مفلسة — الأصول تحت التصفية"
+
+msgid "Company leaderboard"
+msgstr "ترتيب الشركات"
+
+msgid "Company name"
+msgstr "اسم الشركة"
+
+msgid "Company results & leaderboards"
+msgstr "نتائج الشركات وقوائم الترتيب"
+
+msgid "Connecting…"
+msgstr "جارٍ الاتصال…"
+
+msgid "Continue on this device"
+msgstr "المتابعة على هذا الجهاز"
+
+msgid "Current and next stops are protected while the route is active"
+msgstr "لا يمكن حذف المحطتين الحالية والتالية أثناء تشغيل المسار"
+
+msgid "Debt: %{value1} · Available credit: %{value2} · Lifetime bankruptcies: %{value3}"
+msgstr "الدين: %{value1} · الائتمان المتاح: %{value2} · حالات الإفلاس الكلية: %{value3}"
+
+msgid "Declare bankruptcy"
+msgstr "إعلان الإفلاس"
+
+msgid "Declaring…"
+msgstr "جارٍ الإعلان…"
+
+msgid "Depart automatically after orders and handling finish"
+msgstr "الإبحار تلقائياً بعد انتهاء الأوامر والمناولة"
+
+msgid "Depreciates over 28 active-world days to 20% of build value."
+msgstr "تنخفض القيمة خلال 28 يوماً من وقت العالم النشط إلى 20% من تكلفة البناء."
+
+msgid "Depreciation"
+msgstr "الإهلاك"
+
+msgid "Destination"
+msgstr "الوجهة"
+
+msgid "Destination bids: %{value1}. Gross profit excludes handling and voyage costs; demand and prices may change before arrival."
+msgstr "أسعار الشراء في الوجهة: %{value1}. لا يشمل إجمالي الربح تكاليف المناولة والرحلة؛ وقد تتغير الأسعار والطلب قبل الوصول."
+
+msgid "Destination trade opportunities"
+msgstr "فرص التجارة في الوجهة"
+
+msgid "Dismiss notification"
+msgstr "إخفاء الإشعار"
+
+msgid "Dismiss ship information"
+msgstr "إخفاء معلومات السفينة"
+
+msgid "Does not expire"
+msgstr "بلا انتهاء صلاحية"
+
+msgid "Due in (HH:MM:SS)"
+msgstr "الاستحقاق بعد (ساعة:دقيقة:ثانية)"
+
+msgid "Edit"
+msgstr "تعديل"
+
+msgid "Email identity"
+msgstr "هوية البريد الإلكتروني"
+
+msgid "Email linking is not available on this server yet. Keep this device session to retain access. Invitations cannot be reused to sign in."
+msgstr "ربط البريد الإلكتروني غير متاح على هذا الخادم بعد. احتفظ بجلسة هذا الجهاز لضمان الوصول. لا يمكن إعادة استخدام الدعوات لتسجيل الدخول."
+
+msgid "Email me a sign-in link"
+msgstr "أرسل رابط تسجيل الدخول إلى بريدي"
+
+msgid "Email to link"
+msgstr "البريد المراد ربطه"
+
+msgid "Emailed sign-in token"
+msgstr "رمز تسجيل الدخول المرسل بالبريد"
+
+msgid "Empty hold"
+msgstr "العنبر فارغ"
+
+msgid "Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic"
+msgstr "خريطة بإسقاط الأرض المتساوية (Equal Earth) · الفيروزي: الموانئ والمناطق · الذهبي: السفن في البحر · السفن الراسية تظهر في حركة الميناء"
+
+msgid "Establish company"
+msgstr "تأسيس الشركة"
+
+msgid "Estimates may change before settlement."
+msgstr "قد تتغير التقديرات قبل التسوية."
+
+msgid "Execute when berthed. Sales unload before purchases load. Partial fills retry while waiting; sailing cancels any remainder. Prices are per lot, excluding handling. A purchase cap includes all purchase costs and does not reserve cash."
+msgstr "تُنفّذ عند الرسو. تُفرّغ المبيعات قبل تحميل المشتريات. تُعاد محاولة التنفيذ الجزئي أثناء الانتظار؛ ويلغي الإبحار الباقي. الأسعار لكل دفعة دون المناولة. يشمل سقف الشراء كل تكاليف الشراء ولا يحجز النقد."
+
+msgid "Existing buy instructions disagree. Purchases are paused until you choose one onward port."
+msgstr "تعليمات الشراء الحالية متعارضة. تتوقف المشتريات حتى تختار ميناءً تالياً واحداً."
+
+msgid "Expand"
+msgstr "توسيع"
+
+msgid "Expected to expire during handling."
+msgstr "يُتوقع انتهاء الصلاحية أثناء المناولة."
+
+msgid "Explore the trading world"
+msgstr "استكشف عالم التجارة"
+
+msgid "Five bankruptcies within 112 active-world days trigger suspension. Aging out does not lift it. Your original sponsor must pledge at least $50,000 to reinstate you."
+msgstr "تؤدي خمس حالات إفلاس خلال 112 يوماً من وقت العالم النشط إلى تعليق الحساب. لا يرفع مرور الوقت التعليق. يجب أن يقدم كفيلك الأصلي ضماناً لا يقل عن 50,000 دولار لإعادة تفعيله."
+
+msgid "Fixed lots"
+msgstr "عدد ثابت من الدفعات"
+
+msgid "Fleet and ship details"
+msgstr "تفاصيل الأسطول والسفينة"
+
+msgid "For %{value1} lots of %{value2}, keep %{value3} for %{value4}: fuel %{value5}, canals %{value6}, estimated fleet upkeep %{value7} through loading and arrival."
+msgstr "لشراء %{value1} دفعة من %{value2}، احتفظ بـ %{value3} للرحلة إلى %{value4}: الوقود %{value5}، القنوات %{value6}، وتكاليف الأسطول المقدرة %{value7} أثناء التحميل وحتى الوصول."
+
+msgid "From %{value1} · %{value2}"
+msgstr "من %{value1} · %{value2}"
+
+msgid "Game panels"
+msgstr "لوحات اللعبة"
+
+msgid "Generate shareable"
+msgstr "إنشاء رمز قابل للمشاركة"
+
+msgid "Group by"
+msgstr "التجميع حسب"
+
+msgid "Group port traffic"
+msgstr "تجميع حركة الميناء"
+
+msgid "Guarantee %{value1}. The pledge caps their borrowing and your liability."
+msgstr "ضمان %{value1}. يحدد المبلغ سقف اقتراضه ومسؤوليتك."
+
+msgid "Harbor lobby"
+msgstr "ردهة الميناء"
+
+msgid "Highest first: (best bid − best ask) ÷ best ask, before handling and voyage costs."
+msgstr "الأعلى أولاً: (أفضل سعر شراء − أفضل سعر بيع) ÷ أفضل سعر بيع، قبل تكاليف المناولة والرحلة."
+
+msgid "In the desktop app, copy the sign-in token from your email and paste it here. Do not use the email link in a browser first."
+msgstr "في تطبيق سطح المكتب، انسخ رمز تسجيل الدخول من بريدك والصقه هنا. لا تفتح رابط البريد في المتصفح أولاً."
+
+msgid "Inspect port"
+msgstr "عرض الميناء"
+
+msgid "Instruction action"
+msgstr "إجراء التعليمات"
+
+msgid "Instruction cargo"
+msgstr "بضاعة التعليمات"
+
+msgid "Instruction limit price"
+msgstr "السعر المحدد للتعليمات"
+
+msgid "Instruction purchase cap"
+msgstr "سقف شراء التعليمات"
+
+msgid "Instruction target lots"
+msgstr "عدد الدفعات المستهدف"
+
+msgid "Instructions at %{value1}"
+msgstr "التعليمات في %{value1}"
+
+msgid "Interest"
+msgstr "الفائدة"
+
+msgid "Invitation code"
+msgstr "رمز الدعوة"
+
+msgid "Invitations"
+msgstr "الدعوات"
+
+msgid "Invitee email"
+msgstr "بريد المدعو"
+
+msgid "Kind"
+msgstr "النوع"
+
+msgid "Language"
+msgstr "اللغة"
+
+msgid "Lifetime bankruptcies"
+msgstr "حالات الإفلاس الكلية"
+
+msgid "Limit price ($/lot)"
+msgstr "السعر المحدد (دولار/دفعة)"
+
+msgid "Link an email to sign in on another device. Until an email is verified, keep this device session to retain access. Invitations cannot be reused to sign in."
+msgstr "اربط بريداً إلكترونياً لتسجيل الدخول على جهاز آخر. احتفظ بجلسة هذا الجهاز حتى التحقق من البريد. لا يمكن إعادة استخدام الدعوات لتسجيل الدخول."
+
+msgid "Live player count"
+msgstr "عدد اللاعبين المباشر"
+
+msgid "Load / est. profit"
+msgstr "الحمولة / الربح المقدر"
+
+msgid "Loan amount in $10,000 steps"
+msgstr "مبلغ القرض بخطوات 10,000 دولار"
+
+msgid "Loan amount in dollars"
+msgstr "مبلغ القرض بالدولار"
+
+msgid "Loan terms"
+msgstr "شروط القرض"
+
+msgid "Loans and repayments"
+msgstr "القروض والسداد"
+
+msgid "Lots"
+msgstr "الدفعات"
+
+msgid "Name your company"
+msgstr "سمِّ شركتك"
+
+msgid "Net profit"
+msgstr "صافي الربح"
+
+msgid "New borrowing requires your original sponsor's cash pledge, even after earlier guaranteed loans were repaid."
+msgstr "يتطلب الاقتراض الجديد ضماناً نقدياً من كفيلك الأصلي، حتى بعد سداد قروض مضمونة سابقة."
+
+msgid "New loans have %{value1} installments and accrue %{value2}% interest per %{value3} active-world hours on outstanding principal, continuously while the world runs. Recent bankruptcies raise rates from 8% to 9%, 10%, 12%, 14%, then 16%; existing loans keep their rate. Early repayment has no penalty and avoids future interest. Borrowing is not profit."
+msgstr "تُسدد القروض الجديدة على %{value1} أقساط، وتتراكم فائدة %{value2}% لكل %{value3} ساعة من وقت العالم النشط على أصل الدين المتبقي طوال تشغيل العالم. ترفع حالات الإفلاس الحديثة المعدل من 8% إلى 9% ثم 10% ثم 12% ثم 14% ثم 16%؛ وتحتفظ القروض القائمة بمعدلاتها. لا غرامة على السداد المبكر، وهو يوفر الفوائد المستقبلية. الاقتراض ليس ربحاً."
+
+msgid "Next companies"
+msgstr "الشركات التالية"
+
+msgid "Next page"
+msgstr "الصفحة التالية"
+
+msgid "Next port cargo instructions"
+msgstr "تعليمات البضائع في الميناء التالي"
+
+msgid "No cap"
+msgstr "بلا سقف"
+
+msgid "No cargo available"
+msgstr "لا توجد بضائع متاحة"
+
+msgid "No cargo is available to %{value1} here right now."
+msgstr "لا توجد بضائع متاحة لإجراء %{value1} هنا حالياً."
+
+msgid "No cargo markets available"
+msgstr "لا توجد أسواق بضائع متاحة"
+
+msgid "No compatible cargo"
+msgstr "لا توجد بضائع متوافقة"
+
+msgid "No compatible cargo available at the current port."
+msgstr "لا توجد بضائع متوافقة متاحة في الميناء الحالي."
+
+msgid "No eligible companies for this ranking yet."
+msgstr "لا توجد شركات مؤهلة لهذا الترتيب بعد."
+
+msgid "No ports for this cargo."
+msgstr "لا توجد موانئ لهذه البضاعة."
+
+msgid "No ships at this port."
+msgstr "لا توجد سفن في هذا الميناء."
+
+msgid "No ships with this status."
+msgstr "لا توجد سفن بهذه الحالة."
+
+msgid "Notification unavailable"
+msgstr "الإشعار غير متاح"
+
+msgid "One quarter is 7 active-world days; one year is 28. Periods start at world time zero. Rankings require a complete period. ROI uses time-weighted assets, including loan-funded assets. Zero capital is unranked."
+msgstr "الربع 7 أيام من وقت العالم النشط، والسنة 28 يوماً. تبدأ الفترات عند الزمن صفر للعالم. يتطلب الترتيب فترة مكتملة. يُحسب العائد باستخدام الأصول المرجحة زمنياً بما فيها الممولة بالقروض. لا يُرتّب رأس المال الصفري."
+
+msgid "Onward destination after %{value1}"
+msgstr "الوجهة التالية بعد %{value1}"
+
+msgid "Open this link to verify your email and continue to Tijara Tides:\n\n%{url}\n\nUsing the desktop app? Paste this sign-in token into the app instead:\n\n%{token}\n\nThe link and token can be used only once, on one device.\n\n%{expiry}\n\nDo not share this link or token. If you did not request it, ignore this email."
+msgstr "افتح هذا الرابط للتحقق من بريدك والمتابعة إلى أمواج التجارة:\n\n%{url}\n\nتستخدم تطبيق سطح المكتب؟ الصق رمز تسجيل الدخول هذا في التطبيق بدلاً من الرابط:\n\n%{token}\n\nيمكن استخدام الرابط والرمز مرة واحدة فقط على جهاز واحد.\n\n%{expiry}\n\nلا تشارك الرابط أو الرمز. تجاهل الرسالة إن لم تطلبها."
+
+msgid "Operating costs & disposal losses"
+msgstr "تكاليف التشغيل وخسائر التخلص من الأصول"
+
+msgid "Page %{value1} · up to %{value2} companies per list"
+msgstr "الصفحة %{value1} · حتى %{value2} شركة في كل قائمة"
+
+msgid "Paste your sign-in token"
+msgstr "الصق رمز تسجيل الدخول"
+
+msgid "Pause route"
+msgstr "إيقاف المسار مؤقتاً"
+
+msgid "Payments overdue. Clear all arrears within %{minutes} active-world minutes to avoid bankruptcy."
+msgstr "توجد دفعات متأخرة. سدّد جميع المتأخرات خلال %{minutes} دقيقة من وقت العالم النشط لتجنب الإفلاس."
+
+msgid "Period"
+msgstr "الفترة"
+
+msgid "Plan an onward destination with or without cargo orders. Departure is manual unless automatic departure is enabled for this visit."
+msgstr "حدد وجهة تالية مع أو بدون أوامر بضائع. الإبحار يدوي ما لم يُفعّل الإبحار التلقائي لهذه الزيارة."
+
+msgid "Players online"
+msgstr "اللاعبون المتصلون"
+
+msgid "Pledge & reinstate"
+msgstr "تقديم الضمان وإعادة التفعيل"
+
+msgid "Pledging…"
+msgstr "جارٍ تقديم الضمان…"
+
+msgid "Port"
+msgstr "الميناء"
+
+msgid "Port details and trading"
+msgstr "تفاصيل الميناء والتجارة"
+
+msgid "Port market side"
+msgstr "جانب سوق الميناء"
+
+msgid "Port traffic · %{value1}"
+msgstr "حركة الميناء · %{value1}"
+
+msgid "Ports"
+msgstr "الموانئ"
+
+msgid "Previous companies"
+msgstr "الشركات السابقة"
+
+msgid "Previous page"
+msgstr "الصفحة السابقة"
+
+msgid "Principal"
+msgstr "أصل الدين"
+
+msgid "Profit"
+msgstr "الربح"
+
+msgid "Projected schedule assuming timely payments in active-world time:"
+msgstr "جدول السداد المتوقع عند السداد في موعده وفق وقت العالم النشط:"
+
+msgid "Provisional and unranked companies (%{value1})"
+msgstr "الشركات المؤقتة وغير المرتبة (%{value1})"
+
+msgid "Purchase cap ($, optional)"
+msgstr "سقف الشراء (دولار، اختياري)"
+
+msgid "Purchase cap ($; buys only)"
+msgstr "سقف الشراء (دولار؛ للشراء فقط)"
+
+msgid "Quantity"
+msgstr "الكمية"
+
+msgid "Quarter"
+msgstr "الربع"
+
+msgid "Quarter %{value1}%{value2}"
+msgstr "الربع %{value1}%{value2}"
+
+msgid "ROI"
+msgstr "العائد على الاستثمار"
+
+msgid "Rank"
+msgstr "المرتبة"
+
+msgid "Ranking"
+msgstr "الترتيب"
+
+msgid "Recast loan"
+msgstr "إعادة جدولة القرض"
+
+msgid "Recast payment in $10,000 steps"
+msgstr "دفعة إعادة الجدولة بخطوات 10,000 دولار"
+
+msgid "Recast payment in dollars"
+msgstr "دفعة إعادة الجدولة بالدولار"
+
+msgid "Recast: pay accrued interest first, then principal. Smaller remaining installments, same payoff date and interest rate. Keep cash for trading."
+msgstr "إعادة الجدولة: سداد الفائدة المتراكمة أولاً ثم أصل الدين. أقساط متبقية أصغر مع نفس موعد السداد النهائي ومعدل الفائدة. احتفظ بنقد للتجارة."
+
+msgid "Recasting…"
+msgstr "جارٍ إعادة الجدولة…"
+
+msgid "Redeem invitation"
+msgstr "استخدام الدعوة"
+
+msgid "Refresh"
+msgstr "تحديث"
+
+msgid "Remaining active-world time (HH:MM:SS); pauses when the world is suspended"
+msgstr "وقت العالم النشط المتبقي (ساعة:دقيقة:ثانية)؛ يتوقف عند تعليق العالم"
+
+msgid "Remove"
+msgstr "إزالة"
+
+msgid "Remove route"
+msgstr "إزالة المسار"
+
+msgid "Remove stop"
+msgstr "إزالة المحطة"
+
+msgid "Repay"
+msgstr "سداد"
+
+msgid "Repaying…"
+msgstr "جارٍ السداد…"
+
+msgid "Repeating route"
+msgstr "مسار متكرر"
+
+msgid "Replacement company available in %{value1} active-world minutes."
+msgstr "تتاح شركة بديلة بعد %{value1} دقيقة من وقت العالم النشط."
+
+msgid "Reports are temporarily unavailable. Please retry."
+msgstr "التقارير غير متاحة مؤقتاً. يرجى المحاولة مجدداً."
+
+msgid "Reports include activity recorded since financial tracking began. Earlier activity remains in your lifetime trading result; incomplete periods are not ranked."
+msgstr "تشمل التقارير النشاط المسجل منذ بدء التتبع المالي. يبقى النشاط السابق ضمن نتيجة تجارتك الكلية؛ ولا تُرتب الفترات غير المكتملة."
+
+msgid "Reserve fuel and sail"
+msgstr "حجز الوقود والإبحار"
+
+msgid "Reserved fuel"
+msgstr "الوقود المحجوز"
+
+msgid "Resolve conflicting destinations"
+msgstr "حل تعارض الوجهات"
+
+msgid "Restore main screen ↙"
+msgstr "استعادة الشاشة الرئيسية ↙"
+
+msgid "Results & leaderboards"
+msgstr "النتائج وقوائم الترتيب"
+
+msgid "Retry"
+msgstr "إعادة المحاولة"
+
+msgid "Return to lobby"
+msgstr "العودة إلى الردهة"
+
+msgid "Sales revenue"
+msgstr "إيرادات المبيعات"
+
+msgid "Save an onward destination below before adding buy instructions."
+msgstr "احفظ وجهة تالية أدناه قبل إضافة تعليمات شراء."
+
+msgid "Save onward destination"
+msgstr "حفظ الوجهة التالية"
+
+msgid "Selected ship"
+msgstr "السفينة المحددة"
+
+msgid "Selected ship cargo"
+msgstr "حمولة السفينة المحددة"
+
+msgid "Selected stop"
+msgstr "المحطة المحددة"
+
+msgid "Sell"
+msgstr "بيع"
+
+msgid "Sell ship for %{value1}"
+msgstr "بيع السفينة مقابل %{value1}"
+
+msgid "Sell up to"
+msgstr "بيع حتى"
+
+msgid "Selling…"
+msgstr "جارٍ البيع…"
+
+msgid "Send invitation"
+msgstr "إرسال الدعوة"
+
+msgid "Send verification link"
+msgstr "إرسال رابط التحقق"
+
+msgid "Shared onward port"
+msgstr "الميناء التالي المشترك"
+
+msgid "Ship"
+msgstr "السفينة"
+
+msgid "Ship cargo manifest"
+msgstr "بيان حمولة السفينة"
+
+msgid "Ship status"
+msgstr "حالة السفينة"
+
+msgid "Ship types"
+msgstr "أنواع السفن"
+
+msgid "Ships"
+msgstr "السفن"
+
+msgid "Ships continue automatically after trades and handling finish."
+msgstr "تتابع السفن الإبحار تلقائياً بعد انتهاء التجارة والمناولة."
+
+msgid "Ships currently at %{value1}; vessels at sea are excluded."
+msgstr "السفن الموجودة حالياً في %{value1}؛ لا تشمل السفن في البحر."
+
+msgid "Shipyard offer"
+msgstr "عرض حوض السفن"
+
+msgid "Show only cargo carried by %{value1}"
+msgstr "إظهار البضائع التي تحملها %{value1} فقط"
+
+msgid "Show other companies’ ships"
+msgstr "إظهار سفن الشركات الأخرى"
+
+msgid "Sign in with email"
+msgstr "تسجيل الدخول بالبريد"
+
+msgid "Sign-in email"
+msgstr "بريد تسجيل الدخول"
+
+msgid "Sort by ROI"
+msgstr "الترتيب حسب العائد"
+
+msgid "Spoilage expected before unloading finishes."
+msgstr "يُتوقع تلف البضاعة قبل انتهاء التفريغ."
+
+msgid "Sponsor guarantees"
+msgstr "ضمانات الكفيل"
+
+msgid "Sponsor pledge in dollars"
+msgstr "ضمان الكفيل بالدولار"
+
+msgid "Start with $0 and no ships. Borrow up to %{value1} to buy ships and fund cargo and voyages. Interest accrues while the world runs; prior bankruptcies reduce your credit limit."
+msgstr "ابدأ بلا نقد ولا سفن. اقترض حتى %{value1} لشراء السفن وتمويل البضائع والرحلات. تتراكم الفائدة أثناء تشغيل العالم؛ وتخفض حالات الإفلاس السابقة حدك الائتماني."
+
+msgid "Start with an invitation"
+msgstr "ابدأ بدعوة"
+
+msgid "Status"
+msgstr "الحالة"
+
+msgid "Stop after this visit"
+msgstr "التوقف بعد هذه الزيارة"
+
+msgid "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Current and next stops cannot be removed while active. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. No cash is earmarked. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
+msgstr "تُنفذ المحطات بالترتيب وتتكرر. تسري تعديلات البضائع عند تشغيل مرحلتها التالية؛ وتحتفظ أوامر الزيارة القائمة بشروطها. لا يمكن إزالة المحطتين الحالية والتالية أثناء التشغيل. ابدأ عند المحطة الأولى أو أثناء الإبحار إليها. ينتهي تفريغ المبيعات قبل بدء المشتريات. يشمل هدف التحميل البضاعة الموجودة على المتن؛ ويُعاد ضبط سقف الشراء الاختياري كل زيارة. دون سقف، تُستخدم السيولة المتاحة مع الاحتفاظ باحتياطي الرحلة. الأسعار لكل دفعة دون المناولة؛ وتشمل الحدود المناولة والتنظيف. لا يُحجز نقد مسبقاً. تنتظر الأهداف الثابتة حتى التنفيذ أو الإلغاء. يتوقف الشراء الأقصى عند بلوغ السعة أو المخزون أو النقد أو السقف المتاح. يبيع خيار بيع كل الحمولة ما يسمح به الطلب وأموال المشترين، ثم يتابع مع البضاعة غير المباعة. تبقى حدود الأسعار ملزمة بالانتظار. بعد انتهاء المبيعات، يلغي امتلاء العنبر أي نقص تحميل متبقٍ. يوقف تعليق المسار التجارة الجديدة والإبحار التلقائي؛ وتكتمل الرحلات والمناولة الملتزم بها."
+
+msgid "Supply and demand in lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
+msgstr "العرض والطلب بالدفعات · الأسعار لكل دفعة دون المناولة · تحديث مباشر. تعرض قائمة البضائع أعلى سعر شراء وأدنى سعر بيع متاحين؛ وتعني — غياب السوق في ذلك الجانب. اختر ميناء لعرض سوقه."
+
+msgid "Target lots"
+msgstr "الدفعات المستهدفة"
+
+msgid "The guaranteed loans are repaid. %{value1} returns to your company the next time it settles — within a few seconds, or on your next action."
+msgstr "سُددت القروض المضمونة. يُعاد %{value1} إلى شركتك عند التسوية التالية — خلال ثوانٍ أو عند إجرائك التالي."
+
+msgid "The lobby is open. The operator must configure game storage and apply its migrations before companies can begin trading."
+msgstr "الردهة مفتوحة. يجب على المشغل تهيئة تخزين اللعبة وتطبيق ترحيلات قاعدة البيانات قبل بدء التجارة."
+
+msgid "The trading world is not available yet"
+msgstr "عالم التجارة غير متاح بعد"
+
+msgid "This account has no sponsor. Contact the operator; there is no automatic reinstatement."
+msgstr "لا يوجد كفيل لهذا الحساب. تواصل مع المشغل؛ لا توجد إعادة تفعيل تلقائية."
+
+msgid "This invitation expires after three days of active world time."
+msgstr "تنتهي صلاحية هذه الدعوة بعد ثلاثة أيام من وقت العالم النشط."
+
+msgid "This link expires in 15 minutes."
+msgstr "تنتهي صلاحية هذا الرابط بعد 15 دقيقة."
+
+msgid "Tijara Tides"
+msgstr "أمواج التجارة"
+
+msgid "To sponsor a player, clear overdue bills and hold at least as much unreserved cash as your own outstanding loan principal and interest."
+msgstr "لكفالة لاعب، سدّد الفواتير المتأخرة واحتفظ بنقد غير محجوز يساوي على الأقل أصل قروضك وفوائدها غير المسددة."
+
+msgid "Total profit"
+msgstr "إجمالي الربح"
+
+msgid "Trade"
+msgstr "التجارة"
+
+msgid "Trading not available yet"
+msgstr "التداول غير متاح بعد"
+
+msgid "Trading result"
+msgstr "نتيجة التجارة"
+
+msgid "Unpaid: %{value1}"
+msgstr "غير المسدد: %{value1}"
+
+msgid "Updating…"
+msgstr "جارٍ التحديث…"
+
+msgid "Use an emailed token on this device"
+msgstr "استخدام رمز مرسل بالبريد على هذا الجهاز"
+
+msgid "Uses one invitation. The recipient verifies the email when redeeming the link. You will not receive their sign-in credential."
+msgstr "تستهلك دعوة واحدة. يتحقق المستلم من البريد عند استخدام الرابط. لن تحصل على بيانات دخوله."
+
+msgid "Verified Email identity: %{value1}"
+msgstr "البريد الإلكتروني المُتحقق منه: %{value1}"
+
+msgid "Verify your email using the link we send."
+msgstr "تحقق من بريدك باستخدام الرابط الذي نرسله."
+
+msgid "Waits for every order to be filled or cancelled and for sufficient sailing funds. Save to apply."
+msgstr "ينتظر تنفيذ كل الأوامر أو إلغاءها وتوفر أموال الإبحار. احفظ للتطبيق."
+
+msgid "Whole lots · finite local supply and demand · trades require your selected ship to be docked here. Handling takes time."
+msgstr "دفعات كاملة · عرض وطلب محليان محدودان · تتطلب التجارة رسو سفينتك المحددة هنا. تستغرق المناولة وقتاً."
+
+msgid "Will stop after this visit finishes."
+msgstr "سيتوقف بعد انتهاء هذه الزيارة."
+
+msgid "World ports and public ship positions on a Equal Earth map"
+msgstr "موانئ العالم والمواقع العامة للسفن على خريطة بإسقاط الأرض المتساوية"
+
+msgid "World view"
+msgstr "عرض العالم"
+
+msgid "Year"
+msgstr "السنة"
+
+msgid "You can explore the world without an account. Redeem a shareable invitation to establish your company on this device."
+msgstr "يمكنك استكشاف العالم دون حساب. استخدم دعوة قابلة للمشاركة لتأسيس شركتك على هذا الجهاز."
+
+msgid "Your Tijara Tides invitation"
+msgstr "دعوتك إلى أمواج التجارة"
+
+msgid "Your Tijara Tides sign-in link"
+msgstr "رابط تسجيل دخولك إلى أمواج التجارة"
+
+msgid "Your borrowing is backed by a %{value1} sponsor pledge."
+msgstr "اقتراضك مدعوم بضمان كفيل بقيمة %{value1}."
+
+msgid "Your companies · page %{value1}"
+msgstr "شركاتك · الصفحة %{value1}"
+
+msgid "Your company history pages"
+msgstr "صفحات سجل شركاتك"
+
+msgid "Your company results"
+msgstr "نتائج شركتك"
+
+msgid "Your fleet"
+msgstr "أسطولك"
+
+msgid "Your guarantee has settled: %{loss} forfeited and %{refund} returned to the sponsoring company."
+msgstr "تمت تسوية ضمانك: صودر %{loss} وأُعيد %{refund} إلى الشركة الضامنة."
+
+msgid "Your invitation was accepted. Company formation is pending."
+msgstr "قُبلت دعوتك. بانتظار تأسيس الشركة."
+
+msgid "Your invitee has gone bankrupt. %{value1} of this %{value2} guarantee will be forfeited and %{value3} returned, the next time your company settles."
+msgstr "أُعلنت شركة مدعوّك مفلسة. سيُصادر %{value1} من هذا الضمان البالغ %{value2}، ويُعاد %{value3} عند التسوية التالية لشركتك."
+
+msgid "Your invitee now runs %{company}."
+msgstr "يدير مدعوّك الآن شركة %{company}."
+
+msgid "Your sponsor has funded a guarantee. Your account is reinstated; the bankruptcy restart cooldown still applies."
+msgstr "موّل كفيلك ضماناً. أُعيد تفعيل حسابك؛ ولا تزال مهلة إعادة البدء بعد الإفلاس سارية."
+
+msgid "at %{value1} · %{value2}/%{value3} lots · %{value4} %{value5}/lot"
+msgstr "في %{value1} · %{value2}/%{value3} دفعة · %{value4} %{value5}/دفعة"
+
+msgid "filters %{value1}"
+msgstr "المرشحات %{value1}"
+
+msgid "in full"
+msgstr "بالكامل"
+
+msgid "invitation code"
+msgstr "رمز الدعوة"
+
+msgid "map ⛶"
+msgstr "الخريطة ⛶"
+
+msgid "or"
+msgstr "أو"
+
+msgid "to"
+msgstr "إلى"
+
+msgid "· cap $%{value1}"
+msgstr "· السقف $%{value1}"
+
+msgid "· expires in %{value1}"
+msgstr "· تنتهي الصلاحية خلال %{value1}"
+
+msgid "· handling %{value1} / lot"
+msgstr "· المناولة %{value1} / دفعة"
+
+msgid "— insufficient available funds"
+msgstr "— الأموال المتاحة غير كافية"
+
+
+msgid "%{value1} in canal fees. You have %{value2} available "
+msgstr "%{value1} لرسوم القنوات. يتوفر لديك %{value2} "
+
+msgid "A repeating route can have up to eight stops."
+msgstr "يمكن أن يتضمن المسار المتكرر ثماني محطات كحد أقصى."
+
+msgid "Account suspended. Your original sponsor must fund a cash guarantee to reinstate you."
+msgstr "الحساب معلّق. يجب على كفيلك الأصلي تمويل ضمان نقدي لإعادة تفعيله."
+
+msgid "Add at least two stops. The last stop returns to the first, so they must differ."
+msgstr "أضف محطتين على الأقل. تعود المحطة الأخيرة إلى الأولى، لذا يجب أن تختلفا."
+
+msgid "All buy instructions at this visit must share one onward port. Update the shared onward destination first."
+msgstr "يجب أن تشترك جميع تعليمات الشراء في هذه الزيارة في وجهة تالية واحدة. حدّث الوجهة المشتركة أولاً."
+
+msgid "An active sell instruction already exists for this ship and cargo. Cancel it before adding another."
+msgstr "توجد بالفعل تعليمة بيع نشطة لهذه السفينة والبضاعة. ألغها قبل إضافة أخرى."
+
+msgid "Available cash covers all loan principal, accrued interest and unpaid operating bills. Bankruptcy is unavailable."
+msgstr "يغطي النقد المتاح أصل القرض والفائدة المستحقة وتكاليف التشغيل غير المدفوعة. لا يمكن إعلان الإفلاس."
+
+msgid "Buy instructions need a positive spending cap and a different onward port."
+msgstr "تتطلب تعليمات الشراء سقف إنفاق موجباً وميناءً تالياً مختلفاً."
+
+msgid "Choose a docked ship and an available cargo with a positive whole-lot quantity."
+msgstr "اختر سفينة راسية وبضاعة متاحة وكمية موجبة من الدفعات الكاملة."
+
+msgid "Choose a purchase destination in the voyage selector before buying cargo. It must have a valid route within the 24-hour voyage limit."
+msgstr "اختر ميناء الوجهة قبل شراء البضائع. يجب أن يكون له مسار صالح ضمن حد الرحلة البالغ 24 ساعة."
+
+msgid "Choose a ship owned by your active company."
+msgstr "اختر سفينة تملكها شركتك النشطة."
+
+msgid "Choose a valid destination port."
+msgstr "اختر ميناء وجهة صالحاً."
+
+msgid "Choose a valid port with a sea route; consecutive stops must be different."
+msgstr "اختر ميناءً صالحاً له مسار بحري؛ يجب أن تختلف المحطات المتتالية."
+
+msgid "Choose an available ship class."
+msgstr "اختر فئة سفن متاحة."
+
+msgid "Choose an onward destination different from the visit port."
+msgstr "اختر وجهة تالية تختلف عن ميناء الزيارة."
+
+msgid "Choose compatible cargo with a market at the visit port."
+msgstr "اختر بضاعة متوافقة لها سوق في ميناء الزيارة."
+
+msgid "Choose the ship's next destination; a sailing ship can only use its current destination."
+msgstr "اختر الوجهة التالية للسفينة؛ لا يمكن للسفينة المبحرة استخدام سوى وجهتها الحالية."
+
+msgid "Choose whether this visit should depart automatically."
+msgstr "اختر ما إذا كانت هذه الزيارة ستغادر تلقائياً."
+
+msgid "Clear overdue bills before recasting. The loan must still have scheduled payments remaining."
+msgstr "سدّد الفواتير المتأخرة قبل إعادة الجدولة. يجب أن تبقى دفعات مجدولة للقرض."
+
+msgid "Create an active company before buying a ship."
+msgstr "أنشئ شركة نشطة قبل شراء سفينة."
+
+msgid "Departure requires %{value1}: %{value2} for fuel and "
+msgstr "تتطلب المغادرة %{value1}: منها %{value2} للوقود و"
+
+msgid "Dock and empty the ship, then clear pending cargo instructions, onward plans and repeating routes before selling."
+msgstr "أرسِ السفينة وأفرغها، ثم أزل تعليمات البضائع والخطط التالية والمسارات المتكررة قبل البيع."
+
+msgid "Done."
+msgstr "تم."
+
+msgid "Email delivery has not been configured on this server."
+msgstr "لم تُعدّ خدمة البريد الإلكتروني على هذا الخادم."
+
+msgid "Email queued. Check the recipient's inbox for the verification link."
+msgstr "أُدرج البريد للإرسال. تحقق من صندوق بريد المستلم للحصول على رابط التحقق."
+
+msgid "Email verified. You are signed in."
+msgstr "تم التحقق من البريد الإلكتروني وتسجيل دخولك."
+
+msgid "Enter a valid email address."
+msgstr "أدخل عنوان بريد إلكتروني صالحاً."
+
+msgid "Finish or cancel next-port instructions and clear their onward plan before creating a repeating route."
+msgstr "أكمل تعليمات الميناء التالي أو ألغها وأزل خطتها التالية قبل إنشاء مسار متكرر."
+
+msgid "Fuel now requires %{value1}, above the confirmed limit of %{value2}. Review the voyage estimate and confirm again."
+msgstr "يتطلب الوقود الآن %{value1}، وهو أعلى من الحد المؤكد %{value2}. راجع تقدير الرحلة وأكّد مجدداً."
+
+msgid "If that email is linked to an account, a sign-in link will arrive shortly."
+msgstr "إذا كان هذا البريد مرتبطاً بحساب، فسيصلك رابط تسجيل الدخول قريباً."
+
+msgid "It will be ready in about %{value1} seconds."
+msgstr "ستكون جاهزة خلال نحو %{value1} ثانية."
+
+msgid "No invitation entitlement is available."
+msgstr "لا توجد دعوات متاحة."
+
+msgid "No voyage is available to this port right now."
+msgstr "لا تتوفر رحلة إلى هذا الميناء حالياً."
+
+msgid "Not enough available cash. Check reserved fuel and unpaid costs."
+msgstr "النقد المتاح غير كافٍ. تحقق من الوقود المحجوز والتكاليف غير المدفوعة."
+
+msgid "Not enough unreserved cash to buy this ship. Borrow first and retain funds for cargo and voyages."
+msgstr "النقد غير المحجوز لا يكفي لشراء هذه السفينة. اقترض أولاً واحتفظ بأموال للبضائع والرحلات."
+
+msgid "Not enough unreserved cash to fund this guarantee."
+msgstr "النقد غير المحجوز لا يكفي لتمويل هذا الضمان."
+
+msgid "Only the player's original inviter can provide this guarantee."
+msgstr "لا يمكن تقديم هذا الضمان إلا من قِبل الداعي الأصلي للاعب."
+
+msgid "Open the invitation form again and allow cookies before redeeming."
+msgstr "افتح نموذج الدعوة مجدداً واسمح بملفات تعريف الارتباط قبل استخدامها."
+
+msgid "Paste the sign-in token from your email for this server. Request a fresh link if it was already used in another browser."
+msgstr "الصق رمز تسجيل الدخول من البريد المرسل لهذا الخادم. اطلب رابطاً جديداً إذا استُخدم في متصفح آخر."
+
+msgid "Pay accrued interest plus at least $1 of principal, up to the outstanding balance. Review the current amounts and try again."
+msgstr "ادفع الفائدة المستحقة مع دولار واحد على الأقل من أصل القرض، حتى الرصيد القائم. راجع المبالغ وحاول مجدداً."
+
+msgid "Pledge at least $50,000, up to the player's normal credit limit."
+msgstr "تعهّد بمبلغ لا يقل عن 50,000 دولار ولا يتجاوز حد ائتمان اللاعب المعتاد."
+
+msgid "Route stops can be edited before starting. Remove the route to replace its plan; committed handling continues."
+msgstr "يمكن تعديل المحطات قبل البدء. أزل المسار لاستبدال خطته؛ تستمر المناولة الملتزم بها."
+
+msgid "Select a ship owned by your company before departing."
+msgstr "اختر سفينة تملكها شركتك قبل المغادرة."
+
+msgid "Select a ship owned by your company."
+msgstr "اختر سفينة تملكها شركتك."
+
+msgid "That cargo exceeds this ship's weight or volume limit."
+msgstr "تتجاوز هذه البضاعة حد وزن السفينة أو حجمها."
+
+msgid "That company name is already taken."
+msgstr "اسم الشركة مستخدم بالفعل."
+
+msgid "That email cannot be linked or invited. Its owner can use email sign-in instead."
+msgstr "لا يمكن ربط هذا البريد أو دعوته. يمكن لمالكه استخدام تسجيل الدخول بالبريد الإلكتروني."
+
+msgid "That instruction is no longer active or does not belong to your company."
+msgstr "هذه التعليمة لم تعد نشطة أو لا تنتمي إلى شركتك."
+
+msgid "That invitation could not be redeemed. Check the code and that the game is available."
+msgstr "تعذر استخدام الدعوة. تحقق من الرمز ومن توفر اللعبة."
+
+msgid "The action could not be completed. Please refresh and try again."
+msgstr "تعذر إكمال الإجراء. حدّث الصفحة وحاول مجدداً."
+
+msgid "The command contains too many fields (maximum 12)."
+msgstr "يحتوي الأمر على حقول كثيرة جداً (الحد الأقصى 12)."
+
+msgid "The command payload is too large (maximum 4096 bytes)."
+msgstr "حجم بيانات الأمر كبير جداً (الحد الأقصى 4096 بايت)."
+
+msgid "The command payload must be an object."
+msgstr "يجب أن تكون بيانات الأمر كائناً."
+
+msgid "The database is unavailable. Please try again later."
+msgstr "قاعدة البيانات غير متاحة. حاول لاحقاً."
+
+msgid "The fuel limit is invalid. Review the voyage estimate and confirm again."
+msgstr "حد الوقود غير صالح. راجع تقدير الرحلة وأكّد مجدداً."
+
+msgid "The market is changing quickly. Please try again."
+msgstr "يتغير السوق بسرعة. حاول مجدداً."
+
+msgid "The market price changed. Review the latest quote and try again."
+msgstr "تغير سعر السوق. راجع أحدث سعر وحاول مجدداً."
+
+msgid "The sell target exceeds the selected cargo currently aboard. Reduce the target and try again."
+msgstr "يتجاوز هدف البيع كمية البضاعة المختارة على متن السفينة. خفّض الهدف وحاول مجدداً."
+
+msgid "The ship must be at, or sailing toward, the route's selected stop to start or resume."
+msgstr "يجب أن تكون السفينة في المحطة المحددة أو مبحرة نحوها لبدء المسار أو استئنافه."
+
+msgid "The ship price has changed. Review it before buying."
+msgstr "تغير سعر السفينة. راجعه قبل الشراء."
+
+msgid "The shipyard offer has changed. Review the current value and try again."
+msgstr "تغير عرض حوض السفن. راجع القيمة الحالية وحاول مجدداً."
+
+msgid "The world paused after an internal error. Please contact the operator."
+msgstr "توقف العالم بعد خطأ داخلي. يرجى التواصل مع المشغّل."
+
+msgid "There is no available sea route from %{value1} to %{value2}. Choose another destination."
+msgstr "لا يتوفر مسار بحري من %{value1} إلى %{value2}. اختر وجهة أخرى."
+
+msgid "There is not enough supply at that price."
+msgstr "لا يتوفر عرض كافٍ بهذا السعر."
+
+msgid "This email link is invalid, expired, or already used. Request a new link."
+msgstr "رابط البريد غير صالح أو منتهي الصلاحية أو مستخدم. اطلب رابطاً جديداً."
+
+msgid "This link belongs to a different account. Sign out before using it; accounts will not be merged."
+msgstr "هذا الرابط لحساب آخر. سجّل الخروج قبل استخدامه؛ لن تُدمج الحسابات."
+
+msgid "This player already has an active guarantee."
+msgstr "لهذا اللاعب ضمان نشط بالفعل."
+
+msgid "This player does not currently need a guarantee."
+msgstr "لا يحتاج هذا اللاعب إلى ضمان حالياً."
+
+msgid "This port cannot buy that quantity right now."
+msgstr "لا يمكن لهذا الميناء شراء هذه الكمية الآن."
+
+msgid "This purchase would leave %{value1}, but the voyage to %{value2} needs %{value3} for fuel, canal fees, and estimated fleet upkeep. Buy fewer lots."
+msgstr "سيُبقي هذا الشراء %{value1}، لكن الرحلة إلى %{value2} تتطلب %{value3} للوقود ورسوم القنوات وتكاليف الأسطول المقدّرة. اشترِ دفعات أقل."
+
+msgid "This route would take %{value1} minutes, exceeding the 24-hour voyage limit. Choose a closer destination."
+msgstr "ستستغرق هذه الرحلة %{value1} دقيقة، فتتجاوز حد الرحلة البالغ 24 ساعة. اختر وجهة أقرب."
+
+msgid "This ship already has 20 active instructions. Cancel one before adding another."
+msgstr "لهذه السفينة 20 تعليمة نشطة بالفعل. ألغِ واحدة قبل إضافة أخرى."
+
+msgid "This ship cannot carry that cargo, or its tank already holds a different liquid."
+msgstr "لا تستطيع هذه السفينة حمل هذه البضاعة، أو يحتوي خزانها على سائل مختلف."
+
+msgid "This ship has no saved repeating route."
+msgstr "ليس لهذه السفينة مسار متكرر محفوظ."
+
+msgid "This ship is %{value1}. "
+msgstr "هذه السفينة %{value1}. "
+
+msgid "This ship is already at %{value1}. Choose a different destination."
+msgstr "هذه السفينة موجودة بالفعل في %{value1}. اختر وجهة أخرى."
+
+msgid "This ship purchase has already been processed."
+msgstr "تمت معالجة شراء هذه السفينة بالفعل."
+
+msgid "This ship uses a repeating route. Use its route controls instead."
+msgstr "تستخدم هذه السفينة مساراً متكرراً. استخدم أدوات التحكم في المسار."
+
+msgid "This stop belongs to the current visit or next leg. Edit it after the ship advances."
+msgstr "تنتمي هذه المحطة إلى الزيارة الحالية أو المرحلة التالية. عدّلها بعد تقدم السفينة."
+
+msgid "Too many email requests. Please try again later."
+msgstr "طلبات البريد كثيرة جداً. حاول لاحقاً."
+
+msgid "Use 1–10,000 lots and a valid nonnegative limit price."
+msgstr "استخدم من 1 إلى 10,000 دفعة وسعر حد صالحاً غير سالب."
+
+msgid "Use a company name between 1 and 60 characters."
+msgstr "استخدم اسماً للشركة من 1 إلى 60 حرفاً."
+
+msgid "Use one target per cargo and action at each stop, with at most twenty targets per stop."
+msgstr "استخدم هدفاً واحداً لكل بضاعة وإجراء في كل محطة، وبحد أقصى عشرين هدفاً للمحطة."
+
+msgid "Wait for its status to update before departing."
+msgstr "انتظر تحديث حالة السفينة قبل المغادرة."
+
+msgid "You do not own that much cargo aboard this ship."
+msgstr "لا تملك هذه الكمية من البضاعة على متن السفينة."
+
+msgid "Your company must be active with no overdue bills, and unreserved cash must cover your own outstanding loan principal and interest."
+msgstr "يجب أن تكون شركتك نشطة دون فواتير متأخرة، وأن يغطي النقد غير المحجوز أصل قرضك القائم وفائدته."
+
+msgid "Your company owes %{value1} in unpaid operating costs. Sell cargo to settle those costs before departing."
+msgstr "على شركتك %{value1} من تكاليف التشغيل غير المدفوعة. بِع بضائع لتسويتها قبل المغادرة."
+
+msgid "Your session is invalid or has expired. Please sign in again."
+msgstr "جلستك غير صالحة أو منتهية. سجّل الدخول مجدداً."
+
+msgid "after reservations, leaving a shortfall of %{value1}."
+msgstr "بعد الحجوزات، بعجز قدره %{value1}."
+
+msgid "already sailing"
+msgstr "مبحرة بالفعل"
+
+msgid "not docked (%{value1})"
+msgstr "غير راسية (%{value1})"
+
+msgid "still loading cargo"
+msgstr "ما زالت تُحمّل البضائع"
+
+msgid "still unloading cargo"
+msgstr "ما زالت تُفرغ البضائع"
+
+msgid "%{count} min"
+msgid_plural "%{count} mins"
+msgstr[0] "%{count} دقيقة"
+msgstr[1] "دقيقة واحدة"
+msgstr[2] "دقيقتان"
+msgstr[3] "%{count} دقائق"
+msgstr[4] "%{count} دقيقة"
+msgstr[5] "%{count} دقيقة"
+
+msgid "%{count} sec"
+msgid_plural "%{count} secs"
+msgstr[0] "%{count} ثانية"
+msgstr[1] "ثانية واحدة"
+msgstr[2] "ثانيتان"
+msgstr[3] "%{count} ثوانٍ"
+msgstr[4] "%{count} ثانية"
+msgstr[5] "%{count} ثانية"
+
+msgid "~%{count} day"
+msgid_plural "~%{count} days"
+msgstr[0] "~%{count} يوم"
+msgstr[1] "~يوم واحد"
+msgstr[2] "~يومان"
+msgstr[3] "~%{count} أيام"
+msgstr[4] "~%{count} يوماً"
+msgstr[5] "~%{count} يوم"
+
+msgid "~%{count} hour"
+msgid_plural "~%{count} hours"
+msgstr[0] "~%{count} ساعة"
+msgstr[1] "~ساعة واحدة"
+msgstr[2] "~ساعتان"
+msgstr[3] "~%{count} ساعات"
+msgstr[4] "~%{count} ساعة"
+msgstr[5] "~%{count} ساعة"
+
+msgid "Agricultural machinery"
+msgstr "آلات زراعية"
+
+msgid "Aluminium scrap"
+msgstr "خردة ألمنيوم"
+
+msgid "Appliances"
+msgstr "أجهزة منزلية"
+
+msgid "Construction equipment"
+msgstr "معدات بناء"
+
+msgid "Copper scrap"
+msgstr "خردة نحاس"
+
+msgid "Crude oil"
+msgstr "نفط خام"
+
+msgid "Designer clothing"
+msgstr "ملابس فاخرة"
+
+msgid "Electronics"
+msgstr "إلكترونيات"
+
+msgid "Everyday clothing"
+msgstr "ملابس يومية"
+
+msgid "Fruit"
+msgstr "فاكهة"
+
+msgid "Grain"
+msgstr "حبوب"
+
+msgid "Iron ore"
+msgstr "خام الحديد"
+
+msgid "Jewelry"
+msgstr "مجوهرات"
+
+msgid "Lumber"
+msgstr "أخشاب"
+
+msgid "Meat"
+msgstr "لحوم"
+
+msgid "Recovered plastics"
+msgstr "بلاستيك مسترجع"
+
+msgid "Refined fuel"
+msgstr "وقود مكرر"
+
+msgid "Seafood"
+msgstr "مأكولات بحرية"
+
+msgid "Spices"
+msgstr "توابل"
+
+msgid "Turbines"
+msgstr "توربينات"
+
+msgid "Vegetable oil"
+msgstr "زيت نباتي"
+
+msgid "Whisky"
+msgstr "ويسكي"
+
+msgid "Balanced freighter"
+msgstr "سفينة شحن متوازنة"
+
+msgid "Small freighter"
+msgstr "سفينة شحن صغيرة"
+
+msgid "Bulk carrier"
+msgstr "ناقلة بضائع سائبة"
+
+msgid "Small refrigerated ship"
+msgstr "سفينة مبردة صغيرة"
+
+msgid "Small tanker"
+msgstr "ناقلة صغيرة"
+
+msgid "sailing"
+msgstr "مبحرة"
+
+msgid "loading"
+msgstr "تحميل"
+
+msgid "unloading"
+msgstr "تفريغ"
+
+msgid "docked"
+msgstr "راسية"
+
+msgid "berthed"
+msgstr "راسية"
+
+msgid "queued"
+msgstr "في الانتظار"
+
+msgid "waiting"
+msgstr "انتظار"
+
+msgid "planned"
+msgstr "مخططة"
+
+msgid "completed"
+msgstr "مكتملة"
+
+msgid "cancelled"
+msgstr "ملغاة"
+
+msgid "paused"
+msgstr "متوقفة"
+
+msgid "running"
+msgstr "قيد التشغيل"
+
+msgid "draft"
+msgstr "مسودة"
+
+msgid "buy"
+msgstr "شراء"
+
+msgid "sell"
+msgstr "بيع"
+
+msgid "Queued"
+msgstr "في الانتظار"
+
+msgid "Docked"
+msgstr "راسية"
+
+msgid "Berthed"
+msgstr "راسية"
+
+msgid "Loading"
+msgstr "تحميل"
+
+msgid "Unloading"
+msgstr "تفريغ"
+
+msgid "Sailing"
+msgstr "مبحرة"
+
+msgid "Verify email · Tijara Tides"
+msgstr "التحقق من البريد · أمواج التجارة"
+
+msgid "Continue to Tijara Tides"
+msgstr "المتابعة إلى أمواج التجارة"
+
+msgid "Confirm to verify this email and sign in. Only continue if you requested this link or were expecting this invitation."
+msgstr "أكّد للتحقق من هذا البريد وتسجيل الدخول. تابع فقط إذا طلبت هذا الرابط أو كنت تتوقع هذه الدعوة."
+
+msgid "Verify email and continue"
+msgstr "تحقق من البريد وتابع"
+
+msgid "Buy / supply"
+msgstr "شراء / عرض"
+
+msgid "Sell / demand"
+msgstr "بيع / طلب"
+
+msgid "Sea-route distances from %{port} in nautical miles."
+msgstr "مسافات المسارات البحرية من %{port} بالأميال البحرية."
+
+msgid "Select a docked ship to compare sea-route distances."
+msgstr "اختر سفينة راسية لمقارنة مسافات المسارات البحرية."
+
+msgid "bid %{bid} / ask %{ask}"
+msgstr "شراء %{bid} / بيع %{ask}"
+
+msgid "Expand map ⛶"
+msgstr "توسيع الخريطة ⛶"
+
+msgid "Ship filters %{arrow}"
+msgstr "مرشحات السفن %{arrow}"
+
+msgid "All ships"
+msgstr "جميع السفن"
+
+msgid "Buy price"
+msgstr "سعر الشراء"
+
+msgid "Sell price"
+msgstr "سعر البيع"
+
+msgid "%{count} ship"
+msgid_plural "%{count} ships"
+msgstr[0] "%{count} سفينة"
+msgstr[1] "سفينة واحدة"
+msgstr[2] "سفينتان"
+msgstr[3] "%{count} سفن"
+msgstr[4] "%{count} سفينة"
+msgstr[5] "%{count} سفينة"
+
+msgid "%{distance} nautical miles"
+msgstr "%{distance} ميل بحري"
+
+msgid "No route available"
+msgstr "لا يوجد مسار متاح"
+
+msgid "%{volume} m³"
+msgstr "%{volume} م³"
+
+msgid "%{volume} L"
+msgstr "%{volume} لتر"
+
+msgid "nm"
+msgstr "ميل بحري"
+
+msgid "Resume route"
+msgstr "استئناف المسار"
+
+msgid "Add target"
+msgstr "إضافة هدف"
+
+msgid "Start route"
+msgstr "بدء المسار"
+
+msgid "Save target"
+msgstr "حفظ الهدف"
+
+msgid "Set as destination"
+msgstr "تعيين كوجهة"
+
+msgid "Selected destination"
+msgstr "الوجهة المحددة"
+
+msgid "Language changed on this device. Your account language could not be saved; try again when the world is available."
+msgstr "تغيّرت اللغة على هذا الجهاز. تعذّر حفظ لغة حسابك؛ حاول مجدداً عندما يصبح العالم متاحاً."
+
+msgid "Route"
+msgstr "المسار"
+
+msgid "maximum"
+msgstr "الحد الأقصى"
+
+msgid "minimum"
+msgstr "الحد الأدنى"
+
+msgid " (current)"
+msgstr " (الحالية)"
+
+msgid "In progress"
+msgstr "قيد التنفيذ"
+
+msgid "Completed"
+msgstr "مكتملة"
+
+msgid "Final results"
+msgstr "النتائج النهائية"
+
+msgid "Provisional / unranked"
+msgstr "مؤقتة / غير مصنفة"
+
+msgid "No demand"
+msgstr "لا يوجد طلب"
+
+msgid "Port supply"
+msgstr "عرض الميناء"
+
+msgid "Port demand"
+msgstr "طلب الميناء"
+
+msgid "No feasible purchase: check destination, funds, stock, and capacity"
+msgstr "لا يمكن الشراء: تحقق من الوجهة والأموال والمخزون والسعة"
+
+msgid "No feasible sale: check cargo, demand, and buyer funds"
+msgstr "لا يمكن البيع: تحقق من البضائع والطلب وأموال المشتري"
+
+msgid "Choose a valid destination and leave enough cash for fuel, canal fees, and estimated fleet upkeep after purchasing. Includes handling and any tanker cleaning fee."
+msgstr "اختر وجهة صالحة واحتفظ بنقد كافٍ للوقود ورسوم القنوات وتكاليف الأسطول المقدرة بعد الشراء. يشمل المناولة وتنظيف الناقلة عند الحاجة."
+
+msgid "Includes handling and any tanker cleaning fee."
+msgstr "يشمل المناولة وتنظيف الناقلة عند الحاجة."
+
+msgid "Buy maximum"
+msgstr "شراء أكبر كمية ممكنة"
+
+msgid "Sell all aboard"
+msgstr "بيع كل ما على متن السفينة"
+
+msgid "Load up to"
+msgstr "تحميل حتى"
+
+msgid "max"
+msgstr "الأقصى"
+
+msgid "min"
+msgstr "الأدنى"
+
+msgid "Edit cargo target"
+msgstr "تعديل هدف البضائع"
+
+msgid "Add cargo target"
+msgstr "إضافة هدف للبضائع"
+
+msgid "Maximum price / lot ($)"
+msgstr "أقصى سعر للدفعة (دولار)"
+
+msgid "Minimum price / lot ($)"
+msgstr "أدنى سعر للدفعة (دولار)"
+
+msgid "View markets for %{cargo}"
+msgstr "عرض أسواق %{cargo}"
+
+msgid "Set %{port} as the destination for %{ship}"
+msgstr "تعيين %{port} وجهةً للسفينة %{ship}"
+
+msgid "%{side} %{cargo} quantity slider"
+msgstr "شريط كمية %{side} %{cargo}"
+
+msgid "%{cargo} quantity"
+msgstr "كمية %{cargo}"
+
+msgid "%{region}: %{count} ports"
+msgstr "%{region}: %{count} موانئ"
+
+msgid "Select %{port}"
+msgstr "اختيار %{port}"
+
+msgid "Inspect %{ship}"
+msgstr "عرض %{ship}"
+
+msgid "%{side} for selected cargo"
+msgstr "%{side} للبضاعة المختارة"
+
+msgid "Load up to %{lots} lots of"
+msgstr "حمّل حتى %{lots} دفعة من"
+
+msgid "Sell up to %{lots} lots of"
+msgstr "بع حتى %{lots} دفعة من"
+
+msgid "verified"
+msgstr "تم التحقق"
+
+msgid "pending"
+msgstr "قيد الانتظار"
+
+msgid "sent"
+msgstr "تم الإرسال"
+
+msgid "failed"
+msgstr "فشل"
+
+msgid "At anchorage"
+msgstr "في المرسى"
+
+msgid "Unknown company"
+msgstr "شركة غير معروفة"
+
+msgid "Unknown kind"
+msgstr "نوع غير معروف"
+
+msgid "Remove this route and cancel its unfilled orders? Cargo, committed voyages and handling are preserved."
+msgstr "هل تريد إزالة هذا المسار وإلغاء أوامره غير المنفذة؟ تُحفظ البضائع والرحلات وعمليات المناولة التي بدأت."
+
+msgid "Fund this guarantee? Cash is locked immediately, including before the invitee borrows. It can be forfeited on their bankruptcy and is not withdrawable. Your own bankruptcy does not release it."
+msgstr "هل تريد تمويل هذا الضمان؟ يُحجز النقد فورًا، حتى قبل اقتراض المدعو. قد يُصادر عند إفلاسه ولا يمكن سحبه. ولا يؤدي إفلاسك إلى تحريره."
+
+msgid "Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a new company starting with no cash or ships."
+msgstr "هل تريد إعلان الإفلاس؟ سيؤدي ذلك إلى إغلاق شركتك وفقدان الوصول إلى أصولها، مع انتظار 20 دقيقة من وقت العالم قبل إنشاء شركة جديدة بلا نقد أو سفن."
+
+msgid "Sell this ship to the shipyard? The ship will leave your fleet."
+msgstr "هل تريد بيع هذه السفينة إلى حوض بناء السفن؟ ستغادر السفينة أسطولك."
+
+msgid "Your shipping company"
+msgstr "شركة الشحن الخاصة بك"
+
+msgid "Supply"
+msgstr "العرض"
+
+msgid "Demand"
+msgstr "الطلب"
+
+msgid "Completing loading targets"
+msgstr "جارٍ إكمال أهداف التحميل"
+
+msgid "Waiting for the limit price"
+msgstr "بانتظار السعر المحدد"
+
+msgid "Waiting for cargo orders to be filled or cancelled"
+msgstr "بانتظار تنفيذ أوامر البضائع أو إلغائها"
+
+msgid "Waiting for cargo handling to finish"
+msgstr "بانتظار انتهاء مناولة البضائع"
+
+msgid "Waiting for available funds for fuel and canal fees"
+msgstr "بانتظار توفر أموال للوقود ورسوم القنوات"
+
+msgid "Waiting for unpaid operating costs to clear"
+msgstr "بانتظار سداد تكاليف التشغيل المستحقة"
+
+msgid "No sea route is available to the onward destination"
+msgstr "لا يتوفر مسار بحري إلى الوجهة التالية"
+
+msgid "The onward voyage exceeds the maximum duration"
+msgstr "تتجاوز الرحلة التالية المدة القصوى"
+
+msgid "The onward destination is unavailable; update the visit plan"
+msgstr "الوجهة التالية غير متاحة؛ حدّث خطة الزيارة"
+
+msgid "Waiting for hold capacity; fill or cancel remaining orders"
+msgstr "بانتظار سعة في العنبر؛ نفّذ الأوامر المتبقية أو ألغها"
+
+msgid "Hold capacity exhausted; cancelled unfilled remainder"
+msgstr "نفدت سعة العنبر؛ أُلغي الجزء غير المنفذ"
+
+msgid "Available demand exhausted; unsold cargo stays aboard"
+msgstr "استُنفد الطلب المتاح؛ تبقى البضائع غير المباعة على متن السفينة"
+
+msgid "Maximum available purchase completed"
+msgstr "اكتمل شراء أقصى كمية متاحة"
+
+msgid "Waiting for handling to finish"
+msgstr "بانتظار انتهاء المناولة"
+
+msgid "Choose one shared onward port for this visit before purchases can resume"
+msgstr "اختر ميناءً تاليًا موحدًا لهذه الزيارة قبل استئناف الشراء"
+
+msgid "Waiting for cargo aboard"
+msgstr "بانتظار وجود بضائع على متن السفينة"
+
+msgid "Waiting for market supply"
+msgstr "بانتظار توفر المعروض في السوق"
+
+msgid "Waiting for market demand or buyer funds"
+msgstr "بانتظار طلب السوق أو أموال المشتري"
+
+msgid "Waiting for available company funds or unpaid costs to clear"
+msgstr "بانتظار توفر أموال الشركة أو سداد التكاليف المستحقة"
+
+msgid "Purchase spending cap exhausted"
+msgstr "استُنفد سقف الإنفاق على الشراء"
+
+msgid "Waiting for funds after preserving onward voyage costs"
+msgstr "بانتظار توفر أموال بعد الاحتفاظ بتكاليف الرحلة التالية"
+
+msgid "Onward voyage is unavailable"
+msgstr "الرحلة التالية غير متاحة"
+
+msgid "Cargo is currently unavailable for trading at this port"
+msgstr "البضائع غير متاحة حاليًا للتداول في هذا الميناء"
+
+msgid "Add stops and cargo targets, then start the route"
+msgstr "أضف محطات وأهدافًا للبضائع، ثم ابدأ المسار"
+
+msgid "Following route"
+msgstr "جارٍ اتباع المسار"
+
+msgid "Paused by player; committed handling continues"
+msgstr "أوقفه اللاعب مؤقتًا؛ تستمر المناولة التي بدأت"
+
+msgid "Completing sale targets"
+msgstr "جارٍ إكمال أهداف البيع"
+
+msgid "Stopped after completing this visit"
+msgstr "توقف بعد إكمال هذه الزيارة"
+
+msgid "Route visit target"
+msgstr "هدف زيارة المسار"
+
+msgid "Off route; return to the selected stop before resuming"
+msgstr "خارج المسار؛ عُد إلى المحطة المحددة قبل الاستئناف"
+
+msgid "Awaiting arrival and a berth"
+msgstr "بانتظار الوصول ورصيف للرسو"
+
+msgid "Cancelled by player"
+msgstr "ألغاه اللاعب"
+
+msgid "Cancelled remainder on departure"
+msgstr "أُلغي الجزء المتبقي عند المغادرة"
+
+msgid "Strait of Hormuz"
+msgstr "مضيق هرمز"
+
+msgid "Northern Frangistan"
+msgstr "فرنجيستان الشمالية"
+
+msgid "Pearl River Delta"
+msgstr "دلتا نهر اللؤلؤ"
+
+msgid "Weight"
+msgstr "الوزن"
+
+msgid "Volume"
+msgstr "الحجم"
+
+msgid "Avg. cost"
+msgstr "متوسط التكلفة"
+
+msgid "First expiry"
+msgstr "أقرب انتهاء صلاحية"
+
+msgid "Abu Dhabi"
+msgstr "أبوظبي"
+
+msgid "Khalifa Port"
+msgstr "ميناء خليفة"
+
+msgid "Crude and refined fuel exporter with large aluminium smelting that consumes imported scrap. Buys power-generation turbines and all of its food."
+msgstr "مصدّر للنفط الخام والوقود المكرر، مع صناعة كبيرة لصهر الألومنيوم تستهلك الخردة المستوردة. يشتري توربينات توليد الكهرباء ويستورد جميع احتياجاته الغذائية."
+
+msgid "Antwerp"
+msgstr "أنتويرب"
+
+msgid "Chemicals, refining and Europe's diamond trade, with major reefer capacity and a construction-machinery export stream. Ships refined products and recovered plastics outbound, and its inland catchment reaches Italian and French fashion houses."
+msgstr "مركز للصناعات الكيميائية والتكرير وتجارة الألماس الأوروبية، مع سعة كبيرة للشحن المبرد وصادرات من آلات البناء. يصدّر المنتجات المكررة والبلاستيك المستعاد، وتمتد منطقة خدمته الداخلية إلى دور الأزياء الإيطالية والفرنسية."
+
+msgid "Athens"
+msgstr "أثينا"
+
+msgid "Piraeus"
+msgstr "بيرايوس"
+
+msgid "Greek refining, ore mining and aluminium production alongside Mediterranean transshipment. Exports fuel, ore, metal scrap and fruit; imports grain and meat."
+msgstr "يجمع بين التكرير اليوناني وتعدين الخامات وإنتاج الألومنيوم وإعادة الشحن في المتوسط. يصدّر الوقود والخامات والخردة المعدنية والفواكه؛ ويستورد الحبوب واللحوم."
+
+msgid "Busan"
+msgstr "بوسان"
+
+msgid "Korea's industrial gateway: steel, shipbuilding, heavy turbines and consumer electronics, fed by imported ore and crude. Exports refined fuel and the catch of a large distant-water fishing fleet."
+msgstr "بوابة كوريا الصناعية للصلب وبناء السفن والتوربينات الثقيلة والإلكترونيات الاستهلاكية، وتعتمد على الخامات والنفط الخام المستوردين. تصدّر الوقود المكرر ومحصول أسطول كبير للصيد في المياه البعيدة."
+
+msgid "Colombo"
+msgstr "كولومبو"
+
+msgid "South Asian transshipment point and the roster's cinnamon source, exporting spices, apparel, gemstones and seafood. Small hinterland, so most bulk arrives rather than departs."
+msgstr "نقطة لإعادة الشحن في جنوب آسيا ومصدر القرفة بين موانئ اللعبة، وتصدّر التوابل والملابس والأحجار الكريمة والمأكولات البحرية. منطقتها الداخلية صغيرة، لذا تصل إليها معظم الشحنات السائبة بدلًا من أن تنطلق منها."
+
+msgid "Colón"
+msgstr "كولون"
+
+msgid "Manzanillo"
+msgstr "مانزانيلو"
+
+msgid "Canal-side transshipment and the Colón Free Zone's re-export trade into Latin America, plus Central American bananas."
+msgstr "مركز لإعادة الشحن بجوار القناة ولتجارة إعادة التصدير من منطقة كولون الحرة إلى أمريكا اللاتينية، إضافة إلى موز أمريكا الوسطى."
+
+msgid "Dubai"
+msgstr "دبي"
+
+msgid "Jebel Ali"
+msgstr "جبل علي"
+
+msgid "Re-export hub for consumer goods and gold across the Gulf and East Africa, with sustained construction demand and no food production."
+msgstr "مركز لإعادة تصدير السلع الاستهلاكية والذهب إلى الخليج وشرق أفريقيا، مع طلب مستمر على البناء وانعدام الإنتاج الغذائي."
+
+msgid "Guangzhou"
+msgstr "غوانغجو"
+
+msgid "Nansha"
+msgstr "نانشا"
+
+msgid "The delta's heavy and household manufacturing arm: appliances, apparel, construction and agricultural machinery, and a large grain-consuming population."
+msgstr "ذراع الدلتا للصناعات الثقيلة والمنزلية: الأجهزة المنزلية والملابس وآلات البناء والزراعة، مع عدد كبير من السكان المستهلكين للحبوب."
+
+msgid "Hamburg"
+msgstr "هامبورغ"
+
+msgid "German and Central European machinery export — turbines, construction and agricultural equipment — plus grain, meat and aluminium scrap outbound to Asia. Europe's largest copper smelter sits here and consumes imported copper scrap. Its inland catchment also carries Central European fashion houses and sawmill lumber."
+msgstr "مركز لتصدير آلات ألمانيا وأوروبا الوسطى، ومنها التوربينات ومعدات البناء والزراعة، إضافة إلى الحبوب واللحوم وخردة الألومنيوم المتجهة إلى آسيا. يضم أكبر مصهر للنحاس في أوروبا، الذي يستهلك خردة النحاس المستوردة. وتشمل منطقة خدمته الداخلية أيضًا دور أزياء أوروبا الوسطى وأخشاب المناشر."
+
+msgid "Ho Chi Minh City"
+msgstr "مدينة هو تشي منه"
+
+msgid "Saigon and Cai Mep"
+msgstr "سايغون وكاي ميب"
+
+msgid "Vietnam's export engine for apparel, electronics, rice, fruit, pepper and farmed seafood. Takes in refined fuel and recovered plastics for processing."
+msgstr "محرك صادرات فيتنام من الملابس والإلكترونيات والأرز والفواكه والفلفل والمأكولات البحرية المستزرعة. يستورد الوقود المكرر والبلاستيك المستعاد لمعالجته."
+
+msgid "Hong Kong"
+msgstr "هونغ كونغ"
+
+msgid "Transshipment, finance and luxury retail with no manufacturing base. The roster's largest re-exporter of jewelry and rare whisky, and the centre of its collector auction trade, importing essentially all of its food."
+msgstr "مركز لإعادة الشحن والتمويل وتجارة التجزئة الفاخرة، بلا قاعدة صناعية. أكبر معيد تصدير للمجوهرات والويسكي النادر بين موانئ اللعبة، ومركز مزادات المقتنيات فيها، ويستورد جميع احتياجاته الغذائية تقريبًا."
+
+msgid "Houston"
+msgstr "هيوستن"
+
+msgid "Bayport"
+msgstr "بايبورت"
+
+msgid "US Gulf energy and agriculture: crude, refined fuel, grain, beef, heavy machinery, Kentucky whiskey and the roster's broadest scrap and recovered-plastics export. Regional sawmills add lumber to its outbound cargoes. Channel draft excludes the largest ships."
+msgstr "مركز الطاقة والزراعة على ساحل الخليج الأمريكي: النفط الخام والوقود المكرر والحبوب ولحم البقر والآلات الثقيلة وويسكي كنتاكي، وأوسع تشكيلة من صادرات الخردة والبلاستيك المستعاد بين موانئ اللعبة. تضيف المناشر الإقليمية الأخشاب إلى شحناته الصادرة. ويمنع غاطس القناة دخول أكبر السفن."
+
+msgid "Jakarta"
+msgstr "جاكرتا"
+
+msgid "Tanjung Priok"
+msgstr "تانجونغ بريوك"
+
+msgid "Indonesian resource exporter and fast-growing consumer market, importing grain and fuel while shipping ore, palm oil, the nutmeg and cloves of the original Spice Islands, apparel and seafood. Its regional sawmills also supply lumber."
+msgstr "مصدّر للموارد الإندونيسية وسوق استهلاكية سريعة النمو، يستورد الحبوب والوقود ويصدّر الخامات وزيت النخيل وجوزة الطيب والقرنفل من جزر التوابل الأصلية، إضافة إلى الملابس والمأكولات البحرية. وتوفر المناشر الإقليمية الأخشاب أيضًا."
+
+msgid "Los Angeles"
+msgstr "لوس أنجلوس"
+
+msgid "San Pedro Bay"
+msgstr "خليج سان بيدرو"
+
+msgid "The largest US import gateway for consumer goods, balanced by Californian produce, beef and the roster's heaviest scrap export. Congestion-prone and expensive."
+msgstr "أكبر بوابة أمريكية لاستيراد السلع الاستهلاكية، تقابلها صادرات من المحاصيل الكاليفورنية ولحم البقر وأكبر حجم من الخردة بين موانئ اللعبة. عرضة للازدحام ومرتفعة التكاليف."
+
+msgid "Manila"
+msgstr "مانيلا"
+
+msgid "Philippine semiconductor assembly, nickel and iron ore mining, and tropical agriculture. The roster's leading fruit, tuna and coconut oil exporter, dependent on imported grain, fuel and meat."
+msgstr "مركز لتجميع أشباه الموصلات الفلبينية وتعدين النيكل وخام الحديد والزراعة الاستوائية. أكبر مصدّر للفواكه والتونة وزيت جوز الهند بين موانئ اللعبة، ويعتمد على الحبوب والوقود واللحوم المستوردة."
+
+msgid "Mumbai"
+msgstr "مومباي"
+
+msgid "Jawaharlal Nehru / Nhava Sheva"
+msgstr "جواهر لال نهرو / نهافا شيفا"
+
+msgid "India's largest container gateway: ore, refined fuel, tractors, apparel and spices out, crude in, and the roster's dominant cut-gemstone and jewelry exporter. A heavy scrap buyer."
+msgstr "أكبر بوابة للحاويات في الهند: تصدّر الخامات والوقود المكرر والجرارات والملابس والتوابل، وتستورد النفط الخام، وهي المصدّر المهيمن للأحجار الكريمة المصقولة والمجوهرات بين موانئ اللعبة. مشترٍ كبير للخردة."
+
+msgid "New York City"
+msgstr "مدينة نيويورك"
+
+msgid "Port Newark–Elizabeth"
+msgstr "ميناء نيوارك–إليزابيث"
+
+msgid "The US Northeast's consumer gateway and a luxury market in its own right, exporting scrap, meat and American whiskey while importing finished goods and fuel."
+msgstr "بوابة المستهلكين في شمال شرق الولايات المتحدة وسوق فاخرة بحد ذاتها، تصدّر الخردة واللحوم والويسكي الأمريكي وتستورد السلع المصنعة والوقود."
+
+msgid "Rotterdam"
+msgstr "روتردام"
+
+msgid "Europe's largest port and its oil gateway, feeding Rhine-valley steel and engineering. Exports refined fuel, turbines and scrap and lands enormous volumes of fruit."
+msgstr "أكبر ميناء في أوروبا وبوابتها النفطية، يزوّد صناعات الصلب والهندسة في وادي الراين. يصدّر الوقود المكرر والتوربينات والخردة ويستقبل كميات هائلة من الفواكه."
+
+msgid "Shanghai"
+msgstr "شنغهاي"
+
+msgid "Waigaoqiao and Yangshan"
+msgstr "وايغاوتشياو ويانغشان"
+
+msgid "China's largest gateway, serving the Yangtze Delta's steel, machinery and electronics industries. Ore and crude in, finished manufactures out, with a wealthy consumer market of its own."
+msgstr "أكبر بوابة في الصين، تخدم صناعات الصلب والآلات والإلكترونيات في دلتا اليانغتسي. تستورد الخامات والنفط الخام وتصدّر المنتجات المصنعة، ولديها سوق استهلاكية ثرية أيضًا."
+
+msgid "Shenzhen"
+msgstr "شنتشن"
+
+msgid "Yantian"
+msgstr "يانتيان"
+
+msgid "Electronics manufacturing capital of the Pearl River Delta. Draws copper and components in, ships finished devices out."
+msgstr "عاصمة صناعة الإلكترونيات في دلتا نهر اللؤلؤ. تستورد النحاس والمكونات وتصدّر الأجهزة الجاهزة."
+
+msgid "Singapore"
+msgstr "سنغافورة"
+
+msgid "Transshipment and refining hub with almost no primary hinterland. Buys crude to sell refined fuel, re-exports spirits across the region, and imports nearly all of its food."
+msgstr "مركز لإعادة الشحن والتكرير بلا منطقة داخلية منتجة للمواد الأولية تقريبًا. يشتري النفط الخام ليبيع الوقود المكرر، ويعيد تصدير المشروبات الروحية في أنحاء المنطقة، ويستورد جميع احتياجاته الغذائية تقريبًا."
+
+msgid "São Paulo"
+msgstr "ساو باولو"
+
+msgid "Santos"
+msgstr "سانتوس"
+
+msgid "Brazil's agricultural and mineral outlet: soy and soy oil, iron ore, crude, citrus and the roster's largest meat export, against imported fuel and manufactures. Regional sawmills supply lumber for export."
+msgstr "منفذ البرازيل الزراعي والمعدني: فول الصويا وزيته وخام الحديد والنفط الخام والحمضيات وأكبر صادرات اللحوم بين موانئ اللعبة، مقابل واردات الوقود والمنتجات المصنعة. وتوفر المناشر الإقليمية الأخشاب للتصدير."
+
+msgid "Tangier"
+msgstr "طنجة"
+
+msgid "Tanger Med"
+msgstr "طنجة المتوسط"
+
+msgid "Low-cost North African transshipment and light manufacturing: apparel, electronics assembly, citrus and sardines, against imported grain and fuel."
+msgstr "مركز منخفض التكلفة في شمال أفريقيا لإعادة الشحن والصناعات الخفيفة: الملابس وتجميع الإلكترونيات والحمضيات والسردين، مقابل واردات الحبوب والوقود."
+
+msgid "Tokyo"
+msgstr "طوكيو"
+
+msgid "High-value Japanese manufacturing — construction and agricultural machinery, turbines, electronics — alongside the roster's foremost whisky distilling and the world's largest appetite for imported seafood."
+msgstr "مركز للصناعات اليابانية عالية القيمة، ومنها آلات البناء والزراعة والتوربينات والإلكترونيات، إلى جانب أبرز صناعة لتقطير الويسكي بين موانئ اللعبة وأكبر طلب في العالم على المأكولات البحرية المستوردة."
+
+msgid "Valencia"
+msgstr "فالنسيا"
+
+msgid "Spanish Mediterranean exporter of citrus, pork, appliances and apparel, and of construction and agricultural machinery, with strong reefer capacity and moderate costs."
+msgstr "ميناء إسباني على المتوسط يصدّر الحمضيات ولحم الخنزير والأجهزة المنزلية والملابس وآلات البناء والزراعة، مع سعة كبيرة للشحن المبرد وتكاليف معتدلة."

@@ -237,7 +237,8 @@ defmodule TijaraTides.Domain.Ship.VisitOrders do
       |> Notices.notice(
         company["account_id"],
         "auto-depart:" <> plan["id"],
-        "#{ship["name"]}: automatic departure to #{plan["onward"]} paused. #{reason}."
+        {"ship.departure_wait",
+         %{"ship" => ship["name"], "destination" => plan["onward"], "reason" => reason}}
       )
     end
   end
@@ -248,7 +249,7 @@ defmodule TijaraTides.Domain.Ship.VisitOrders do
   defp finish(state, order, reason, catalogue),
     do: update(state, %{order | "status" => "cancelled", "reason" => reason}, catalogue)
 
-  defp update(state, order, catalogue) do
+  defp update(state, order, _catalogue) do
     previous = get(state, "ship_instructions", order["id"])
 
     if previous == order do
@@ -262,7 +263,16 @@ defmodule TijaraTides.Domain.Ship.VisitOrders do
       |> Notices.notice(
         company["account_id"],
         "instruction:" <> order["id"],
-        "#{ship["name"]} at #{order["port"]}: #{order["side"]} #{catalogue["goods"][order["good"]]["name"]}, #{order["filled"]}/#{order["quantity"]} lots filled. #{order["reason"]}."
+        {"instruction.updated",
+         %{
+           "ship" => ship["name"],
+           "port" => order["port"],
+           "side" => order["side"],
+           "cargo" => order["good"],
+           "filled" => order["filled"],
+           "quantity" => order["quantity"],
+           "reason" => order["reason"]
+         }}
       )
     end
   end

@@ -69,6 +69,8 @@ defmodule TijaraTides.MixProject do
       {:telemetry_metrics_prometheus_core, "~> 1.2"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
+      {:gettext, "~> 1.0"},
+      {:ex_cldr_numbers, "~> 2.38"},
       {:remote_ip, "~> 1.2"},
       {:swoosh, "~> 1.28"},
       {:req, "~> 0.5"},
@@ -99,7 +101,12 @@ defmodule TijaraTides.MixProject do
         "esbuild tijara_tides --minify",
         "phx.digest"
       ],
-      precommit: ["format --check-formatted", "compile --force --warnings-as-errors", "test"]
+      precommit: [
+        "format --check-formatted",
+        "compile --force --warnings-as-errors",
+        "gettext.extract --check-up-to-date",
+        "test"
+      ]
     ]
   end
 end

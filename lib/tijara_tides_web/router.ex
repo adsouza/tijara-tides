@@ -4,6 +4,7 @@ defmodule TijaraTidesWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
+    plug TijaraTidesWeb.Plugs.Locale
     plug TijaraTidesWeb.Plugs.GuestSession
     plug TijaraTidesWeb.Plugs.RedemptionSession
     plug :fetch_live_flash
@@ -29,6 +30,7 @@ defmodule TijaraTidesWeb.Router do
 
     live "/", LobbyLive
     live "/play", GameLive
+    post "/locale", LocaleController, :update
     post "/email/request", EmailSessionController, :request
     post "/email/open", EmailSessionController, :open_link
     get "/email/verify", EmailSessionController, :prepare

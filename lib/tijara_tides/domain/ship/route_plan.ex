@@ -472,6 +472,12 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
       put(state, "ship_routes", route["id"], %{route | "status" => "paused", "reason" => reason})
 
     company = get(state, "companies", route["company_id"])
-    Notices.notice(state, company["account_id"], "route:" <> route["id"], reason)
+
+    Notices.notice(
+      state,
+      company["account_id"],
+      "route:" <> route["id"],
+      {"route.paused", %{"reason" => reason}}
+    )
   end
 end

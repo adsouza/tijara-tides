@@ -16,7 +16,7 @@ defmodule TijaraTidesWeb.EmailSessionController do
     conn
     |> put_flash(
       :info,
-      "If that email is linked to an account, a sign-in link will arrive shortly."
+      gettext("If that email is linked to an account, a sign-in link will arrive shortly.")
     )
     |> redirect(to: ~p"/play")
   end
@@ -69,7 +69,9 @@ defmodule TijaraTidesWeb.EmailSessionController do
     |> private_response()
     |> put_flash(
       :error,
-      "Paste the sign-in token from your email for this server. Request a fresh link if it was already used in another browser."
+      gettext(
+        "Paste the sign-in token from your email for this server. Request a fresh link if it was already used in another browser."
+      )
     )
     |> redirect(to: ~p"/play")
   end
@@ -100,10 +102,10 @@ defmodule TijaraTidesWeb.EmailSessionController do
     conn
     |> private_response()
     |> html("""
-    <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Verify email · Tijara Tides</title>
+    <!doctype html><html lang="#{TijaraTides.Localization.locale()}" dir="#{TijaraTides.Localization.direction(TijaraTides.Localization.locale())}"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>#{gettext("Verify email · Tijara Tides")}</title>
     <style>body{margin:0;background:#0f172a;color:#e2e8f0;font:1rem/1.6 system-ui}main{max-width:32rem;margin:10vh auto;padding:2rem}h1{font-size:1.6rem}button{background:#5eead4;color:#0f172a;border:0;border-radius:.4rem;padding:.8rem 1rem;font:inherit;cursor:pointer}</style></head>
-    <body><main><h1>Continue to Tijara Tides</h1><p>Confirm to verify this email and sign in. Only continue if you requested this link or were expecting this invitation.</p>
-    <form method="post" action="/email/redeem"><input type="hidden" name="_csrf_token" value="#{csrf}"><button type="submit">Verify email and continue</button></form></main></body></html>
+    <body><main><h1>#{gettext("Continue to Tijara Tides")}</h1><p>#{gettext("Confirm to verify this email and sign in. Only continue if you requested this link or were expecting this invitation.")}</p>
+    <form method="post" action="/email/redeem"><input type="hidden" name="_csrf_token" value="#{csrf}"><button type="submit">#{gettext("Verify email and continue")}</button></form></main></body></html>
     """)
   end
 
@@ -124,7 +126,7 @@ defmodule TijaraTidesWeb.EmailSessionController do
         |> delete_session(:email_token)
         |> delete_session(:email_device)
         |> delete_session(:redemption_token)
-        |> put_flash(:info, "Email verified. You are signed in.")
+        |> put_flash(:info, gettext("Email verified. You are signed in."))
         |> redirect(to: ~p"/play")
 
       {:error, :email_wrong_account} ->
@@ -132,7 +134,9 @@ defmodule TijaraTidesWeb.EmailSessionController do
         |> private_response()
         |> put_flash(
           :error,
-          "This link belongs to a different account. Sign out before using it; accounts will not be merged."
+          gettext(
+            "This link belongs to a different account. Sign out before using it; accounts will not be merged."
+          )
         )
         |> redirect(to: ~p"/play")
 
@@ -141,7 +145,7 @@ defmodule TijaraTidesWeb.EmailSessionController do
         |> private_response()
         |> put_flash(
           :error,
-          "This email link is invalid, expired, or already used. Request a new link."
+          gettext("This email link is invalid, expired, or already used. Request a new link.")
         )
         |> redirect(to: ~p"/play")
     end

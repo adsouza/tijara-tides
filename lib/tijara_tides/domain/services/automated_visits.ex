@@ -60,7 +60,12 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
                   changed,
                   account["id"],
                   "auto-depart:" <> id,
-                  "#{ship["name"]} automatically departed #{plan["port"]} for #{plan["onward"]}."
+                  {"ship.departed",
+                   %{
+                     "ship" => ship["name"],
+                     "port" => plan["port"],
+                     "destination" => plan["onward"]
+                   }}
                 )
 
               {:error, reason} ->

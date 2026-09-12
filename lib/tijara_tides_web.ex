@@ -20,6 +20,7 @@ defmodule TijaraTidesWeb do
   use Boundary,
     deps: [
       TijaraTides.UseCases,
+      TijaraTides.Localization,
       Phoenix,
       Phoenix.LiveView,
       Phoenix.Component,
@@ -49,6 +50,7 @@ defmodule TijaraTidesWeb do
   def controller do
     quote do
       use Phoenix.Controller, formats: [:html, :json]
+      use Gettext, backend: TijaraTides.Localization.Backend
 
       import Plug.Conn
 
@@ -87,6 +89,8 @@ defmodule TijaraTidesWeb do
 
   defp html_helpers do
     quote do
+      use Gettext, backend: TijaraTides.Localization.Backend
+      import TijaraTides.Localization, only: [l10n: 1, display_number: 1]
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components

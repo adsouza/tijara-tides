@@ -16,7 +16,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
       phx-mounted={JS.ignore_attributes("open")}
     >
       <summary class="company-menu-trigger popup-menu-trigger" phx-click="report-close">
-        <span>Account, finance &amp; invitations</span>
+        <span>{gettext("Account, finance & invitations")}</span>
       </summary>
       <div class="company-menu-body">
         <div class="company-menu-dismiss">
@@ -25,7 +25,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="verified-email"
             class="min-w-0 flex-1 break-words"
           >
-            Verified Email identity: {@view.private["account"]["email"]}
+            {gettext("Verified Email identity: %{value1}", value1: @view.private["account"]["email"])}
           </h3>
           <button
             type="button"
@@ -33,15 +33,20 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               JS.remove_attribute("open", to: "#company-menu")
               |> JS.focus(to: "#company-menu > summary")
             }
-            aria-label="Close account, finance and invitations"
+            aria-label={gettext("Close account, finance and invitations")}
             class="shrink-0 rounded border border-slate-500 px-3 py-1"
-          >Close ✕</button>
+          >{gettext("Close ✕")}</button>
         </div>
+        <Layouts.language_selector />
         <p :if={is_nil(@view.private["account"]["email"])} class="text-sm text-amber-100">
           <%= if Application.get_env(:tijara_tides, :email_enabled, false) do %>
-            Link an email to sign in on another device. Until an email is verified, keep this device session to retain access. Invitations cannot be reused to sign in.
+            {gettext(
+              "Link an email to sign in on another device. Until an email is verified, keep this device session to retain access. Invitations cannot be reused to sign in."
+            )}
           <% else %>
-            Email linking is not available on this server yet. Keep this device session to retain access. Invitations cannot be reused to sign in.
+            {gettext(
+              "Email linking is not available on this server yet. Keep this device session to retain access. Invitations cannot be reused to sign in."
+            )}
           <% end %>
         </p>
         <section class="my-6 rounded-xl bg-slate-900 p-5">
@@ -53,7 +58,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="email-identity"
             class="my-4 space-y-2"
           >
-            <h3 :if={is_nil(@view.private["account"]["email"])}>Email identity</h3>
+            <h3 :if={is_nil(@view.private["account"]["email"])}>{gettext("Email identity")}</h3>
             <div :if={is_nil(@view.private["account"]["email"])} id="email-verification">
               <.form
                 for={%{}}
@@ -67,16 +72,16 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                   name="email"
                   required
                   maxlength="254"
-                  aria-label="Email to link"
+                  aria-label={gettext("Email to link")}
                   class="rounded bg-slate-800 p-2"
                 />
                 <div class="flex items-center gap-2">
-                  <button class="shrink-0 rounded border p-2">Send verification link</button>
-                  <p class="text-sm">Verify your email using the link we send.</p>
+                  <button class="shrink-0 rounded border p-2">{gettext("Send verification link")}</button>
+                  <p class="text-sm">{gettext("Verify your email using the link we send.")}</p>
                 </div>
               </.form>
               <p class="text-sm">
-                Addresses already linked to another account cannot be used.
+                {gettext("Addresses already linked to another account cannot be used.")}
               </p>
               <ul class="text-xs space-y-1">
                 <li
@@ -84,8 +89,8 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                   :if={delivery["purpose"] == "link"}
                 >
                   {delivery["email"]}: {if delivery["verified"],
-                    do: "verified",
-                    else: delivery["delivery"]}
+                    do: l10n("verified"),
+                    else: l10n(delivery["delivery"])}
                 </li>
               </ul>
             </div>
@@ -95,14 +100,20 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="invitations"
             class="my-4 space-y-2"
           >
-            <h2 class="text-xl">Invitations</h2>
-            <p :if={@view.private["account"]["invite_quota"] < 1}>Available invitations: 0</p>
+            <h2 class="text-xl">{gettext("Invitations")}</h2>
+            <p :if={@view.private["account"]["invite_quota"] < 1}>
+              {gettext("Available invitations: 0")}
+            </p>
             <div
               :if={@view.private["account"]["invite_quota"] > 0}
               class="flex flex-wrap items-end gap-3"
             >
               <div class="min-w-0 flex-[1_1_16rem] space-y-1">
-                <p>Available invitations: {@view.private["account"]["invite_quota"]}</p>
+                <p>
+                  {gettext("Available invitations: %{value1}",
+                    value1: @view.private["account"]["invite_quota"]
+                  )}
+                </p>
                 <.form
                   :if={Application.get_env(:tijara_tides, :email_enabled, false)}
                   for={%{}}
@@ -116,8 +127,8 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                     name="email"
                     required
                     maxlength="254"
-                    aria-label="Invitee email"
-                    placeholder="Invitee email"
+                    aria-label={gettext("Invitee email")}
+                    placeholder={gettext("Invitee email")}
                     class="min-w-0 flex-1 rounded bg-slate-800 p-2"
                   />
                   <button
@@ -126,18 +137,18 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                         not is_nil(@view.private["account"]["suspended_ms"])
                     }
                     class="rounded border p-2 disabled:opacity-40"
-                  >Send invitation</button>
+                  >{gettext("Send invitation")}</button>
                 </.form>
               </div>
               <span
                 :if={Application.get_env(:tijara_tides, :email_enabled, false)}
                 class="py-2 text-slate-400"
-              >or</span>
+              >{gettext("or")}</span>
               <button
                 phx-click="invite"
                 phx-value-request_id={@request_id}
                 class="rounded border border-teal-700 px-4 py-2"
-              >Generate shareable<br />invitation code</button>
+              >{gettext("Generate shareable")}<br />{gettext("invitation code")}</button>
             </div>
             <p :if={@invite_code} class="mt-3 break-all font-mono text-teal-200">
               {@invite_code}
@@ -149,7 +160,9 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               }
               class="text-sm"
             >
-              Uses one invitation. The recipient verifies the email when redeeming the link. You will not receive their sign-in credential.
+              {gettext(
+                "Uses one invitation. The recipient verifies the email when redeeming the link. You will not receive their sign-in credential."
+              )}
             </p>
             <ul class="text-xs space-y-1">
               <li
@@ -157,11 +170,14 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                 :if={delivery["purpose"] == "invite"}
               >
                 {delivery["email"]}: {if delivery["verified"],
-                  do: "verified",
-                  else: delivery["delivery"]}
+                  do: l10n("verified"),
+                  else: l10n(delivery["delivery"])}
                 <span :if={delivery["purpose"] == "invite" and not delivery["verified"]}>
-                  · expires in {invitation_time_remaining(
-                    max(0, delivery["expires_ms"] - @view.public["clock_ms"])
+                  {gettext("· expires in %{value1}",
+                    value1:
+                      invitation_time_remaining(
+                        max(0, delivery["expires_ms"] - @view.public["clock_ms"])
+                      )
                   )}
                 </span>
               </li>
@@ -179,13 +195,17 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="sponsor-guarantees"
             class="my-4 space-y-3"
           >
-            <h3 class="text-lg">Sponsor guarantees</h3>
+            <h3 class="text-lg">{gettext("Sponsor guarantees")}</h3>
             <p :if={not @view.private["guarantees"]["eligible"]}>
-              To sponsor a player, clear overdue bills and hold at least as much unreserved cash as your own outstanding loan principal and interest.
+              {gettext(
+                "To sponsor a player, clear overdue bills and hold at least as much unreserved cash as your own outstanding loan principal and interest."
+              )}
             </p>
 
             <p :if={@view.private["guarantees"]["active"]}>
-              Your borrowing is backed by a {money(@view.private["guarantees"]["active"]["amount"])} sponsor pledge.
+              {gettext("Your borrowing is backed by a %{value1} sponsor pledge.",
+                value1: money(@view.private["guarantees"]["active"]["amount"])
+              )}
             </p>
 
             <div
@@ -193,15 +213,24 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               :if={g["status"] == "pledged"}
             >
               <p :if={is_nil(g["settlement"])}>
-                {money(g["amount"])} locked as a guarantee. It is returned to the sponsoring company after the guaranteed loans are repaid; on bankruptcy, unpaid loan debt is covered up to this cap and the rest is refunded.
+                {gettext(
+                  "%{value1} locked as a guarantee. It is returned to the sponsoring company after the guaranteed loans are repaid; on bankruptcy, unpaid loan debt is covered up to this cap and the rest is refunded.",
+                  value1: money(g["amount"])
+                )}
               </p>
               <p :if={g["settlement"] == "release"} class="rounded border border-emerald-700 p-2">
-                The guaranteed loans are repaid. {money(g["amount"])} returns to your company the next time it settles — within a few seconds, or on your next action.
+                {gettext(
+                  "The guaranteed loans are repaid. %{value1} returns to your company the next time it settles — within a few seconds, or on your next action.",
+                  value1: money(g["amount"])
+                )}
               </p>
               <p :if={g["settlement"] == "claim"} class="rounded border border-amber-700 p-2">
-                Your invitee has gone bankrupt. {money(g["settlement_amount"])} of this {money(
-                  g["amount"]
-                )} guarantee will be forfeited and {money(g["amount"] - g["settlement_amount"])} returned, the next time your company settles.
+                {gettext(
+                  "Your invitee has gone bankrupt. %{value1} of this %{value2} guarantee will be forfeited and %{value3} returned, the next time your company settles.",
+                  value1: money(g["settlement_amount"]),
+                  value2: money(g["amount"]),
+                  value3: money(g["amount"] - g["settlement_amount"])
+                )}
               </p>
             </div>
             <.form
@@ -210,18 +239,24 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               for={%{}}
               id={"guarantee-" <> candidate["id"]}
               phx-submit="guarantee"
-              data-confirm="Fund this guarantee? Cash is locked immediately, including before the invitee borrows. It can be forfeited on their bankruptcy and is not withdrawable. Your own bankruptcy does not release it."
+              data-confirm={
+                gettext(
+                  "Fund this guarantee? Cash is locked immediately, including before the invitee borrows. It can be forfeited on their bankruptcy and is not withdrawable. Your own bankruptcy does not release it."
+                )
+              }
               class="space-y-2 rounded border p-3"
             >
               <p>
-                Guarantee {candidate["name"]}. The pledge caps their borrowing and your liability.
+                {gettext("Guarantee %{value1}. The pledge caps their borrowing and your liability.",
+                  value1: candidate["name"]
+                )}
               </p>
               <input type="hidden" name="request_id" value={@request_id} />
               <input type="hidden" name="account" value={candidate["id"]} />
               <input
                 type="number"
                 name="amount"
-                aria-label="Sponsor pledge in dollars"
+                aria-label={gettext("Sponsor pledge in dollars")}
                 min={div(candidate["minimum"], 100)}
                 max={div(candidate["maximum"], 100)}
                 value={div(candidate["minimum"], 100)}
@@ -229,9 +264,9 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               />
               <button
                 disabled={not candidate["enabled"]}
-                phx-disable-with="Pledging…"
+                phx-disable-with={gettext("Pledging…")}
                 class="rounded border p-2"
-              >Pledge &amp; reinstate</button>
+              >{gettext("Pledge & reinstate")}</button>
             </.form>
           </section>
           <section
@@ -239,35 +274,46 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="company-finance"
             class="mt-4 space-y-3 border-t border-slate-600 pt-3"
           >
-            <h3 class="text-lg">Loans and repayments</h3>
+            <h3 class="text-lg">{gettext("Loans and repayments")}</h3>
 
             <p :if={@view.private["finance"]["requires_guarantee"]}>
-              New borrowing requires your original sponsor's cash pledge, even after earlier guaranteed loans were repaid.
+              {gettext(
+                "New borrowing requires your original sponsor's cash pledge, even after earlier guaranteed loans were repaid."
+              )}
             </p>
             <p>
-              Debt: {money(@view.private["finance"]["debt"])} · Available credit: {money(
-                @view.private["finance"]["available"]
-              )} · Lifetime bankruptcies: {@view.private["account"]["bankruptcies"]}
+              {gettext(
+                "Debt: %{value1} · Available credit: %{value2} · Lifetime bankruptcies: %{value3}",
+                value1: money(@view.private["finance"]["debt"]),
+                value2: money(@view.private["finance"]["available"]),
+                value3: @view.private["account"]["bankruptcies"]
+              )}
             </p>
             <details id="loan-terms" phx-mounted={JS.ignore_attributes("open")}>
-              <summary class="cursor-pointer">Loan terms</summary>
+              <summary class="cursor-pointer">{gettext("Loan terms")}</summary>
               <p class="mt-2 text-sm">
-                New loans have {@view.private["finance"]["installments"]} installments and accrue {@view.private[
-                  "finance"
-                ]["rate_bps"] / 100}% interest per {div(
-                  @view.private["finance"]["period_ms"],
-                  3_600_000
-                )} active-world hours on
-                outstanding principal, continuously while the world runs. Recent bankruptcies
-                raise rates from 8% to 9%, 10%, 12%, 14%, then 16%; existing loans keep their
-                rate. Early repayment has no penalty and avoids future interest. Borrowing is
-                not profit.
+                {gettext(
+                  "New loans have %{value1} installments and accrue %{value2}% interest per %{value3} active-world hours on outstanding principal, continuously while the world runs. Recent bankruptcies raise rates from 8% to 9%, 10%, 12%, 14%, then 16%; existing loans keep their rate. Early repayment has no penalty and avoids future interest. Borrowing is not profit.",
+                  value1: @view.private["finance"]["installments"],
+                  value2:
+                    @view.private[
+                      "finance"
+                    ]["rate_bps"] / 100,
+                  value3:
+                    div(
+                      @view.private["finance"]["period_ms"],
+                      3_600_000
+                    )
+                )}
               </p>
             </details>
             <p :if={@view.private["finance"]["deadline"]} class="text-amber-300">
-              Arrears: {money(@view.private["finance"]["arrears"])}. Bankruptcy deadline in {minutes(
-                max(0, @view.private["finance"]["deadline"] - @view.public["clock_ms"])
-              )} active-world minutes. World suspension pauses this countdown.
+              {gettext(
+                "Arrears: %{value1}. Bankruptcy deadline in %{value2} active-world minutes. World suspension pauses this countdown.",
+                value1: money(@view.private["finance"]["arrears"]),
+                value2:
+                  minutes(max(0, @view.private["finance"]["deadline"] - @view.public["clock_ms"]))
+              )}
             </p>
             <.form
               for={%{}}
@@ -279,7 +325,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             >
               <input
                 type="range"
-                aria-label="Loan amount in $10,000 steps"
+                aria-label={gettext("Loan amount in $10,000 steps")}
                 min="0"
                 max={ceil(div(@view.private["finance"]["available"], 100) / 10_000)}
                 step="1"
@@ -291,7 +337,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               <input
                 type="number"
                 name="amount"
-                aria-label="Loan amount in dollars"
+                aria-label={gettext("Loan amount in dollars")}
                 disabled={@view.private["finance"]["available"] < 100}
                 min="1"
                 max={div(@view.private["finance"]["available"], 100)}
@@ -300,9 +346,9 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               />
               <button
                 disabled={@view.private["finance"]["available"] < 100}
-                phx-disable-with="Borrowing…"
+                phx-disable-with={gettext("Borrowing…")}
                 class="rounded bg-teal-700 p-2 disabled:opacity-40"
-              >Borrow</button>
+              >{gettext("Borrow")}</button>
             </.form>
             <details
               :for={loan <- @view.private["finance"]["loans"]}
@@ -312,27 +358,41 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               class="rounded border border-slate-600 p-2"
             >
               <summary>
-                {money(loan["principal"])} loan · {loan["rate_bps"] / 100}% per period · {loan[
-                  "status"
-                ]} · {money(loan["remaining"])} principal remaining
+                {gettext(
+                  "%{value1} loan · %{value2}% per period · %{value3} · %{value4} principal remaining",
+                  value1: money(loan["principal"]),
+                  value2: loan["rate_bps"] / 100,
+                  value3:
+                    loan[
+                      "status"
+                    ],
+                  value4: money(loan["remaining"])
+                )}
               </summary>
               <p>
-                Accrued interest not yet due: {finance_money(loan["interest_accrued"])} · Currently due: {money(
-                  loan["principal_due"] + loan["interest_due"]
+                {gettext("Accrued interest not yet due: %{value1} · Currently due: %{value2}",
+                  value1: finance_money(loan["interest_accrued"]),
+                  value2: money(loan["principal_due"] + loan["interest_due"])
                 )}
               </p>
               <table :if={loan["status"] == "open"} class="w-full text-right">
                 <caption class="pb-2 text-left">
-                  Projected schedule assuming timely payments in active-world time:
+                  {gettext("Projected schedule assuming timely payments in active-world time:")}
                 </caption><thead>
                   <tr>
-                    <th title="Remaining active-world time (HH:MM:SS); pauses when the world is suspended">
-                      Due in (HH:MM:SS)
-                    </th><th>Principal</th><th>Interest</th>
+                    <th title={
+                      gettext(
+                        "Remaining active-world time (HH:MM:SS); pauses when the world is suspended"
+                      )
+                    }>
+                      {gettext("Due in (HH:MM:SS)")}
+                    </th><th>{gettext("Principal")}</th><th>{gettext("Interest")}</th>
                   </tr>
                 </thead><tbody>
                   <tr :for={row <- loan["schedule"]}>
-                    <td>{active_countdown(row["due_ms"] - @view.public["clock_ms"])}</td><td>
+                    <td>
+                      <bdi dir="ltr">{active_countdown(row["due_ms"] - @view.public["clock_ms"])}</bdi>
+                    </td><td>
                       {money(row["principal"])}
                     </td><td>{finance_money(row["interest"])}</td>
                   </tr>
@@ -356,9 +416,11 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                     name="loan"
                     value={loan["id"]}
                   />
-                  <button phx-disable-with="Repaying…" class="rounded border p-2">Repay<br />{finance_money(
+                  <button phx-disable-with={gettext("Repaying…")} class="rounded border p-2">{gettext(
+                    "Repay"
+                  )}<br />{finance_money(
                     loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
-                  )}<br />in full</button>
+                  )}<br />{gettext("in full")}</button>
                 </.form>
                 <.form
                   :if={can_recast}
@@ -373,7 +435,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                   <input type="hidden" name="loan" value={loan["id"]} />
                   <input
                     type="range"
-                    aria-label="Recast payment in $10,000 steps"
+                    aria-label={gettext("Recast payment in $10,000 steps")}
                     min={div(recast_min, 10_000)}
                     max={ceil(recast_max / 10_000)}
                     step="1"
@@ -381,22 +443,26 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                     class="w-full accent-teal-500"
                   />
                   <div class="flex flex-wrap items-start gap-3">
-                    <span :if={can_repay} class="text-slate-400">or</span>
+                    <span :if={can_repay} class="text-slate-400">{gettext("or")}</span>
                     <input
                       type="number"
                       name="amount"
-                      aria-label="Recast payment in dollars"
+                      aria-label={gettext("Recast payment in dollars")}
                       min={recast_min}
                       max={recast_max}
                       value={min(recast_max, max(recast_min, 10_000))}
                       class="w-32 rounded bg-slate-800 p-2"
                     />
-                    <button phx-disable-with="Recasting…" class="rounded border p-2">Recast loan</button>
+                    <button phx-disable-with={gettext("Recasting…")} class="rounded border p-2">{gettext(
+                      "Recast loan"
+                    )}</button>
                   </div>
                 </.form>
               </div>
               <p :if={can_recast} class="mt-2 text-sm">
-                Recast: pay accrued interest first, then principal. Smaller remaining installments, same payoff date and interest rate. Keep cash for trading.
+                {gettext(
+                  "Recast: pay accrued interest first, then principal. Smaller remaining installments, same payoff date and interest rate. Keep cash for trading."
+                )}
               </p>
             </details>
             <.form
@@ -406,10 +472,14 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             >
               <input type="hidden" name="request_id" value={@request_id} />
               <button
-                data-confirm="Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a new company starting with no cash or ships."
-                phx-disable-with="Declaring…"
+                data-confirm={
+                  gettext(
+                    "Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a new company starting with no cash or ships."
+                  )
+                }
+                phx-disable-with={gettext("Declaring…")}
                 class="rounded border border-red-500 p-2"
-              >Declare bankruptcy</button>
+              >{gettext("Declare bankruptcy")}</button>
             </.form>
           </section>
         </section>

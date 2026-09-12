@@ -354,6 +354,13 @@ defmodule TijaraTides.Infrastructure.GameServer do
       )
       |> Enum.sort_by(& &1["created_ms"])
       |> Enum.take(1)
+      |> Enum.map(
+        &Map.put(
+          &1,
+          "locale",
+          get_in(state.game, [:entities, "accounts", &1["account_id"], "locale"]) || "en"
+        )
+      )
 
     {:reply, rows, state}
   end
