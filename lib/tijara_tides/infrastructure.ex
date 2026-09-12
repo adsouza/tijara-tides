@@ -12,6 +12,7 @@ defmodule TijaraTides.Infrastructure do
     ],
     exports: [
       ExceptionLog,
+      OperationLogger,
       GameServer,
       Mailer,
       EmailDelivery,

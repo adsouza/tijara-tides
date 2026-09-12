@@ -467,3 +467,27 @@ MapPanel to preserve the three-column layout. Existing DOM IDs, event names and
 client hooks remain stable; splitting presentation does not introduce independent
 component state or extra subscriptions. Shared formatting lives in
 `GameUI.Presentation`; financial authorization remains in the application/domain.
+
+
+## Operation logging and telemetry
+
+Infrastructure operations use `Operation.run/2` around player commands, lifecycle
+commands, active-world progression, and email delivery. The wrapper emits start,
+stop, and exception events under `[:tijara_tides, :operation]`, with a generated
+per-invocation correlation ID and monotonic duration. It preserves callback results
+and re-raises failures with their original stack; existing adapters still decide
+whether to pause the world or retry delivery.
+
+`OperationLogger` attaches once at application startup and owns the shared logging
+policy: successful operations at debug, returned errors at warning, and exceptions
+or halted operations at error. Durations are also available as telemetry metrics,
+tagged by operation and outcome (or exception kind), never by correlation ID.
+Correlation IDs are scoped to Logger metadata and restored after each operation.
+They identify individual executions, not retries of the same client request.
+
+No arguments, request payloads, credentials, or returned values enter operation
+events. Exception messages and argument-free stacks use `ExceptionLog` redaction;
+exit and throw payloads are withheld. Existing startup, readiness, query, and poll
+health diagnostics remain explicit. This is boundary instrumentation rather than
+function weaving: domain rules and application use cases remain free of logging
+and telemetry dependencies.

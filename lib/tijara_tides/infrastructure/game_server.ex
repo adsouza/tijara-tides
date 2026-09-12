@@ -380,27 +380,29 @@ defmodule TijaraTides.Infrastructure.GameServer do
     end
 
     try do
-      case TijaraTides.UseCases.GameCommands.run(
-             state.game,
-             hash(token),
-             request,
-             context(state),
-             {TijaraTides.Infrastructure.Persistence.CommandStore,
-              %{repo: state.repo, world_id: state.world_id}},
-             invitation
-           ) do
-        {:ok, outcome} ->
-          {:reply, {:ok, outcome.reply}, accept_outcome(state, outcome)}
+      TijaraTides.Infrastructure.Operation.run(:command, fn ->
+        case TijaraTides.UseCases.GameCommands.run(
+               state.game,
+               hash(token),
+               request,
+               context(state),
+               {TijaraTides.Infrastructure.Persistence.CommandStore,
+                %{repo: state.repo, world_id: state.world_id}},
+               invitation
+             ) do
+          {:ok, outcome} ->
+            {:reply, {:ok, outcome.reply}, accept_outcome(state, outcome)}
 
-        {:error, error} ->
-          {:reply, {:error, error}, state}
+          {:error, error} ->
+            {:reply, {:error, error}, state}
 
-        {:halt, error} ->
-          {:reply, {:error, error}, %{state | status: :unavailable, active: false}}
-      end
+          {:halt, error} ->
+            {:reply, {:error, error}, %{state | status: :unavailable, active: false}}
+        end
+      end)
     rescue
       error ->
-        reason = log_failure("command", error, __STACKTRACE__)
+        reason = failure_reason(error)
         {:reply, {:error, reason}, %{state | status: :unavailable, active: false}}
     end
   end
@@ -412,29 +414,30 @@ defmodule TijaraTides.Infrastructure.GameServer do
     do: handle_info(:tick, state)
 
   def handle_info(:tick, %{status: :ready, active: true} = state) do
-    now = System.monotonic_time(:millisecond)
-    elapsed = max(0, now - state.last_mono)
+    TijaraTides.Infrastructure.Operation.run(:progression, fn ->
+      now = System.monotonic_time(:millisecond)
+      elapsed = max(0, now - state.last_mono)
 
-    case TijaraTides.UseCases.LifecycleCommands.run(
-           state.game,
-           {:advance, elapsed},
-           context(state),
-           store(state)
-         ) do
-      {:ok, outcome} ->
-        next = accept_outcome(state, outcome)
-        if state.timer, do: Process.cancel_timer(state.timer)
+      case TijaraTides.UseCases.LifecycleCommands.run(
+             state.game,
+             {:advance, elapsed},
+             context(state),
+             store(state)
+           ) do
+        {:ok, outcome} ->
+          next = accept_outcome(state, outcome)
+          if state.timer, do: Process.cancel_timer(state.timer)
 
-        {:noreply,
-         %{next | last_mono: now, timer: :erlang.start_timer(state.tick_ms, self(), :tick)}}
+          {:noreply,
+           %{next | last_mono: now, timer: :erlang.start_timer(state.tick_ms, self(), :tick)}}
 
-      {:halt, reason} ->
-        Logger.error("World progression paused: #{reason}")
-        {:noreply, %{state | active: false, status: :unavailable}}
-    end
+        {:halt, reason} ->
+          Logger.error("World progression paused: #{reason}")
+          {:noreply, %{state | active: false, status: :unavailable}}
+      end
+    end)
   rescue
-    error ->
-      log_failure("progression", error, __STACKTRACE__)
+    _error ->
       {:noreply, %{state | active: false, status: :unavailable}}
   end
 
@@ -470,6 +473,10 @@ defmodule TijaraTides.Infrastructure.GameServer do
   defp log_failure(operation, error, stacktrace) do
     TijaraTides.Infrastructure.ExceptionLog.error("Game #{operation} failed", error, stacktrace)
 
+    failure_reason(error)
+  end
+
+  defp failure_reason(error) do
     if is_struct(error, Postgrex.Error) or is_struct(error, DBConnection.ConnectionError),
       do: :storage_unavailable,
       else: :internal_error
@@ -481,14 +488,26 @@ defmodule TijaraTides.Infrastructure.GameServer do
        %{repo: state.repo, world_id: state.world_id}}
 
   defp lifecycle(state, operation, context, reply \\ &{:ok, &1}) do
-    case TijaraTides.UseCases.LifecycleCommands.run(state.game, operation, context, store(state)) do
-      {:ok, outcome} -> {:reply, reply.(outcome.reply), accept_outcome(state, outcome)}
-      {:error, error} -> {:reply, {:error, error}, state}
-      {:halt, error} -> {:reply, {:error, error}, %{state | status: :unavailable, active: false}}
-    end
+    TijaraTides.Infrastructure.Operation.run(:lifecycle, fn ->
+      case TijaraTides.UseCases.LifecycleCommands.run(
+             state.game,
+             operation,
+             context,
+             store(state)
+           ) do
+        {:ok, outcome} ->
+          {:reply, reply.(outcome.reply), accept_outcome(state, outcome)}
+
+        {:error, error} ->
+          {:reply, {:error, error}, state}
+
+        {:halt, error} ->
+          {:reply, {:error, error}, %{state | status: :unavailable, active: false}}
+      end
+    end)
   rescue
     error ->
-      reason = log_failure("lifecycle", error, __STACKTRACE__)
+      reason = failure_reason(error)
       {:reply, {:error, reason}, %{state | status: :unavailable, active: false}}
   end
 

@@ -51,6 +51,14 @@ defmodule TijaraTidesWeb.Telemetry do
         tags: [:event],
         unit: {:native, :millisecond}
       ),
+      summary("tijara_tides.operation.stop.duration",
+        tags: [:operation, :outcome],
+        unit: {:native, :millisecond}
+      ),
+      summary("tijara_tides.operation.exception.duration",
+        tags: [:operation, :kind],
+        unit: {:native, :millisecond}
+      ),
 
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),

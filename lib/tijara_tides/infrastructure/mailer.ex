@@ -15,23 +15,9 @@ defmodule TijaraTides.Infrastructure.EmailDelivery do
   def handle_info(_, state), do: {:noreply, state}
 
   defp deliver(message) do
-    case Mailer.deliver(message) do
-      {:error, error} = result when is_exception(error) ->
-        TijaraTides.Infrastructure.ExceptionLog.error("Email delivery failed", error, [])
-        result
-
-      result ->
-        result
-    end
+    TijaraTides.Infrastructure.Operation.run(:email_delivery, fn -> Mailer.deliver(message) end)
   rescue
-    error ->
-      TijaraTides.Infrastructure.ExceptionLog.error(
-        "Email delivery failed",
-        error,
-        __STACKTRACE__
-      )
-
-      {:error, :delivery_failed}
+    _error -> {:error, :delivery_failed}
   catch
     :exit, _ -> {:error, :delivery_failed}
   end
