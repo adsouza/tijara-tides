@@ -230,7 +230,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
           state.game,
           state.catalogue,
           state.projection,
-          account(state, token)
+          hash(token),
+          state.wall_clock.()
         )
       else
         %{status: state.status, public: nil, private: nil, markets: %{}}
@@ -259,7 +260,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
       TijaraTides.UseCases.GameQueries.preview(
         state.game,
         state.catalogue,
-        account(state, token),
+        hash(token),
+        state.wall_clock.(),
         id,
         destination
       )
@@ -302,15 +304,6 @@ defmodule TijaraTides.Infrastructure.GameServer do
              purpose in ["login", "link", "invite"] do
     context = context(state)
 
-    # Authenticate once, against the clock the command itself runs on. A second
-    # lookup could straddle the session's expiry and attribute the rate-limit
-    # counter to an account the domain then treats as anonymous.
-    account =
-      case Game.authenticate(state.game, hash(token), context.wall_ms) do
-        {:ok, a} -> a
-        _ -> nil
-      end
-
     id =
       hash(
         :erlang.term_to_binary(
@@ -322,10 +315,10 @@ defmodule TijaraTides.Infrastructure.GameServer do
       Map.merge(context, %{
         id: id,
         hash: hash(email_token(id)),
-        requester: hash(if(account, do: account["id"], else: requester))
+        requester: hash(requester)
       })
 
-    lifecycle(state, {:email_request, account, purpose, address}, ctx)
+    lifecycle(state, {:email_request, hash(token), purpose, address}, ctx)
   end
 
   def handle_call({:email_request, _, _, _, _, _}, _from, %{status: :ready} = state),
@@ -485,10 +478,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
   defp context(state),
     do: %{id: request_id(), wall_ms: state.wall_clock.(), catalogue: state.catalogue}
 
-  defp account(state, token) when is_binary(token),
-    do: Game.authenticate(state.game, hash(token), state.wall_clock.())
-
-  defp account(_state, _token), do: {:error, :invalid_session}
+  defp account(state, token),
+    do: TijaraTides.UseCases.Authentication.required(state.game, hash(token), state.wall_clock.())
 
   defp legacy_invite(account_id, request) do
     :crypto.mac(

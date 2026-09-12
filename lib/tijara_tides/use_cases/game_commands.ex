@@ -4,8 +4,8 @@ defmodule TijaraTides.UseCases.GameCommands do
   pure rules, commit atomically, then expose the result. Transport publishes only
   committed outcomes. Persistence and invitation credentials are supplied ports.
   """
-  alias TijaraTides.Domain.{Account, Commands}
-  alias TijaraTides.UseCases.{CommandRequest, CommitExecutor}
+  alias TijaraTides.Domain.Commands
+  alias TijaraTides.UseCases.{Authentication, CommandRequest, CommitExecutor}
 
   def execute(state, account, command, context),
     do: Commands.execute(state, account, command, context)
@@ -21,7 +21,7 @@ defmodule TijaraTides.UseCases.GameCommands do
   end
 
   defp run_once(game, session_hash, request, context, {store, storage}, invitation) do
-    with {:ok, account} <- Account.authenticate(game, session_hash, context.wall_ms),
+    with {:ok, account} <- Authentication.required(game, session_hash, context.wall_ms),
          :ok <- validate_payload(request.payload) do
       %{hash: invite_hash, decorate: decorate} = invitation.(account["id"], request.id)
 

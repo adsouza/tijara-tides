@@ -1,6 +1,7 @@
 defmodule TijaraTides.UseCases.ReportQueries do
   @moduledoc "Reporting selection, eligibility, privacy and presentation-neutral read models."
-  alias TijaraTides.Domain.{Account, Reporting}
+  alias TijaraTides.Domain.Reporting
+  alias TijaraTides.UseCases.Authentication
 
   @public ~w(id company_id name bankruptcies period period_index profit roi eligible complete end_ms)
   @limit 10
@@ -38,11 +39,8 @@ defmodule TijaraTides.UseCases.ReportQueries do
   # Planning is pure and cheap, so the world owner can do it; fetching is a bounded read
   # of one committed revision and belongs in whichever process asked for the page.
   def plan(game, session, wall_ms, params) do
-    owner =
-      case Account.authenticate(game, session, wall_ms) do
-        {:ok, account} -> account["id"]
-        _ -> nil
-      end
+    account = Authentication.optional(game, session, wall_ms)
+    owner = if account, do: account["id"]
 
     %{
       selection: selection(game.clock_ms, params),

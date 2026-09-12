@@ -40,6 +40,20 @@ modules, not that facade. These responsibilities can guide future bounded-contex
 design, but trading and fleet are not independent contexts: they currently
 participate in shared synchronous invariants.
 
+## Authentication and authorization
+
+`UseCases.Authentication` is the shared session boundary for commands, query entry
+points, presence and identity workflows. `required/3` returns an authenticated
+account or `:invalid_session`; `optional/3` permits an anonymous caller. Both use
+an explicitly supplied wall clock and the current world snapshot. Command and
+email lifecycle retries resolve identity again after reloading. Email rate-limit
+attribution uses that same resolved identity and clock.
+
+Transports hash credentials but do not resolve domain accounts. Public reads and
+email login remain available anonymously; domain rules enforce authenticated
+email linking/invitations, resource ownership and business eligibility. Token
+redemption and idempotent sign-out retain their dedicated domain semantics.
+
 ## Command execution and atomicity
 
 ```mermaid

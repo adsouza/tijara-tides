@@ -1,7 +1,7 @@
 defmodule TijaraTides.UseCases.LifecycleCommands do
   @moduledoc "Identity and simulation workflows with explicit credentials, time and atomic persistence."
   alias TijaraTides.Domain.{Account, EmailIdentity, Game, ReadState}
-  alias TijaraTides.UseCases.CommitExecutor
+  alias TijaraTides.UseCases.{Authentication, CommitExecutor}
 
   def run(game, operation, context, store) do
     # Preserve the original target clock: reloading must not advance elapsed time twice.
@@ -47,16 +47,30 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
   defp execute(game, {:advance, elapsed}, context),
     do: {:ok, Game.advance(game, elapsed, context.catalogue), %{}}
 
-  defp execute(game, {:email_request, account, purpose, address}, context) do
+  defp execute(game, {:email_request, session, purpose, address}, context) do
     if ReadState.get(game, "email_requests", context.id) do
       {:replay, %{"requested" => true}}
     else
-      EmailIdentity.request(game, account, purpose, address, context)
+      account = Authentication.optional(game, session, context.wall_ms)
+      # Rate-limit attribution and identity use the same authentication result and clock.
+      requester =
+        if account,
+          do: :crypto.hash(:sha256, account["id"]) |> Base.encode16(case: :lower),
+          else: context.requester
+
+      EmailIdentity.request(game, account, purpose, address, %{context | requester: requester})
     end
   end
 
   defp execute(game, {:email_redeem, code, device, session}, context),
-    do: EmailIdentity.redeem(game, code, device, account(game, session, context.wall_ms), context)
+    do:
+      EmailIdentity.redeem(
+        game,
+        code,
+        device,
+        Authentication.optional(game, session, context.wall_ms),
+        context
+      )
 
   defp execute(game, {action, id}, context) when action in [:email_failed, :email_delivered] do
     case ReadState.get(game, "email_requests", id) do
@@ -70,13 +84,6 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
             else: EmailIdentity.delivered(game, row)
 
         {:ok, next, %{}}
-    end
-  end
-
-  defp account(game, session, wall_ms) do
-    case Account.authenticate(game, session, wall_ms) do
-      {:ok, account} -> account
-      _ -> nil
     end
   end
 end

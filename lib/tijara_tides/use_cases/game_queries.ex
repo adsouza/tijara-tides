@@ -64,6 +64,16 @@ defmodule TijaraTides.UseCases.GameQueries do
 
   def ship_sale_value(ship, clock), do: Fleet.sale_value(ship, clock)
 
+  def preview(game, catalogue, session, wall_ms, id, destination),
+    do:
+      preview(
+        game,
+        catalogue,
+        TijaraTides.UseCases.Authentication.required(game, session, wall_ms),
+        id,
+        destination
+      )
+
   def preview(game, catalogue, authenticated, id, destination) do
     with true <- is_binary(destination),
          {:ok, account} <- authenticated,
@@ -85,6 +95,15 @@ defmodule TijaraTides.UseCases.GameQueries do
       _ -> nil
     end
   end
+
+  def snapshot(game, catalogue, projection, session, wall_ms),
+    do:
+      snapshot(
+        game,
+        catalogue,
+        projection,
+        TijaraTides.UseCases.Authentication.required(game, session, wall_ms)
+      )
 
   def snapshot(game, catalogue, projection, account) do
     private =
