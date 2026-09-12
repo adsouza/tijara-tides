@@ -4,7 +4,10 @@ English is the default; Arabic is available from the Language selector in the
 account menu or before signing in. The account stores the preference, so the web
 client and the game embedded in the desktop client use the same language on
 subsequent visits. Before signing in, a signed browser session stores the choice;
-the first request falls back to the browser's preferred language.
+the first request checks all browser language preferences, honoring quality
+weights and listed order for ties. Regional variants match their base language;
+unsupported or explicitly excluded languages are skipped. If none match, the
+app uses English. Saved choices take precedence over browser preferences.
 
 `TijaraTides.Localization` is a presentation boundary. The domain and application
 layers keep identifiers, amounts in cents, quantities, and timestamps unchanged.
@@ -38,3 +41,12 @@ When changing messages, run `mix gettext.extract`, update the Arabic catalog,
 and run `python3 scripts/test-game-db.py`. Translation changes need linguistic
 review as well as tests. The database migration runs through the normal deployment
 migration mechanism; no separate locale database or currency migration is needed.
+
+Never run `mix gettext.merge`. Labels reached through `l10n/1` arrive at
+`Localization.text/1` as dynamic arguments, so extraction cannot see them and
+they never appear in `default.pot` even though they resolve at run time. Merge
+reads that absence as obsolescence and deletes the translations; nothing fails,
+the label just renders in English. `priv/gettext/runtime-msgids.txt` lists those
+msgids and `scripts/check-gettext-catalogues.py`, which runs before every push,
+fails if one loses its translation, stops referring to anything in `lib/`, or
+starts being extracted normally.

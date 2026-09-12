@@ -14,6 +14,8 @@ tmp/check-catalogue-venv/bin/python -m pip install -q -r scripts/game-data-requi
 tmp/check-catalogue-venv/bin/python scripts/check-generated.py
 mix deps.get --check-locked
 mix precommit
+# After precommit, whose gettext.extract --check-up-to-date proves the .pot current.
+python3 scripts/check-gettext-catalogues.py
 mkdir -p cover
 python3 scripts/test-game-db.py --cover | tee cover/elixir-summary.txt
 npm ci

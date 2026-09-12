@@ -1,0 +1,19 @@
+# Msgids that only run-time dispatch reaches.
+#
+# `l10n(value)` goes through Localization.Names.translate/1, falls through
+# Localization.Ports.translate/1, and lands on Localization.text(value) —
+# `Gettext.gettext(Backend, value)` with a dynamic argument. `mix
+# gettext.extract` cannot see those strings, so they never appear in
+# default.pot even though they resolve correctly at run time.
+#
+# `mix gettext.merge` therefore treats them as obsolete and deletes their
+# translations. Use `mix gettext.extract` alone.
+#
+# scripts/check-gettext-catalogues.py holds this list to the catalogues:
+# every entry must stay translated, must still appear in lib/, and must stay
+# out of default.pot. One msgid per line.
+
+All ships
+Buy price
+Sell price
+nm

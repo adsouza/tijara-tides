@@ -376,9 +376,6 @@ msgstr "تُنفّذ عند الرسو. تُفرّغ المبيعات قبل ت�
 msgid "Existing buy instructions disagree. Purchases are paused until you choose one onward port."
 msgstr "تعليمات الشراء الحالية متعارضة. تتوقف المشتريات حتى تختار ميناءً تالياً واحداً."
 
-msgid "Expand"
-msgstr "توسيع"
-
 msgid "Expected to expire during handling."
 msgstr "يُتوقع انتهاء الصلاحية أثناء المناولة."
 
@@ -754,9 +751,6 @@ msgstr "إرسال رابط التحقق"
 msgid "Shared onward port"
 msgstr "الميناء التالي المشترك"
 
-msgid "Ship"
-msgstr "السفينة"
-
 msgid "Ship cargo manifest"
 msgstr "بيان حمولة السفينة"
 
@@ -937,17 +931,11 @@ msgstr "موّل كفيلك ضماناً. أُعيد تفعيل حسابك؛ و�
 msgid "at %{value1} · %{value2}/%{value3} lots · %{value4} %{value5}/lot"
 msgstr "في %{value1} · %{value2}/%{value3} دفعة · %{value4} %{value5}/دفعة"
 
-msgid "filters %{value1}"
-msgstr "المرشحات %{value1}"
-
 msgid "in full"
 msgstr "بالكامل"
 
 msgid "invitation code"
 msgstr "رمز الدعوة"
-
-msgid "map ⛶"
-msgstr "الخريطة ⛶"
 
 msgid "or"
 msgstr "أو"
@@ -1564,9 +1552,6 @@ msgstr "شراء أكبر كمية ممكنة"
 
 msgid "Sell all aboard"
 msgstr "بيع كل ما على متن السفينة"
-
-msgid "Load up to"
-msgstr "تحميل حتى"
 
 msgid "max"
 msgstr "الأقصى"
