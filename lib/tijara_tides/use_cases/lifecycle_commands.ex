@@ -4,6 +4,20 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
   alias TijaraTides.UseCases.CommitExecutor
 
   def run(game, operation, context, store) do
+    # Preserve the original target clock: reloading must not advance elapsed time twice.
+    target =
+      case operation do
+        {:advance, elapsed} -> game.clock_ms + elapsed
+        _ -> nil
+      end
+
+    CommitExecutor.replan(game, store, fn fresh ->
+      planned = if target, do: {:advance, max(0, target - fresh.clock_ms)}, else: operation
+      run_once(fresh, planned, context, store)
+    end)
+  end
+
+  defp run_once(game, operation, context, store) do
     restore =
       if match?({:email_request, _, _, _}, operation),
         do: {:email_request_id, context.id},
@@ -11,7 +25,7 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
 
     game = CommitExecutor.restore(game, restore, store)
 
-    case execute(game, operation, context) do
+    case TijaraTides.UseCases.LotAllocation.run(game, store, &execute(&1, operation, context)) do
       {:ok, changed, result} ->
         CommitExecutor.commit(game, changed, result, nil, store, & &1, Map.get(context, :wall_ms))
 

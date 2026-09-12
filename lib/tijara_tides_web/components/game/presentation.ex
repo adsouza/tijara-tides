@@ -282,6 +282,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       command_payload_too_large: "The command payload is too large (maximum 4096 bytes).",
       invalid_session: "Your session is invalid or has expired. Please sign in again.",
       internal_error: "The world paused after an internal error. Please contact the operator.",
+      market_busy: "The market is changing quickly. Please try again.",
       storage_unavailable: "The database is unavailable. Please try again later.",
       insufficient_cash: "Not enough available cash. Check reserved fuel and unpaid costs.",
       capacity_exceeded: "That cargo exceeds this ship's weight or volume limit.",

@@ -5,6 +5,7 @@ defmodule TijaraTides.Domain do
     deps: [],
     exports: [
       ChangeSet,
+      LotIdsExhausted,
       EntityIndex,
       Game,
       Journal,

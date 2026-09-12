@@ -9,7 +9,14 @@ defmodule TijaraTides.Infrastructure.GameServerFailuresTest do
   # introducing production injection hooks or changing a real database.
   defmodule RejectCommit do
     def transaction(_fun), do: {:ok, %{entities: %{}, clock_ms: 0, epoch: 1, revision: 0}}
-    def transaction(_fun, _opts), do: {:error, :ownership_lost}
+
+    def transaction(_fun, _opts) do
+      send(self(), :initial_commit_rejected)
+      {:error, :ownership_lost}
+    end
+
+    def query!("SELECT nextval" <> _, [count]),
+      do: %{rows: Enum.map(1..count, fn _ -> [System.unique_integer([:positive])] end)}
   end
 
   defmodule StorageException do
@@ -65,6 +72,7 @@ defmodule TijaraTides.Infrastructure.GameServerFailuresTest do
 
   test "startup refuses a failed initial commit and does not expose the candidate world" do
     assert {:ok, state} = GameServer.init(enabled: true, repo: RejectCommit)
+    assert_received :initial_commit_rejected
     assert state.status == :unavailable
     assert state.game == nil
     assert state.projection == nil

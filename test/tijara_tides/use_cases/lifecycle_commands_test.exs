@@ -3,6 +3,9 @@ defmodule TijaraTides.UseCases.LifecycleCommandsTest do
   alias TijaraTides.UseCases.LifecycleCommands
 
   defmodule Store do
+    def allocate_lot_ids(_, count),
+      do: Enum.map(1..count, fn _ -> "test-lot:#{System.unique_integer([:positive])}" end)
+
     def commit(callback, before, changed, receipt), do: callback.(before, changed, receipt)
     def restore(_callback, game, _operation), do: game
   end

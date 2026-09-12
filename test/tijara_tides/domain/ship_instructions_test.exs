@@ -435,7 +435,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
         assert Game.entities(waiting, kind) == Game.entities(blocked, kind)
       end
 
-      for key <- [:journal, :new_lots, :next_lot_id],
+      for key <- [:journal, :new_lots, :lot_allocation],
           do: assert(Map.get(waiting, key) == Map.get(blocked, key))
 
       # Repeated ticks do not settle or emit duplicate notices while blocked.

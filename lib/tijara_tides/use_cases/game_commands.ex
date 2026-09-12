@@ -15,6 +15,12 @@ defmodule TijaraTides.UseCases.GameCommands do
     do: execute(state, account, command, Map.put(context, :catalogue, catalogue))
 
   def run(game, session_hash, %CommandRequest{} = request, context, {store, storage}, invitation) do
+    CommitExecutor.replan(game, {store, storage}, fn fresh ->
+      run_once(fresh, session_hash, request, context, {store, storage}, invitation)
+    end)
+  end
+
+  defp run_once(game, session_hash, request, context, {store, storage}, invitation) do
     with {:ok, account} <- Account.authenticate(game, session_hash, context.wall_ms),
          :ok <- validate_payload(request.payload) do
       %{hash: invite_hash, decorate: decorate} = invitation.(account["id"], request.id)
@@ -29,7 +35,11 @@ defmodule TijaraTides.UseCases.GameCommands do
         :new ->
           context = Map.put(context, :invite_hash, invite_hash)
 
-          case execute(game, account, request.payload, context) do
+          case TijaraTides.UseCases.LotAllocation.run(
+                 game,
+                 {store, storage},
+                 &execute(&1, account, request.payload, context)
+               ) do
             {:ok, changed, result} ->
               receipt = {account["id"], request.id, request.fingerprint, result}
 

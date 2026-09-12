@@ -1,5 +1,8 @@
 defmodule TijaraTides.Domain.ReadState do
   @moduledoc "Read-only access to authoritative state for application projections."
+  @doc "Restore derived notice visibility after loading a durable snapshot."
+  def rebuild_notice_index(state), do: TijaraTides.Domain.Notices.rebuild_index(state)
+
   def entities(state, kind), do: Map.get(state.entities, kind, %{})
   def get(state, kind, id), do: entities(state, kind)[id]
 

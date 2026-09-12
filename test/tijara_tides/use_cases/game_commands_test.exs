@@ -6,7 +6,12 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
 
   defmodule Store do
     @behaviour TijaraTides.UseCases.CommandStore
+    def reload(ops, game), do: ops.reload.(game)
     def receipt(ops, account, id, fingerprint), do: ops.receipt.(account, id, fingerprint)
+
+    def allocate_lot_ids(_, count),
+      do: Enum.map(1..count, fn _ -> "test-lot:#{System.unique_integer([:positive])}" end)
+
     def commit(ops, before, changed, receipt), do: ops.commit.(before, changed, receipt)
     def restore(_ops, game, _operation), do: game
   end
@@ -32,6 +37,42 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
     context = %{id: "company", wall_ms: 1, catalogue: catalogue}
     invitation = fn _, _ -> %{hash: "derived-invite", decorate: & &1} end
     %{game: game, request: request, context: context, invitation: invitation}
+  end
+
+  test "conflict reload reauthenticates instead of reusing stale authorization", c do
+    fresh = TijaraTides.Domain.Account.sign_out(c.game, "session")
+
+    ops = %{
+      receipt: fn _, _, _ -> :new end,
+      commit: fn _, _, _ -> {:error, :market_conflict} end,
+      reload: fn _ -> {:ok, fresh} end
+    }
+
+    assert {:error, :invalid_session, ^fresh} = run(c, ops)
+  end
+
+  test "conflict reload checks durable receipt again and does not execute twice", c do
+    calls = :atomics.new(1, [])
+
+    ops = %{
+      receipt: fn _, _, _ ->
+        if :atomics.add_get(calls, 1, 1) == 1,
+          do: :new,
+          else: {:replay, %{"company_id" => "existing"}}
+      end,
+      commit: fn _, _, _ ->
+        send(self(), :commit_attempt)
+        {:error, :market_conflict}
+      end,
+      reload: fn game -> {:ok, game} end
+    }
+
+    assert {:ok, result} = run(c, ops)
+    assert result.reply == %{"company_id" => "existing"}
+    assert result.refreshed?
+    refute result.committed?
+    assert_received :commit_attempt
+    refute_received :commit_attempt
   end
 
   test "commits empty company and receipt before exposing a clean result", c do

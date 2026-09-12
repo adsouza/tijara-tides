@@ -4,6 +4,19 @@ defmodule TijaraTides.Infrastructure.Persistence.CommandStore do
   alias TijaraTides.Infrastructure.Persistence.GameStore
 
   @impl true
+  def reload(%{repo: repo, world_id: world}, game), do: GameStore.reload(repo, world, game)
+
+  @impl true
+  def allocate_lot_ids(%{repo: repo}, count) do
+    %{rows: rows} =
+      repo.query!("SELECT nextval('game_lot_id_seq') FROM generate_series(1, $1::integer)", [
+        count
+      ])
+
+    Enum.map(rows, fn [id] -> "lot:#{id}" end)
+  end
+
+  @impl true
   def receipt(%{repo: repo, world_id: world}, account, request, fingerprint),
     do: GameStore.receipt(repo, world, account, request, fingerprint)
 

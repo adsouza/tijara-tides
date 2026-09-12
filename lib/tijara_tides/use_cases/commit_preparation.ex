@@ -3,6 +3,7 @@ defmodule TijaraTides.UseCases.CommitPreparation do
   alias TijaraTides.Domain.{Journal, Reporting}
 
   def prepare(before, changed) do
+    changed = prepare_market_versions(before, changed)
     target_clock = changed.clock_ms
     previous = Map.get(before, :journal, [])
     pending = Map.get(changed, :journal, [])
@@ -38,9 +39,37 @@ defmodule TijaraTides.UseCases.CommitPreparation do
     Reporting.advance(%{changed | clock_ms: target_clock})
   end
 
+  defp prepare_market_versions(before, changed) do
+    versions =
+      Enum.reduce(
+        TijaraTides.Domain.ChangeSet.since(before, changed),
+        Map.get(before, :market_versions, %{}),
+        fn
+          {{"markets", id}, _}, versions ->
+            old = get_in(before, [:entities, "markets", id])
+            new = get_in(changed, [:entities, "markets", id])
+
+            cond do
+              old == new -> versions
+              new == nil -> Map.delete(versions, id)
+              old == nil -> Map.put(versions, id, 0)
+              true -> Map.update(versions, id, 1, &(&1 + 1))
+            end
+
+          _, versions ->
+            versions
+        end
+      )
+
+    Map.put(changed, :market_versions, versions)
+  end
+
   def accepted(game, wall_ms \\ nil) do
     game =
-      game |> Journal.clear() |> Reporting.compact() |> TijaraTides.Domain.ChangeSet.accepted()
+      game
+      |> Journal.clear()
+      |> Reporting.compact()
+      |> TijaraTides.Domain.ChangeSet.accepted()
 
     if is_integer(wall_ms),
       do: TijaraTides.Domain.Account.compact_history(game, wall_ms),

@@ -4,6 +4,7 @@ defmodule TijaraTides.UseCases do
     deps: [TijaraTides.Domain],
     exports: [
       Game,
+      LotAllocation,
       GameRuntime,
       CommitExecutor,
       LifecycleCommands,

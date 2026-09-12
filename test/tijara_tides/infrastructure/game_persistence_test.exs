@@ -39,6 +39,93 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "market versions reject stale stock and budget writes and roll back other roots", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    before = :sys.get_state(c.server).game
+    {id, market} = Enum.at(before.entities["markets"], 0)
+
+    account =
+      Game.authenticate(before, GameServer.hash(token), System.system_time(:millisecond))
+      |> elem(1)
+
+    change = fn state, increment ->
+      TijaraTides.Domain.State.put(state, "markets", id, %{
+        market
+        | "stock" => market["stock"] + increment,
+          "budget" => market["budget"] + increment
+      })
+    end
+
+    winner = TijaraTides.UseCases.CommitPreparation.prepare(before, change.(before, 1))
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, winner)
+
+    assert [[1]] ==
+             Repo.query!("SELECT version FROM game_markets WHERE world_id=$1 AND id=$2", [
+               c.world_id,
+               id
+             ]).rows
+
+    stale =
+      change.(before, 2)
+      |> TijaraTides.Domain.State.put(
+        "accounts",
+        account["id"],
+        Map.update!(account, "invite_quota", &(&1 + 1))
+      )
+
+    stale = TijaraTides.UseCases.CommitPreparation.prepare(before, stale)
+
+    assert {:error, :market_conflict} =
+             GameStore.commit(Repo, c.world_id, before.epoch, before, stale)
+
+    assert [[account["invite_quota"]]] ==
+             Repo.query!("SELECT invite_quota FROM game_accounts WHERE world_id=$1 AND id=$2", [
+               c.world_id,
+               account["id"]
+             ]).rows
+
+    assert [[market["stock"] + 1, market["budget"] + 1, 1]] ==
+             Repo.query!(
+               "SELECT stock_lots,budget_cents,version FROM game_markets WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows
+
+    accepted = TijaraTides.UseCases.CommitPreparation.accepted(winner)
+    assert accepted.market_versions[id] == 1
+    next = TijaraTides.UseCases.CommitPreparation.prepare(accepted, change.(accepted, 3))
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, accepted, next)
+
+    assert [[2]] ==
+             Repo.query!("SELECT version FROM game_markets WHERE world_id=$1 AND id=$2", [
+               c.world_id,
+               id
+             ]).rows
+  end
+
+  test "progression reloads a conflicted market without losing ownership or pausing", c do
+    before = :sys.get_state(c.server).game
+    {id, _} = Enum.find(before.entities["markets"], fn {_, row} -> row["seller"] end)
+
+    Repo.query!("UPDATE game_markets SET version=version+1 WHERE world_id=$1 AND id=$2", [
+      c.world_id,
+      id
+    ])
+
+    :sys.replace_state(c.server, &%{&1 | active: true})
+    advance(c.server, 150_000)
+    state = :sys.get_state(c.server)
+    assert state.status == :ready
+    assert state.active
+    assert state.game.epoch == before.epoch
+    assert state.game.clock_ms >= before.clock_ms + 150_000
+    assert state.game.clock_ms < before.clock_ms + 160_000
+    assert state.game.market_versions[id] >= 2
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+
+    assert [[before.epoch]] ==
+             Repo.query!("SELECT epoch FROM game_worlds WHERE id=$1", [c.world_id]).rows
+  end
+
   test "email authorization and requester attribution share one clock at session expiry", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
     session_id = GameServer.hash(token)
@@ -131,6 +218,25 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         email_context,
         store
       )
+
+    # Exhaustion returns a fresh cache without a commit to compact it afterward.
+    assert {:error, :market_busy, fresh} =
+             TijaraTides.UseCases.CommitExecutor.replan(
+               requested.game,
+               store,
+               fn _ -> {:halt, :market_conflict} end
+             )
+
+    for kind <- ["sessions", "invitations", "email_requests"],
+        do: assert(ReadState.entities(fresh, kind) == %{})
+
+    assert is_integer(fresh.identity_compacted_at)
+
+    assert [[1]] ==
+             Repo.query!("SELECT count(*) FROM game_sessions WHERE world_id=$1", [world]).rows
+
+    assert [[1]] ==
+             Repo.query!("SELECT count(*) FROM game_invitations WHERE world_id=$1", [world]).rows
 
     now = 7_200_000
     compact = Account.compact_history(requested.game, now)
@@ -2267,7 +2373,14 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "limit" => 100_000
     }
 
+    # Force a stale market plan; the losing attempt must leave no lots or journal.
+    Repo.query!(
+      "UPDATE game_markets SET version=version+1 WHERE world_id=$1 AND id='Jakarta|fruit'",
+      [world]
+    )
+
     {:ok, result} = GameServer.command(token, "buy", buy, server)
+    assert GameServer.readiness(server) == :ready
     assert {:ok, ^result} = GameServer.command(token, "buy", buy, server)
 
     [[1]] =
@@ -2387,7 +2500,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok == FinancialLedger.audit(Repo, world)
     {:ok, restored} = GameStore.claim(Repo, world)
     assert restored.entities == before.entities
-    assert restored.next_lot_id == before.next_lot_id
+    refute Map.has_key?(restored, :next_lot_id)
 
     assert_raise Postgrex.Error, fn ->
       Repo.query!("UPDATE game_ledger_balances SET balance_cents=0 WHERE world_id=$1", [world])

@@ -57,6 +57,62 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     %{migrations: migrations}
   end
 
+  test "sequence migration preserves identities and exceeds counters and existing lots", %{
+    migrations: migrations
+  } do
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_260_911_000_004, log: false)
+
+    MigrationRepo.query!(
+      "INSERT INTO game_worlds(id, next_lot_id) VALUES ('counter', 900), ('lots', 1)"
+    )
+
+    MigrationRepo.query!(
+      "INSERT INTO game_cargo_types(id, display_name) VALUES ('sequence_test', 'Test')"
+    )
+
+    MigrationRepo.query!(
+      "INSERT INTO game_cargo_lots(world_id,id,good_id,original_quantity_lots,created_ms) VALUES ('lots','lot:1200','sequence_test',1,0)"
+    )
+
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+    assert [[1201]] == MigrationRepo.query!("SELECT nextval('game_lot_id_seq')").rows
+
+    assert [["lot:1200"]] ==
+             MigrationRepo.query!("SELECT id FROM game_cargo_lots WHERE world_id='lots'").rows
+
+    # Aborting the surrounding transaction must never recycle an allocated ID.
+    assert {:error, :aborted} =
+             MigrationRepo.transaction(fn ->
+               assert [[1202]] == MigrationRepo.query!("SELECT nextval('game_lot_id_seq')").rows
+               MigrationRepo.rollback(:aborted)
+             end)
+
+    ids =
+      1..12
+      |> Task.async_stream(
+        fn _ ->
+          TijaraTides.Infrastructure.Persistence.CommandStore.allocate_lot_ids(
+            %{repo: MigrationRepo},
+            5
+          )
+        end,
+        max_concurrency: 4
+      )
+      |> Enum.flat_map(fn {:ok, ids} -> ids end)
+
+    assert length(Enum.uniq(ids)) == 60
+    refute "lot:1202" in ids
+  end
+
+  test "sequence migration starts above a counter ahead of existing lots", %{
+    migrations: migrations
+  } do
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_260_911_000_004, log: false)
+    MigrationRepo.query!("INSERT INTO game_worlds(id, next_lot_id) VALUES ('counter', 9000)")
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+    assert [[9000]] == MigrationRepo.query!("SELECT nextval('game_lot_id_seq')").rows
+  end
+
   defp legacy_state do
     catalogue = GameCatalogue.all()
     state = Game.initialize(%{entities: %{}, clock_ms: 0, epoch: 2, revision: 10}, catalogue)

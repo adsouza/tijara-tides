@@ -1,5 +1,7 @@
 defmodule TijaraTides.UseCases.CommandStore do
   @moduledoc "Application persistence port. One commit atomically stores state, accounting and receipt."
+  @callback reload(term(), map()) :: {:ok, map()} | {:error, term()}
+  @callback allocate_lot_ids(term(), pos_integer()) :: [String.t()]
   @callback receipt(term(), String.t(), String.t(), String.t()) ::
               :new | {:replay, map()} | {:error, term()}
   @callback commit(term(), map(), map(), tuple() | nil) :: {:ok, :ok} | {:error, term()}

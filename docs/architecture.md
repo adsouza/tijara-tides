@@ -74,7 +74,7 @@ Invalid or expired sessions return `:invalid_session`; non-map payloads return
 `:too_many_command_fields`, and payloads over 4096 encoded bytes return
 `:command_payload_too_large`. These validation errors do not touch persistence.
 
-A business rejection leaves the current state available and unchanged. A commit
+A business rejection leaves the current state available and unchanged. An unrecoverable commit
 failure stops normal world operation; an unexpected storage or domain exception
 is classified by the adapter and also stops the world. A retry with the same
 request and fingerprint returns the stored result; conflicting payload reuse
@@ -295,7 +295,7 @@ recovers demand and budgets using the existing active-world cadence. Manufacture
 supply remains finite and merchants never synthesize inventory. Trading
 coordinates market transitions with Ship and CompanyFinance in the same world
 transaction, so failed settlement cannot leave cargo or cash partially moved.
-The world context supplies the clock and lot identity sequence; `Markets` remains
+The world context supplies the clock; the application supplies lot identities; `Markets` remains
 a compatibility facade. Persistence row shapes, pricing and replenishment policy
 are unchanged, and no database migration is needed.
 
@@ -491,3 +491,53 @@ exit and throw payloads are withheld. Existing startup, readiness, query, and po
 health diagnostics remain explicit. This is boundary instrumentation rather than
 function weaving: domain rules and application use cases remain free of logging
 and telemetry dependencies.
+
+
+## Lot identity allocation
+
+Permanent lot IDs retain the `lot:<number>` format. A PostgreSQL sequence allocates
+numbers across worlds independently of the world row. The migration preserves
+existing IDs and starts above existing numeric lot IDs and at or above every
+stored next-ID counter. Rollbacks can leave gaps; numbers do not encode counts,
+world time, or commit order.
+
+`CommandStore.allocate_lot_ids/2` is the application port. `LotAllocation` runs
+pure domain operations with a supplied ID list, fetching batches only when that
+list is exhausted and rerunning from the unchanged input. Commands, progression,
+and initialization use this path. No persistence, delivery, or publication may
+occur inside the retried callback. Unused IDs stay in the accepted in-memory world and are reused by later operations.
+They are not persisted; a restart safely abandons any unused sequence numbers.
+Standalone domain simulations use deterministic `local-lot:` IDs instead.
+
+This removes the lot counter from persisted world state. The world lock still
+protects settlement, accounting, receipts, and revision publication.
+
+
+## Market optimistic concurrency
+
+Each port/cargo market has a persisted `version`. The persistence adapter compares
+and increments the loaded version before updating an existing market or its
+freshness holdings, including batch-only changes and deletion. A mismatch aborts
+the entire transaction with `:market_conflict`. Stock, demand, budget, production,
+and batches share this check. New markets start at version zero; primary-key
+uniqueness protects competing creation.
+
+Loaded versions are adapter concurrency metadata (`market_versions`), separate
+from economic domain fields. Commit preparation computes the next versions for
+actual changed markets; they enter the live cache only after successful commit.
+The shared world lock and atomic financial settlement remain in place. Market conflicts trigger at most two reload-and-replan retries. Reload reads a
+repeatable-read snapshot, checks the existing ownership epoch without claiming
+it, and rebuilds the entity index and market versions. Identity rows use the same
+wall-time retention filters as startup. The application restores the bounded
+notice index without mutating durable rows, including when retries are exhausted
+or the new plan is rejected. Player commands repeat
+authentication, receipt checks, and all domain validation. Clock advancement
+retains its original target, so a newer snapshot cannot cause double progression.
+
+After retry exhaustion, the latest snapshot replaces the cache and player
+commands return `market_busy`; progression stays active and retries on its next
+tick, retaining elapsed time not yet applied. A replanned business rejection or
+receipt replay also refreshes the cache without fabricating a new commit. Storage
+failures and ownership loss still halt operation. Initialization uses the same
+bounded retry policy but cannot expose a world whose initialization never commits.
+Independent writers still require the existing cross-root settlement guarantees.

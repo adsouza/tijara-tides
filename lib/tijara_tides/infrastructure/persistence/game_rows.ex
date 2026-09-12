@@ -326,14 +326,33 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
             get_in(after_state, [:entities, kind, id]) ||
               raise(ArgumentError, "Changed row missing before persistence")
 
-          if data != old, do: write_entity(repo, world, kind, id, old, data)
+          if data != old do
+            check_market_version(repo, world, kind, id, old, before)
+            write_entity(repo, world, kind, id, old, data)
+          end
 
         :delete ->
-          if old != nil,
-            do: repo.query!("DELETE FROM game_#{kind} WHERE world_id=$1 AND id=$2", [world, id])
+          if old != nil do
+            check_market_version(repo, world, kind, id, old, before)
+            repo.query!("DELETE FROM game_#{kind} WHERE world_id=$1 AND id=$2", [world, id])
+          end
       end
     end
   end
+
+  defp check_market_version(repo, world, "markets", id, old, before) when not is_nil(old) do
+    expected = Map.get(Map.get(before, :market_versions, %{}), id, 0)
+
+    result =
+      repo.query!(
+        "UPDATE game_markets SET version=version+1 WHERE world_id=$1 AND id=$2 AND version=$3",
+        [world, id, expected]
+      )
+
+    if result.num_rows != 1, do: repo.rollback(:market_conflict)
+  end
+
+  defp check_market_version(_, _, _, _, _, _), do: :ok
 
   defp write_entity(repo, world, kind, id, old, data) do
     fields = @specs[kind]

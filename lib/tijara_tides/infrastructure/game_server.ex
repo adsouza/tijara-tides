@@ -149,26 +149,37 @@ defmodule TijaraTides.Infrastructure.GameServer do
         {:ok, game} =
           GameStore.claim(repo, state.world_id, wall_ms: state.wall_clock.())
 
-        initialized =
-          TijaraTides.UseCases.CommitPreparation.prepare(
-            game,
-            Game.initialize(game, state.catalogue)
-          )
+        result =
+          TijaraTides.UseCases.CommitExecutor.replan(game, store(state), fn fresh ->
+            initialized =
+              TijaraTides.UseCases.CommitPreparation.prepare(
+                fresh,
+                TijaraTides.UseCases.LotAllocation.run(
+                  fresh,
+                  store(state),
+                  &Game.initialize(&1, state.catalogue)
+                )
+              )
 
-        # Fresh-world market creation makes hundreds of writes over the database
-        # connection. Allow startup to complete without extending gameplay calls.
-        case GameStore.commit(repo, state.world_id, game.epoch, game, initialized, nil,
-               timeout: 120_000
-             ) do
-          {:ok, :ok} ->
-            {:ok,
-             accept_game(
-               %{state | status: :ready},
-               TijaraTides.UseCases.CommitPreparation.accepted(initialized)
-             )}
+            # Initial market creation may take longer than an ordinary gameplay call.
+            case GameStore.commit(repo, state.world_id, fresh.epoch, fresh, initialized, nil,
+                   timeout: 120_000
+                 ) do
+              {:ok, :ok} ->
+                TijaraTides.UseCases.CommitExecutor.outcome(
+                  TijaraTides.UseCases.CommitPreparation.accepted(initialized),
+                  %{},
+                  true
+                )
 
-          _ ->
-            {:ok, %{state | status: :unavailable}}
+              {:error, reason} ->
+                {:halt, reason}
+            end
+          end)
+
+        case result do
+          {:ok, outcome} -> {:ok, accept_game(%{state | status: :ready}, outcome.game)}
+          _ -> {:ok, %{state | status: :unavailable}}
         end
       rescue
         error ->
@@ -393,6 +404,9 @@ defmodule TijaraTides.Infrastructure.GameServer do
           {:ok, outcome} ->
             {:reply, {:ok, outcome.reply}, accept_outcome(state, outcome)}
 
+          {:error, error, fresh} ->
+            {:reply, {:error, error}, refresh_game(state, fresh)}
+
           {:error, error} ->
             {:reply, {:error, error}, state}
 
@@ -430,6 +444,11 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
           {:noreply,
            %{next | last_mono: now, timer: :erlang.start_timer(state.tick_ms, self(), :tick)}}
+
+        {:error, :market_busy, fresh} ->
+          next = refresh_game(state, fresh)
+          if state.timer, do: Process.cancel_timer(state.timer)
+          {:noreply, %{next | timer: :erlang.start_timer(state.tick_ms, self(), :tick)}}
 
         {:halt, reason} ->
           Logger.error("World progression paused: #{reason}")
@@ -498,6 +517,9 @@ defmodule TijaraTides.Infrastructure.GameServer do
         {:ok, outcome} ->
           {:reply, reply.(outcome.reply), accept_outcome(state, outcome)}
 
+        {:error, error, fresh} ->
+          {:reply, {:error, error}, refresh_game(state, fresh)}
+
         {:error, error} ->
           {:reply, {:error, error}, state}
 
@@ -511,12 +533,33 @@ defmodule TijaraTides.Infrastructure.GameServer do
       {:reply, {:error, reason}, %{state | status: :unavailable, active: false}}
   end
 
+  defp accept_outcome(state, %{committed?: false, refreshed?: true, game: game}),
+    do: refresh_game(state, game)
+
   defp accept_outcome(state, %{committed?: false}), do: state
 
   defp accept_outcome(state, outcome) do
-    next = accept_game(state, outcome.game)
-    Phoenix.PubSub.broadcast(TijaraTides.PubSub, @topic, {:game_changed, outcome.game.revision})
+    next =
+      if outcome.refreshed?,
+        do: refresh_game(state, outcome.game),
+        else: accept_game(state, outcome.game)
+
+    unless outcome.refreshed?,
+      do:
+        Phoenix.PubSub.broadcast(
+          TijaraTides.PubSub,
+          @topic,
+          {:game_changed, outcome.game.revision}
+        )
+
     next
+  end
+
+  defp refresh_game(state, game) do
+    elapsed = max(0, game.clock_ms - state.game.clock_ms)
+    next = accept_game(state, game)
+    Phoenix.PubSub.broadcast(TijaraTides.PubSub, @topic, {:game_changed, game.revision})
+    %{next | last_mono: min(System.monotonic_time(:millisecond), state.last_mono + elapsed)}
   end
 
   defp accept_game(state, game) do

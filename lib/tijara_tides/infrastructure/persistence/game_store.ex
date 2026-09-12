@@ -7,9 +7,9 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
       TijaraTides.Infrastructure.Persistence.SchemaMaintenance.lock_claim(repo)
       repo.query!("INSERT INTO game_worlds(id) VALUES ($1) ON CONFLICT DO NOTHING", [world_id])
 
-      %{rows: [[epoch, clock, revision, next_lot_id]]} =
+      %{rows: [[epoch, clock, revision]]} =
         repo.query!(
-          "UPDATE game_worlds SET epoch=epoch+1 WHERE id=$1 RETURNING epoch,clock_ms,revision,next_lot_id",
+          "UPDATE game_worlds SET epoch=epoch+1 WHERE id=$1 RETURNING epoch,clock_ms,revision",
           [world_id]
         )
 
@@ -20,10 +20,51 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
         epoch: epoch,
         clock_ms: clock,
         revision: revision,
-        next_lot_id: next_lot_id,
+        market_versions:
+          Map.new(
+            repo.query!("SELECT id,version FROM game_markets WHERE world_id=$1", [world_id]).rows,
+            fn [id, version] -> {id, version} end
+          ),
         entities: entities
       }
       |> TijaraTides.Domain.EntityIndex.rebuild()
+    end)
+  end
+
+  @doc "Consistent reload without claiming ownership or incrementing the epoch."
+  def reload(repo, world, previous) do
+    repo.transaction(fn ->
+      repo.query!("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+
+      %{rows: rows} =
+        repo.query!("SELECT epoch,clock_ms,revision FROM game_worlds WHERE id=$1", [world])
+
+      case rows do
+        [[epoch, clock, revision]] when epoch == previous.epoch ->
+          FinancialLedger.audit(repo, world)
+          wall_ms = System.system_time(:millisecond)
+          entities = GameRows.load(repo, world, wall_ms)
+
+          versions =
+            Map.new(
+              repo.query!("SELECT id,version FROM game_markets WHERE world_id=$1", [world]).rows,
+              fn [id, version] -> {id, version} end
+            )
+
+          %{
+            epoch: epoch,
+            clock_ms: clock,
+            revision: revision,
+            entities: entities,
+            market_versions: versions,
+            identity_compacted_at: wall_ms,
+            lot_allocation: Map.get(previous, :lot_allocation, [])
+          }
+          |> TijaraTides.Domain.EntityIndex.rebuild()
+
+        _ ->
+          repo.rollback(:ownership_lost)
+      end
     end)
   end
 
@@ -67,11 +108,10 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
           )
         end
 
-        repo.query!("UPDATE game_worlds SET clock_ms=$2,revision=$3,next_lot_id=$4 WHERE id=$1", [
+        repo.query!("UPDATE game_worlds SET clock_ms=$2,revision=$3 WHERE id=$1", [
           world_id,
           after_state.clock_ms,
-          after_state.revision,
-          Map.get(after_state, :next_lot_id, 1)
+          after_state.revision
         ])
 
         :ok
