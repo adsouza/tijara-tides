@@ -1,12 +1,12 @@
 defmodule TijaraTidesWeb.LobbyLive do
   use TijaraTidesWeb, :live_view
-  alias TijaraTides.Infrastructure.WorldServer
+  alias TijaraTides.UseCases.Game
 
   @impl true
   def mount(_params, _session, socket) do
     # Subscribe before reading so a concurrent update cannot be missed.
-    if connected?(socket), do: WorldServer.subscribe("ocean")
-    {:ok, assign(socket, page_title: "Harbor lobby", snapshot: WorldServer.snapshot())}
+    if connected?(socket), do: Game.presence_subscribe("ocean")
+    {:ok, assign(socket, page_title: "Harbor lobby", snapshot: Game.presence_snapshot())}
   end
 
   @impl true

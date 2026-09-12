@@ -1,0 +1,23 @@
+defmodule TijaraTides.UseCases.GameRuntime do
+  @moduledoc "Runtime port for authenticated gameplay, identity, presence and operational services."
+  @callback snapshot(term()) :: term()
+  @callback reports(term(), term()) :: term()
+  @callback preview(term(), term(), term()) :: term()
+  @callback command(term(), term(), term()) :: term()
+  @callback connect(term()) :: term()
+  @callback subscribe() :: term()
+  @callback definitions() :: term()
+  @callback request_id() :: term()
+  @callback token() :: term()
+  @callback redeem_for_device(term(), term()) :: term()
+  @callback sign_out(term()) :: term()
+  @callback email_request(term(), term(), term(), term(), term()) :: term()
+  @callback email_redeem(term(), term(), term()) :: term()
+  @callback readiness() :: term()
+  @callback database_readiness() :: term()
+  @callback presence_snapshot() :: term()
+  @callback presence_subscribe(term()) :: term()
+  @callback presence_attach(term()) :: term()
+  @callback presence_detach() :: term()
+  @callback log_exception(term(), term(), term()) :: term()
+end

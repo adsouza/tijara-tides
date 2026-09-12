@@ -1,10 +1,10 @@
 defmodule TijaraTidesWeb.EmailSessionController do
   use TijaraTidesWeb, :controller
-  alias TijaraTides.Infrastructure.GameServer
+  alias TijaraTides.UseCases.Game
 
   def request(conn, %{"email" => email, "request_id" => request_id}) do
     if Application.get_env(:tijara_tides, :email_enabled, false) do
-      GameServer.email_request(
+      Game.email_request(
         nil,
         "login",
         email,
@@ -55,7 +55,7 @@ defmodule TijaraTidesWeb.EmailSessionController do
     end
   rescue
     error in ArgumentError ->
-      TijaraTides.Infrastructure.ExceptionLog.error(
+      Game.log_exception(
         "Invalid email verification URL",
         error,
         __STACKTRACE__
@@ -79,7 +79,7 @@ defmodule TijaraTidesWeb.EmailSessionController do
     device =
       case get_session(conn, :email_device) do
         existing when is_binary(existing) and byte_size(existing) == 43 -> existing
-        _ -> GameServer.token()
+        _ -> Game.token()
       end
 
     conn
@@ -109,7 +109,7 @@ defmodule TijaraTidesWeb.EmailSessionController do
 
   def redeem(conn, _) do
     result =
-      GameServer.email_redeem(
+      Game.email_redeem(
         get_session(conn, :email_token),
         get_session(conn, :email_device),
         get_session(conn, :account_token)

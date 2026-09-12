@@ -15,6 +15,8 @@ the linked specification when changing those contracts.
 ```text
 Browser / native webview
   → TijaraTidesWeb.GameLive and GameSessionController
+  → UseCases.Game → UseCases.GameRuntime (application-owned runtime port)
+Infrastructure.GameRuntime implements UseCases.GameRuntime
   → Infrastructure.GameServer (transport and world ownership)
   → UseCases.GameCommands / LifecycleCommands (command workflows)
   → Domain.Commands → Domain.Account / Domain.Trading / Domain.Fleet
@@ -24,7 +26,7 @@ UseCases.GameCommands / LifecycleCommands
 Infrastructure.Persistence.CommandStore implements UseCases.CommandStore
   → Infrastructure.Persistence.GameStore (atomic PostgreSQL transaction)
 
-Infrastructure.GameQueries → UseCases.GameQueries (pure read calculations)
+TijaraTidesWeb.GameLive → UseCases.GameQueries (pure read calculations)
 Infrastructure.GameServer → UseCases.WorldProjection (committed public cache)
 ```
 

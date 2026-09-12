@@ -1,6 +1,6 @@
 defmodule TijaraTidesWeb.GameLive do
   use TijaraTidesWeb, :live_view
-  alias TijaraTides.Infrastructure.{GameServer, GameQueries, WorldServer}
+  alias TijaraTides.UseCases.{Game, GameQueries}
   alias TijaraTidesWeb.WorldMap
 
   @impl true
@@ -8,10 +8,10 @@ defmodule TijaraTidesWeb.GameLive do
     token = session["account_token"]
 
     if connected?(socket) do
-      :ok = GameServer.subscribe()
+      :ok = Game.subscribe()
 
       if token do
-        GameServer.connect(token)
+        Game.connect(token)
         Process.send_after(self(), :world_heartbeat, 15_000)
       end
     end
@@ -21,7 +21,7 @@ defmodule TijaraTidesWeb.GameLive do
         token: token,
         browser_id: session["player_id"],
         page_title: "Your shipping company",
-        definitions: GameServer.definitions(),
+        definitions: Game.definitions(),
         selected_port: "Singapore",
         route_drafts: %{},
         report_open: false,
@@ -30,7 +30,7 @@ defmodule TijaraTidesWeb.GameLive do
         report_selection: %{"period" => "quarter", "metric" => "profit", "index" => nil},
         map_region: nil,
         map_filters_open: false,
-        map_ship_classes: MapSet.new(Map.keys(GameServer.definitions().classes)),
+        map_ship_classes: MapSet.new(Map.keys(Game.definitions().classes)),
         map_show_others: true,
         traffic_grouping: "status",
         selected_ship: nil,
@@ -52,7 +52,7 @@ defmodule TijaraTidesWeb.GameLive do
         company_draft: %{"name" => "", "port" => "Singapore"},
         destination: nil,
         invite_code: nil,
-        request_id: GameServer.request_id(),
+        request_id: Game.request_id(),
         preview: nil
       )
 
@@ -63,7 +63,7 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_info({:game_changed, _revision}, socket), do: {:noreply, refresh(socket)}
 
   def handle_info(:world_heartbeat, socket) do
-    GameServer.connect(socket.assigns.token)
+    Game.connect(socket.assigns.token)
     Process.send_after(self(), :world_heartbeat, 15_000)
     {:noreply, refresh(socket)}
   end
@@ -289,7 +289,7 @@ defmodule TijaraTidesWeb.GameLive do
 
   def handle_event("email-request", params, socket) do
     if Application.get_env(:tijara_tides, :email_enabled, false) do
-      case GameServer.email_request(
+      case Game.email_request(
              socket.assigns.token,
              params["purpose"],
              params["email"],
@@ -299,7 +299,7 @@ defmodule TijaraTidesWeb.GameLive do
         {:ok, _} ->
           {:noreply,
            socket
-           |> assign(request_id: GameServer.request_id())
+           |> assign(request_id: Game.request_id())
            |> put_flash(
              :info,
              "Email queued. Check the recipient's inbox for the verification link."
@@ -530,7 +530,7 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   def handle_event("preview", %{"destination" => dest}, socket) do
-    preview = GameServer.preview(socket.assigns.token, socket.assigns.selected_ship, dest)
+    preview = Game.preview(socket.assigns.token, socket.assigns.selected_ship, dest)
     socket = assign(socket, destination: dest, preview: preview)
 
     socket =
@@ -561,7 +561,7 @@ defmodule TijaraTidesWeb.GameLive do
     destination = socket.assigns.selected_port
 
     if ship && ship["status"] == "docked" && ship["port"] != destination do
-      case GameServer.preview(socket.assigns.token, ship["id"], destination) do
+      case Game.preview(socket.assigns.token, ship["id"], destination) do
         nil ->
           {:noreply, put_flash(socket, :error, "No voyage is available to this port right now.")}
 
@@ -578,7 +578,7 @@ defmodule TijaraTidesWeb.GameLive do
   defp run(socket, command) do
     {request, command} = Map.pop(command, "request_id", socket.assigns.request_id)
 
-    case GameServer.command(socket.assigns.token, request, command) do
+    case Game.command(socket.assigns.token, request, command) do
       {:ok, result} ->
         socket =
           if command["action"] == "route" && command["operation"] in ["add_rule", "update_rule"],
@@ -599,7 +599,7 @@ defmodule TijaraTidesWeb.GameLive do
 
         {:noreply,
          socket
-         |> assign(preview: nil, request_id: GameServer.request_id())
+         |> assign(preview: nil, request_id: Game.request_id())
          |> put_flash(:info, "Done.")
          |> refresh()}
 
@@ -620,7 +620,7 @@ defmodule TijaraTidesWeb.GameLive do
   defp report_number(_), do: nil
 
   defp load_reports(socket) do
-    case GameServer.reports(socket.assigns.token, socket.assigns.report_selection) do
+    case Game.reports(socket.assigns.token, socket.assigns.report_selection) do
       {:ok, data} ->
         assign(socket,
           report_data: data,
@@ -640,12 +640,12 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   defp refresh(socket) do
-    view = GameServer.snapshot(socket.assigns.token)
+    view = Game.snapshot(socket.assigns.token)
 
     if connected?(socket) do
       if view.private,
-        do: WorldServer.attach(socket.assigns.browser_id),
-        else: WorldServer.detach()
+        do: Game.presence_attach(socket.assigns.browser_id),
+        else: Game.presence_detach()
     end
 
     ship =
@@ -670,14 +670,21 @@ defmodule TijaraTidesWeb.GameLive do
 
     preview =
       if socket.assigns.destination not in [nil, ""] && ship && ship["status"] == "docked",
-        do: GameServer.preview(socket.assigns.token, ship["id"], socket.assigns.destination)
+        do: Game.preview(socket.assigns.token, ship["id"], socket.assigns.destination)
 
     socket =
       if ship && is_nil(socket.assigns.selected_ship),
         do: assign(socket, :selected_port, ship["port"]),
         else: socket
 
-    limits = GameQueries.trade_limits(view, ship, socket.assigns.destination)
+    limits =
+      GameQueries.trade_limits(
+        view,
+        ship,
+        socket.assigns.destination,
+        socket.assigns.definitions.catalogue
+      )
+
     context = {ship && ship["id"], ship && ship["port"], socket.assigns.destination}
 
     previous =
@@ -722,7 +729,7 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   # Keep persisted good IDs stable when their player-facing names change.
-  defp cargo_name(good), do: GameServer.cargo_name(good)
+  defp cargo_name(good), do: Game.cargo_name(good)
 
   defp route_distance(definitions, ship, destination),
     do: GameQueries.route_distance(definitions, ship, destination)
@@ -739,7 +746,7 @@ defmodule TijaraTidesWeb.GameLive do
   defp cargo_aboard(ship, good), do: GameQueries.cargo_aboard(ship, good)
   defp sorted_manifest(cargo, goods, sort), do: GameQueries.sorted_manifest(cargo, goods, sort)
 
-  defp manifest(cargo), do: GameQueries.manifest(cargo)
+  defp manifest(cargo), do: GameQueries.manifest(cargo, Game.definitions().catalogue)
 
   defp instruction_port(nil, _destination, _definitions), do: nil
 
@@ -1884,7 +1891,8 @@ defmodule TijaraTidesWeb.GameLive do
                           quantity,
                           @destination,
                           @view.private["ships"],
-                          @view.public["clock_ms"]
+                          @view.public["clock_ms"],
+                          @definitions.catalogue
                         ) %>
                       <p
                         :if={voyage}
@@ -2092,7 +2100,8 @@ defmodule TijaraTidesWeb.GameLive do
                                       quantity,
                                       @destination,
                                       @view.private["ships"],
-                                      @view.public["clock_ms"]
+                                      @view.public["clock_ms"],
+                                      @definitions.catalogue
                                     ) %>
                                   <% unaffordable =
                                     is_nil(voyage) or
@@ -2620,7 +2629,11 @@ defmodule TijaraTidesWeb.GameLive do
                       </button>
                     </div>
                     <div :if={@ship} class="mt-4 rounded-xl bg-slate-900 p-5">
-                      <% ship_value = GameQueries.ship_sale_value(@ship, @view.public["clock_ms"]) %>
+                      <% ship_value =
+                        GameQueries.ship_sale_value(
+                          @ship,
+                          @view.public["clock_ms"]
+                        ) %>
                       <p class="text-sm">
                         Book value: {finance_money(ship_value.book)}
                         <span class="ml-2 text-xs text-slate-400">Depreciates over 28 active-world days to 20% of build value.</span>

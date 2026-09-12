@@ -8,9 +8,9 @@ defmodule TijaraTidesWeb.HealthController do
   end
 
   def ready(conn, _params) do
-    status = TijaraTides.Infrastructure.Persistence.Readiness.status()
+    status = TijaraTides.UseCases.Game.database_readiness()
 
-    game = if status == :ready, do: TijaraTides.Infrastructure.GameServer.readiness()
+    game = if status == :ready, do: TijaraTides.UseCases.Game.readiness()
     body = if status == :ready, do: %{database: status, game: game}, else: %{database: status}
 
     conn

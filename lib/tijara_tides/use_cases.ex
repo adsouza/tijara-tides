@@ -3,6 +3,8 @@ defmodule TijaraTides.UseCases do
   use Boundary,
     deps: [TijaraTides.Domain],
     exports: [
+      Game,
+      GameRuntime,
       CommitExecutor,
       LifecycleCommands,
       CommitPreparation,

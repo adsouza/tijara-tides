@@ -44,7 +44,9 @@ participate in shared synchronous invariants.
 
 ```mermaid
 flowchart LR
-  UI[LiveView or another transport] --> Adapter[GameServer adapter]
+  UI[LiveView or another transport] --> API[UseCases.Game]
+  API --> Runtime[UseCases.GameRuntime port]
+  Runtime --> Adapter[Infrastructure.GameRuntime and GameServer]
   Adapter --> Workflow[UseCases.GameCommands]
   Workflow --> Rules[Pure domain operation]
   Workflow --> Port[UseCases.CommandStore port]
@@ -425,3 +427,17 @@ old email records, both before and after cache compaction. It is not a fleet or
 concurrent-client load test. World ticks and public projection rebuilds remain
 global; closed loan history remains loaded. Further pruning or partitioning must
 preserve financial reconciliation and should follow measurements of those paths.
+
+## Web-to-application boundary
+
+TijaraTidesWeb depends on UseCases, never Infrastructure. `UseCases.Game` is its
+application entry point; `GameRuntime` declares the runtime capabilities it needs.
+The composition configuration binds that port to `Infrastructure.GameRuntime`,
+which supplies OTP gameplay ownership, presence, credentials, readiness and
+exception logging. The adapter preserves the existing caller process for presence
+monitoring and subscriptions, and existing command authorization, receipts and
+commit handling remain authoritative. Pure UI calculations call
+`UseCases.GameQueries` directly with explicit catalogue data.
+
+The compiler enforces the dependency direction; web tests can substitute the
+runtime port without starting a game owner or connecting to PostgreSQL.

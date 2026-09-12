@@ -19,7 +19,7 @@ defmodule TijaraTidesWeb do
 
   use Boundary,
     deps: [
-      TijaraTides.Infrastructure,
+      TijaraTides.UseCases,
       Phoenix,
       Phoenix.LiveView,
       Phoenix.Component,

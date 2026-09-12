@@ -1,6 +1,6 @@
 defmodule TijaraTidesWeb.GameSessionController do
   use TijaraTidesWeb, :controller
-  alias TijaraTides.Infrastructure.GameServer
+  alias TijaraTides.UseCases.Game
 
   def create(conn, %{"code" => code}) do
     # The browser must already hold this signed cookie from GET /play.
@@ -9,7 +9,7 @@ defmodule TijaraTidesWeb.GameSessionController do
 
     result =
       if is_binary(device_token) and byte_size(device_token) == 43,
-        do: GameServer.redeem_for_device(code, device_token),
+        do: Game.redeem_for_device(code, device_token),
         else: {:error, :missing_device}
 
     case result do
@@ -38,7 +38,7 @@ defmodule TijaraTidesWeb.GameSessionController do
   def create(conn, _), do: redirect(conn, to: ~p"/play")
 
   def delete(conn, _) do
-    GameServer.sign_out(get_session(conn, :account_token))
+    Game.sign_out(get_session(conn, :account_token))
 
     conn
     |> delete_session(:account_token)
