@@ -295,9 +295,6 @@ msgstr "جارٍ الاتصال…"
 msgid "Continue on this device"
 msgstr "المتابعة على هذا الجهاز"
 
-msgid "Current and next stops are protected while the route is active"
-msgstr "لا يمكن حذف المحطتين الحالية والتالية أثناء تشغيل المسار"
-
 msgid "Debt: %{value1} · Available credit: %{value2} · Lifetime bankruptcies: %{value3}"
 msgstr "الدين: %{value1} · الائتمان المتاح: %{value2} · حالات الإفلاس الكلية: %{value3}"
 
