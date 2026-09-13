@@ -2,12 +2,25 @@ defmodule TijaraTides.Domain.CompanyFinance do
   @moduledoc "Bank credit, active-clock installments, arrears and company receivership. All settlement is pure."
   import TijaraTides.Domain.State
   alias TijaraTides.Domain.{Journal, Notices}
-  alias TijaraTides.Domain.CompanyFinance.{Guarantees, Loan, Installment}
+
+  alias TijaraTides.Domain.CompanyFinance.{
+    Guarantees,
+    Loan,
+    Installment,
+    OperatingBill,
+    Guarantee
+  }
 
   @fields ~w(id cash reserved unpaid profit account_id name created_ms last_invite_year unpaid_since arrears_since bankruptcy_ms)a
   @enforce_keys [:id, :cash, :reserved, :unpaid, :profit]
   defstruct @fields ++ [loans: [], installments: [], bills: [], pledges: []]
-  @type t :: %__MODULE__{loans: [Loan.t()], installments: [Installment.t()]}
+
+  @type t :: %__MODULE__{
+          loans: [Loan.t()],
+          installments: [Installment.t()],
+          bills: [OperatingBill.t()],
+          pledges: [Guarantee.t()]
+        }
 
   @expenses ~w(cost_of_goods handling_expense cleaning_expense fuel_expense crew_expense spoilage_expense canal_expense interest_expense depreciation_expense ship_disposal_expense guarantee_expense)
 
@@ -33,10 +46,12 @@ defmodule TijaraTides.Domain.CompanyFinance do
 
   defp decode_child("loans", row), do: Loan.from_row(row)
   defp decode_child("loan_installments", row), do: Installment.from_row(row)
-  defp decode_child(_, row), do: row
+  defp decode_child("operating_bills", row), do: OperatingBill.from_row(row)
+  defp decode_child("guarantees", row), do: Guarantee.from_row(row)
   defp encode_child(%Loan{} = child), do: Loan.to_row(child)
   defp encode_child(%Installment{} = child), do: Installment.to_row(child)
-  defp encode_child(row), do: row
+  defp encode_child(%OperatingBill{} = child), do: OperatingBill.to_row(child)
+  defp encode_child(%Guarantee{} = child), do: Guarantee.to_row(child)
 
   # The one declaration of which struct field holds which owned entity kind.
   # Loading, isolating and saving the aggregate all derive their pairing here.
@@ -730,10 +745,15 @@ defmodule TijaraTides.Domain.CompanyFinance do
             if paid == row["remaining"],
               do: delete(state, "operating_bills", row["id"]),
               else:
-                put(state, "operating_bills", row["id"], %{
+                put(
+                  state,
+                  "operating_bills",
+                  row["id"],
                   row
-                  | "remaining" => row["remaining"] - paid
-                })
+                  |> OperatingBill.from_row()
+                  |> OperatingBill.pay(paid)
+                  |> OperatingBill.to_row()
+                )
 
           state
           |> __MODULE__.post(id, "operating_repayment", [

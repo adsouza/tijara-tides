@@ -138,11 +138,14 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
     refund = g["amount"] - loss
 
     state
-    |> put("guarantees", g["id"], %{
+    |> put(
+      "guarantees",
+      g["id"],
       g
-      | "status" => if(loss > 0, do: "claimed", else: "released"),
-        "forfeited" => loss
-    })
+      |> Finance.Guarantee.from_row()
+      |> Finance.Guarantee.settle(loss)
+      |> Finance.Guarantee.to_row()
+    )
     |> Finance.post(company["id"], "guarantee_settlement", [
       {"cash_available", refund},
       {"guarantee_expense", loss},

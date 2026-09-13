@@ -662,3 +662,8 @@ Route execution reads typed `RouteHeader`, `RouteStop`, `RouteTarget` and
 positions, quantity policies and departure flags. Row encoding remains at the
 world-state boundary so PostgreSQL and transport formats do not change. New or
 missing persisted fields fail explicitly rather than disappearing on a save.
+
+CompanyFinance owns typed operating bills and guarantees alongside loans and
+installments. Bill payments cannot exceed the amount owed; a guarantee can settle
+only once and cannot forfeit more than its escrow. Their codecs preserve all
+persisted fields and reject unmapped data before it can be overwritten.

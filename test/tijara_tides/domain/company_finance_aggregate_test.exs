@@ -59,7 +59,7 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
              "unpaid_since" => 20
            } = state.entities["companies"]["c"]
 
-    assert Finance.from_world(state, "c").bills |> hd() |> Map.fetch!("remaining") == 100
+    assert Finance.from_world(state, "c").bills |> hd() |> Map.fetch!(:remaining) == 100
   end
 
   test "loaded finance settles without accounts or ships and emits a receivership effect" do
@@ -75,14 +75,21 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
 
     root = %{
       Finance.from_row(row)
-      | bills: [%{"id" => "b", "company_id" => "c", "due_ms" => 0, "remaining" => 100}]
+      | bills: [
+          Finance.OperatingBill.from_row(%{
+            "id" => "b",
+            "company_id" => "c",
+            "due_ms" => 0,
+            "remaining" => 100
+          })
+        ]
     }
 
     {next, effects} = Finance.settle_finances(root, Finance.terms().grace_ms)
     assert effects.receivership
     assert next.unpaid == 100
     assert next.bankruptcy_ms == nil
-    assert Enum.map(next.bills, & &1["id"]) == ["b"]
+    assert Enum.map(next.bills, & &1.id) == ["b"]
   end
 
   for ownership <- [:missing, :detached, :reassigned] do
