@@ -452,13 +452,6 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               id={"voyage-freshness-" <> @ship["id"]}
               estimates={@view.private["voyage_freshness"][@ship["id"]]}
             />
-            <TijaraTidesWeb.ShipRouteEditor.panel
-              ship={@ship}
-              model={GameQueries.route_editor(@view.private, @ship, @definitions.catalogue)}
-              catalogue={@definitions.catalogue}
-              drafts={@route_drafts}
-              request_id={@request_id}
-            />
             <details
               :if={
                 instruction_port(@ship, @destination, @definitions) != nil &&
@@ -747,6 +740,13 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 >{gettext("Save onward destination")}</button>
               </.form>
             </details>
+            <TijaraTidesWeb.ShipRouteEditor.panel
+              ship={@ship}
+              model={GameQueries.route_editor(@view.private, @ship, @definitions.catalogue)}
+              catalogue={@definitions.catalogue}
+              drafts={@route_drafts}
+              request_id={@request_id}
+            />
           </div>
         </section>
       </div>
