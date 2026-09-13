@@ -1,6 +1,47 @@
 defmodule TijaraTides.Domain.PortBerths do
-  @moduledoc "Pure berth allocation policy. Queue tickets live with ships and commit with handling."
+  @moduledoc "Port-level capacity and FIFO admission model. Decisions commit with ship transitions in one world transaction."
   alias TijaraTides.Domain.State
+
+  @enforce_keys [:port, :capacity, :held, :waiting]
+  defstruct [:port, :capacity, :held, :waiting]
+
+  def load(state, port, catalogue) do
+    fleet = ships(state, port)
+
+    %__MODULE__{
+      port: port,
+      capacity: capacity(catalogue, port),
+      held: fleet |> Enum.filter(&occupied?/1) |> MapSet.new(& &1["id"]),
+      waiting:
+        fleet
+        |> Enum.filter(&(not is_nil(&1["berth_queued_ms"])))
+        |> Enum.sort_by(&{&1["berth_queued_ms"], &1["id"]})
+    }
+  end
+
+  @doc "Decide admission in ticket order; eligibility is supplied without changing the port."
+  def allocate(%__MODULE__{} = port, eligibility) do
+    allocate_queue(port.waiting, port, eligibility, [])
+  end
+
+  defp allocate_queue([], port, _, decisions), do: {port, Enum.reverse(decisions)}
+
+  defp allocate_queue([ship | rest] = waiting, port, eligibility, decisions) do
+    if MapSet.size(port.held) >= port.capacity do
+      {%{port | waiting: waiting}, Enum.reverse(decisions)}
+    else
+      decision = eligibility.(ship)
+
+      unless decision in [:grant, :release, :retry],
+        do: raise(ArgumentError, "Unknown berth eligibility decision")
+
+      held = if decision == :grant, do: MapSet.put(port.held, ship["id"]), else: port.held
+
+      allocate_queue(rest, %{port | held: held, waiting: rest}, eligibility, [
+        {ship["id"], decision} | decisions
+      ])
+    end
+  end
 
   def capacity(catalogue, port) do
     spec = catalogue["ports"][port] || %{}
@@ -25,10 +66,11 @@ defmodule TijaraTides.Domain.PortBerths do
       |> Enum.sort_by(&{&1["berth_queued_ms"], &1["id"]})
 
   def available?(state, ship, catalogue) do
-    occupied?(ship) or
+    port = load(state, ship["port"], catalogue)
+
+    MapSet.member?(port.held, ship["id"]) or
       ((ship["berth_retry_ms"] || 0) <= state.clock_ms and is_nil(ship["berth_queued_ms"]) and
-         queue(state, ship["port"]) == [] and
-         Enum.count(ships(state, ship["port"]), &occupied?/1) < capacity(catalogue, ship["port"]))
+         port.waiting == [] and MapSet.size(port.held) < port.capacity)
   end
 
   def position(state, ship),

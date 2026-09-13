@@ -650,3 +650,9 @@ Ship exposes named queue, grant, handling admission, release and pending-trade
 operations. The coordinator cannot assign arbitrary berth fields. Handling
 completion retains admission; arrival joins the queue. Releasing or cancelling
 cannot interrupt committed handling. Persisted column names remain adapter data.
+
+`PortBerths` owns a per-port admission model (capacity, holders and FIFO tickets).
+It returns grant/release/retry decisions without writing ship rows. The service
+supplies trade eligibility and applies named Ship transitions in the same world
+transaction. Immediate trades use the same capacity model. No separate port
+process or eventually consistent grant store is introduced.

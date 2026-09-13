@@ -59,33 +59,33 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
 
     state =
       Enum.reduce(Map.keys(catalogue["ports"]) |> Enum.sort(), state, fn port, acc ->
-        capacity = PortBerths.capacity(catalogue, port)
-        # Occupancy only rises, by one berth per grant, so carry the count through the
-        # queue instead of rescanning every ship in the world for each candidate.
-        occupied = Enum.count(PortBerths.ships(acc, port), &PortBerths.occupied?/1)
+        model = PortBerths.load(acc, port, catalogue)
 
-        PortBerths.queue(acc, port)
-        |> Enum.reduce({acc, occupied}, fn ship, {acc, occupied} ->
-          if occupied < capacity do
+        {_model, decisions} =
+          PortBerths.allocate(model, fn ship ->
             cond do
-              not has_work?(acc, ship) ->
-                {Ship.release_berth(acc, ship["id"]), occupied}
-
-              viable?(acc, ship, catalogue) ->
-                {Ship.grant_berth(acc, ship["id"]), occupied + 1}
-
-              true ->
-                {Ship.release_berth(
-                   acc,
-                   ship["id"],
-                   acc.clock_ms + (catalogue["berth_retry_ms"] || 300_000)
-                 ), occupied}
+              not has_work?(acc, ship) -> :release
+              viable?(acc, ship, catalogue) -> :grant
+              true -> :retry
             end
-          else
-            {acc, occupied}
+          end)
+
+        Enum.reduce(decisions, acc, fn {id, decision}, next ->
+          case decision do
+            :grant ->
+              Ship.grant_berth(next, id)
+
+            :release ->
+              Ship.release_berth(next, id)
+
+            :retry ->
+              Ship.release_berth(
+                next,
+                id,
+                next.clock_ms + (catalogue["berth_retry_ms"] || 300_000)
+              )
           end
         end)
-        |> elem(0)
       end)
 
     Enum.reduce(State.entities(state, "ships"), state, fn {id, ship}, acc ->
