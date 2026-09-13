@@ -36,11 +36,26 @@ defmodule TijaraTides.Domain.PortBerthsTest do
       destination: "Singapore"
     }
 
+  test "berth transitions reject releasing committed handling and duplicate pending trades", c do
+    {:ok, handling, _} =
+      BerthAllocation.submit(c.state, c.account, trade("company:1"), c.catalogue)
+
+    assert_raise ArgumentError, fn -> Ship.release_berth(handling, "company:1") end
+    assert_raise ArgumentError, fn -> Ship.grant_berth(handling, "company:1") end
+    assert_raise ArgumentError, fn -> Ship.cancel_pending_trade(c.state, "company:1") end
+    queued = Ship.queue_trade(c.state, trade("company:1"))
+    assert_raise ArgumentError, fn -> Ship.queue_trade(queued, trade("company:1")) end
+    assert Ship.request_berth(queued, "company:1") == queued
+    cancelled = Ship.cancel_pending_trade(queued, "company:1")
+    refute Game.get(cancelled, "ships", "company:1")["berth_queued_ms"]
+    refute Game.get(cancelled, "ships", "company:1")["pending_side"]
+  end
+
   for admission <- [:immediate, :queued] do
     test "#{admission} trade retains berth through handling and releases when idle", c do
       before =
         if unquote(admission) == :queued,
-          do: Ship.update_berth(c.state, "company:1", %{berth_granted_ms: 0}),
+          do: TijaraTides.BerthFixture.update(c.state, "company:1", %{berth_granted_ms: 0}),
           else: c.state
 
       {:ok, handling, _} =
@@ -89,7 +104,7 @@ defmodule TijaraTides.Domain.PortBerthsTest do
       c.state |> BerthAllocation.enqueue("company:2") |> BerthAllocation.enqueue("company:3")
 
     state =
-      Ship.update_berth(state, "company:2", %{
+      TijaraTides.BerthFixture.update(state, "company:2", %{
         pending_side: "buy",
         pending_good: "lumber",
         pending_quantity: 1,
@@ -100,7 +115,7 @@ defmodule TijaraTides.Domain.PortBerthsTest do
     assert BerthAllocation.enqueue(state, "company:2") == state
 
     state =
-      Ship.update_berth(state, "company:3", %{
+      TijaraTides.BerthFixture.update(state, "company:3", %{
         pending_side: "buy",
         pending_good: "lumber",
         pending_quantity: 1,
@@ -119,7 +134,7 @@ defmodule TijaraTides.Domain.PortBerthsTest do
 
   test "pending trades can only be cancelled by their owner", c do
     state =
-      Ship.update_berth(c.state, "company:1", %{
+      TijaraTides.BerthFixture.update(c.state, "company:1", %{
         pending_side: "buy",
         pending_good: "lumber",
         pending_quantity: 1,
@@ -137,7 +152,7 @@ defmodule TijaraTides.Domain.PortBerthsTest do
 
     # Without a queued trade there is nothing to cancel, and a berth the ship already
     # holds must not be revoked by the attempt.
-    held = Ship.update_berth(c.state, "company:1", %{berth_granted_ms: 0})
+    held = TijaraTides.BerthFixture.update(c.state, "company:1", %{berth_granted_ms: 0})
     assert {:error, :invalid_trade} = BerthAllocation.cancel(held, c.account, "company:1")
   end
 
@@ -192,7 +207,10 @@ defmodule TijaraTides.Domain.PortBerthsTest do
 
     # Holding a berth, the same order settles — the control for the case below.
     admitted =
-      Ship.update_berth(state, "company:2", %{berth_queued_ms: nil, berth_granted_ms: arrived})
+      TijaraTides.BerthFixture.update(state, "company:2", %{
+        berth_queued_ms: nil,
+        berth_granted_ms: arrived
+      })
 
     filled = TijaraTides.Domain.Services.AutomatedVisits.advance(admitted, c.catalogue)
     assert Game.get(filled, "ships", "company:2")["cargo"] != []
@@ -200,7 +218,7 @@ defmodule TijaraTides.Domain.PortBerthsTest do
     # A queued manual trade owns the ship until it settles or is cancelled, so an
     # automatic order must not slip a purchase in alongside it even holding a berth.
     pending =
-      Ship.update_berth(admitted, "company:2", %{
+      TijaraTides.BerthFixture.update(admitted, "company:2", %{
         pending_side: "buy",
         pending_good: "lumber",
         pending_quantity: 1,

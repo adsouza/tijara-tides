@@ -643,3 +643,10 @@ An unused pledge has no linked loans and cannot be released as an empty loan set
 selection outside Domain and UseCases. Account locale is persisted domain data;
 notifications carry stable codes and arguments rather than translated text. Web
 and email render those values using the shared presentation boundary.
+
+## Berth transitions
+
+Ship exposes named queue, grant, handling admission, release and pending-trade
+operations. The coordinator cannot assign arbitrary berth fields. Handling
+completion retains admission; arrival joins the queue. Releasing or cancelling
+cannot interrupt committed handling. Persisted column names remain adapter data.

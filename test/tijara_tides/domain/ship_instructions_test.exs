@@ -78,7 +78,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
       quote["duration_ms"]
     )
     # These tests isolate admitted visit execution; queue allocation has its own tests.
-    |> TijaraTides.Domain.Ship.update_berth("company:1", %{
+    |> TijaraTides.BerthFixture.update("company:1", %{
       berth_queued_ms: nil,
       berth_granted_ms: quote["duration_ms"]
     })

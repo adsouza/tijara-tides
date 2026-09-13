@@ -14,10 +14,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
         ship = get(state, "ships", trade.ship_id)
 
         if TijaraTides.Domain.PortBerths.available?(state, ship, catalogue) do
-          changed =
-            TijaraTides.Domain.Ship.update_berth(changed, trade.ship_id, %{
-              berth_granted_ms: ship["berth_granted_ms"] || state.clock_ms
-            })
+          changed = TijaraTides.Domain.Ship.admit_handling(changed, trade.ship_id)
 
           {:ok, changed, reply}
         else

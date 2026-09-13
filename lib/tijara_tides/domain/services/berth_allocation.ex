@@ -3,22 +3,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
   alias TijaraTides.Domain.{PortBerths, Ship, State, Trade}
   alias TijaraTides.Domain.Services.TradeSettlement
 
-  @clear %{
-    pending_side: nil,
-    pending_good: nil,
-    pending_quantity: nil,
-    pending_limit: nil,
-    pending_destination: nil
-  }
-
-  def enqueue(state, id) do
-    ship = State.get(state, "ships", id)
-
-    if ship["status"] == "docked" and is_nil(ship["berth_queued_ms"]) and
-         is_nil(ship["berth_granted_ms"]) and (ship["berth_retry_ms"] || 0) <= state.clock_ms,
-       do: Ship.update_berth(state, id, %{berth_queued_ms: state.clock_ms}),
-       else: state
-  end
+  defdelegate enqueue(state, id), to: Ship, as: :request_berth
 
   def submit(state, account, trade, catalogue) do
     ship = State.get(state, "ships", trade.ship_id)
@@ -28,15 +13,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
     else
       case TradeSettlement.execute(state, account, trade, catalogue) do
         {:error, :berth_busy} ->
-          next =
-            Ship.update_berth(state, trade.ship_id, %{
-              pending_side: trade.side,
-              pending_good: trade.good,
-              pending_quantity: trade.quantity,
-              pending_limit: trade.limit,
-              pending_destination: trade.destination
-            })
-            |> enqueue(trade.ship_id)
+          next = Ship.queue_trade(state, trade)
 
           {:ok, next, %{"queued" => true}}
 
@@ -53,12 +30,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
       # Only a queued trade is cancellable. Without the pending check this would also
       # revoke a berth the ship currently holds, handing it to the next ship in line.
       %{"company_id" => ^company, "pending_side" => side} when not is_nil(side) ->
-        {:ok,
-         Ship.update_berth(
-           state,
-           id,
-           Map.merge(@clear, %{berth_queued_ms: nil, berth_granted_ms: nil})
-         ), %{}}
+        {:ok, Ship.cancel_pending_trade(state, id), %{}}
 
       _ ->
         {:error, :invalid_trade}
@@ -74,7 +46,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
       Enum.reduce(State.entities(state, "ships"), state, fn {id, ship}, acc ->
         if ship["status"] == "docked" and not is_nil(ship["berth_granted_ms"]) and
              not has_work?(acc, ship) do
-          Ship.update_berth(acc, id, %{berth_granted_ms: nil, berth_retry_ms: nil})
+          Ship.release_berth(acc, id)
         else
           acc
         end
@@ -97,22 +69,17 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
           if occupied < capacity do
             cond do
               not has_work?(acc, ship) ->
-                {Ship.update_berth(acc, ship["id"], %{
-                   berth_queued_ms: nil,
-                   berth_granted_ms: nil
-                 }), occupied}
+                {Ship.release_berth(acc, ship["id"]), occupied}
 
               viable?(acc, ship, catalogue) ->
-                {Ship.update_berth(acc, ship["id"], %{
-                   berth_queued_ms: nil,
-                   berth_granted_ms: acc.clock_ms
-                 }), occupied + 1}
+                {Ship.grant_berth(acc, ship["id"]), occupied + 1}
 
               true ->
-                {Ship.update_berth(acc, ship["id"], %{
-                   berth_queued_ms: nil,
-                   berth_retry_ms: acc.clock_ms + (catalogue["berth_retry_ms"] || 300_000)
-                 }), occupied}
+                {Ship.release_berth(
+                   acc,
+                   ship["id"],
+                   acc.clock_ms + (catalogue["berth_retry_ms"] || 300_000)
+                 ), occupied}
             end
           else
             {acc, occupied}
@@ -138,7 +105,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
         }
 
         case TradeSettlement.execute(acc, account, trade, catalogue) do
-          {:ok, next, _} -> Ship.update_berth(next, id, @clear)
+          {:ok, next, _} -> Ship.complete_pending_trade(next, id)
           {:error, _} -> acc
         end
       else
@@ -208,10 +175,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
 
         retry = if waiting, do: acc.clock_ms + (catalogue["berth_retry_ms"] || 300_000), else: nil
 
-        Ship.update_berth(acc, id, %{
-          berth_granted_ms: nil,
-          berth_retry_ms: retry
-        })
+        Ship.release_berth(acc, id, retry)
       else
         acc
       end

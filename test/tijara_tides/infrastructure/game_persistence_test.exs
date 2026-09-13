@@ -59,7 +59,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     ship = company <> ":1"
 
     changed =
-      TijaraTides.Domain.Ship.update_berth(before, ship, %{
+      TijaraTides.BerthFixture.update(before, ship, %{
         berth_queued_ms: before.clock_ms,
         pending_side: "buy",
         pending_good: "lumber",

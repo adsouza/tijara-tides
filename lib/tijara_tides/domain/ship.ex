@@ -152,6 +152,23 @@ defmodule TijaraTides.Domain.Ship do
            do: raise(ArgumentError, "Ship hold capacity or liquid segregation violated")
   end
 
+  defp finish_operation(%{status: "sailing"} = ship, arrived_at) do
+    %{
+      ship
+      | port: ship.destination,
+        destination: nil,
+        status: "docked",
+        berth_queued_ms: arrived_at,
+        berth_granted_ms: nil,
+        arrive_ms: nil,
+        depart_ms: nil
+    }
+  end
+
+  # Completing physical work retains admission for the rest of the visit.
+  defp finish_operation(%{status: status} = ship, _) when status in ["loading", "unloading"],
+    do: %{ship | status: "docked", destination: nil, arrive_ms: nil, depart_ms: nil}
+
   defp docked!(%{status: "docked"}), do: :ok
   defp docked!(_), do: raise(ArgumentError, "Ship must finish its current operation first")
 
@@ -206,19 +223,7 @@ defmodule TijaraTides.Domain.Ship do
 
     ship =
       if ship.status != "docked" and end_ms <= now do
-        %{
-          ship
-          | port: ship.destination || ship.port,
-            destination: nil,
-            status: "docked",
-            # An arrival queues from its arrival time and holds no berth yet. Finishing
-            # handling keeps the berth it was already admitted to, so the rest of a visit's
-            # orders run on that one admission rather than re-queueing after each order.
-            berth_queued_ms: if(ship.status == "sailing", do: end_ms, else: ship.berth_queued_ms),
-            berth_granted_ms: if(ship.status == "sailing", do: nil, else: ship.berth_granted_ms),
-            arrive_ms: nil,
-            depart_ms: nil
-        }
+        finish_operation(ship, end_ms)
       else
         ship
       end
@@ -352,7 +357,98 @@ defmodule TijaraTides.Domain.Ship do
     {store(state, next), effects}
   end
 
-  def update_berth(state, id, changes) do
+  def request_berth(state, id) do
+    ship = State.get(state, "ships", id) |> from_row()
+
+    if ship.status == "docked" and is_nil(ship.berth_queued_ms) and
+         is_nil(ship.berth_granted_ms) and (ship.berth_retry_ms || 0) <= state.clock_ms,
+       do: store(state, %{ship | berth_queued_ms: state.clock_ms}),
+       else: state
+  end
+
+  def grant_berth(state, id) do
+    ship = State.get(state, "ships", id) |> from_row()
+    docked!(ship)
+
+    store(state, %{
+      ship
+      | berth_queued_ms: nil,
+        berth_granted_ms: ship.berth_granted_ms || state.clock_ms,
+        berth_retry_ms: nil
+    })
+  end
+
+  def admit_handling(state, id) do
+    ship = State.get(state, "ships", id) |> from_row()
+
+    unless ship.status in ["loading", "unloading"],
+      do: raise(ArgumentError, "Only handling ships can retain admission")
+
+    store(state, %{
+      ship
+      | berth_queued_ms: nil,
+        berth_granted_ms: ship.berth_granted_ms || state.clock_ms,
+        berth_retry_ms: nil
+    })
+  end
+
+  def release_berth(state, id, retry_at \\ nil) do
+    ship = State.get(state, "ships", id) |> from_row()
+    docked!(ship)
+
+    unless is_nil(retry_at) or (is_integer(retry_at) and retry_at >= state.clock_ms),
+      do: raise(ArgumentError, "Berth retry must not be in the past")
+
+    store(state, %{ship | berth_queued_ms: nil, berth_granted_ms: nil, berth_retry_ms: retry_at})
+  end
+
+  def queue_trade(state, %TijaraTides.Domain.Trade{} = trade) do
+    ship = State.get(state, "ships", trade.ship_id) |> from_row()
+    docked!(ship)
+
+    unless is_nil(ship.pending_side) and trade.side in ["buy", "sell"] and
+             is_integer(trade.quantity) and trade.quantity > 0 and is_integer(trade.limit) and
+             trade.limit >= 0,
+           do: raise(ArgumentError, "Invalid pending berth trade")
+
+    store(state, %{
+      ship
+      | pending_side: trade.side,
+        pending_good: trade.good,
+        pending_quantity: trade.quantity,
+        pending_limit: trade.limit,
+        pending_destination: trade.destination
+    })
+    |> request_berth(trade.ship_id)
+  end
+
+  def complete_pending_trade(state, id) do
+    ship = State.get(state, "ships", id) |> from_row()
+
+    unless ship.status in ["loading", "unloading"] and not is_nil(ship.pending_side),
+      do: raise(ArgumentError, "No pending trade has started handling")
+
+    store(state, clear_pending(ship))
+  end
+
+  def cancel_pending_trade(state, id) do
+    ship = State.get(state, "ships", id) |> from_row()
+    docked!(ship)
+    unless ship.pending_side, do: raise(ArgumentError, "No pending trade to cancel")
+    store(state, clear_pending(ship)) |> release_berth(id)
+  end
+
+  defp clear_pending(ship),
+    do: %{
+      ship
+      | pending_side: nil,
+        pending_good: nil,
+        pending_quantity: nil,
+        pending_limit: nil,
+        pending_destination: nil
+    }
+
+  defp update_berth(state, id, changes) do
     ship = from_world(state, id)
 
     allowed =
