@@ -667,3 +667,14 @@ CompanyFinance owns typed operating bills and guarantees alongside loans and
 installments. Bill payments cannot exceed the amount owed; a guarantee can settle
 only once and cannot forfeit more than its escrow. Their codecs preserve all
 persisted fields and reject unmapped data before it can be overwritten.
+
+## Architectural regression checks
+
+Deterministically seeded workflow tests exercise mixed trading, waiting,
+cancellation and sailing, checking capacity, reservations, balanced postings and
+inventory value after every action. Generated route-edit sequences check cursor
+validity and preservation of physical work. Port admission tests enumerate
+eligibility combinations to verify capacity and FIFO ordering. Fixed seeds make
+failures reproducible; these complement database receipt/reload and reconciliation
+tests rather than replace them. Boundary tests prevent generic berth mutation
+from becoming public again and keep admission decisions in the port model.

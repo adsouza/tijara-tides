@@ -265,6 +265,59 @@ defmodule TijaraTides.Domain.ShipRoutesTest do
     end
   end
 
+  test "generated route edits keep an active cursor valid and preserve physical work", c do
+    for seed <- 1..5 do
+      rng = :rand.seed_s(:exsss, {seed, 97, 31})
+
+      Enum.reduce(1..40, {route(c), rng}, fn step, {state, rng} ->
+        {choice, rng} = :rand.uniform_s(4, rng)
+        stops = ShipRoutes.stops(state, "company:1")
+
+        params =
+          case choice do
+            1 ->
+              %{
+                "operation" => "add_stop",
+                "port" => Enum.at(["Jakarta", "Singapore", "Colombo"], rem(step, 3))
+              }
+
+            2 ->
+              %{
+                "operation" => "remove_stop",
+                "stop" =>
+                  if(stops == [],
+                    do: "missing",
+                    else: Enum.at(stops, rem(step, length(stops)))["id"]
+                  )
+              }
+
+            3 ->
+              %{"operation" => "pause"}
+
+            4 ->
+              %{"operation" => "resume"}
+          end
+
+        next =
+          case command(c, state, "generated:#{step}", params) do
+            {:ok, next, _} -> next
+            {:error, _} -> state
+          end
+
+        assert ship(next) == ship(state)
+        updated = ShipRoutes.stops(next, "company:1")
+        assert Enum.map(updated, & &1["position"]) == Enum.to_list(0..(length(updated) - 1)//1)
+
+        if plan(next)["status"] != "draft" do
+          assert length(updated) >= 2
+          assert plan(next)["cursor"] in 0..(length(updated) - 1)
+        end
+
+        {next, rng}
+      end)
+    end
+  end
+
   test "resuming without an opt-in enables automatic travel around the circuit", c do
     s = route(c, false)
     {:ok, s, _} = command(c, s, "pause", %{"operation" => "pause"})

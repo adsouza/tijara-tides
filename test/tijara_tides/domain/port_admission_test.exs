@@ -31,4 +31,28 @@ defmodule TijaraTides.Domain.PortAdmissionTest do
     assert PortBerths.allocate(port, fn _ -> flunk("full port must retain tickets") end) ==
              {port, []}
   end
+
+  test "generated eligibility combinations preserve FIFO among eligible tickets" do
+    for mask <- 0..63, capacity <- 1..4, occupied <- 0..capacity do
+      waiting = Enum.map(0..5, &%{"id" => to_string(&1)})
+
+      eligible = fn row ->
+        Bitwise.band(mask, Bitwise.bsl(1, String.to_integer(row["id"]))) != 0
+      end
+
+      held = MapSet.new(for n <- 1..occupied//1, do: "held:#{n}")
+      port = %PortBerths{port: "Jakarta", capacity: capacity, held: held, waiting: waiting}
+
+      {next, decisions} =
+        PortBerths.allocate(port, fn row -> if eligible.(row), do: :grant, else: :retry end)
+
+      expected =
+        waiting |> Enum.filter(eligible) |> Enum.take(capacity - occupied) |> Enum.map(& &1["id"])
+
+      assert for({id, :grant} <- decisions, do: id) == expected
+      assert MapSet.size(next.held) <= capacity
+      assert MapSet.subset?(held, next.held)
+      assert length(Enum.uniq_by(decisions, &elem(&1, 0))) == length(decisions)
+    end
+  end
 end
