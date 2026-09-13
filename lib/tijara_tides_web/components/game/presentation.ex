@@ -237,6 +237,18 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     %{
       berth_order_pending:
         gettext("Cancel the queued trade before submitting another order or departing."),
+      auction_invalid:
+        gettext(
+          "Choose an open luxury auction, eligible storage and a bid at least equal to the reserve."
+        ),
+      auction_locked:
+        gettext(
+          "This auction is locked. Consignments can change only before opening; bids only before closing."
+        ),
+      auction_storage:
+        gettext(
+          "The warehouse must be idle and its lease must cover auction closing. Renew or choose a longer lease."
+        ),
       exchange_invalid:
         gettext(
           "Choose standardized cargo, your warehouse, a positive limit price and 1–10,000 lots."

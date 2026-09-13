@@ -2,7 +2,7 @@ defmodule TijaraTides.Domain.EntityIndex do
   @moduledoc "Derived ownership lookup for bounded company operations; rebuilt on world load, never persisted."
   # Only fields with an `owned/4` reader belong here: every entry costs a MapSet
   # update on each row mutation and a bucket per distinct value on rebuild.
-  @fields ~w(guarantee_id company_id borrower_company_id account_id inviter token_hash email requester)
+  @fields ~w(auction_id guarantee_id company_id borrower_company_id account_id inviter token_hash email requester)
 
   # Derived keys are computed from a row rather than read off it, so a lookup can be
   # narrower than any stored column. A company's closed loans are history that nothing

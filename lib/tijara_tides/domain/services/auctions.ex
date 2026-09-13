@@ -1,0 +1,404 @@
+defmodule TijaraTides.Domain.Services.Auctions do
+  @moduledoc "Atomic luxury-auction scheduling, escrow and second-price settlement."
+  import TijaraTides.Domain.ReadState, only: [get: 3, owned: 4]
+  alias TijaraTides.Domain.{Auction, Warehouse, CompanyFinance, PortCargoMarket, Notices}
+  alias TijaraTides.Domain.Ship.CargoBatch
+
+  defp live?(s, id),
+    do:
+      is_binary(id) and get(s, "companies", id) != nil and
+        get(s, "companies", id)["bankruptcy_ms"] == nil
+
+  defp amount?(n), do: is_integer(n) and n in 1..1_000_000_000_000
+  defp quantity?(n), do: is_integer(n) and n in 1..10000
+
+  defp reserve(s, company, n),
+    do:
+      CompanyFinance.post(s, company, "auction_escrow", [
+        {"cash_available", -n},
+        {"cash_reserved", n}
+      ])
+
+  def claim(a),
+    do: %{
+      id: a.id,
+      claim: :auction_id,
+      company_id: a.company_id,
+      warehouse_id: a.warehouse_id,
+      good: a.good,
+      quantity: a.quantity,
+      side: "sell",
+      closes_ms: a.closes_ms
+    }
+
+  def bid_claim(a, b),
+    do: %{
+      id: b["id"],
+      claim: :bid_id,
+      company_id: b["company_id"],
+      warehouse_id: b["warehouse_id"],
+      good: a.good,
+      quantity: a.quantity,
+      side: "buy",
+      closes_ms: a.closes_ms
+    }
+
+  def consign(s, account, cmd, id, cat, seed \\ "test") do
+    w = get(s, "warehouses", cmd["warehouse"])
+    item = cat["goods"][cmd["good"]]
+
+    if w && w["company_id"] == account["company_id"] && live?(s, account["company_id"]) && item &&
+         item["category"] == "Luxury items" && quantity?(cmd["quantity"]) && amount?(cmd["price"]) &&
+         Auction.fetch(s, id) == nil &&
+         Enum.count(
+           Auction.all(s),
+           &(&1.company_id == account["company_id"] and Auction.open?(&1))
+         ) < 50 do
+      {opens, closes} = Auction.schedule(s.clock_ms, w["port"], cat)
+
+      a = %Auction{
+        id: id,
+        company_id: w["company_id"],
+        warehouse_id: w["id"],
+        port: w["port"],
+        good: item["id"],
+        quantity: cmd["quantity"],
+        reserve: cmd["price"],
+        opens_ms: opens,
+        closes_ms: closes,
+        status: "scheduled",
+        price: nil,
+        winner_id: nil,
+        valuation_seed: seed
+      }
+
+      with :ok <- coverage(s, w, a),
+           {:ok, s} <- Warehouse.back_order(s, claim(a), cat),
+           do: {:ok, Auction.save(s, a), %{}}
+    else
+      {:error, :auction_invalid}
+    end
+  end
+
+  def revise(s, account, cmd, cat) do
+    a = Auction.fetch(s, cmd["auction"])
+
+    if a && Auction.open?(a) && s.clock_ms < a.opens_ms && a.company_id == account["company_id"] &&
+         live?(s, a.company_id) && quantity?(cmd["quantity"]) && amount?(cmd["price"]) do
+      updated = %{a | quantity: cmd["quantity"], reserve: cmd["price"]}
+
+      with {:ok, next} <-
+             Warehouse.back_order(Warehouse.release_trade(s, claim(a)), claim(updated), cat),
+           do: {:ok, Auction.save(next, updated), %{}}
+    else
+      {:error, :auction_locked}
+    end
+  end
+
+  def withdraw_lot(s, account, id) do
+    a = Auction.fetch(s, id)
+
+    if a && Auction.open?(a) && a.company_id == account["company_id"] && s.clock_ms < a.opens_ms,
+      do: {:ok, cancel(s, a), %{}},
+      else: {:error, :auction_locked}
+  end
+
+  def bid(s, account, cmd, id, cat) do
+    a = Auction.fetch(s, cmd["auction"])
+    w = get(s, "warehouses", cmd["warehouse"])
+    company = account["company_id"]
+
+    if a && Auction.open?(a) && s.clock_ms >= a.opens_ms && s.clock_ms < a.closes_ms &&
+         a.company_id != company && live?(s, company) && w && w["company_id"] == company &&
+         w["port"] == a.port && amount?(cmd["price"]) && cmd["price"] >= a.reserve do
+      old = Auction.bid(s, a.id, company)
+
+      b = %{
+        "id" => if(old, do: old["id"], else: id),
+        "auction_id" => a.id,
+        "company_id" => company,
+        "warehouse_id" => w["id"],
+        "amount" => cmd["price"],
+        "priority_ms" => s.clock_ms,
+        "priority_seq" => s.revision
+      }
+
+      b =
+        if old && old["amount"] == b["amount"],
+          do: Map.merge(b, Map.take(old, ~w(priority_ms priority_seq))),
+          else: b
+
+      next = if old, do: release_bid(s, a, old), else: s
+      c = get(next, "companies", company)
+
+      cond do
+        old == nil and
+            (Enum.count(
+               owned(s, "auction_bids", "company_id", company),
+               &(Auction.fetch(s, &1["auction_id"]).status == "scheduled")
+             ) >= 100 or
+               length(Auction.bids(s, a.id)) >= 1000) ->
+          {:error, :auction_invalid}
+
+        c["cash"] - c["reserved"] < b["amount"] or
+            (c["unpaid"] > 0 and b["amount"] > ((old && old["amount"]) || 0)) ->
+          {:error, :insufficient_cash}
+
+        true ->
+          with :ok <- coverage(next, w, a),
+               {:ok, next} <- Warehouse.back_order(next, bid_claim(a, b), cat),
+               do: {:ok, next |> reserve(company, b["amount"]) |> Auction.put_bid(b), %{}}
+      end
+    else
+      {:error, :auction_invalid}
+    end
+  end
+
+  def withdraw_bid(s, account, id) do
+    a = Auction.fetch(s, id)
+    b = a && Auction.bid(s, id, account["company_id"])
+
+    if b && Auction.open?(a) && s.clock_ms < a.closes_ms,
+      do: {:ok, s |> release_bid(a, b) |> Auction.delete_bid(b["id"]), %{}},
+      else: {:error, :auction_locked}
+  end
+
+  defp coverage(s, w, a) do
+    if w["expires_ms"] >= a.closes_ms && w["protected_ms"] <= s.clock_ms,
+      do: :ok,
+      else: {:error, :auction_storage}
+  end
+
+  defp release_bid(s, a, b),
+    do: s |> Warehouse.release_trade(bid_claim(a, b)) |> reserve(b["company_id"], -b["amount"])
+
+  defp cancel(s, a) do
+    s =
+      Enum.reduce(Auction.bids(s, a.id), s, fn b, s ->
+        s |> release_bid(a, b) |> Auction.delete_bid(b["id"])
+      end)
+
+    s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
+    Auction.save(s, %{a | status: "cancelled"})
+  end
+
+  # Runs before lease liquidation, including on a tick that crosses the closing time.
+  def advance(s, cat), do: s |> reconcile(cat) |> seed(cat) |> Auction.prune()
+
+  def reconcile(s, cat) do
+    s =
+      Enum.reduce(
+        Auction.all(s) |> Enum.filter(&Auction.open?/1) |> Enum.sort_by(&{&1.closes_ms, &1.id}),
+        s,
+        fn a, s ->
+          cond do
+            a.company_id &&
+                (not live?(s, a.company_id) or not Warehouse.order_backed?(s, claim(a))) ->
+              cancel(s, a)
+
+            s.clock_ms >= a.closes_ms ->
+              close(s, a, cat)
+
+            true ->
+              Enum.reduce(Auction.bids(s, a.id), s, fn b, s ->
+                if not live?(s, b["company_id"]) or
+                     not Warehouse.order_backed?(s, bid_claim(a, b)),
+                   do: s |> release_bid(a, b) |> Auction.delete_bid(b["id"]),
+                   else: s
+              end)
+          end
+        end
+      )
+
+    s
+  end
+
+  defp seed(s, cat) do
+    luxury =
+      Enum.filter(cat["goods"], fn {_, item} -> item["category"] == "Luxury items" end)
+      |> Enum.sort()
+
+    outstanding =
+      Auction.all(s)
+      |> Enum.filter(&(&1.company_id == nil and Auction.open?(&1)))
+      |> Enum.group_by(&{&1.port, &1.good})
+
+    supplier_lots = get_in(cat, ["auctions", "supplier_lots"]) || 5
+    true = is_integer(supplier_lots) and supplier_lots in 1..10000
+
+    Enum.reduce(Enum.sort(cat["ports"]), s, fn {port, _}, s ->
+      Enum.reduce(luxury, s, fn {good, _item}, s ->
+        market = get(s, "markets", port <> "|" <> good)
+        {opens, closes} = Auction.schedule(s.clock_ms, port, cat)
+        id = "npc-auction:#{port}:#{good}:#{opens}"
+
+        active = Map.get(outstanding, {port, good}, [])
+
+        available =
+          if market, do: market["stock"] - Enum.sum(Enum.map(active, & &1.quantity)), else: 0
+
+        if market && market["seller"] && available > 0 &&
+             length(active) < 4 && Auction.fetch(s, id) == nil do
+          n = min(available, supplier_lots)
+          q = PortCargoMarket.quote(s, cat, port, good)
+
+          Auction.save(s, %Auction{
+            id: id,
+            company_id: nil,
+            warehouse_id: nil,
+            port: port,
+            good: good,
+            quantity: n,
+            reserve: max(1, q["ask"] * n),
+            opens_ms: opens,
+            closes_ms: closes,
+            status: "scheduled",
+            price: nil,
+            winner_id: nil,
+            valuation_seed: ""
+          })
+        else
+          s
+        end
+      end)
+    end)
+  end
+
+  defp npc_bids(s, a, cat) do
+    m = get(s, "markets", a.port <> "|" <> a.good)
+    # A supplier cannot compete for its own lot. Buyers consume finite demand and
+    # budget at close; deterministic private valuations keep replanning reproducible.
+    if a.company_id && m && m["buyer"] && m["demand"] >= a.quantity do
+      q = PortCargoMarket.quote(s, cat, a.port, a.good)
+      count = get_in(cat, ["auctions", "simulated_bidders"]) || 3
+      spread = get_in(cat, ["auctions", "valuation_spread_percent"]) || 20
+      true = is_integer(count) and count in 1..20 and is_integer(spread) and spread in 0..100
+
+      for i <- 1..count,
+          value =
+            div(
+              q["bid"] * a.quantity *
+                (100 - spread + :erlang.phash2({a.valuation_seed, a.id, i}, 2 * spread + 1)),
+              100
+            ),
+          value >= a.reserve and value <= m["budget"],
+          do: %{
+            "id" => "npc:#{a.id}:#{i}",
+            "auction_id" => a.id,
+            "company_id" => nil,
+            "warehouse_id" => nil,
+            "amount" => value,
+            "priority_ms" => a.closes_ms,
+            "priority_seq" => i
+          }
+    else
+      []
+    end
+  end
+
+  defp close(s, a, cat) do
+    {eligible, invalid} =
+      Enum.split_with(
+        Auction.bids(s, a.id),
+        &(live?(s, &1["company_id"]) and Warehouse.order_backed?(s, bid_claim(a, &1)))
+      )
+
+    s =
+      Enum.reduce(invalid, s, fn b, s -> s |> release_bid(a, b) |> Auction.delete_bid(b["id"]) end)
+
+    bids =
+      Enum.sort_by(
+        eligible ++ npc_bids(s, a, cat),
+        &{-&1["amount"], &1["priority_ms"], &1["priority_seq"], &1["id"]}
+      )
+
+    if bids == [] do
+      s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
+      Auction.save(s, %{a | status: "unsold"})
+    else
+      [winner | others] = bids
+      price = max(a.reserve, if(others == [], do: a.reserve, else: hd(others)["amount"]))
+
+      {s, cargo} =
+        if a.company_id do
+          {s, batches} = Warehouse.exchange_out(s, claim(a), a.quantity)
+          cost = Enum.sum(Enum.map(batches, &(&1.quantity * &1.unit_cost)))
+
+          s =
+            CompanyFinance.post(s, a.company_id, "auction_sale", [
+              {"inventory", -cost},
+              {"cost_of_goods", cost},
+              {"sales_revenue", -price},
+              {"cash_available", price}
+            ])
+
+          {s, batches}
+        else
+          {s, rows} =
+            PortCargoMarket.auction_supply(
+              s,
+              a.port,
+              a.good,
+              a.quantity,
+              price,
+              cat["goods"][a.good]
+            )
+
+          {s, Enum.map(rows, &CargoBatch.from_row/1)}
+        end
+
+      s =
+        if winner["company_id"] do
+          {s, cargo} = reprice(s, cargo, a, price)
+
+          s
+          |> Warehouse.exchange_in(bid_claim(a, winner), cargo, a.quantity)
+          |> CompanyFinance.post(winner["company_id"], "auction_purchase", [
+            {"cash_reserved", -winner["amount"]},
+            {"cash_available", winner["amount"] - price},
+            {"inventory", price}
+          ])
+        else
+          PortCargoMarket.auction_consume(s, a.port, a.good, a.quantity, price)
+        end
+
+      s =
+        Enum.reduce(eligible, s, fn b, s ->
+          if b["id"] != winner["id"], do: release_bid(s, a, b), else: s
+        end)
+
+      s = Enum.reduce(bids, s, &Auction.put_bid(&2, &1))
+      s = Auction.save(s, %{a | status: "sold", price: price, winner_id: winner["company_id"]})
+
+      Enum.reduce(
+        Enum.uniq([a.company_id | Enum.map(eligible, & &1["company_id"])]),
+        s,
+        fn company, s ->
+          if company,
+            do:
+              Notices.notice(
+                s,
+                get(s, "companies", company)["account_id"],
+                "auction:" <> a.id,
+                {"auction.closed", %{"port" => a.port}}
+              ),
+            else: s
+        end
+      )
+    end
+  end
+
+  defp reprice(s, batches, a, price) do
+    extra = rem(price, a.quantity)
+
+    if extra == 0 do
+      {s, Enum.map(batches, &CargoBatch.to_row(%{&1 | unit_cost: div(price, a.quantity)}))}
+    else
+      {s, high, low} = CargoBatch.take(s, batches, extra, a.good)
+
+      {s,
+       Enum.map(high, &CargoBatch.to_row(%{&1 | unit_cost: div(price, a.quantity) + 1})) ++
+         Enum.map(low, &CargoBatch.to_row(%{&1 | unit_cost: div(price, a.quantity)}))}
+    end
+  end
+end

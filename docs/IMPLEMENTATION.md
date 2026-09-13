@@ -10,8 +10,9 @@ leaderboards are also implemented. The approved design remains
 authoritative; the provisional tuning and deferred systems below describe the
 current implementation.
 
-Auctions, standing exchange orders, escalating age-based maintenance
-and player industry remain deferred. Next-port instructions are implemented;
+Luxury cargo auctions and standing warehouse-backed exchange orders are implemented.
+Procurement and receivership auctions, escalating age-based maintenance and
+player industry remain deferred. Next-port instructions are implemented;
 they execute ship-specific buy/sell actions on arrival rather than placing
 standing orders on a shared exchange.
 
@@ -49,7 +50,8 @@ query projections, consistency and module responsibilities.
 
 The first market screen offers manual immediate trades against finite simulated
 supply and demand for order-book cargo. Luxury and contract goods stay visible
-in the catalogue but cannot bypass their future auction mechanisms. Quantities,
+in the catalogue; luxury goods trade through scheduled warehouse-backed auctions,
+while machinery awaits procurement auctions. Quantities,
 reference prices, production rates, ship prices, and travel scaling are explicit
 provisional tuning values. Voyages currently run at 600× sailing speed with a
 six-second minimum (10× faster than the initial playtest). Existing voyages are
@@ -205,8 +207,8 @@ reservations/consumption, crew costs/arrears, and spoilage post atomically with
 state changes and receipts. Company summaries reconcile with ledger balances;
 startup also verifies those balances against historical entries. Existing
 playtest companies receive explicit opening entries rather than fabricated
-history. Loan and bankruptcy accounting is implemented; auctions and a raw
-ledger-history UI remain deferred.
+history. Loan, bankruptcy and luxury-auction accounting are implemented; a raw
+ledger-history UI remains deferred.
 
 Cargo-lot IDs survive transfers and FIFO reordering. Partial purchases and sales
 split the source into child lots whose immutable parent link preserves lineage.
@@ -436,11 +438,12 @@ identities only for partial batches. Committed warehouse space is protected
 until handling finishes. Stored cargo remains private to its company.
 
 Expiry prevents new deposits and allows 12 active-world hours for collection.
-Perishable aging continues. Expiry and clearance notify the owner. Until auctions
-and exchange orders exist, remaining cargo goes directly to system clearance at
+Perishable aging continues. Expiry and clearance notify the owner. Until
+receivership auctions are implemented, remaining cargo goes to system clearance at
 50% of reference value, with grace rent deducted only from clearance proceeds.
 Bankrupt-company storage follows the same clearance fallback after committed
-handling finishes. All timings pause with the world. Auction stages, port-specific warehouse tuning remain subsequent milestones.
+handling finishes. All timings pause with the world. Liquidation auction stages and port-specific
+warehouse tuning remain subsequent milestones.
 
 Reservations are relational, typed claims owned by the warehouse aggregate.
 Players earmark quantities of a cargo for a ship, or reserve receiving volume.
@@ -513,3 +516,50 @@ the old order and its reservations. Optional active-world expiry does not extend
 a lease; lease expiry, missing backing and bankruptcy also cancel orders.
 The UI shows aggregated player price levels, the NPC's current price level,
 recent executions, and private order placement/amendment/cancellation controls.
+
+
+## Luxury cargo auctions
+
+The Ports column offers a collapsed Luxury auctions disclosure, with consignment,
+sealed bidding, bid revision/withdrawal, and anonymous final amounts. Bids are
+whole-lot totals, not prices per cargo lot. Player consignments require available
+warehouse stock and lease coverage through closing. Sellers can change quantity
+and reserve or withdraw before opening; afterward the commitment locks. Each
+company has one active bid per listing. Amount changes reset acceptance priority;
+unchanged amounts retain it. Cash and receiving volume remain reserved until
+withdrawal, disqualification, or settlement. Failed revisions preserve backing.
+
+Highest eligible bid wins, paying the greater of reserve and second-highest bid.
+Ties use server acceptance time/revision and a stable ID tie-break. Losing cash
+and capacity and winner price improvement release atomically. Whole-lot prices
+are apportioned across immutable cargo batches without losing fractional cents
+or resetting lineage. Auction transfer has no exchange or handling fee; later
+ship collection uses normal handling. Bankruptcy cancels seller commitments and
+disqualifies bids. Insufficient lease coverage is rejected before acceptance.
+
+Schedule settings are application configuration under `:tijara_tides, :auctions`,
+a map with string keys: `interval_ms` and `window_ms` both default to 86,400,000;
+`offsets` can supply port offsets within the interval. Otherwise sorted port IDs
+evenly stagger openings. Published times remain immutable. Windows and frequency
+are independent. As elsewhere, time advances only while the world runs; the UI
+shows active-world countdowns rather than promising a wall-clock closing time.
+
+Computer suppliers list up to `supplier_lots` (default 5) from finite stock in
+the next unopened window, with at most four concurrent supplier lots per market.
+Outstanding supplier lots count against stock available for further listings;
+luxury stock cannot be sold through the manual or standardized exchange paths.
+Simulated consumer/merchant demand uses the market's finite demand and budget.
+At close, `simulated_bidders` (default 3, range 1–20) draw reproducible private
+valuations using a server-generated secret seed persisted with the lot around the local bid using `valuation_spread_percent` (default 20,
+range 0–100). Only affordable valuations meeting reserve participate. Their
+receiving capacity is the market's remaining demand; the winning purchase
+consumes that capacity and budget. Supplier actors never bid on their own lots.
+Export-only/untraded ports have no simulated buyers, disclosed before consignment.
+
+Limits are 50 open consignments per company and 100 active bids per company,
+with at most 1,000 active bids per listing. Each lot is at most 10,000 cargo lots.
+The latest 20 completed listings per port retain anonymous final bid amounts;
+older auction rows are pruned, while the financial journal keeps the audit trail.
+Closing work settles all due lots before lease liquidation; it does not share
+the standardized exchange's tick matching budget. Industrial machinery,
+receivership auctions, and berth-side direct bidding remain later milestones.

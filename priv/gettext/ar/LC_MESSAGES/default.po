@@ -2255,3 +2255,99 @@ msgstr "المستودع"
 
 msgid "Your open orders"
 msgstr "أوامرك المفتوحة"
+
+msgid "Anonymous final bids"
+msgstr "العروض النهائية دون أسماء"
+
+msgid "Auction rules"
+msgstr "قواعد المزاد"
+
+msgid "Bidding open"
+msgstr "المزايدة مفتوحة"
+
+msgid "Cancelled"
+msgstr "ملغى"
+
+msgid "Choose an open luxury auction, eligible storage and a bid at least equal to the reserve."
+msgstr "اختر مزاد سلع فاخرة مفتوحًا ومستودعًا مؤهلًا وعرضًا لا يقل عن السعر الأدنى."
+
+msgid "Closes in %{time}"
+msgstr "يُغلق خلال %{time}"
+
+msgid "Consign"
+msgstr "اعرض في المزاد"
+
+msgid "Consign luxury cargo"
+msgstr "اعرض سلعًا فاخرة في المزاد"
+
+msgid "Countdowns use active-world time and pause while the world is stopped. Auctions settle automatically."
+msgstr "يستخدم العد التنازلي وقت العالم النشط ويتوقف عندما يتوقف العالم. تُسوّى المزادات تلقائيًا."
+
+msgid "Luxury auctions"
+msgstr "مزادات السلع الفاخرة"
+
+msgid "Maximum bid ($)"
+msgstr "الحد الأقصى للعرض ($)"
+
+msgid "Next opening in %{time}"
+msgstr "الافتتاح التالي خلال %{time}"
+
+msgid "No luxury auctions at this port yet."
+msgstr "لا توجد مزادات للسلع الفاخرة في هذا الميناء بعد."
+
+msgid "No purchase"
+msgstr "لم يتم الشراء"
+
+msgid "No simulated buyers"
+msgstr "لا يوجد مشترون آليون"
+
+msgid "Opens in %{time}"
+msgstr "يفتح خلال %{time}"
+
+msgid "Reserve ($)"
+msgstr "السعر الأدنى ($)"
+
+msgid "Sale price"
+msgstr "سعر البيع"
+
+msgid "Sealed bids reserve the full amount and warehouse space. Highest bid wins and pays the reserve or second-highest bid, whichever is greater. Earliest bid wins ties. Revise or withdraw bids before closing; consignments lock when bidding opens. Amounts are for the whole lot. No auction fees."
+msgstr "تحجز العروض المختومة المبلغ كاملًا ومساحة المستودع. يفوز أعلى عرض ويدفع السعر الأدنى أو ثاني أعلى عرض، أيهما أكبر. عند التعادل يفوز العرض الأسبق. يمكنك تعديل العروض أو سحبها قبل الإغلاق؛ وتُثبّت البضائع المعروضة عند فتح المزايدة. المبالغ تخص كامل البضاعة المعروضة. لا توجد رسوم مزاد."
+
+msgid "Sold"
+msgstr "بيع"
+
+msgid "Submit sealed bid"
+msgstr "قدّم عرضًا مختومًا"
+
+msgid "The luxury auction at %{port} has settled. See Luxury auctions for the result."
+msgstr "تمت تسوية مزاد السلع الفاخرة في %{port}. راجع مزادات السلع الفاخرة لمعرفة النتيجة."
+
+msgid "The warehouse must be idle and its lease must cover auction closing. Renew or choose a longer lease."
+msgstr "يجب أن يكون المستودع غير مشغول وأن يستمر إيجاره حتى إغلاق المزاد. جدّد الإيجار أو اختر مدة أطول."
+
+msgid "This auction is locked. Consignments can change only before opening; bids only before closing."
+msgstr "هذا المزاد مقفل. يمكن تعديل البضائع المعروضة قبل الافتتاح فقط، والعروض قبل الإغلاق فقط."
+
+msgid "Unsold"
+msgstr "لم يُبع"
+
+msgid "Update"
+msgstr "تحديث"
+
+msgid "Withdraw bid"
+msgstr "اسحب العرض"
+
+msgid "Withdraw consignment"
+msgstr "اسحب البضاعة من المزاد"
+
+msgid "You won"
+msgstr "لقد فزت"
+
+msgid "Your bid"
+msgstr "عرضك"
+
+msgid "lots"
+msgstr "دفعات"
+
+msgid "Auction commitment"
+msgstr "حجز للمزاد"

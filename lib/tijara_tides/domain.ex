@@ -6,6 +6,7 @@ defmodule TijaraTides.Domain do
     exports: [
       Warehouse,
       OrderBook,
+      Auction,
       ChangeSet,
       LotIdsExhausted,
       EntityIndex,

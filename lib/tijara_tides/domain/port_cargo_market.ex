@@ -27,6 +27,24 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     store(state, receive_cargo(market, quantity, price))
   end
 
+  def auction_supply(s, port, good, quantity, amount, item) do
+    {s, cargo} = release_stock(s, port, good, quantity, 0, item)
+    m = get(s, "markets", port <> "|" <> good) |> from_row()
+    {store(s, %{m | budget: m.budget + amount}), cargo}
+  end
+
+  def auction_consume(s, port, good, quantity, amount) do
+    m = get(s, "markets", port <> "|" <> good) |> from_row()
+    true = m.buyer and m.demand >= quantity and m.budget >= amount
+
+    store(s, %{
+      m
+      | demand: m.demand - quantity,
+        budget: m.budget - amount,
+        stock: m.stock + if(m.merchant, do: quantity, else: 0)
+    })
+  end
+
   def quote(state, catalogue, port, good) do
     market = get(state, "markets", port <> "|" <> good)
     if market && catalogue["goods"][good], do: __MODULE__.quote(from_row(market), catalogue)

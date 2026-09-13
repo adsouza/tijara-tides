@@ -39,6 +39,166 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "luxury acquisition and resale persist bids, escrow, cargo and second-price outcomes", c do
+    alias TijaraTides.Domain.Warehouse
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+
+    :sys.replace_state(c.server, fn s ->
+      %{
+        s
+        | catalogue:
+            Map.put(s.catalogue, "auctions", %{"interval_ms" => 10_000, "window_ms" => 10_000}),
+          active: true
+      }
+    end)
+
+    {:ok, %{"session" => a}} = GameServer.redeem(c.code, c.server)
+    {:ok, code} = GameServer.seed(c.server)
+    {:ok, %{"session" => b}} = GameServer.redeem(code, c.server)
+    advance(c.server, 1)
+
+    listing =
+      Enum.find(GameServer.snapshot(a, c.server).public["auctions"], &(&1["good"] == "whisky"))
+
+    assert listing
+    port = listing["port"]
+
+    [aw, bw] =
+      Enum.map([{a, "Auction seller"}, {b, "Auction buyer"}], fn {token, name} ->
+        {:ok, _} =
+          TijaraTides.CompanyFixture.command(
+            token,
+            name,
+            %{"action" => "company", "name" => name, "port" => port, "package" => "general"},
+            c.server
+          )
+
+        used =
+          Map.get(
+            GameServer.snapshot(token, c.server).public["warehouse_utilization"],
+            port <> "|dry",
+            0
+          )
+
+        {:ok, _} =
+          GameServer.command(
+            token,
+            "lease-" <> name,
+            %{
+              "action" => "warehouse_lease",
+              "port" => port,
+              "storage" => "dry",
+              "blocks" => 1,
+              "days" => 3,
+              "price" => Warehouse.quote(used, "dry", 1, 3)
+            },
+            c.server
+          )
+
+        hd(Map.keys(GameServer.snapshot(token, c.server).private["warehouses"]))
+      end)
+
+    now = GameServer.snapshot(a, c.server).public["clock_ms"]
+    advance(c.server, listing["opens_ms"] - now + 1)
+
+    assert {:ok, _} =
+             GameServer.command(
+               a,
+               "acquire-luxury",
+               %{
+                 "action" => "auction_bid",
+                 "auction" => listing["id"],
+                 "warehouse" => aw,
+                 "price" => listing["reserve"]
+               },
+               c.server
+             )
+
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    before = :sys.get_state(c.server).game
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
+    assert restored.entities["auction_bids"] == before.entities["auction_bids"]
+
+    assert restored.entities["warehouse_reservations"] ==
+             before.entities["warehouse_reservations"]
+
+    advance(c.server, listing["closes_ms"] - before.clock_ms + 1)
+
+    assert Enum.sum(
+             for lot <- GameServer.snapshot(a, c.server).private["warehouses"][aw]["cargo"],
+                 do: lot["quantity"]
+           ) == listing["quantity"]
+
+    assert {:ok, _} =
+             GameServer.command(
+               a,
+               "resell-luxury",
+               %{
+                 "action" => "auction_consign",
+                 "warehouse" => aw,
+                 "good" => "whisky",
+                 "quantity" => 3,
+                 "price" => 1001
+               },
+               c.server
+             )
+
+    [resale] = GameServer.snapshot(a, c.server).private["consignments"]
+    now = GameServer.snapshot(a, c.server).public["clock_ms"]
+    advance(c.server, resale["opens_ms"] - now + 1)
+
+    assert {:ok, _} =
+             GameServer.command(
+               b,
+               "buy-luxury",
+               %{
+                 "action" => "auction_bid",
+                 "auction" => resale["id"],
+                 "warehouse" => bw,
+                 "price" => 1_000_001
+               },
+               c.server
+             )
+
+    assert {:ok, _} =
+             GameServer.command(
+               b,
+               "buy-luxury",
+               %{
+                 "action" => "auction_bid",
+                 "auction" => resale["id"],
+                 "warehouse" => bw,
+                 "price" => 1_000_001
+               },
+               c.server
+             )
+
+    view = GameServer.snapshot(b, c.server)
+
+    html =
+      render_component(&TijaraTidesWeb.GameUI.AuctionPanel.panel/1,
+        definitions: GameServer.definitions(),
+        view: view,
+        port: port,
+        request_id: "test"
+      )
+
+    assert html =~ "Luxury auctions"
+    assert html =~ "Your bid"
+    assert html =~ "phx-submit=\"auction\""
+    before = :sys.get_state(c.server).game
+    assert {:ok, _} = GameStore.reload(Repo, c.world_id, before)
+    advance(c.server, resale["closes_ms"] - before.clock_ms + 1)
+    view = GameServer.snapshot(b, c.server)
+    assert Enum.sum(for lot <- view.private["warehouses"][bw]["cargo"], do: lot["quantity"]) == 3
+    assert view.private["company"]["reserved"] == 0
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    before = :sys.get_state(c.server).game
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
+    assert restored.entities["auctions"] == before.entities["auctions"]
+    assert restored.entities["warehouses"] == before.entities["warehouses"]
+  end
+
   test "warehouse exchange fills persist atomically with escrow and anonymous depth", c do
     alias TijaraTides.Domain.Warehouse
     alias TijaraTides.Infrastructure.Persistence.FinancialLedger

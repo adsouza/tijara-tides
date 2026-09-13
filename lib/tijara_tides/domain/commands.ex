@@ -26,7 +26,8 @@ defmodule TijaraTides.Domain.Commands do
              context.catalogue,
              account["company_id"]
            )
-           |> TijaraTides.Domain.Services.Exchange.reconcile(), reply}
+           |> TijaraTides.Domain.Services.Exchange.reconcile()
+           |> TijaraTides.Domain.Services.Auctions.reconcile(context.catalogue), reply}
 
         other ->
           other
@@ -38,6 +39,27 @@ defmodule TijaraTides.Domain.Commands do
     catalogue = context.catalogue
 
     case command do
+      %{"action" => "auction_consign"} ->
+        TijaraTides.Domain.Services.Auctions.consign(
+          state,
+          account,
+          command,
+          context.id,
+          catalogue
+        )
+
+      %{"action" => "auction_revise"} ->
+        TijaraTides.Domain.Services.Auctions.revise(state, account, command, catalogue)
+
+      %{"action" => "auction_withdraw", "auction" => id} ->
+        TijaraTides.Domain.Services.Auctions.withdraw_lot(state, account, id)
+
+      %{"action" => "auction_bid"} ->
+        TijaraTides.Domain.Services.Auctions.bid(state, account, command, context.id, catalogue)
+
+      %{"action" => "auction_withdraw_bid", "auction" => id} ->
+        TijaraTides.Domain.Services.Auctions.withdraw_bid(state, account, id)
+
       %{"action" => "exchange_place"} ->
         TijaraTides.Domain.Services.Exchange.place(state, account, command, context.id, catalogue)
 

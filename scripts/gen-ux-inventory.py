@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 143
+TRIPWIRE = 144
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -32,6 +32,7 @@ SCREENS = [
 # (id, verbatim quote from DESIGN.md, section, kind, screen)
 REQUIREMENTS = [
     (141, 'The Ports column includes a collapsed Warehouses disclosure whose open state survives live updates.', 11, "display", "Port panel"),
+    (145, "The Ports column provides a collapsed Luxury auctions disclosure with scheduled", 7, "input", "Auction house"),
     (144, "The Ports column provides a collapsed Cargo exchange disclosure for standardized", 7, "input", "Port panel"),
     (143, "Warehouses also offer collapsed Reservations and Lease renewal disclosures with", 11, "input", "Port panel"),
     (142, 'A sailing ship offers a Reroute ship selector and a Confirm reroute button, with the revised course shown as a dashed teal line on the map.', 8, "input", "Fleet and ship detail"),

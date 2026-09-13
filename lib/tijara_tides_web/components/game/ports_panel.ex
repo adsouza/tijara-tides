@@ -71,6 +71,12 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             good={@exchange_good}
             request_id={@request_id}
           />
+          <TijaraTidesWeb.GameUI.AuctionPanel.panel
+            definitions={@definitions}
+            view={@view}
+            port={@selected_port}
+            request_id={@request_id}
+          />
           <TijaraTidesWeb.GameUI.WarehousePanel.panel
             definitions={@definitions}
             view={@view}

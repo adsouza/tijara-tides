@@ -4,6 +4,65 @@ defmodule TijaraTides.UseCases.GameQueries do
   @moduledoc "Pure read-side planning projections. Reads never mutate domain state."
   alias TijaraTides.Domain.{Fleet, Trading, CargoRules, Visibility}
 
+  def auction_options(definitions, view, port) do
+    cat = definitions.catalogue
+    clock = view.public["clock_ms"] || 0
+    private = view.private || %{}
+
+    warehouses =
+      Map.values(private["warehouses"] || %{})
+      |> Enum.filter(&(&1["port"] == port and &1["expires_ms"] > clock))
+      |> Enum.sort_by(& &1["id"])
+
+    goods =
+      Enum.filter(cat["goods"], fn {_, i} -> i["category"] == "Luxury items" end) |> Enum.sort()
+
+    consignments = Map.new(private["consignments"] || [], &{&1["id"], &1})
+    bids = Map.new(private["auction_bids"] || [], &{&1["auction_id"], &1})
+
+    listings =
+      (view.public["auctions"] || [])
+      |> Enum.filter(&(&1["port"] == port))
+      |> Enum.sort_by(
+        &{if(&1["status"] == "scheduled", do: 0, else: 1), &1["closes_ms"], &1["id"]}
+      )
+
+    listings =
+      Enum.map(listings, fn a ->
+        item = cat["goods"][a["good"]]
+
+        storage =
+          Enum.filter(
+            warehouses,
+            &(&1["expires_ms"] >= a["closes_ms"] and &1["protected_ms"] <= clock and
+                TijaraTides.Domain.Warehouse.compatible?(
+                  TijaraTides.Domain.Warehouse.from_row(&1),
+                  item
+                ))
+          )
+
+        Map.merge(a, %{
+          "mine" => Map.has_key?(consignments, a["id"]),
+          "bid" => bids[a["id"]],
+          "warehouses" => storage,
+          "simulated" =>
+            String.contains?(get_in(cat, ["ports", port, "roles", a["good"]]) || "", "imp")
+        })
+      end)
+
+    {opens, closes} = TijaraTides.Domain.Auction.schedule(clock, port, cat)
+
+    %{
+      listings: listings,
+      goods: goods,
+      warehouses: warehouses,
+      opens: opens,
+      closes: closes,
+      clock: clock,
+      roles: cat["ports"][port]["roles"]
+    }
+  end
+
   def exchange_options(definitions, view, port, selected) do
     goods =
       definitions.catalogue["goods"]
@@ -189,7 +248,8 @@ defmodule TijaraTides.UseCases.GameQueries do
                 kind: r.kind,
                 good: r.good,
                 quantity: r.quantity,
-                ship: get_in(view.private, ["ships", r.ship_id, "name"]) || r.ship_id
+                ship: get_in(view.private, ["ships", r.ship_id, "name"]) || r.ship_id,
+                auction: r.auction_id != nil or r.bid_id != nil
               }
             end),
           renewal_open: Warehouse.renewal_open?(w, now),

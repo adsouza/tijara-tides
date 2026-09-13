@@ -10,5 +10,5 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
   @regional_land @regional_land_path |> File.read!() |> Jason.decode!()
   def regional_land, do: @regional_land
   def land, do: @land
-  def all, do: @catalogue
+  def all, do: Map.put(@catalogue, "auctions", Application.get_env(:tijara_tides, :auctions, %{}))
 end

@@ -1182,6 +1182,12 @@ and procurement settlement follow the separate rules below.
 
 ### Auction settlement
 
+The Ports column provides a collapsed Luxury auctions disclosure with scheduled
+lots, consignments, sealed bids, revision and withdrawal controls, and anonymous
+final bid amounts. Show whole-lot reserves and maximum bids, lease coverage
+requirements, and active-world countdowns. Keep bidding explanations behind a
+nested disclosure and keep disclosure state stable during live updates.
+
 All auctions are computer-run. Players sell luxury goods by consigning lots to
 scheduled port auctions, rather than starting individual auctions on demand.
 Players choose their lot and minimum sale price; the system controls the

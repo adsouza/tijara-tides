@@ -565,10 +565,11 @@ defmodule TijaraTides.Domain.Warehouse do
 
   def cancel_reservation(state, account, id) do
     case get(state, "warehouse_reservations", id) do
-      %{"company_id" => owner} ->
-        if owner != account["company_id"],
-          do: {:error, :warehouse_invalid},
-          else: {:ok, delete(state, "warehouse_reservations", id), %{}}
+      %{"company_id" => owner} = r ->
+        if owner != account["company_id"] or r["order_id"] != nil or r["auction_id"] != nil or
+             r["bid_id"] != nil,
+           do: {:error, :warehouse_invalid},
+           else: {:ok, delete(state, "warehouse_reservations", id), %{}}
 
       _ ->
         {:error, :warehouse_invalid}
@@ -627,9 +628,21 @@ defmodule TijaraTides.Domain.Warehouse do
         order = r.order_id && get(s, "exchange_orders", r.order_id)
 
         owner_valid =
-          if r.order_id,
-            do: order && order["company_id"] == w.company_id,
-            else: ship && ship["company_id"] == w.company_id
+          cond do
+            r.order_id ->
+              order && order["company_id"] == w.company_id
+
+            r.auction_id ->
+              a = get(s, "auctions", r.auction_id)
+              a && a["status"] == "scheduled" && a["company_id"] == w.company_id
+
+            r.bid_id ->
+              b = get(s, "auction_bids", r.bid_id)
+              b && b["company_id"] == w.company_id
+
+            true ->
+              ship && ship["company_id"] == w.company_id
+          end
 
         valid =
           owner_valid &&
@@ -829,11 +842,13 @@ defmodule TijaraTides.Domain.Warehouse do
 
       true ->
         r = %Reservation{
-          id: "exchange:" <> order.id,
+          id: trade_reservation_id(order),
           warehouse_id: w.id,
           company_id: w.company_id,
           ship_id: nil,
-          order_id: order.id,
+          order_id: if(Map.get(order, :claim, :order_id) == :order_id, do: order.id),
+          auction_id: if(Map.get(order, :claim) == :auction_id, do: order.id),
+          bid_id: if(Map.get(order, :claim) == :bid_id, do: order.id),
           good: order.good,
           kind: if(order.side == "buy", do: "capacity", else: "stock"),
           quantity: order.quantity,
@@ -845,13 +860,22 @@ defmodule TijaraTides.Domain.Warehouse do
     end
   end
 
+  defp trade_reservation_id(%{claim: claim, id: id}), do: Atom.to_string(claim) <> ":" <> id
+  defp trade_reservation_id(order), do: "exchange:" <> order.id
+
+  def release_trade(state, order),
+    do: delete(state, "warehouse_reservations", trade_reservation_id(order))
+
   def release_order(state, id), do: delete(state, "warehouse_reservations", "exchange:" <> id)
 
   def order_backed?(state, order) do
     w = get(state, "warehouses", order.warehouse_id)
-    r = get(state, "warehouse_reservations", "exchange:" <> order.id)
+    r = get(state, "warehouse_reservations", trade_reservation_id(order))
 
-    not is_nil(w) and w["expires_ms"] > state.clock_ms and not is_nil(r) and
+    not is_nil(w) and
+      (w["expires_ms"] > state.clock_ms or
+         (Map.get(order, :claim) in [:auction_id, :bid_id] and
+            w["expires_ms"] >= Map.get(order, :closes_ms, state.clock_ms))) and not is_nil(r) and
       r["quantity"] >= order.quantity
   end
 
@@ -861,10 +885,10 @@ defmodule TijaraTides.Domain.Warehouse do
   end
 
   defp consume_order(state, order, n) do
-    row = get(state, "warehouse_reservations", "exchange:" <> order.id)
+    row = get(state, "warehouse_reservations", trade_reservation_id(order))
 
     if row["quantity"] == n,
-      do: release_order(state, order.id),
+      do: release_trade(state, order),
       else:
         put(state, "warehouse_reservations", row["id"], %{row | "quantity" => row["quantity"] - n})
   end

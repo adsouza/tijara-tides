@@ -141,6 +141,17 @@ defmodule TijaraTidesWeb.GameLive do
      })}
   end
 
+  def handle_event("auction", params, socket) do
+    command =
+      params
+      |> Map.drop(["_target"])
+      |> Map.update("quantity", nil, &report_number/1)
+      |> Map.update("price", nil, &exchange_price/1)
+      |> Map.reject(fn {_, v} -> is_nil(v) end)
+
+    run(socket, command)
+  end
+
   def handle_event("exchange-good", %{"good" => good}, socket),
     do: {:noreply, assign(socket, :exchange_good, good)}
 

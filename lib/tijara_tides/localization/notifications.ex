@@ -34,6 +34,13 @@ defmodule TijaraTides.Localization.Notifications do
 
   def render(notice, _goods), do: notice["text"] || ""
 
+  defp message("auction.closed", args),
+    do:
+      gettext(
+        "The luxury auction at %{port} has settled. See Luxury auctions for the result.",
+        args
+      )
+
   defp message("exchange.cancelled", args),
     do:
       gettext(

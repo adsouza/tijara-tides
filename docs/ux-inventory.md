@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 143
+Heuristic requirement sentences in DESIGN.md at generation: 144
 
 ## Screens
 
@@ -57,6 +57,7 @@ told after the fact, without being asked to approve it.
 | # | Requirement | Section | Kind | Screen |
 |---|-------------|---------|------|--------|
 | 141 | The Ports column includes a collapsed Warehouses disclosure whose open state survives live updates. | 11 | display | Port panel |
+| 145 | The Ports column provides a collapsed Luxury auctions disclosure with scheduled | 7 | input | Auction house |
 | 144 | The Ports column provides a collapsed Cargo exchange disclosure for standardized | 7 | input | Port panel |
 | 143 | Warehouses also offer collapsed Reservations and Lease renewal disclosures with | 11 | input | Port panel |
 | 142 | A sailing ship offers a Reroute ship selector and a Confirm reroute button, with the revised course shown as a dashed teal line on the map. | 8 | input | Fleet and ship detail |

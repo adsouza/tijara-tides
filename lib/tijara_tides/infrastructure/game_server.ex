@@ -483,7 +483,12 @@ defmodule TijaraTides.Infrastructure.GameServer do
   end
 
   defp context(state),
-    do: %{id: request_id(), wall_ms: state.wall_clock.(), catalogue: state.catalogue}
+    do: %{
+      id: request_id(),
+      auction_seed: request_id(),
+      wall_ms: state.wall_clock.(),
+      catalogue: state.catalogue
+    }
 
   defp account(state, token),
     do: TijaraTides.UseCases.Authentication.required(state.game, hash(token), state.wall_clock.())
