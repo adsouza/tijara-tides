@@ -22,7 +22,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
         <summary class="cursor-pointer">{gettext("About repeating routes")}</summary>
         <p class="mt-2">
           {gettext(
-            "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Current and next stops cannot be removed while active. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. No cash is earmarked. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
+            "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Removing the current or next stop returns the route to draft; committed voyages and handling finish. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. No cash is earmarked. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
           )}
         </p>
       </details>
@@ -43,14 +43,6 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
               type="button"
               phx-click="route"
               phx-value-operation="remove_stop"
-              disabled={
-                @model.route["status"] != "draft" &&
-                  stop["position"] in [
-                    @model.route["cursor"],
-                    rem(@model.route["cursor"] + 1, length(@model.stops))
-                  ]
-              }
-              title={gettext("Current and next stops are protected while the route is active")}
               phx-value-stop={stop["id"]}
               phx-value-request_id={@request_id}
               class="rounded border px-2 py-1"

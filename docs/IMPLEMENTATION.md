@@ -313,8 +313,10 @@ Running and paused routes remain editable. Cargo targets can be added, edited,
 or removed; already-created visit orders retain their original terms, including
 quantity mode. Changes apply when the relevant stage next creates orders.
 Future stops can be added or removed while preserving the active stop identity.
-The current and next stops are protected, as is appending a new next leg after
-orders for the final stop have been created. Every active circuit stays valid. Removing a route preserves its cargo,
+Removing the current or next stop returns the route to draft and clears its
+visit orders and onward plan; committed handling and voyages still finish.
+Appending a new next leg after orders for the final stop have been created
+remains protected. Every active circuit stays valid. Removing a route preserves its cargo,
 committed handling and current voyage while cancelling future route activity.
 Existing single-visit instructions and onward plans must be cleared first;
 route-managed ships cannot also receive independent next-port instructions.

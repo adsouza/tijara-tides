@@ -231,19 +231,38 @@ defmodule TijaraTides.Domain.ShipRoutesTest do
     assert Game.get(s, "ship_instructions", "route:buy1")["status"] == "filled"
   end
 
-  test "future stop edits preserve the active cursor and protect committed stops", c do
+  test "future stop edits preserve the active cursor and committed stop removal resets the route",
+       c do
     s = route(c)
     {:ok, s, _} = command(c, s, "s3", %{"operation" => "add_stop", "port" => "Colombo"})
 
-    assert {:error, :route_stop_committed} =
-             command(c, s, "remove", %{"operation" => "remove_stop", "stop" => "s1"})
-
-    assert {:error, :route_stop_committed} =
-             command(c, s, "remove", %{"operation" => "remove_stop", "stop" => "s2"})
+    for id <- ["s1", "s2"] do
+      {:ok, edited, _} = command(c, s, "remove", %{"operation" => "remove_stop", "stop" => id})
+      assert plan(edited)["status"] == "draft"
+      assert plan(edited)["cursor"] == 0
+      refute Enum.any?(ShipRoutes.stops(edited, "company:1"), &(&1["id"] == id))
+    end
 
     {:ok, s, _} = command(c, s, "remove", %{"operation" => "remove_stop", "stop" => "s3"})
     assert plan(s)["cursor"] == 0
     assert length(ShipRoutes.stops(s, "company:1")) == 2
+  end
+
+  for status <- ["loading", "sailing"] do
+    test "removing an active stop preserves committed #{status}", c do
+      state = until(route(c), c, &(ship(&1)["status"] == unquote(status)), 100)
+      before = ship(state)
+
+      {:ok, edited, _} =
+        command(c, state, "remove", %{"operation" => "remove_stop", "stop" => "s2"})
+
+      assert ship(edited) == before
+      assert plan(edited)["status"] == "draft"
+      assert length(ShipRoutes.stops(edited, "company:1")) == 1
+      refute Game.get(edited, "ship_instructions", "route:buy1")
+      refute Game.get(edited, "visit_plans", "company:1|Jakarta")
+      assert {:error, :route_needs_stops} = command(c, edited, "start", %{"operation" => "start"})
+    end
   end
 
   test "resuming without an opt-in enables automatic travel around the circuit", c do

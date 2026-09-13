@@ -171,7 +171,7 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
         do: [route["cursor"], rem(route["cursor"] + 1, length(all))],
         else: []
 
-    if route && stop && stop["ship_id"] == ship["id"] && stop["position"] not in protected do
+    if route && stop && stop["ship_id"] == ship["id"] do
       state =
         Enum.reduce(rules(state, id), state, &delete(&2, "route_rules", &1["id"]))
         |> delete("route_stops", id)
@@ -184,13 +184,28 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
         end)
 
       state =
-        if current && route["status"] != "draft",
-          do:
+        cond do
+          route["status"] != "draft" and stop["position"] in protected ->
+            state
+            |> clear_visit(ship["id"])
+            |> put("ship_routes", route["id"], %{
+              route
+              | "status" => "draft",
+                "cursor" => 0,
+                "phase" => "arrival",
+                "stop_after" => false,
+                "reason" => "Add stops and cargo targets, then start the route"
+            })
+
+          current && route["status"] != "draft" ->
             put(state, "ship_routes", route["id"], %{
               route
               | "cursor" => get(state, "route_stops", current["id"])["position"]
-            }),
-          else: state
+            })
+
+          true ->
+            state
+        end
 
       {:ok, state, %{}}
     else
