@@ -31,13 +31,14 @@ import {TradeQuantity} from "./trade_quantity"
 import {LoanAmount} from "./loan_amount"
 import {PopupAnchor} from "./popup_anchor"
 import {SystemNotifications} from "./system_notifications"
+import {ExchangeDraft} from "./exchange_draft"
 import {PortSelector} from "./port_selector"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Locale, Flash, SystemNotifications, Workspace, TradeQuantity, LoanAmount, PortSelector, PopupAnchor},
+  hooks: {...colocatedHooks, Locale, Flash, SystemNotifications, Workspace, TradeQuantity, ExchangeDraft, LoanAmount, PortSelector, PopupAnchor},
 })
 
 // Show progress bar on live navigation and form submits

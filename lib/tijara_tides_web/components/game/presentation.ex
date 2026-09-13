@@ -15,6 +15,22 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
   end
 
   # Keep persisted good IDs stable when their player-facing names change.
+  def storage_name("dry"), do: gettext("Ordinary storage")
+  def storage_name("reefer"), do: gettext("Refrigerated storage")
+  def storage_name("liquid"), do: gettext("Liquid storage")
+
+  def warehouse_name(warehouse) do
+    kind =
+      if warehouse["good"],
+        do: cargo_name(warehouse["good"]),
+        else: storage_name(warehouse["storage"])
+
+    Enum.join(
+      [l10n(warehouse["port"]), kind, display_number(warehouse["display_number"] || 1)],
+      " "
+    )
+  end
+
   def cargo_name(good), do: TijaraTides.Localization.text(Game.cargo_name(good))
 
   def route_distance(definitions, ship, destination),

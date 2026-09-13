@@ -59,7 +59,7 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
           </thead>
           <tbody>
             <tr :for={level <- levels}>
-              <td>{money(level["price"])} {if level["npc"], do: gettext("NPC")}</td><td>
+              <td>{money(level["price"])} {if level["npc"], do: gettext("Market maker")}</td><td>
                 {display_number(level["quantity"])}
               </td>
             </tr>
@@ -72,6 +72,8 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
       <form
         :for={side <- ["buy", "sell"]}
         :if={@book.warehouses != []}
+        id={"exchange-place-" <> Base.url_encode64(Enum.join([@port, @book.good, side], "|"), padding: false)}
+        phx-hook="ExchangeDraft"
         phx-submit="exchange"
         class="my-2 flex flex-wrap items-end gap-2"
       >
@@ -88,7 +90,7 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
           name="warehouse"
           class="block max-w-32 rounded bg-slate-800 p-1"
         ><option :for={w <- @book.warehouses} value={w["id"]}>
-          {display_number(w["blocks"])} {gettext("Blocks")} · {String.slice(w["id"], 0, 6)}
+          {display_number(w["blocks"])} {gettext("Blocks")} · {warehouse_name(w)}
         </option></select></label>
         <label>{gettext("Lots")}<input
           name="quantity"
@@ -101,11 +103,13 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
         <label>{gettext("Limit price per lot ($)")}<input
           name="price"
           type="number"
-          min="0.01"
+          min="1"
           max="10000000000"
-          step="0.01"
+          step="1"
           value={
-            if @book.quote, do: @book.quote[if(side == "buy", do: "ask", else: "bid")] / 100, else: 1
+            if @book.quote,
+              do: whole_dollars(@book.quote[if(side == "buy", do: "ask", else: "bid")]),
+              else: 1
           }
           class="block w-28 rounded bg-slate-800 p-1"
         /></label>
@@ -134,7 +138,12 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
               o["price"]
             )}
           </p>
-          <form phx-submit="exchange" class="flex flex-wrap items-end gap-2">
+          <form
+            id={"exchange-amend-" <> Base.url_encode64(o["id"], padding: false)}
+            phx-hook="ExchangeDraft"
+            phx-submit="exchange"
+            class="flex flex-wrap items-end gap-2"
+          >
             <input type="hidden" name="action" value="exchange_amend" /><input
               type="hidden"
               name="request_id"
@@ -151,29 +160,38 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
             <label>{gettext("Limit price per lot ($)")}<input
               name="price"
               type="number"
-              min="0.01"
+              min="1"
               max="10000000000"
-              step="0.01"
-              value={o["price"] / 100}
+              step="1"
+              value={whole_dollars(o["price"])}
               class="block w-28 rounded bg-slate-800 p-1"
             /></label>
+            <% expiry_id = "exchange-expiry-" <> Base.url_encode64(o["id"], padding: false) %>
             <label>{gettext("New expiry in minutes (optional)")}<input
+              id={expiry_id}
+              disabled={is_nil(o["expires_ms"])}
               name="minutes"
               type="number"
               min="1"
               class="block w-20 rounded bg-slate-800 p-1"
             /></label>
-            <label><input type="checkbox" name="clear_expiry" value="true" /> {gettext("No expiry")}</label>
-            <button class="rounded border border-teal-700 px-2 py-1">{gettext("Amend order")}</button>
-          </form>
-          <form phx-submit="exchange" class="mt-1">
-            <input type="hidden" name="action" value="exchange_cancel" /><input
-              type="hidden"
-              name="request_id"
-              value={@request_id}
-            /><input type="hidden" name="order" value={o["id"]} /><button class="rounded border border-slate-500 px-2 py-1">{gettext(
-              "Cancel order"
-            )}</button>
+            <label><input
+              type="checkbox"
+              name="clear_expiry"
+              value="true"
+              checked={is_nil(o["expires_ms"])}
+            /> {gettext("No expiry")}</label>
+            <div class="flex items-center gap-2">
+              <button class="rounded border border-teal-700 px-2 py-1">{gettext("Amend order")}</button>
+              <button
+                type="button"
+                phx-click="exchange"
+                phx-value-action="exchange_cancel"
+                phx-value-order={o["id"]}
+                phx-value-request_id={@request_id}
+                class="rounded border border-slate-500 px-2 py-1"
+              >{gettext("Cancel order")}</button>
+            </div>
           </form>
         </div>
       </details>
@@ -190,11 +208,13 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
       >
         <summary class="cursor-pointer">{gettext("Exchange rules")}</summary><p>
           {gettext(
-            "Remote trades settle into warehouses. Buys reserve limit-price cash and space; sells reserve stock. Best price, then earliest order wins; fills use the resting price. Reducing quantity keeps priority; increasing quantity or changing price resets it. No exchange fees. NPC rows show only their current price level, shared with ship trading."
+            "Remote trades settle into warehouses. Buys reserve limit-price cash and space; sells reserve stock. Best price, then earliest order wins; fills use the resting price. Reducing quantity keeps priority; increasing quantity or changing price resets it. No exchange fees. Market maker rows show only their current price level, shared with ship trading."
           )}
         </p>
       </details>
     </details>
     """
   end
+
+  defp whole_dollars(cents), do: max(1, div(cents + 50, 100))
 end

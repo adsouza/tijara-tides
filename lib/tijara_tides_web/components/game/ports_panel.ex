@@ -25,7 +25,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
       <h2 class="panel-title">{gettext("Ports")}</h2>
       <div class="panel-content" tabindex="0" aria-label={gettext("Port details and trading")}>
         <section class="my-6 rounded-xl border border-slate-700 p-5">
-          <div class="flex flex-wrap gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <form
               id="port-selector"
               phx-change="port"
@@ -45,46 +45,25 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                 {l10n(name)}
               </option></select>
             </form>
+            <button
+              :if={@ship && @ship["status"] == "docked" && @ship["port"] != @selected_port}
+              id="set-port-destination"
+              type="button"
+              phx-click="port-destination"
+              disabled={@destination == @selected_port}
+              title={
+                gettext("Set %{port} as the destination for %{ship}",
+                  port: l10n(@selected_port),
+                  ship: @ship["name"]
+                )
+              }
+              class="rounded border border-teal-700 px-3 py-2 text-sm text-teal-200 disabled:opacity-60"
+            >
+              {if @destination == @selected_port,
+                do: gettext("Selected destination"),
+                else: gettext("Set as destination")}
+            </button>
           </div>
-          <button
-            :if={@ship && @ship["status"] == "docked" && @ship["port"] != @selected_port}
-            id="set-port-destination"
-            type="button"
-            phx-click="port-destination"
-            disabled={@destination == @selected_port}
-            title={
-              gettext("Set %{port} as the destination for %{ship}",
-                port: l10n(@selected_port),
-                ship: @ship["name"]
-              )
-            }
-            class="my-2 rounded border border-teal-700 px-3 py-2 text-sm text-teal-200 disabled:opacity-60"
-          >
-            {if @destination == @selected_port,
-              do: gettext("Selected destination"),
-              else: gettext("Set as destination")}
-          </button>
-          <TijaraTidesWeb.GameUI.ExchangePanel.panel
-            definitions={@definitions}
-            view={@view}
-            port={@selected_port}
-            good={@exchange_good}
-            request_id={@request_id}
-          />
-          <TijaraTidesWeb.GameUI.AuctionPanel.panel
-            definitions={@definitions}
-            view={@view}
-            port={@selected_port}
-            request_id={@request_id}
-          />
-          <TijaraTidesWeb.GameUI.WarehousePanel.panel
-            definitions={@definitions}
-            view={@view}
-            port={@selected_port}
-            ship={@ship}
-            draft={@warehouse_draft}
-            request_id={@request_id}
-          />
           <details
             id="about-port"
             phx-mounted={JS.ignore_attributes("open")}
@@ -95,6 +74,20 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               {l10n(@definitions.catalogue["ports"][@selected_port]["identity"])}
             </p>
           </details>
+          <TijaraTidesWeb.GameUI.WarehousePanel.panel
+            definitions={@definitions}
+            view={@view}
+            port={@selected_port}
+            ship={@ship}
+            draft={@warehouse_draft}
+            request_id={@request_id}
+          />
+          <TijaraTidesWeb.GameUI.AuctionPanel.panel
+            definitions={@definitions}
+            view={@view}
+            port={@selected_port}
+            request_id={@request_id}
+          />
           <section
             :if={@ship && @ship["status"] == "docked" && @ship["port"] != @selected_port}
             id="destination-planner"
@@ -550,6 +543,13 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               </tbody>
             </table>
           </div>
+          <TijaraTidesWeb.GameUI.ExchangePanel.panel
+            definitions={@definitions}
+            view={@view}
+            port={@selected_port}
+            good={@exchange_good}
+            request_id={@request_id}
+          />
         </section>
       </div>
     </section>

@@ -53,6 +53,7 @@ defmodule TijaraTidesWeb.GameLive do
         market_good: "lumber",
         cargo_menu_open: false,
         cargo_sort_roi: false,
+        auction_grouping: "status",
         cargo_filter_ship: false,
         market_sort: %{"supply" => {"ask", :asc}, "demand" => {"bid", :desc}},
         company_draft: %{"name" => "", "port" => "Singapore"},
@@ -136,6 +137,7 @@ defmodule TijaraTidesWeb.GameLive do
     {:noreply,
      assign(socket, :warehouse_draft, %{
        "good" => params["good"],
+       "storage" => params["storage"],
        "blocks" => report_number(params["blocks"]),
        "days" => report_number(params["days"])
      })}
@@ -204,6 +206,19 @@ defmodule TijaraTidesWeb.GameLive do
       |> Map.update("price", nil, &report_number/1)
 
     run(socket, Map.reject(command, fn {_, v} -> is_nil(v) end))
+  end
+
+  def handle_event("auction-grouping", %{"grouping" => grouping}, socket)
+      when grouping in ["status", "cargo"] do
+    {:noreply, assign(socket, :auction_grouping, grouping)}
+  end
+
+  def handle_event("auction-port", %{"id" => id}, socket) do
+    if socket.assigns.definitions.catalogue["ports"][id],
+      do:
+        {:noreply,
+         socket |> assign(:selected_port, id) |> push_event("workspace-panel", %{panel: 0})},
+      else: {:noreply, socket}
   end
 
   def handle_event("port", %{"id" => id}, socket) do
@@ -1234,6 +1249,7 @@ defmodule TijaraTidesWeb.GameLive do
                 view={@view}
               />
               <TijaraTidesWeb.GameUI.CargoPanel.panel
+                auction_grouping={@auction_grouping}
                 cargo_filter_ship={@cargo_filter_ship}
                 cargo_menu_open={@cargo_menu_open}
                 cargo_options={@cargo_options}

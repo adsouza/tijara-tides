@@ -481,7 +481,6 @@ charged again during diversions of the same voyage. The normal next departure
 starts a fresh toll allowance. Port instructions stay at their original ports;
 a running repeating route is paused until explicitly resumed.
 
-
 ## Standardized cargo exchange
 
 Ports expose a Cargo exchange disclosure for bulk commodities, mass consumer
@@ -516,7 +515,6 @@ the old order and its reservations. Optional active-world expiry does not extend
 a lease; lease expiry, missing backing and bankruptcy also cancel orders.
 The UI shows aggregated player price levels, the NPC's current price level,
 recent executions, and private order placement/amendment/cancellation controls.
-
 
 ## Luxury cargo auctions
 
@@ -563,3 +561,22 @@ older auction rows are pruned, while the financial journal keeps the audit trail
 Closing work settles all due lots before lease liquidation; it does not share
 the standardized exchange's tick matching budget. Industrial machinery,
 receivership auctions, and berth-side direct bidding remain later milestones.
+
+The Cargo panel also provides a global luxury-auction browser grouped by status by default,
+with an option to group by cargo. Open auctions start expanded; upcoming auctions
+start collapsed.
+It lists open and upcoming lots, with open bidding first, then closing time.
+Rows show port, quantity, whole-lot reserve and active-world countdowns. Selecting
+a port switches to the Ports panel and expands its auction section. Group
+disclosures preserve their state through live updates; closed lots are omitted.
+
+Warehouse headings and selectors use localized port, dedicated cargo (or shared
+storage type), and a persisted company lease number. Internal IDs remain the
+command and persistence keys. Existing leases are numbered in creation order;
+new leases use the next number above the company's surviving leases. Renewal
+and clearance of other leases do not rename a surviving warehouse.
+
+The lease selector offers one option per storage type, listing compatible cargo
+(with ordinary storage abbreviated to "non-perishable solid goods").
+Ordinary and refrigerated leases accept mixtures of their listed goods. Liquid
+leases additionally require a dedicated cargo, chosen from liquid goods only.

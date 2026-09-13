@@ -35,6 +35,22 @@ defmodule TijaraTides.Domain.WarehouseTest do
     state
   end
 
+  test "warehouse numbers survive removal of an earlier lease and row round trips", c do
+    state =
+      c.state
+      |> then(&lease(c, &1, 1, "dry", nil, "first"))
+      |> then(&lease(c, &1, 1, "dry", nil, "second"))
+
+    assert Game.get(state, "warehouses", "first")["display_number"] == 1
+    assert Game.get(state, "warehouses", "second")["display_number"] == 2
+    {:ok, state, _} = Warehouse.release(state, c.account, "first", 1, c.catalogue)
+    state = lease(c, state, 1, "dry", nil, "third")
+    row = Game.get(state, "warehouses", "second")
+    assert row["display_number"] == 2
+    assert Warehouse.to_row(Warehouse.from_row(row)) == row
+    assert Game.get(state, "warehouses", "third")["display_number"] == 3
+  end
+
   # Put batches straight into a lease so a test can choose their expiry.
   defp stock(state, id, batches) do
     w = Warehouse.from_row(Game.get(state, "warehouses", id))

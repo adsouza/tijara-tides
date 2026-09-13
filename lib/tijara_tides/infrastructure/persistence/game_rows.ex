@@ -24,7 +24,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ),
     "warehouses" =>
       Enum.map(
-        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms renewal_rate next_rent next_days auto_days auto_cap),
+        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms display_number renewal_rate next_rent next_days auto_days auto_cap),
         &{&1, &1}
       ),
     "reporting_accounts" => Enum.map(~w(id capital since_ms at_ms), &{&1, &1}),

@@ -73,8 +73,8 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
           </option></select></label>
           <label>{gettext("Warehouse")}<select
             name="warehouse"
-            class="block max-w-32 rounded bg-slate-800 p-1"
-          ><option :for={w <- @auction.warehouses} value={w["id"]}>{w["id"]}</option></select></label>
+            class="block max-w-full rounded bg-slate-800 p-1"
+          ><option :for={w <- @auction.warehouses} value={w["id"]}>{warehouse_name(w)}</option></select></label>
           <label>{gettext("Lots")}<input
             name="quantity"
             type="number"
@@ -148,7 +148,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
             type="number"
             min="0.01"
             step="0.01"
-            value={a["reserve"] / 100}
+            value={bid_input(a["reserve"])}
             class="block w-28 rounded bg-slate-800 p-1"
           /></label>
           <button
@@ -177,20 +177,20 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
           />
           <label>{gettext("Warehouse")}<select
             name="warehouse"
-            class="block max-w-32 rounded bg-slate-800 p-1"
+            class="block max-w-full rounded bg-slate-800 p-1"
           ><option
             :for={w <- a["warehouses"]}
             value={w["id"]}
             selected={a["bid"] && a["bid"]["warehouse_id"] == w["id"]}
           >
-            {w["id"]}
+            {warehouse_name(w)}
           </option></select></label>
           <label>{gettext("Maximum bid ($)")}<input
             name="price"
             type="number"
-            min={a["reserve"] / 100}
-            step="0.01"
-            value={((a["bid"] && a["bid"]["amount"]) || a["reserve"]) / 100}
+            min={div(a["reserve"] + 99, 100)}
+            step="1"
+            value={div(((a["bid"] && a["bid"]["amount"]) || a["reserve"]) + 99, 100)}
             required
             class="block w-28 rounded bg-slate-800 p-1"
           /></label>
@@ -218,6 +218,93 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
     </details>
     """
   end
+
+  attr :view, :any, required: true
+
+  attr :grouping, :string, default: "status"
+
+  def discovery(assigns) do
+    assigns =
+      assign(assigns,
+        groups:
+          TijaraTides.UseCases.GameQueries.auction_discovery(assigns.view, assigns.grouping),
+        clock: get_in(assigns.view, [:public, "clock_ms"]) || 0
+      )
+
+    ~H"""
+    <section id="auction-discovery" class="mb-3 rounded border border-slate-700 p-3 text-sm">
+      <h3 class="font-semibold">{gettext("Luxury auctions")}</h3>
+      <p class="my-2 text-xs text-slate-400">
+        {gettext(
+          "Browse open and upcoming auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
+        )}
+      </p>
+      <form phx-change="auction-grouping" class="my-2">
+        <label>
+          {gettext("Group by")}
+          <select name="grouping" class="rounded bg-slate-800 p-1">
+            <option value="status" selected={@grouping == "status"}>{gettext("Status")}</option>
+            <option value="cargo" selected={@grouping == "cargo"}>{gettext("Cargo")}</option>
+          </select>
+        </label>
+      </form>
+      <p :if={@groups == []}>{gettext("No open or upcoming luxury auctions.")}</p>
+      <details
+        :for={{group, listings} <- @groups}
+        id={"discover-auctions-" <> @grouping <> "-" <> group}
+        open={@grouping == "status" and group == "open"}
+        phx-mounted={JS.ignore_attributes("open")}
+        class="my-2"
+      >
+        <summary class="cursor-pointer text-teal-300">
+          {discovery_heading(@grouping, group)} · {display_number(length(listings))}
+        </summary>
+        <div class="max-h-64 overflow-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr>
+                <th class="text-start">{gettext("Port")}</th><th :if={@grouping == "status"}>
+                  {gettext("Cargo")}
+                </th><th>{gettext("Lots")}</th><th>
+                  {gettext("Reserve")}
+                </th><th>{gettext("Bidding")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={a <- listings} class="border-t border-slate-800" data-auction={a["id"]}>
+                <td class="py-2">
+                  <button
+                    type="button"
+                    phx-click={
+                      JS.push("auction-port", value: %{id: a["port"]})
+                      |> JS.set_attribute({"open", ""}, to: "#luxury-auctions")
+                    }
+                    class="text-teal-300 underline"
+                  >{l10n(a["port"])}</button>
+                </td>
+                <td :if={@grouping == "status"} class="px-2">{cargo_name(a["good"])}</td>
+                <td class="px-2 text-end">{display_number(a["quantity"])}</td>
+                <td class="px-2 text-end">{money(a["reserve"])}</td>
+                <td class="py-2 text-end">
+                  {status(a, @clock)}<br :if={a["opens_ms"] <= @clock} /><span :if={
+                    a["opens_ms"] <= @clock
+                  }>{gettext("Closes in %{time}", time: active_countdown(a["closes_ms"] - @clock))}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+    """
+  end
+
+  defp discovery_heading("cargo", good), do: cargo_name(good)
+  defp discovery_heading("status", "open"), do: gettext("Open auctions")
+  defp discovery_heading("status", "upcoming"), do: gettext("Upcoming auctions")
+
+  defp bid_input(cents),
+    do: "#{div(cents, 100)}.#{String.pad_leading(Integer.to_string(rem(cents, 100)), 2, "0")}"
 
   defp status(a, clock) do
     case a["status"] do

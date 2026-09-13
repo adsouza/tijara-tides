@@ -41,18 +41,41 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
         <input type="hidden" name="action" value="warehouse_lease" />
         <input type="hidden" name="request_id" value={@request_id} />
         <input type="hidden" name="port" value={@port} />
-        <input type="hidden" name="storage" value={@storage.storage} />
         <input type="hidden" name="price" value={@storage.price} />
-        <label>{gettext("Storage for cargo")}
-        <select name="good" class="block max-w-40 rounded bg-slate-800 p-1">
-          <option
-            :for={{id, _} <- Enum.sort(@definitions.catalogue["goods"])}
-            value={id}
-            selected={id == @storage.good}
-          >
-            {cargo_name(id)}
-          </option>
-        </select></label>
+        <label class="min-w-0 w-full">
+          {gettext("Warehouse type")}
+          <select name="storage" class="block w-full rounded bg-slate-800 p-1">
+            <option
+              :for={kind <- ["dry", "reefer", "liquid"]}
+              value={kind}
+              selected={kind == @storage.storage}
+            >
+              {storage_name(kind)} — {if kind == "dry",
+                do: gettext("non-perishable solid goods"),
+                else:
+                  Enum.map_join(@storage.storage_goods[kind] || [], ", ", fn {id, _} ->
+                    cargo_name(id)
+                  end)}
+            </option>
+          </select>
+        </label>
+        <p class="w-full text-xs text-slate-400">
+          {if @storage.storage == "liquid",
+            do: gettext("Liquid storage is dedicated to one selected cargo per lease."),
+            else: gettext("This warehouse can store any combination of the listed cargo types.")}
+        </p>
+        <label :if={@storage.storage == "liquid"}>
+          {gettext("Cargo")}
+          <select name="good" class="block rounded bg-slate-800 p-1">
+            <option
+              :for={{id, _} <- @storage.storage_goods["liquid"]}
+              value={id}
+              selected={id == @storage.good}
+            >
+              {cargo_name(id)}
+            </option>
+          </select>
+        </label>
         <label>{gettext("Blocks")}<input
           name="blocks"
           type="number"
@@ -84,8 +107,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
         class="my-2 border-t border-slate-700 pt-2"
       >
         <p>
-          {storage_name(lease.row["storage"])} {if lease.row["good"],
-            do: "· " <> cargo_name(lease.row["good"])} · {gettext("%{used} / %{total} m³",
+          {warehouse_name(lease.row)} · {gettext("%{used} / %{total} m³",
             used: display_number(div(lease.volume, 1000)),
             total: display_number(lease.row["blocks"] * 100)
           )}
@@ -305,8 +327,4 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
     </details>
     """
   end
-
-  defp storage_name("dry"), do: gettext("Ordinary storage")
-  defp storage_name("reefer"), do: gettext("Refrigerated storage")
-  defp storage_name("liquid"), do: gettext("Liquid storage")
 end

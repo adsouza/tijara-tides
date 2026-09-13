@@ -10,6 +10,7 @@ defmodule TijaraTides.Domain.Warehouse do
   @max_lots CargoRules.max_lots()
   @fields ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms)a
   @renewal_defaults [
+    display_number: 1,
     renewal_rate: nil,
     next_rent: 0,
     next_days: nil,
@@ -123,6 +124,13 @@ defmodule TijaraTides.Domain.Warehouse do
       true ->
         w = %__MODULE__{
           id: id,
+          display_number:
+            entities(state, "warehouses")
+            |> Map.values()
+            |> Enum.filter(&(&1["company_id"] == company["id"]))
+            |> Enum.map(&(&1["display_number"] || 1))
+            |> Enum.max(fn -> 0 end)
+            |> Kernel.+(1),
           company_id: company["id"],
           port: cmd["port"],
           storage: storage,

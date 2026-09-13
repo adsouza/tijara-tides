@@ -4,6 +4,24 @@ defmodule TijaraTides.UseCases.GameQueries do
   @moduledoc "Pure read-side planning projections. Reads never mutate domain state."
   alias TijaraTides.Domain.{Fleet, Trading, CargoRules, Visibility}
 
+  def auction_discovery(view, grouping \\ "status") do
+    public = Map.get(view, :public, %{})
+    clock = public["clock_ms"] || 0
+
+    (public["auctions"] || [])
+    |> Enum.filter(&(&1["status"] == "scheduled" and &1["closes_ms"] > clock))
+    |> Enum.group_by(fn a ->
+      if grouping == "cargo",
+        do: a["good"],
+        else: if(a["opens_ms"] <= clock, do: "open", else: "upcoming")
+    end)
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.map(fn {good, listings} ->
+      {good,
+       Enum.sort_by(listings, &{&1["opens_ms"] > clock, &1["closes_ms"], &1["port"], &1["id"]})}
+    end)
+  end
+
   def auction_options(definitions, view, port) do
     cat = definitions.catalogue
     clock = view.public["clock_ms"] || 0
@@ -137,11 +155,23 @@ defmodule TijaraTides.UseCases.GameQueries do
     alias TijaraTides.Domain.Warehouse
     catalogue = definitions.catalogue
 
-    good =
-      if(Map.has_key?(catalogue["goods"], draft["good"]), do: draft["good"]) ||
-        catalogue["goods"] |> Map.keys() |> Enum.sort() |> hd()
+    storage_goods =
+      catalogue["goods"] |> Enum.sort() |> Enum.group_by(fn {_, item} -> item["hold"] end)
 
-    storage = get_in(catalogue, ["goods", good, "hold"])
+    storage =
+      if draft["storage"] in ["dry", "reefer", "liquid"],
+        do: draft["storage"],
+        else: get_in(catalogue, ["goods", draft["good"], "hold"]) || "dry"
+
+    choices = Map.get(storage_goods, storage, [])
+
+    good =
+      if storage == "liquid" do
+        if Enum.any?(choices, &(elem(&1, 0) == draft["good"])),
+          do: draft["good"],
+          else: choices |> hd() |> elem(0)
+      end
+
     blocks = draft["blocks"] || 1
     days = draft["days"] || 1
     used = Map.get(view.public["warehouse_utilization"] || %{}, port <> "|" <> (storage || ""), 0)
@@ -316,6 +346,7 @@ defmodule TijaraTides.UseCases.GameQueries do
       pool: Warehouse.pool(storage),
       terms: Warehouse.terms(),
       storage: storage,
+      storage_goods: storage_goods,
       price: Warehouse.quote(used, storage, blocks, days),
       leases: leases,
       cash: cash

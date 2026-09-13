@@ -2067,9 +2067,6 @@ msgstr "إخلاء مساحة"
 msgid "Releasing empty capacity refunds half its unused rent. After expiry, collect cargo within 12 active-world hours. Remaining goods are cleared at half reference value and never for more than they cost; grace rent is capped at proceeds. Perishables continue aging. Liquid storage is dedicated to one cargo type."
 msgstr "يُسترد نصف الإيجار غير المستهلك عند إخلاء مساحة فارغة. بعد انتهاء العقد، اسحب البضائع خلال ١٢ ساعة من وقت العالم النشط. تُصفّى البضائع المتبقية بنصف القيمة المرجعية ودون تجاوز تكلفتها، ولا يتجاوز إيجار المهلة العائدات. تستمر صلاحية الأغذية في التناقص. يُخصص تخزين السوائل لنوع واحد من البضائع."
 
-msgid "Storage for cargo"
-msgstr "تخزين للبضائع"
-
 msgid "Storage terms"
 msgstr "شروط التخزين"
 
@@ -2220,8 +2217,8 @@ msgstr "استأجر مساحة مستودع مناسبة في هذا المين
 msgid "Limit price per lot ($)"
 msgstr "السعر المحدد لكل دفعة ($)"
 
-msgid "NPC"
-msgstr "المحاكاة"
+msgid "Market maker"
+msgstr "صانع السوق"
 
 msgid "New expiry in minutes (optional)"
 msgstr "انتهاء جديد بعد دقائق (اختياري)"
@@ -2244,8 +2241,8 @@ msgstr "الصفقات الأخيرة"
 msgid "Remaining lots"
 msgstr "الدفعات المتبقية"
 
-msgid "Remote trades settle into warehouses. Buys reserve limit-price cash and space; sells reserve stock. Best price, then earliest order wins; fills use the resting price. Reducing quantity keeps priority; increasing quantity or changing price resets it. No exchange fees. NPC rows show only their current price level, shared with ship trading."
-msgstr "تُسوّى الصفقات عن بُعد في المستودعات. تحجز أوامر الشراء المبلغ بالسعر المحدد والمساحة، وتحجز أوامر البيع المخزون. الأولوية لأفضل سعر ثم للأمر الأسبق، وتُنفَّذ الصفقة بسعر الأمر القائم. تقليل الكمية يحفظ الأولوية، أما زيادتها أو تغيير السعر فيعيد ترتيبها. لا توجد رسوم للبورصة. تعرض صفوف المحاكاة مستوى السعر الحالي فقط، وهو مشترك مع تجارة السفن."
+msgid "Remote trades settle into warehouses. Buys reserve limit-price cash and space; sells reserve stock. Best price, then earliest order wins; fills use the resting price. Reducing quantity keeps priority; increasing quantity or changing price resets it. No exchange fees. Market maker rows show only their current price level, shared with ship trading."
+msgstr "تُسوّى الصفقات عن بُعد في المستودعات. تحجز أوامر الشراء المبلغ بالسعر المحدد والمساحة، وتحجز أوامر البيع المخزون. الأولوية لأفضل سعر ثم للأمر الأسبق، وتُنفَّذ الصفقة بسعر الأمر القائم. تقليل الكمية يحفظ الأولوية، أما زيادتها أو تغيير السعر فيعيد ترتيبها. لا توجد رسوم للبورصة. تعرض صفوف صانع السوق مستوى السعر الحالي فقط، وهو مشترك مع تجارة السفن."
 
 msgid "Reserved funds"
 msgstr "الأموال المحجوزة"
@@ -2351,3 +2348,30 @@ msgstr "دفعات"
 
 msgid "Auction commitment"
 msgstr "حجز للمزاد"
+
+msgid "Browse open and upcoming auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
+msgstr "تصفح المزادات المفتوحة والقادمة. اختر ميناءً للمزايدة؛ يلزم توفر مساحة تخزين مناسبة. الأسعار الاحتياطية للشحنة كاملة. الأوقات محسوبة بوقت العالم النشط."
+
+msgid "No open or upcoming luxury auctions."
+msgstr "لا توجد مزادات سلع فاخرة مفتوحة أو قادمة."
+
+msgid "Bidding"
+msgstr "المزايدة"
+
+msgid "Open auctions"
+msgstr "المزادات المفتوحة"
+
+msgid "Upcoming auctions"
+msgstr "المزادات القادمة"
+
+msgid "Warehouse type"
+msgstr "نوع المستودع"
+
+msgid "Liquid storage is dedicated to one selected cargo per lease."
+msgstr "يُخصص تخزين السوائل لنوع واحد من البضائع لكل عقد إيجار."
+
+msgid "This warehouse can store any combination of the listed cargo types."
+msgstr "يمكن لهذا المستودع تخزين أي مزيج من أنواع البضائع المدرجة."
+
+msgid "non-perishable solid goods"
+msgstr "بضائع صلبة غير قابلة للتلف"
