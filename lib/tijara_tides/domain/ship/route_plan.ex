@@ -1,17 +1,52 @@
 defmodule TijaraTides.Domain.Ship.RoutePlan do
   @moduledoc "Private repeating stop templates and their current visit. Execution uses ordinary ship instructions."
-  import TijaraTides.Domain.State
+  import TijaraTides.Domain.State, except: [get: 3, put: 4]
+  alias TijaraTides.Domain.State
+  alias TijaraTides.Domain.Ship.{RouteHeader, RouteStop, RouteTarget, VisitPlan}
   alias TijaraTides.Domain.{CargoRules, Notices}
   @open ["planned", "waiting"]
 
   defstruct [:header, stops: [], targets: []]
+
+  defp get(state, "ship_routes", id),
+    do: State.get(state, "ship_routes", id) |> RouteHeader.from_row()
+
+  defp get(state, "route_stops", id),
+    do: State.get(state, "route_stops", id) |> RouteStop.from_row()
+
+  defp get(state, "route_rules", id),
+    do: State.get(state, "route_rules", id) |> RouteTarget.from_row()
+
+  defp get(state, "visit_plans", id),
+    do: State.get(state, "visit_plans", id) |> VisitPlan.from_row()
+
+  defp get(state, kind, id), do: State.get(state, kind, id)
+
+  defp put(state, "ship_routes", id, value),
+    do:
+      State.put(state, "ship_routes", id, value |> RouteHeader.from_row() |> RouteHeader.to_row())
+
+  defp put(state, "route_stops", id, value),
+    do: State.put(state, "route_stops", id, value |> RouteStop.from_row() |> RouteStop.to_row())
+
+  defp put(state, "route_rules", id, value),
+    do:
+      State.put(state, "route_rules", id, value |> RouteTarget.from_row() |> RouteTarget.to_row())
+
+  defp put(state, "visit_plans", id, value),
+    do: State.put(state, "visit_plans", id, value |> VisitPlan.from_row() |> VisitPlan.to_row())
+
+  defp put(state, kind, id, row), do: State.put(state, kind, id, row)
 
   def load(state, ship_id) do
     %__MODULE__{
       header: get(state, "ship_routes", ship_id),
       stops: stops(state, ship_id),
       targets:
-        entities(state, "route_rules") |> Map.values() |> Enum.filter(&(&1["ship_id"] == ship_id))
+        entities(state, "route_rules")
+        |> Map.values()
+        |> Enum.filter(&(&1["ship_id"] == ship_id))
+        |> Enum.map(&RouteTarget.from_row/1)
     }
   end
 
@@ -29,10 +64,10 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
           route = plan.header
           stops = plan.stops
 
-          if route && route["status"] != "draft" &&
+          if route && route.status != "draft" &&
                (length(stops) < 2 or
                   Enum.any?(Enum.zip(stops, tl(stops) ++ [hd(stops)]), fn {a, b} ->
-                    is_nil(context.catalogue["routes"][a["port"] <> "|" <> b["port"]])
+                    is_nil(context.catalogue["routes"][a.port <> "|" <> b.port])
                   end)), do: {:error, :route_needs_stops}, else: result
 
         error ->
@@ -46,8 +81,8 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
     stops = stops(state, ship["id"])
 
     cond do
-      route && route["status"] != "draft" && route["phase"] != "arrival" &&
-          route["cursor"] == length(stops) - 1 ->
+      route && route.status != "draft" && route.phase != "arrival" &&
+          route.cursor == length(stops) - 1 ->
         {:error, :route_stop_committed}
 
       is_nil(route) and single_visit?(state, ship["id"]) ->
@@ -57,7 +92,7 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
         {:error, :route_stop_limit}
 
       is_nil(context.catalogue["ports"][port]) or
-          (stops != [] and List.last(stops)["port"] == port) ->
+          (stops != [] and List.last(stops).port == port) ->
         {:error, :route_port_invalid}
 
       true ->
@@ -76,16 +111,18 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
               "reason" => "Add stops and cargo targets, then start the route"
             }
 
-        stop = %{
-          "id" => context.id,
-          "ship_id" => ship["id"],
-          "company_id" => ship["company_id"],
-          "position" => length(stops),
-          "port" => port
-        }
+        route = RouteHeader.from_row(route)
 
-        {:ok,
-         state |> put("ship_routes", ship["id"], route) |> put("route_stops", stop["id"], stop),
+        stop =
+          RouteStop.from_row(%{
+            "id" => context.id,
+            "ship_id" => ship["id"],
+            "company_id" => ship["company_id"],
+            "position" => length(stops),
+            "port" => port
+          })
+
+        {:ok, state |> put("ship_routes", ship["id"], route) |> put("route_stops", stop.id, stop),
          %{}}
     end
   end
@@ -100,21 +137,21 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
     rules =
       Enum.reject(
         rules(state, p["stop"]),
-        &(&1["id"] == p["rule"] and operation == "update_rule")
+        &(&1.id == p["rule"] and operation == "update_rule")
       )
 
     cond do
       is_nil(route) or
           (operation == "update_rule" and
-             (is_nil(existing) or existing["ship_id"] != ship["id"] or
-                existing["stop_id"] != p["stop"])) ->
+             (is_nil(existing) or existing.ship_id != ship["id"] or
+                existing.stop_id != p["stop"])) ->
         {:error, :route_edit_draft}
 
-      is_nil(stop) or stop["ship_id"] != ship["id"] ->
+      is_nil(stop) or stop.ship_id != ship["id"] ->
         {:error, :route_port_invalid}
 
       is_nil(good) or good["manual"] != true or not CargoRules.compatible_class?(ship, good) or
-          is_nil(get(state, "markets", stop["port"] <> "|" <> p["good"])) ->
+          is_nil(get(state, "markets", stop.port <> "|" <> p["good"])) ->
         {:error, :instruction_cargo_invalid}
 
       p["side"] not in ["buy", "sell"] or
@@ -130,7 +167,7 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
         {:error, :instruction_budget_invalid}
 
       length(rules) >= 20 or
-          Enum.any?(rules, &(&1["side"] == p["side"] and &1["good"] == p["good"])) ->
+          Enum.any?(rules, &(&1.side == p["side"] and &1.good == p["good"])) ->
         {:error, :route_duplicate_rule}
 
       true ->
@@ -139,14 +176,15 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
           |> Map.merge(%{
             "quantity_mode" => Map.get(p, "quantity_mode", "fixed"),
             "quantity" => if(p["quantity_mode"] == "maximum", do: nil, else: p["quantity"]),
-            "id" => if(existing, do: existing["id"], else: context.id),
+            "id" => if(existing, do: existing.id, else: context.id),
             "ship_id" => ship["id"],
             "company_id" => ship["company_id"],
-            "stop_id" => stop["id"],
+            "stop_id" => stop.id,
             "budget" => if(p["side"] == "buy", do: p["budget"])
           })
+          |> RouteTarget.from_row()
 
-        {:ok, put(state, "route_rules", rule["id"], rule), %{}}
+        {:ok, put(state, "route_rules", rule.id, rule), %{}}
     end
   end
 
@@ -154,7 +192,7 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
     route = get(state, "ship_routes", ship["id"])
     rule = get(state, "route_rules", id)
 
-    if route && rule && rule["ship_id"] == ship["id"],
+    if route && rule && rule.ship_id == ship["id"],
       do: {:ok, delete(state, "route_rules", id), %{}},
       else: {:error, :route_edit_draft}
   end
@@ -164,43 +202,43 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
     stop = get(state, "route_stops", id)
 
     all = stops(state, ship["id"])
-    current = if route, do: Enum.at(all, route["cursor"])
+    current = if route, do: Enum.at(all, route.cursor)
 
     protected =
-      if route && route["status"] != "draft",
-        do: [route["cursor"], rem(route["cursor"] + 1, length(all))],
+      if route && route.status != "draft",
+        do: [route.cursor, rem(route.cursor + 1, length(all))],
         else: []
 
-    if route && stop && stop["ship_id"] == ship["id"] do
+    if route && stop && stop.ship_id == ship["id"] do
       state =
-        Enum.reduce(rules(state, id), state, &delete(&2, "route_rules", &1["id"]))
+        Enum.reduce(rules(state, id), state, &delete(&2, "route_rules", &1.id))
         |> delete("route_stops", id)
 
       state =
         stops(state, ship["id"])
         |> Enum.with_index()
         |> Enum.reduce(state, fn {s, n}, acc ->
-          put(acc, "route_stops", s["id"], %{s | "position" => n})
+          put(acc, "route_stops", s.id, %{s | position: n})
         end)
 
       state =
         cond do
-          route["status"] != "draft" and stop["position"] in protected ->
+          route.status != "draft" and stop.position in protected ->
             state
             |> clear_visit(ship["id"])
-            |> put("ship_routes", route["id"], %{
+            |> put("ship_routes", route.id, %{
               route
-              | "status" => "draft",
-                "cursor" => 0,
-                "phase" => "arrival",
-                "stop_after" => false,
-                "reason" => "Add stops and cargo targets, then start the route"
+              | status: "draft",
+                cursor: 0,
+                phase: "arrival",
+                stop_after: false,
+                reason: "Add stops and cargo targets, then start the route"
             })
 
-          current && route["status"] != "draft" ->
-            put(state, "ship_routes", route["id"], %{
+          current && route.status != "draft" ->
+            put(state, "ship_routes", route.id, %{
               route
-              | "cursor" => get(state, "route_stops", current["id"])["position"]
+              | cursor: get(state, "route_stops", current.id).position
             })
 
           true ->
@@ -216,7 +254,7 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
   defp edit(state, ship, %{"operation" => operation} = p, context) do
     route = get(state, "ship_routes", ship["id"])
     stops = stops(state, ship["id"])
-    current = Enum.at(stops, if(route, do: route["cursor"], else: 0))
+    current = Enum.at(stops, if(route, do: route.cursor, else: 0))
 
     cond do
       is_nil(route) ->
@@ -224,7 +262,7 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
 
       operation in ["start", "resume"] ->
         cond do
-          length(stops) < 2 or hd(stops)["port"] == List.last(stops)["port"] ->
+          length(stops) < 2 or hd(stops).port == List.last(stops).port ->
             {:error, :route_needs_stops}
 
           Map.get(p, "auto_depart", true) not in [true, false] ->
@@ -232,11 +270,11 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
 
           is_nil(current) or
               if(ship["status"] == "sailing", do: ship["destination"], else: ship["port"]) !=
-                current["port"] ->
+                current.port ->
             {:error, :route_start_port}
 
           Enum.any?(Enum.zip(stops, tl(stops) ++ [hd(stops)]), fn {a, b} ->
-            is_nil(context.catalogue["routes"][a["port"] <> "|" <> b["port"]])
+            is_nil(context.catalogue["routes"][a.port <> "|" <> b.port])
           end) ->
             {:error, :route_port_invalid}
 
@@ -244,18 +282,18 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
             {:ok,
              put(state, "ship_routes", ship["id"], %{
                route
-               | "status" => "running",
-                 "auto_depart" => Map.get(p, "auto_depart", true),
-                 "stop_after" => false,
-                 "reason" => "Following route"
+               | status: "running",
+                 auto_depart: Map.get(p, "auto_depart", true),
+                 stop_after: false,
+                 reason: "Following route"
              }), %{}}
         end
 
       operation == "pause" ->
         {:ok, pause(state, route, "Paused by player; committed handling continues"), %{}}
 
-      operation == "stop_after" and route["status"] == "running" ->
-        {:ok, put(state, "ship_routes", ship["id"], %{route | "stop_after" => true}), %{}}
+      operation == "stop_after" and route.status == "running" ->
+        {:ok, put(state, "ship_routes", ship["id"], %{route | stop_after: true}), %{}}
 
       operation == "delete" ->
         state = clear_visit(state, ship["id"])
@@ -281,14 +319,16 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
       entities(state, "route_stops")
       |> Map.values()
       |> Enum.filter(&(&1["ship_id"] == ship))
-      |> Enum.sort_by(& &1["position"])
+      |> Enum.map(&RouteStop.from_row/1)
+      |> Enum.sort_by(& &1.position)
 
   defp rules(state, stop),
     do:
       entities(state, "route_rules")
       |> Map.values()
       |> Enum.filter(&(&1["stop_id"] == stop))
-      |> Enum.sort_by(& &1["id"])
+      |> Enum.map(&RouteTarget.from_row/1)
+      |> Enum.sort_by(& &1.id)
 
   defp single_visit?(state, ship),
     do:
@@ -300,7 +340,7 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
   def executable?(state, ship) do
     case get(state, "ship_routes", ship) do
       nil -> true
-      route -> route["status"] == "running"
+      route -> route.status == "running"
     end
   end
 
@@ -312,26 +352,26 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
     end)
   end
 
-  defp prepare(state, %{"status" => "running"} = route, catalogue) do
-    ship = get(state, "ships", route["ship_id"])
-    stops = stops(state, route["ship_id"])
-    stop = Enum.at(stops, route["cursor"])
+  defp prepare(state, %RouteHeader{status: "running"} = route, catalogue) do
+    ship = get(state, "ships", route.ship_id)
+    stops = stops(state, route.ship_id)
+    stop = Enum.at(stops, route.cursor)
 
-    if ship && stop && ship["status"] == "docked" && ship["port"] == stop["port"] do
-      next = Enum.at(stops, rem(route["cursor"] + 1, length(stops)))
+    if ship && stop && ship["status"] == "docked" && ship["port"] == stop.port do
+      next = Enum.at(stops, rem(route.cursor + 1, length(stops)))
 
-      case route["phase"] do
+      case route.phase do
         "arrival" ->
           state = materialize(state, ship, stop, next, "sell", catalogue)
 
           state =
-            put(state, "ship_routes", route["id"], %{
+            put(state, "ship_routes", route.id, %{
               route
-              | "phase" => "selling",
-                "reason" => "Completing sale targets"
+              | phase: "selling",
+                reason: "Completing sale targets"
             })
 
-          prepare(state, get(state, "ship_routes", route["id"]), catalogue)
+          prepare(state, get(state, "ship_routes", route.id), catalogue)
 
         "selling" ->
           if pending?(state, ship["id"]) do
@@ -340,37 +380,38 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
             state = materialize(state, ship, stop, next, "buy", catalogue)
 
             state =
-              put(state, "ship_routes", route["id"], %{
+              put(state, "ship_routes", route.id, %{
                 route
-                | "phase" => "buying",
-                  "reason" => "Completing loading targets"
+                | phase: "buying",
+                  reason: "Completing loading targets"
               })
 
-            prepare(state, get(state, "ship_routes", route["id"]), catalogue)
+            prepare(state, get(state, "ship_routes", route.id), catalogue)
           end
 
         "buying" ->
-          if route["stop_after"] and not pending?(state, ship["id"]) do
-            pause(state, %{route | "stop_after" => false}, "Stopped after completing this visit")
+          if route.stop_after and not pending?(state, ship["id"]) do
+            pause(state, %{route | stop_after: false}, "Stopped after completing this visit")
           else
-            plan = %{
-              "id" => ship["id"] <> "|" <> stop["port"],
-              "ship_id" => ship["id"],
-              "company_id" => ship["company_id"],
-              "port" => stop["port"],
-              "onward" => next["port"],
-              "auto_depart" => route["auto_depart"] and not route["stop_after"],
-              "departure_wait" => nil
-            }
+            plan =
+              VisitPlan.from_row(%{
+                "id" => ship["id"] <> "|" <> stop.port,
+                "ship_id" => ship["id"],
+                "company_id" => ship["company_id"],
+                "port" => stop.port,
+                "onward" => next.port,
+                "auto_depart" => route.auto_depart and not route.stop_after,
+                "departure_wait" => nil
+              })
 
-            previous = get(state, "visit_plans", plan["id"])
+            previous = get(state, "visit_plans", plan.id)
 
             plan =
               if previous,
-                do: Map.put(plan, "departure_wait", previous["departure_wait"]),
+                do: %{plan | departure_wait: previous.departure_wait},
                 else: plan
 
-            put(state, "visit_plans", plan["id"], plan)
+            put(state, "visit_plans", plan.id, plan)
           end
       end
     else
@@ -387,12 +428,12 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
       end)
 
   defp materialize(state, ship, stop, next, side, catalogue) do
-    rules(state, stop["id"])
-    |> Enum.filter(&(&1["side"] == side))
+    rules(state, stop.id)
+    |> Enum.filter(&(&1.side == side))
     |> Enum.reduce(state, fn rule, acc ->
-      aboard = Enum.sum(for b <- ship["cargo"], b["good"] == rule["good"], do: b["quantity"])
+      aboard = Enum.sum(for b <- ship["cargo"], b["good"] == rule.good, do: b["quantity"])
 
-      item = catalogue["goods"][rule["good"]]
+      item = catalogue["goods"][rule.good]
       class = TijaraTides.Domain.ShipClass.all()[ship["class"]]
 
       space =
@@ -412,22 +453,22 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
       if quantity == 0 do
         acc
       else
-        id = "route:" <> rule["id"]
+        id = "route:" <> rule.id
 
         order = %{
           "id" => id,
           "ship_id" => ship["id"],
           "company_id" => ship["company_id"],
-          "port" => stop["port"],
-          "good" => rule["good"],
+          "port" => stop.port,
+          "good" => rule.good,
           "side" => side,
-          "quantity_mode" => rule["quantity_mode"] || "fixed",
+          "quantity_mode" => rule.quantity_mode || "fixed",
           "quantity" => quantity,
           "filled" => 0,
-          "limit" => rule["limit"],
-          "budget" => rule["budget"],
+          "limit" => rule.limit,
+          "budget" => rule.budget,
           "spent" => 0,
-          "onward" => if(side == "buy", do: next["port"]),
+          "onward" => if(side == "buy", do: next.port),
           "status" => "planned",
           "reason" => "Route visit target",
           "created_ms" => state.clock_ms
@@ -445,26 +486,26 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
       nil ->
         state
 
-      %{"status" => "draft"} ->
+      %RouteHeader{status: "draft"} ->
         state
 
       route ->
         stops = stops(state, ship_id)
-        index = rem(route["cursor"] + 1, length(stops))
+        index = rem(route.cursor + 1, length(stops))
 
-        if Enum.at(stops, index)["port"] == destination do
+        if Enum.at(stops, index).port == destination do
           state
           |> clear_visit(ship_id)
           |> put("ship_routes", ship_id, %{
             route
-            | "cursor" => index,
-              "visit" => route["visit"] + 1,
-              "phase" => "arrival"
+            | cursor: index,
+              visit: route.visit + 1,
+              phase: "arrival"
           })
         else
           pause(
             state,
-            %{route | "phase" => "arrival"},
+            %{route | phase: "arrival"},
             "Off route; return to the selected stop before resuming"
           )
           |> clear_visit(ship_id)
@@ -484,14 +525,14 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
 
   defp pause(state, route, reason) do
     state =
-      put(state, "ship_routes", route["id"], %{route | "status" => "paused", "reason" => reason})
+      put(state, "ship_routes", route.id, %{route | status: "paused", reason: reason})
 
-    company = get(state, "companies", route["company_id"])
+    company = get(state, "companies", route.company_id)
 
     Notices.notice(
       state,
       company["account_id"],
-      "route:" <> route["id"],
+      "route:" <> route.id,
       {"route.paused", %{"reason" => reason}}
     )
   end

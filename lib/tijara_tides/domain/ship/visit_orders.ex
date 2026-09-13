@@ -1,6 +1,18 @@
 defmodule TijaraTides.Domain.Ship.VisitOrders do
   @moduledoc "Private, single-visit cargo instructions; fills and progress settle in the same world transaction."
-  import TijaraTides.Domain.State
+  import TijaraTides.Domain.State, except: [get: 3, put: 4]
+  alias TijaraTides.Domain.State
+  alias TijaraTides.Domain.Ship.VisitPlan
+
+  defp get(state, "visit_plans", id),
+    do: State.get(state, "visit_plans", id) |> VisitPlan.from_row()
+
+  defp get(state, kind, id), do: State.get(state, kind, id)
+
+  defp put(state, "visit_plans", id, plan),
+    do: State.put(state, "visit_plans", id, plan |> VisitPlan.from_row() |> VisitPlan.to_row())
+
+  defp put(state, kind, id, row), do: State.put(state, kind, id, row)
   alias TijaraTides.Domain.{CargoRules, Notices}
 
   @open ["planned", "waiting"]
@@ -140,7 +152,7 @@ defmodule TijaraTides.Domain.Ship.VisitOrders do
 
     enabled =
       if is_nil(auto_depart),
-        do: previous != nil && previous["auto_depart"] == true,
+        do: previous != nil && previous.auto_depart == true,
         else: auto_depart
 
     put(state, "visit_plans", id, %{
@@ -159,7 +171,7 @@ defmodule TijaraTides.Domain.Ship.VisitOrders do
 
     visit_buys(state, ship_id, port)
     |> Enum.map(& &1["onward"])
-    |> Kernel.++(if(plan, do: [plan["onward"]], else: []))
+    |> Kernel.++(if(plan, do: [plan.onward], else: []))
     |> Enum.uniq()
   end
 
@@ -226,19 +238,19 @@ defmodule TijaraTides.Domain.Ship.VisitOrders do
   end
 
   defp departure_wait(state, plan, reason) do
-    if plan["departure_wait"] == reason do
+    if plan.departure_wait == reason do
       state
     else
-      ship = get(state, "ships", plan["ship_id"])
+      ship = get(state, "ships", plan.ship_id)
       company = get(state, "companies", ship["company_id"])
 
       state
-      |> put("visit_plans", plan["id"], Map.put(plan, "departure_wait", reason))
+      |> put("visit_plans", plan.id, %{plan | departure_wait: reason})
       |> Notices.notice(
         company["account_id"],
-        "auto-depart:" <> plan["id"],
+        "auto-depart:" <> plan.id,
         {"ship.departure_wait",
-         %{"ship" => ship["name"], "destination" => plan["onward"], "reason" => reason}}
+         %{"ship" => ship["name"], "destination" => plan.onward, "reason" => reason}}
       )
     end
   end

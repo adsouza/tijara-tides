@@ -656,3 +656,9 @@ It returns grant/release/retry decisions without writing ship rows. The service
 supplies trade eligibility and applies named Ship transitions in the same world
 transaction. Immediate trades use the same capacity model. No separate port
 process or eventually consistent grant store is introduced.
+
+Route execution reads typed `RouteHeader`, `RouteStop`, `RouteTarget` and
+`VisitPlan` children, with explicit field decoding and validation of phases,
+positions, quantity policies and departure flags. Row encoding remains at the
+world-state boundary so PostgreSQL and transport formats do not change. New or
+missing persisted fields fail explicitly rather than disappearing on a save.

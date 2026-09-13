@@ -32,6 +32,7 @@ defmodule TijaraTides.Domain.Ship do
           State.entities(state, "visit_plans")
           |> Map.values()
           |> Enum.filter(&(&1["ship_id"] == id))
+          |> Enum.map(&__MODULE__.VisitPlan.from_row/1)
     }
   end
 
@@ -262,7 +263,10 @@ defmodule TijaraTides.Domain.Ship do
   defp retime_voyage(ship, _clock, _speedup), do: ship
 
   defdelegate edit_route(state, account, params, context), to: __MODULE__.RoutePlan, as: :execute
-  defdelegate route_stops(state, ship), to: __MODULE__.RoutePlan, as: :stops
+
+  def route_stops(state, ship),
+    do: __MODULE__.RoutePlan.stops(state, ship) |> Enum.map(&__MODULE__.RouteStop.to_row/1)
+
   defdelegate automation_enabled?(state, ship), to: __MODULE__.RoutePlan, as: :executable?
   defdelegate prepare_visits(state, catalogue), to: __MODULE__.RoutePlan, as: :advance
   defdelegate route_departed(state, ship, destination), to: __MODULE__.RoutePlan, as: :departed

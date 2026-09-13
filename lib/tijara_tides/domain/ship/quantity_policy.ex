@@ -3,6 +3,12 @@ defmodule TijaraTides.Domain.Ship.QuantityPolicy do
   @enforce_keys [:mode]
   defstruct [:mode, :lots]
 
+  def from_target(%TijaraTides.Domain.Ship.RouteTarget{quantity_mode: "maximum"}),
+    do: %__MODULE__{mode: :maximum}
+
+  def from_target(%TijaraTides.Domain.Ship.RouteTarget{quantity: lots}),
+    do: %__MODULE__{mode: :fixed, lots: lots}
+
   def from_target(%{"quantity_mode" => "maximum"}), do: %__MODULE__{mode: :maximum}
   def from_target(target), do: %__MODULE__{mode: :fixed, lots: target["quantity"]}
 

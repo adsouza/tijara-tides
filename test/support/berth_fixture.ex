@@ -1,4 +1,4 @@
-defmodule TijaraTides.BerthFixture do
+defmodule TijaraTides.Domain.BerthFixture do
   @moduledoc "Explicit persisted berth fixtures, including intermediate states for isolated tests."
   def update(state, id, fields) do
     ship = TijaraTides.Domain.State.get(state, "ships", id)
