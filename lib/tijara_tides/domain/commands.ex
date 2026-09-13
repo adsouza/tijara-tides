@@ -26,8 +26,11 @@ defmodule TijaraTides.Domain.Commands do
              context.catalogue,
              account["company_id"]
            )
-           |> TijaraTides.Domain.Services.Exchange.reconcile()
-           |> TijaraTides.Domain.Services.Auctions.reconcile(context.catalogue), reply}
+           |> TijaraTides.Domain.Services.Exchange.reconcile(account["company_id"])
+           |> TijaraTides.Domain.Services.Auctions.reconcile(
+             context.catalogue,
+             account["company_id"]
+           ), reply}
 
         other ->
           other
@@ -45,7 +48,8 @@ defmodule TijaraTides.Domain.Commands do
           account,
           command,
           context.id,
-          catalogue
+          catalogue,
+          context.auction_seed
         )
 
       %{"action" => "auction_revise"} ->

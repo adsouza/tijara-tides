@@ -3,14 +3,19 @@ defmodule TijaraTides.Domain.Services.Auctions do
   import TijaraTides.Domain.ReadState, only: [get: 3, owned: 4]
   alias TijaraTides.Domain.{Auction, Warehouse, CompanyFinance, PortCargoMarket, Notices}
   alias TijaraTides.Domain.Ship.CargoBatch
+  alias TijaraTides.Domain.Warehouse.Claim
+  @max_lots TijaraTides.Domain.CargoRules.max_lots()
 
-  defp live?(s, id),
-    do:
-      is_binary(id) and get(s, "companies", id) != nil and
-        get(s, "companies", id)["bankruptcy_ms"] == nil
+  defp live?(s, id) do
+    case is_binary(id) && get(s, "companies", id) do
+      nil -> false
+      false -> false
+      company -> company["bankruptcy_ms"] == nil
+    end
+  end
 
   defp amount?(n), do: is_integer(n) and n in 1..1_000_000_000_000
-  defp quantity?(n), do: is_integer(n) and n in 1..10000
+  defp quantity?(n), do: is_integer(n) and n in 1..@max_lots
 
   defp reserve(s, company, n),
     do:
@@ -20,30 +25,32 @@ defmodule TijaraTides.Domain.Services.Auctions do
       ])
 
   def claim(a),
-    do: %{
-      id: a.id,
-      claim: :auction_id,
-      company_id: a.company_id,
-      warehouse_id: a.warehouse_id,
-      good: a.good,
-      quantity: a.quantity,
-      side: "sell",
-      closes_ms: a.closes_ms
-    }
+    do:
+      Claim.new(
+        id: a.id,
+        kind: :auction,
+        company_id: a.company_id,
+        warehouse_id: a.warehouse_id,
+        good: a.good,
+        quantity: a.quantity,
+        side: "sell",
+        closes_ms: a.closes_ms
+      )
 
   def bid_claim(a, b),
-    do: %{
-      id: b["id"],
-      claim: :bid_id,
-      company_id: b["company_id"],
-      warehouse_id: b["warehouse_id"],
-      good: a.good,
-      quantity: a.quantity,
-      side: "buy",
-      closes_ms: a.closes_ms
-    }
+    do:
+      Claim.new(
+        id: b["id"],
+        kind: :bid,
+        company_id: b["company_id"],
+        warehouse_id: b["warehouse_id"],
+        good: a.good,
+        quantity: a.quantity,
+        side: "buy",
+        closes_ms: a.closes_ms
+      )
 
-  def consign(s, account, cmd, id, cat, seed \\ "test") do
+  def consign(s, account, cmd, id, cat, seed) when is_binary(seed) and seed != "" do
     w = get(s, "warehouses", cmd["warehouse"])
     item = cat["goods"][cmd["good"]]
 
@@ -185,10 +192,26 @@ defmodule TijaraTides.Domain.Services.Auctions do
   # Runs before lease liquidation, including on a tick that crosses the closing time.
   def advance(s, cat), do: s |> reconcile(cat) |> seed(cat) |> Auction.prune()
 
-  def reconcile(s, cat) do
+  def reconcile(s, cat), do: sweep(s, cat, Auction.all(s))
+
+  @doc "Post-command sweep: the acting company's own lots and the ones it has bid on."
+  def reconcile(s, _cat, nil), do: s
+
+  def reconcile(s, cat, company_id) do
+    mine = Enum.map(owned(s, "auctions", "company_id", company_id), &Auction.from_row/1)
+
+    bid_on =
+      for b <- owned(s, "auction_bids", "company_id", company_id),
+          a = Auction.fetch(s, b["auction_id"]),
+          do: a
+
+    sweep(s, cat, Enum.uniq_by(mine ++ bid_on, & &1.id))
+  end
+
+  defp sweep(s, cat, auctions) do
     s =
       Enum.reduce(
-        Auction.all(s) |> Enum.filter(&Auction.open?/1) |> Enum.sort_by(&{&1.closes_ms, &1.id}),
+        auctions |> Enum.filter(&Auction.open?/1) |> Enum.sort_by(&{&1.closes_ms, &1.id}),
         s,
         fn a, s ->
           cond do
@@ -224,7 +247,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
       |> Enum.group_by(&{&1.port, &1.good})
 
     supplier_lots = get_in(cat, ["auctions", "supplier_lots"]) || 5
-    true = is_integer(supplier_lots) and supplier_lots in 1..10000
+    true = is_integer(supplier_lots) and supplier_lots in 1..@max_lots
 
     Enum.reduce(Enum.sort(cat["ports"]), s, fn {port, _}, s ->
       Enum.reduce(luxury, s, fn {good, _item}, s ->
@@ -312,7 +335,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
         &{-&1["amount"], &1["priority_ms"], &1["priority_seq"], &1["id"]}
       )
 
-    if bids == [] do
+    if bids == [] or not suppliable?(s, a) do
+      # Supplier stock is listed, not held, so ordinary trading can drain it before the
+      # close. Settle as unsold rather than asking the market for cargo it no longer has.
+      s = Enum.reduce(eligible, s, &release_bid(&2, a, &1))
       s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
       Auction.save(s, %{a | status: "unsold"})
     else
@@ -379,13 +405,20 @@ defmodule TijaraTides.Domain.Services.Auctions do
               Notices.notice(
                 s,
                 get(s, "companies", company)["account_id"],
-                "auction:" <> a.id,
+                "auction:#{a.id}:#{company}",
                 {"auction.closed", %{"port" => a.port}}
               ),
             else: s
         end
       )
     end
+  end
+
+  defp suppliable?(_s, %{company_id: owner}) when not is_nil(owner), do: true
+
+  defp suppliable?(s, a) do
+    m = get(s, "markets", a.port <> "|" <> a.good)
+    m != nil and m["seller"] and m["stock"] >= a.quantity
   end
 
   defp reprice(s, batches, a, price) do

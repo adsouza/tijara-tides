@@ -37,6 +37,18 @@ defmodule TijaraTides.Domain.OrderBook do
 
   def priority(o), do: {o.priority_ms, o.priority_seq, o.id}
 
+  def claim(%__MODULE__{} = o),
+    do:
+      TijaraTides.Domain.Warehouse.Claim.new(
+        id: o.id,
+        kind: :order,
+        company_id: o.company_id,
+        warehouse_id: o.warehouse_id,
+        good: o.good,
+        quantity: o.quantity,
+        side: o.side
+      )
+
   def counterparts(state, incoming) do
     owned(state, "exchange_orders", "book_key", incoming.port <> "|" <> incoming.good)
     |> Enum.map(&from_row/1)

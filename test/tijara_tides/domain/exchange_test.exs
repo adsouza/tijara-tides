@@ -173,7 +173,11 @@ defmodule TijaraTides.Domain.ExchangeTest do
     assert OrderBook.fetch(s, "buy") == nil
     assert Game.get(s, "companies", "bco")["reserved"] == 0
     {:ok, s, _} = order(c, s, "b", "buy", 10, 100, "next")
-    s = Warehouse.release_order(s, "next") |> Exchange.reconcile()
+
+    s =
+      Warehouse.release_trade(s, OrderBook.claim(OrderBook.fetch(s, "next")))
+      |> Exchange.reconcile()
+
     assert OrderBook.fetch(s, "next") == nil
     assert Game.get(s, "companies", "bco")["reserved"] == 0
 

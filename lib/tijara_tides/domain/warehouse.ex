@@ -3,6 +3,7 @@ defmodule TijaraTides.Domain.Warehouse do
   import TijaraTides.Domain.State
   alias TijaraTides.Domain.{CompanyFinance, Ship, CargoRules, PortBerths}
   alias TijaraTides.Domain.Ship.CargoBatch
+  alias TijaraTides.Domain.Warehouse.Claim
   @day 86_400_000
   @terms [1, 3, 7]
   @storage_classes ["dry", "reefer", "liquid"]
@@ -818,11 +819,16 @@ defmodule TijaraTides.Domain.Warehouse do
     end
   end
 
+  defp fresh?(batch, clock), do: is_nil(batch.expires_ms) or batch.expires_ms > clock
+
+  defp fresh_stock(w, good, clock),
+    do: Enum.sum(for b <- w.cargo, b.good == good, fresh?(b, clock), do: b.quantity)
+
   @doc "Back an exchange order with exclusive stock or receiving space."
-  def back_order(state, order, catalogue) do
+  def back_order(state, %Claim{} = order, catalogue) do
     w = from_row(get(state, "warehouses", order.warehouse_id))
     item = catalogue["goods"][order.good]
-    stock = Enum.sum(for b <- w.cargo, b.good == order.good, do: b.quantity)
+    stock = fresh_stock(w, order.good, state.clock_ms)
 
     cond do
       state.clock_ms >= w.expires_ms ->
@@ -842,13 +848,13 @@ defmodule TijaraTides.Domain.Warehouse do
 
       true ->
         r = %Reservation{
-          id: trade_reservation_id(order),
+          id: Claim.reservation_id(order),
           warehouse_id: w.id,
           company_id: w.company_id,
           ship_id: nil,
-          order_id: if(Map.get(order, :claim, :order_id) == :order_id, do: order.id),
-          auction_id: if(Map.get(order, :claim) == :auction_id, do: order.id),
-          bid_id: if(Map.get(order, :claim) == :bid_id, do: order.id),
+          order_id: if(Claim.owner(order, :order), do: order.id),
+          auction_id: if(Claim.owner(order, :auction), do: order.id),
+          bid_id: if(Claim.owner(order, :bid), do: order.id),
           good: order.good,
           kind: if(order.side == "buy", do: "capacity", else: "stock"),
           quantity: order.quantity,
@@ -860,32 +866,29 @@ defmodule TijaraTides.Domain.Warehouse do
     end
   end
 
-  defp trade_reservation_id(%{claim: claim, id: id}), do: Atom.to_string(claim) <> ":" <> id
-  defp trade_reservation_id(order), do: "exchange:" <> order.id
+  def release_trade(state, %Claim{} = order),
+    do: delete(state, "warehouse_reservations", Claim.reservation_id(order))
 
-  def release_trade(state, order),
-    do: delete(state, "warehouse_reservations", trade_reservation_id(order))
-
-  def release_order(state, id), do: delete(state, "warehouse_reservations", "exchange:" <> id)
-
-  def order_backed?(state, order) do
+  def order_backed?(state, %Claim{} = order) do
     w = get(state, "warehouses", order.warehouse_id)
-    r = get(state, "warehouse_reservations", trade_reservation_id(order))
+    r = get(state, "warehouse_reservations", Claim.reservation_id(order))
 
     not is_nil(w) and
       (w["expires_ms"] > state.clock_ms or
-         (Map.get(order, :claim) in [:auction_id, :bid_id] and
-            w["expires_ms"] >= Map.get(order, :closes_ms, state.clock_ms))) and not is_nil(r) and
-      r["quantity"] >= order.quantity
+         (order.kind in [:auction, :bid] and
+            w["expires_ms"] >= (order.closes_ms || state.clock_ms))) and not is_nil(r) and
+      r["quantity"] >= order.quantity and
+      (order.side != "sell" or
+         fresh_stock(from_row(w), order.good, state.clock_ms) >= order.quantity)
   end
 
-  def exchange_ready?(state, order) do
+  def exchange_ready?(state, %Claim{} = order) do
     row = get(state, "warehouses", order.warehouse_id)
     order_backed?(state, order) && row["protected_ms"] <= state.clock_ms
   end
 
-  defp consume_order(state, order, n) do
-    row = get(state, "warehouse_reservations", trade_reservation_id(order))
+  defp consume_order(state, %Claim{} = order, n) do
+    row = get(state, "warehouse_reservations", Claim.reservation_id(order))
 
     if row["quantity"] == n,
       do: release_trade(state, order),
@@ -893,13 +896,15 @@ defmodule TijaraTides.Domain.Warehouse do
         put(state, "warehouse_reservations", row["id"], %{row | "quantity" => row["quantity"] - n})
   end
 
-  def exchange_out(state, order, n) do
+  def exchange_out(state, %Claim{} = order, n) do
     w = from_row(get(state, "warehouses", order.warehouse_id))
-    {state, cargo, remaining} = CargoBatch.take(state, w.cargo, n, order.good)
-    {state |> save(%{w | cargo: remaining}) |> consume_order(order, n), cargo}
+    # Leave spoiled batches in storage for its normal disposal/accounting phase.
+    {fresh, stale} = Enum.split_with(w.cargo, &fresh?(&1, state.clock_ms))
+    {state, cargo, remaining} = CargoBatch.take(state, fresh, n, order.good)
+    {state |> save(%{w | cargo: remaining ++ stale}) |> consume_order(order, n), cargo}
   end
 
-  def exchange_in(state, order, cargo, n) do
+  def exchange_in(state, %Claim{} = order, cargo, n) do
     w = from_row(get(state, "warehouses", order.warehouse_id))
 
     state

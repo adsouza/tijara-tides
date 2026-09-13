@@ -144,6 +144,27 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              )
 
     [resale] = GameServer.snapshot(a, c.server).private["consignments"]
+
+    assert {:ok, _} =
+             GameServer.command(
+               a,
+               "unsold-luxury",
+               %{
+                 "action" => "auction_consign",
+                 "warehouse" => aw,
+                 "good" => "whisky",
+                 "quantity" => 2,
+                 "price" => 1_000_000_000_000
+               },
+               c.server
+             )
+
+    unsold =
+      Enum.find(
+        GameServer.snapshot(a, c.server).private["consignments"],
+        &(&1["id"] != resale["id"])
+      )
+
     now = GameServer.snapshot(a, c.server).public["clock_ms"]
     advance(c.server, resale["opens_ms"] - now + 1)
 
@@ -197,6 +218,32 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
     assert restored.entities["auctions"] == before.entities["auctions"]
     assert restored.entities["warehouses"] == before.entities["warehouses"]
+
+    # Both sold and unsold consignments retain historical warehouse IDs after clearance.
+    assert Game.get(before, "auctions", resale["id"])["status"] == "sold"
+    assert Game.get(before, "auctions", unsold["id"])["status"] == "unsold"
+    target = Game.get(before, "warehouses", aw)["expires_ms"] + 43_200_000 + 10_000
+    advance(c.server, target - before.clock_ms)
+    after_clearance = :sys.get_state(c.server).game
+    assert after_clearance.clock_ms >= target
+    assert Game.get(after_clearance, "warehouses", aw) == nil
+
+    assert [["sold"], ["unsold"]] ==
+             Repo.query!(
+               "SELECT status FROM game_auctions WHERE world_id=$1 AND warehouse_id=$2 ORDER BY status",
+               [c.world_id, aw]
+             ).rows
+
+    assert [[0]] ==
+             Repo.query!("SELECT count(*) FROM game_warehouses WHERE world_id=$1 AND id=$2", [
+               c.world_id,
+               aw
+             ]).rows
+
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    assert {:ok, reloaded} = GameStore.reload(Repo, c.world_id, after_clearance)
+    assert Game.get(reloaded, "auctions", resale["id"])["warehouse_id"] == aw
+    assert Game.get(reloaded, "auctions", unsold["id"])["warehouse_id"] == aw
   end
 
   test "warehouse exchange fills persist atomically with escrow and anonymous depth", c do
@@ -3211,6 +3258,104 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              ).rows
 
     assert :ok == FinancialLedger.audit(Repo, world)
+  end
+
+  test "a closed auction bid outlives its lease and clearance still commits", c do
+    alias TijaraTides.Domain.Warehouse
+
+    :sys.replace_state(c.server, fn s ->
+      %{
+        s
+        | catalogue:
+            Map.put(s.catalogue, "auctions", %{"interval_ms" => 10_000, "window_ms" => 10_000}),
+          active: true
+      }
+    end)
+
+    {:ok, %{"session" => a}} = GameServer.redeem(c.code, c.server)
+    advance(c.server, 1)
+
+    listing =
+      Enum.find(GameServer.snapshot(a, c.server).public["auctions"], &(&1["good"] == "whisky"))
+
+    port = listing["port"]
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        a,
+        "Lapsing Co",
+        %{"action" => "company", "name" => "Lapsing Co", "port" => port, "package" => "general"},
+        c.server
+      )
+
+    used =
+      Map.get(
+        GameServer.snapshot(a, c.server).public["warehouse_utilization"],
+        port <> "|dry",
+        0
+      )
+
+    {:ok, _} =
+      GameServer.command(
+        a,
+        "lapsing-lease",
+        %{
+          "action" => "warehouse_lease",
+          "port" => port,
+          "storage" => "dry",
+          "blocks" => 1,
+          "days" => 1,
+          "price" => Warehouse.quote(used, "dry", 1, 1)
+        },
+        c.server
+      )
+
+    wid = hd(Map.keys(GameServer.snapshot(a, c.server).private["warehouses"]))
+    now = GameServer.snapshot(a, c.server).public["clock_ms"]
+    advance(c.server, listing["opens_ms"] - now + 1)
+
+    {:ok, _} =
+      GameServer.command(
+        a,
+        "lapsing-bid",
+        %{
+          "action" => "auction_bid",
+          "auction" => listing["id"],
+          "warehouse" => wid,
+          "price" => listing["reserve"]
+        },
+        c.server
+      )
+
+    game = :sys.get_state(c.server).game
+    advance(c.server, listing["closes_ms"] - game.clock_ms + 1000)
+
+    game = :sys.get_state(c.server).game
+    refute Game.get(game, "auctions", listing["id"])["status"] == "scheduled"
+    lease = Game.get(game, "warehouses", wid)
+
+    # The bid row is retained so its amount stays publishable; it still names the lease.
+    assert Enum.any?(Map.values(game.entities["auction_bids"]), &(&1["warehouse_id"] == wid))
+
+    # Past expiry and the twelve-hour grace, clearance deletes the lease the bid names.
+    target = lease["expires_ms"] + 43_200_000 + 10_000
+    advance(c.server, target - game.clock_ms)
+
+    game = :sys.get_state(c.server).game
+    assert game.clock_ms >= target, "clearance tick was rejected; the world stopped advancing"
+    assert Game.get(game, "warehouses", wid) == nil
+
+    assert [[0]] =
+             Repo.query!(
+               "SELECT count(*) FROM game_warehouses WHERE world_id=$1 AND id=$2",
+               [c.world_id, wid]
+             ).rows
+
+    assert [[1]] =
+             Repo.query!(
+               "SELECT count(*) FROM game_auction_bids WHERE world_id=$1 AND warehouse_id=$2",
+               [c.world_id, wid]
+             ).rows
   end
 
   defp advance(server, ms) do

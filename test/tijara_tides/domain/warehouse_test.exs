@@ -546,4 +546,72 @@ defmodule TijaraTides.Domain.WarehouseTest do
     assert Game.get(state, "markets", "Jakarta|lumber") == market
     assert Game.get(state, "ships", "company:1")["status"] == "loading"
   end
+
+  for kind <- [:order, :auction] do
+    test "#{kind} claims reject expired stock and transfer only fresh batches", c do
+      alias TijaraTides.Domain.Warehouse.Claim
+
+      state =
+        lease(c, c.state)
+        |> stock("lease", [{"lumber", 3, 1000}, {"lumber", 2, 2000}, {"lumber", 1, nil}])
+
+      state = %{state | clock_ms: 1000}
+      [stale, fresh, _] = Game.get(state, "warehouses", "lease")["cargo"]
+
+      claim =
+        Claim.new(
+          id: "fresh-sale",
+          kind: unquote(kind),
+          company_id: "company",
+          warehouse_id: "lease",
+          good: "lumber",
+          quantity: 4,
+          side: "sell"
+        )
+
+      assert {:error, :insufficient_cargo} = Warehouse.back_order(state, claim, c.catalogue)
+      claim = %{claim | quantity: 2}
+      {:ok, state} = Warehouse.back_order(state, claim, c.catalogue)
+      assert Warehouse.order_backed?(state, claim)
+      {state, [taken]} = Warehouse.exchange_out(state, claim, 1)
+      assert taken.expires_ms == 2000
+      assert taken.quantity == 1
+
+      assert Enum.any?(
+               state.new_lots,
+               &(&1["id"] == taken.lot_id and &1["parent_lot_id"] == fresh["lot_id"])
+             )
+
+      assert stale in Game.get(state, "warehouses", "lease")["cargo"]
+
+      assert Game.get(state, "warehouse_reservations", Claim.reservation_id(claim))["quantity"] ==
+               1
+
+      {state, rest} = Warehouse.exchange_out(state, %{claim | quantity: 1}, 1)
+      assert Enum.all?(rest, &(&1.expires_ms == 2000))
+      assert stale in Game.get(state, "warehouses", "lease")["cargo"]
+      assert Game.get(state, "warehouse_reservations", Claim.reservation_id(claim)) == nil
+    end
+  end
+
+  test "stock expiring after reservation no longer backs a sale", c do
+    alias TijaraTides.Domain.Warehouse.Claim
+    state = lease(c, c.state) |> stock("lease", [{"lumber", 2, 1000}, {"lumber", 1, nil}])
+
+    claim =
+      Claim.new(
+        id: "expiring-sale",
+        kind: :auction,
+        company_id: "company",
+        warehouse_id: "lease",
+        good: "lumber",
+        quantity: 2,
+        side: "sell",
+        closes_ms: 2000
+      )
+
+    {:ok, state} = Warehouse.back_order(state, claim, c.catalogue)
+    assert Warehouse.order_backed?(state, claim)
+    refute Warehouse.order_backed?(%{state | clock_ms: 1000}, claim)
+  end
 end

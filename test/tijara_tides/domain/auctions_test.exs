@@ -85,7 +85,8 @@ defmodule TijaraTides.Domain.AuctionsTest do
         c.a,
         %{"warehouse" => "aw", "good" => "whisky", "quantity" => n, "price" => 1000},
         "lot",
-        c.catalogue
+        c.catalogue,
+        "seed"
       )
 
     s
@@ -169,7 +170,8 @@ defmodule TijaraTides.Domain.AuctionsTest do
                c.a,
                %{"warehouse" => "aw", "good" => "whisky", "quantity" => 1, "price" => 100},
                "duplicate",
-               c.catalogue
+               c.catalogue,
+               "seed"
              )
   end
 
@@ -202,6 +204,16 @@ defmodule TijaraTides.Domain.AuctionsTest do
     assert Auction.fetch(s, "lot").winner_id == "bco"
     assert Auction.fetch(s, "lot").price == 2001
     assert Game.get(s, "companies", "cco")["reserved"] == 0
+    # The seller, winner and losing bidder must each retain their own notification.
+    for account <- [c.a, c.b, c.c] do
+      notices = TijaraTides.Domain.Visibility.private(s, account)["notices"]
+
+      assert Enum.count(
+               notices,
+               &(&1["code"] == "auction.closed" and &1["arguments"]["port"] == a.port)
+             ) == 1
+    end
+
     [a] = Enum.filter(Auction.public(s), &(&1["id"] == "lot"))
     assert a["amounts"] == [2001, 2001]
     assert Auction.private_bids(s, nil) == []
@@ -288,5 +300,55 @@ defmodule TijaraTides.Domain.AuctionsTest do
     s = Auctions.advance(%{s | clock_ms: a.closes_ms + 1000}, c.catalogue)
     assert Auction.fetch(s, "lot").status == "sold"
     assert Enum.sum(for b <- Game.get(s, "warehouses", "bw")["cargo"], do: b["quantity"]) == 3
+  end
+
+  test "supplier shortage closes unsold and releases every bidder's cash and space", c do
+    s = Auctions.advance(c.state, c.catalogue)
+    a = Enum.find(Auction.all(s), &(&1.company_id == nil and &1.good == "whisky"))
+    balances = Map.new(["bco", "cco"], &{&1, Game.get(s, "companies", &1)["cash"]})
+
+    s =
+      Enum.reduce([{c.b, "bw"}, {c.c, "cw"}], %{s | clock_ms: a.opens_ms}, fn {account, id}, s ->
+        w = Game.get(s, "warehouses", id)
+        s = State.put(s, "warehouses", id, %{w | "port" => a.port})
+
+        {:ok, s, _} =
+          Auctions.bid(
+            s,
+            account,
+            %{"auction" => a.id, "warehouse" => id, "price" => a.reserve + 100},
+            "bid-" <> id,
+            c.catalogue
+          )
+
+        s
+      end)
+
+    market = Game.get(s, "markets", a.port <> "|" <> a.good)
+
+    {s, _cargo} =
+      TijaraTides.Domain.PortCargoMarket.release_stock(
+        s,
+        a.port,
+        a.good,
+        market["stock"] - a.quantity + 1,
+        0,
+        c.catalogue["goods"][a.good]
+      )
+
+    s = Auctions.advance(%{s | clock_ms: a.closes_ms}, c.catalogue)
+    assert Auction.fetch(s, a.id).status == "unsold"
+    assert Auction.fetch(s, a.id).price == nil
+
+    for {company, warehouse} <- [{"bco", "bw"}, {"cco", "cw"}] do
+      assert Game.get(s, "companies", company)["reserved"] == 0
+      assert Game.get(s, "companies", company)["cash"] == balances[company]
+      assert Game.get(s, "warehouse_reservations", "bid_id:bid-" <> warehouse) == nil
+      assert Game.get(s, "warehouses", warehouse)["cargo"] == []
+    end
+
+    assert length(Auction.bids(s, a.id)) == 2
+    again = Auctions.advance(s, c.catalogue)
+    assert Game.entities(again, "companies") == Game.entities(s, "companies")
   end
 end

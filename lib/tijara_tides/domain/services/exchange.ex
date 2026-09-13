@@ -4,11 +4,11 @@ defmodule TijaraTides.Domain.Services.Exchange do
   alias TijaraTides.Domain.{OrderBook, Warehouse, CompanyFinance, PortCargoMarket, Notices}
   alias TijaraTides.Domain.Ship.CargoBatch
 
+  @max_lots TijaraTides.Domain.CargoRules.max_lots()
   @fill_budget 512
   @order_budget 512
 
   def place(state, account, cmd, id, catalogue) do
-    state = reconcile(state)
     company = get(state, "companies", account["company_id"])
     row = get(state, "warehouses", cmd["warehouse"])
     expires = cmd["expires_ms"]
@@ -24,7 +24,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
         {:error, :exchange_invalid}
 
       cmd["side"] not in ["buy", "sell"] or not is_integer(cmd["quantity"]) or
-        cmd["quantity"] not in 1..10000 or not is_integer(cmd["price"]) or
+        cmd["quantity"] not in 1..@max_lots or not is_integer(cmd["price"]) or
           cmd["price"] not in 1..1_000_000_000_000 ->
         {:error, :exchange_invalid}
 
@@ -70,7 +70,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
          (c["cash"] - c["reserved"] < cash or (c["unpaid"] > 0 and cash > existing_cash)) do
       {:error, :insufficient_cash}
     else
-      with {:ok, s} <- Warehouse.back_order(state, o, catalogue) do
+      with {:ok, s} <- Warehouse.back_order(state, OrderBook.claim(o), catalogue) do
         {:ok, if(o.side == "buy", do: reserve_cash(s, o.company_id, cash), else: s)}
       end
     end
@@ -84,7 +84,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
       ])
 
   defp unback(state, o) do
-    state = Warehouse.release_order(state, o.id)
+    state = Warehouse.release_trade(state, OrderBook.claim(o))
     if o.side == "buy", do: reserve_cash(state, o.company_id, -o.quantity * o.price), else: state
   end
 
@@ -110,7 +110,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
       is_nil(o) or o.company_id != account["company_id"] ->
         {:error, :exchange_invalid}
 
-      not is_integer(n) or n not in 1..10000 or not is_integer(price) or
+      not is_integer(n) or n not in 1..@max_lots or not is_integer(price) or
           price not in 1..1_000_000_000_000 ->
         {:error, :exchange_invalid}
 
@@ -143,12 +143,24 @@ defmodule TijaraTides.Domain.Services.Exchange do
     end
   end
 
-  def reconcile(state) do
-    Enum.reduce(OrderBook.orders(state), state, fn o, s ->
+  def reconcile(state), do: sweep(state, OrderBook.orders(state))
+
+  @doc "Post-command sweep: only the acting company's orders can have lost their backing."
+  def reconcile(state, nil), do: state
+
+  def reconcile(state, company_id),
+    do:
+      sweep(
+        state,
+        Enum.map(owned(state, "exchange_orders", "company_id", company_id), &OrderBook.from_row/1)
+      )
+
+  defp sweep(state, orders) do
+    Enum.reduce(orders, state, fn o, s ->
       company = get(s, "companies", o.company_id)
 
       if company["bankruptcy_ms"] != nil or (o.expires_ms != nil and o.expires_ms <= s.clock_ms) or
-           not Warehouse.order_backed?(s, o) do
+           not Warehouse.order_backed?(s, OrderBook.claim(o)) do
         s
         |> unback(o)
         |> OrderBook.remove(o.id)
@@ -203,7 +215,8 @@ defmodule TijaraTides.Domain.Services.Exchange do
 
       o ->
         peer =
-          OrderBook.counterparts(state, o) |> Enum.find(&Warehouse.exchange_ready?(state, &1))
+          OrderBook.counterparts(state, o)
+          |> Enum.find(&Warehouse.exchange_ready?(state, OrderBook.claim(&1)))
 
         npc = npc_offer(state, o, catalogue)
 
@@ -213,7 +226,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
                if(o.side == "buy", do: npc.price <= peer.price, else: npc.price >= peer.price))
 
         cond do
-          not Warehouse.order_backed?(state, o) ->
+          not Warehouse.order_backed?(state, OrderBook.claim(o)) ->
             {state, budget}
 
           use_npc ->
@@ -262,12 +275,12 @@ defmodule TijaraTides.Domain.Services.Exchange do
   end
 
   defp settle_pair(state, buy, sell, n, price) do
-    {state, cargo} = Warehouse.exchange_out(state, sell, n)
+    {state, cargo} = Warehouse.exchange_out(state, OrderBook.claim(sell), n)
     cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
     acquired = Enum.map(cargo, &CargoBatch.to_row(%{&1 | unit_cost: price}))
 
     state
-    |> Warehouse.exchange_in(buy, acquired, n)
+    |> Warehouse.exchange_in(OrderBook.claim(buy), acquired, n)
     |> buyer_cash(buy, n, price)
     |> seller_cash(sell, n, price, cost)
     |> OrderBook.fill(buy, n)
@@ -288,9 +301,9 @@ defmodule TijaraTides.Domain.Services.Exchange do
             catalogue["goods"][o.good]
           )
 
-        s |> Warehouse.exchange_in(o, cargo, n) |> buyer_cash(o, n, price)
+        s |> Warehouse.exchange_in(OrderBook.claim(o), cargo, n) |> buyer_cash(o, n, price)
       else
-        {s, cargo} = Warehouse.exchange_out(state, o, n)
+        {s, cargo} = Warehouse.exchange_out(state, OrderBook.claim(o), n)
         cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
 
         s
