@@ -8,6 +8,7 @@ defmodule TijaraTides.Domain.Visibility do
     ports = TijaraTides.Domain.PortBerths.load_all(state, catalogue)
 
     %{
+      "warehouse_utilization" => TijaraTides.Domain.Warehouse.pools(state),
       "clock_ms" => state.clock_ms,
       "revision" => state.revision,
       "ports" => catalogue["ports"],
@@ -36,6 +37,7 @@ defmodule TijaraTides.Domain.Visibility do
              "port",
              "destination",
              "status",
+             "voyage_path",
              "depart_ms",
              "arrive_ms",
              "berth_queued_ms",
@@ -62,6 +64,8 @@ defmodule TijaraTides.Domain.Visibility do
         |> Enum.map(fn row ->
           row |> Map.put("verified", row["used_session"] != nil) |> Map.delete("used_session")
         end),
+      "warehouses" =>
+        Map.new(owned(state, "warehouses", "company_id", account["company_id"]), &{&1["id"], &1}),
       "finance" => TijaraTides.Domain.CompanyFinance.summary(state, account),
       "guarantees" => TijaraTides.Domain.Guarantees.view(state, account),
       "company" => get(state, "companies", account["company_id"]),

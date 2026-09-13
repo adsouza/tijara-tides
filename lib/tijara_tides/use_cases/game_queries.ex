@@ -4,6 +4,120 @@ defmodule TijaraTides.UseCases.GameQueries do
   @moduledoc "Pure read-side planning projections. Reads never mutate domain state."
   alias TijaraTides.Domain.{Fleet, Trading, CargoRules, Visibility}
 
+  def warehouse_options(definitions, view, port, draft, ship) do
+    alias TijaraTides.Domain.Warehouse
+    catalogue = definitions.catalogue
+
+    good =
+      if(Map.has_key?(catalogue["goods"], draft["good"]), do: draft["good"]) ||
+        catalogue["goods"] |> Map.keys() |> Enum.sort() |> hd()
+
+    storage = get_in(catalogue, ["goods", good, "hold"])
+    blocks = draft["blocks"] || 1
+    days = draft["days"] || 1
+    used = Map.get(view.public["warehouse_utilization"] || %{}, port <> "|" <> (storage || ""), 0)
+    company = view.private && view.private["company"]
+
+    cash =
+      if company && company["unpaid"] == 0 && is_nil(company["bankruptcy_ms"]),
+        do: max(0, company["cash"] - company["reserved"]),
+        else: 0
+
+    leases =
+      ((view.private && view.private["warehouses"]) || %{})
+      |> Map.values()
+      |> Enum.filter(&(&1["port"] == port))
+      |> Enum.sort_by(& &1["id"])
+
+    now = view.public["clock_ms"]
+    handling = TijaraTides.Domain.PortCargoMarket.handling_rate(catalogue["ports"][port])
+    docked = ship && ship["status"] == "docked" && ship["port"] == port
+    space = docked && Fleet.capacity(ship, catalogue)
+    class = docked && definitions.classes[ship["class"]]
+
+    leases =
+      Enum.map(leases, fn row ->
+        w = Warehouse.from_row(row)
+        volume = Warehouse.volume(w, catalogue)
+        ready = docked && now >= w.protected_ms
+
+        goods =
+          if ready,
+            do:
+              catalogue["goods"]
+              |> Enum.filter(fn {_, item} ->
+                Warehouse.compatible?(w, item) and CargoRules.compatible_cargo?(ship, item)
+              end),
+            else: []
+
+        transfers =
+          Enum.map(goods, fn {id, item} ->
+            aboard = Enum.sum(for b <- ship["cargo"], b["good"] == id, do: b["quantity"])
+
+            stored =
+              Enum.sum(
+                for b <- w.cargo,
+                    b.good == id and (is_nil(b.expires_ms) or b.expires_ms > now),
+                    do: b.quantity
+              )
+
+            store =
+              if now < w.expires_ms,
+                do:
+                  min(aboard, div(w.blocks * Warehouse.block_litres() - volume, item["volume_l"])),
+                else: 0
+
+            collect =
+              min(
+                stored,
+                min(
+                  div(class["weight"] - space.weight, item["weight_kg"]),
+                  div(class["volume"] - space.volume, item["volume_l"])
+                )
+              )
+
+            %{
+              good: id,
+              stored: stored,
+              store: max(0, min(CargoRules.max_lots(), min(store, div(cash, max(1, handling))))),
+              collect:
+                max(
+                  0,
+                  min(
+                    min(CargoRules.max_lots(), collect),
+                    div(max(0, cash - Warehouse.cleaning_cost(ship, item)), max(1, handling))
+                  )
+                )
+            }
+          end)
+          |> Enum.filter(&(&1.store > 0 or &1.collect > 0 or &1.stored > 0))
+
+        %{
+          row: row,
+          volume: volume,
+          transfers: transfers,
+          free_blocks:
+            if(now >= w.protected_ms,
+              do: w.blocks - div(volume + Warehouse.block_litres() - 1, Warehouse.block_litres()),
+              else: 0
+            )
+        }
+      end)
+
+    %{
+      good: good,
+      blocks: blocks,
+      days: days,
+      used: used,
+      pool: Warehouse.pool(storage),
+      terms: Warehouse.terms(),
+      storage: storage,
+      price: Warehouse.quote(used, storage, blocks, days),
+      leases: leases,
+      cash: cash
+    }
+  end
+
   def route_editor(private, ship, catalogue) do
     route = Map.get(private["ship_routes"] || %{}, ship["id"])
 
@@ -77,10 +191,16 @@ defmodule TijaraTides.UseCases.GameQueries do
   def preview(game, catalogue, authenticated, id, destination) do
     with true <- is_binary(destination),
          {:ok, account} <- authenticated,
-         %{"company_id" => owner, "status" => "docked"} = ship <-
+         %{"company_id" => owner} = ship <-
            TijaraTides.Domain.ReadState.get(game, "ships", id),
          true <- owner == account["company_id"] do
-      case Fleet.voyage_quote(ship, destination, catalogue) do
+      quote =
+        if ship["status"] == "sailing",
+          do: Fleet.reroute_quote(ship, destination, game.clock_ms, catalogue),
+          else:
+            if(ship["status"] == "docked", do: Fleet.voyage_quote(ship, destination, catalogue))
+
+      case quote do
         nil ->
           nil
 
@@ -542,7 +662,7 @@ defmodule TijaraTides.UseCases.GameQueries do
     maximum =
       cond do
         side == "sell" ->
-          min(10_000, cargo_aboard(ship, good))
+          min(CargoRules.max_lots(), cargo_aboard(ship, good))
 
         company && quote && item ->
           class = Fleet.classes()[ship["class"]]

@@ -12,6 +12,7 @@ defmodule TijaraTides.Domain.Simulation do
     %{state | clock_ms: state.clock_ms + elapsed}
     |> TijaraTides.Domain.Services.FinancialSettlement.settle()
     |> Fleet.advance(elapsed)
+    |> TijaraTides.Domain.Warehouse.advance(catalogue)
     |> TijaraTides.Domain.Services.FinancialSettlement.settle()
     |> PortCargoMarket.advance(catalogue)
     |> TijaraTides.Domain.Services.BerthAllocation.advance(catalogue)

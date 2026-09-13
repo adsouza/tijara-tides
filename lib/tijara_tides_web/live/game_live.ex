@@ -25,6 +25,7 @@ defmodule TijaraTidesWeb.GameLive do
         page_title: gettext("Your shipping company"),
         definitions: Game.definitions(),
         selected_port: "Singapore",
+        warehouse_draft: %{},
         route_drafts: %{},
         destination_picker_open: false,
         report_open: false,
@@ -128,6 +129,27 @@ defmodule TijaraTidesWeb.GameLive do
        "own_page" => 0
      })
      |> load_reports()}
+  end
+
+  def handle_event("warehouse-draft", params, socket) do
+    {:noreply,
+     assign(socket, :warehouse_draft, %{
+       "good" => params["good"],
+       "blocks" => report_number(params["blocks"]),
+       "days" => report_number(params["days"])
+     })}
+  end
+
+  def handle_event("warehouse", params, socket) do
+    command =
+      params
+      |> Map.drop(["_target"])
+      |> Map.update("quantity", nil, &report_number/1)
+      |> Map.update("blocks", nil, &report_number/1)
+      |> Map.update("days", nil, &report_number/1)
+      |> Map.update("price", nil, &report_number/1)
+
+    run(socket, Map.reject(command, fn {_, v} -> is_nil(v) end))
   end
 
   def handle_event("port", %{"id" => id}, socket) do
@@ -560,7 +582,7 @@ defmodule TijaraTidesWeb.GameLive do
 
     socket =
       if is_binary(dest) && socket.assigns.definitions.catalogue["ports"][dest] &&
-           socket.assigns.ship do
+           socket.assigns.ship && socket.assigns.ship["status"] == "docked" do
         socket
         |> assign(selected_port: socket.assigns.ship["port"], port_market_side: "buy")
         |> push_event("workspace-panel", %{panel: 0})
@@ -573,7 +595,7 @@ defmodule TijaraTidesWeb.GameLive do
 
   def handle_event("sail", params, %{assigns: %{preview: %{"fuel" => fuel}}} = socket) do
     run(socket, %{
-      "action" => "sail",
+      "action" => if(socket.assigns.ship["status"] == "sailing", do: "reroute", else: "sail"),
       "ship" => socket.assigns.selected_ship,
       "destination" => socket.assigns.destination,
       "request_id" => params["request_id"] || socket.assigns.request_id,
@@ -617,14 +639,14 @@ defmodule TijaraTidesWeb.GameLive do
             else: socket
 
         socket =
-          if command["action"] in ["buy", "sell"],
+          if command["action"] in ["buy", "sell", "warehouse_transfer"],
             do: assign(socket, :handling_focus_ship, command["ship"]),
             else: socket
 
         socket = if result["code"], do: assign(socket, :invite_code, result["code"]), else: socket
 
         socket =
-          if command["action"] in ["buy", "sell"],
+          if command["action"] in ["buy", "sell", "warehouse_transfer"],
             do: assign(socket, trade_quantities: %{}, trade_edited: MapSet.new()),
             else: socket
 
@@ -791,8 +813,9 @@ defmodule TijaraTidesWeb.GameLive do
         else: socket
 
     preview =
-      if socket.assigns.destination not in [nil, ""] && ship && ship["status"] == "docked",
-        do: Game.preview(socket.assigns.token, ship["id"], socket.assigns.destination)
+      if socket.assigns.destination not in [nil, ""] && ship &&
+           ship["status"] in ["docked", "sailing"],
+         do: Game.preview(socket.assigns.token, ship["id"], socket.assigns.destination)
 
     socket =
       if ship && is_nil(socket.assigns.selected_ship),
@@ -1113,6 +1136,7 @@ defmodule TijaraTidesWeb.GameLive do
             </nav>
             <div class="workspace-panels">
               <TijaraTidesWeb.GameUI.PortsPanel.panel
+                warehouse_draft={@warehouse_draft}
                 definitions={@definitions}
                 destination={@destination}
                 port_market_side={@port_market_side}

@@ -678,3 +678,9 @@ eligibility combinations to verify capacity and FIFO ordering. Fixed seeds make
 failures reproducible; these complement database receipt/reload and reconciliation
 tests rather than replace them. Boundary tests prevent generic berth mutation
 from becoming public again and keep admission decisions in the port model.
+
+Warehouse leasing uses a typed `Domain.Warehouse` root with typed cargo batches.
+Only that module mutates warehouse rows. Transfer orchestration calls Ship and
+CompanyFinance operations, and records handling expense without changing cargo
+cost basis. Leases and cargo locations share the existing atomic world commit;
+read-side warehouse controls are projected through `UseCases.GameQueries`.

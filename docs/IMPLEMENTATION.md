@@ -10,7 +10,7 @@ leaderboards are also implemented. The approved design remains
 authoritative; the provisional tuning and deferred systems below describe the
 current implementation.
 
-Auctions, standing exchange orders, warehouses, escalating age-based maintenance
+Auctions, standing exchange orders, escalating age-based maintenance
 and player industry remain deferred. Next-port instructions are implemented;
 they execute ship-specific buy/sell actions on arrival rather than placing
 standing orders on a shared exchange.
@@ -411,3 +411,51 @@ account popup, new completion notices also produce system notifications while
 the app is connected. Reconnecting does not replay old notices. Browsers or
 embedded clients without Notification API support show an unavailable control;
 this is not a background push service for closed apps.
+
+## Warehouse leasing and manual transfers
+
+Ports now offer finite ordinary, refrigerated and liquid storage pools. Leases
+use 100 m³ blocks, 1/3/7 active-world-day terms and a progressive quadratic
+utilization quote. Empty leased space counts toward utilization. Initial pools
+are 1,000/250/500 blocks respectively, with base daily rates of $1/$3/$2 per
+block; these are provisional shared port defaults. Liquid leases are dedicated
+to one cargo type; ordinary and refrigerated leases share space within their
+storage type. The acceptance command checks the exact quoted total and capacity.
+
+Rent is paid from free cash into a prepaid asset and amortized over the term.
+Releasing unoccupied blocks refunds half their unused rent. Both prepaid rent
+and stored inventory enter capital-employed reporting and ledger reconciliation.
+The Ports warehouse disclosure offers leases, releases and transfers in either
+direction for the selected docked ship. Transfers require an available berth,
+charge handling (and liquid cleaning when collecting a different liquid), and
+hold the berth through physical handling. Busy berths currently produce an
+explicit retry message: automatic transfer queuing is deferred. Cargo changes
+location atomically at acceptance, preserving cost and expiry and splitting lot
+identities only for partial batches. Committed warehouse space is protected
+until handling finishes. Stored cargo remains private to its company.
+
+Expiry prevents new deposits and allows 12 active-world hours for collection.
+Perishable aging continues. Expiry and clearance notify the owner. Until auctions
+and exchange orders exist, remaining cargo goes directly to system clearance at
+50% of reference value, with grace rent deducted only from clearance proceeds.
+Bankrupt-company storage follows the same clearance fallback after committed
+handling finishes. All timings pause with the world. Auction stages, reservations,
+remote trading, automatic collection, renewal priority and automatic renewals,
+and port-specific warehouse tuning remain subsequent milestones.
+
+## Diversions underway
+
+Sailing ships can choose a new destination, including their departure port.
+The preview displays a dashed revised course, revised time remaining, additional
+fuel, released fuel and new canal charges. Confirmation leaves consumed fuel
+spent, replaces only the remaining fuel reservation and atomically commits
+funding and navigation. Insufficient funding leaves the old voyage intact.
+
+Routing joins the current position to its current sea-network edge, then finds
+the shortest path through the existing catalogue's sea segments. Diversion
+waypoints are relational ship children and survive reload; another diversion
+starts on that persisted path. Canal edges come from the same searoute dataset
+as the catalogue. Previously paid Panama/Suez fees remain spent and are not
+charged again during diversions of the same voyage. The normal next departure
+starts a fresh toll allowance. Port instructions stay at their original ports;
+a running repeating route is paused until explicitly resumed.

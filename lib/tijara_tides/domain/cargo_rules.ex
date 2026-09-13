@@ -16,6 +16,9 @@ defmodule TijaraTides.Domain.CargoRules do
 
   def handling_ms(quantity), do: max(1000, quantity * 500)
 
+  @doc "Lots one command may move, whether traded with a market or transferred to storage."
+  def max_lots, do: 10_000
+
   def freshness(batches, quantity, clock, elapsed) do
     {expiries, _} =
       Enum.reduce(batches, {[], max(0, quantity)}, fn batch, {expiries, left} ->

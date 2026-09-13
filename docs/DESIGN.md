@@ -1779,6 +1779,11 @@ quantities do not accumulate across visits. Existing qualifying cargo aboard
 still counts toward loading targets. Berth readiness and cooldown rules govern
 retries while waiting.
 
+A sailing ship offers a Reroute ship selector and a Confirm reroute button, with the revised course shown as a dashed teal line on the map.
+Choosing a destination keeps the user in Ships and does not commit a change.
+Returning to the departure port is supported. Confirmation pauses any running
+repeating route while retaining instructions at their original ports.
+
 Players can reroute ships underway. Before confirmation, show the revised route,
 arrival estimate, and additional fuel requirement. Consumed fuel remains spent.
 Recalculate remaining fuel costs from the ship's current position. Reuse its
@@ -2097,6 +2102,11 @@ retry when funds become available before expiry. Re-evaluate if the player
 changes renewal settings; no renewal may execute more than once. A quote above
 the cap remains unaccepted unless the player changes the cap or renews manually.
 This quote lock affects renewals only; new leases use their current market quote.
+The Ports column includes a collapsed Warehouses disclosure whose open state survives live updates.
+It shows volume blocks, term, full rent, occupied capacity, expiry, consolidated
+cargo, bounded Store/Collect quantities, and release controls. Storage terms
+remain behind a nested disclosure. Accepted transfers focus Ships in portrait.
+
 If not renewed:
 
 1. Cancel open buy orders using that capacity.

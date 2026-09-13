@@ -2018,3 +2018,102 @@ msgstr "إشعارات النظام غير متاحة أو محظورة"
 #, elixir-format
 msgid "Enable system notifications"
 msgstr "تفعيل إشعارات النظام"
+
+msgid "%{free} of %{total} blocks available in this storage pool."
+msgstr "تتوفر %{free} من أصل %{total} وحدة في مجموعة التخزين هذه."
+
+msgid "%{used} / %{total} m³"
+msgstr "%{used} / %{total} م³"
+
+msgid "Active-world days"
+msgstr "أيام العالم النشط"
+
+msgid "Blocks"
+msgstr "الوحدات"
+
+msgid "Blocks to release"
+msgstr "الوحدات المراد إخلاؤها"
+
+msgid "Cargo or handling is using that space."
+msgstr "هذه المساحة مشغولة ببضائع أو بعمليات مناولة."
+
+msgid "Collect"
+msgstr "تحميل من المستودع"
+
+msgid "Expired: collection only during the 12-hour grace period."
+msgstr "انتهى الإيجار: يسمح بالسحب فقط خلال مهلة السماح البالغة ١٢ ساعة."
+
+msgid "Lease"
+msgstr "استئجار"
+
+msgid "Lease 100 m³ blocks. Rent is paid upfront and expensed over the term. Cargo keeps its cost and expiry. Transfers require an available berth and incur handling fees."
+msgstr "استأجر وحدات بحجم ١٠٠ م³. يُدفع الإيجار مقدمًا ويُحتسب كمصروف على مدة العقد. تحتفظ البضائع بتكلفتها وصلاحيتها. تتطلب التحويلات رصيفًا متاحًا وتُفرض عليها رسوم مناولة."
+
+msgid "Lease expires in %{minutes} mins"
+msgstr "ينتهي الإيجار خلال %{minutes} دقيقة"
+
+msgid "Liquid storage"
+msgstr "تخزين السوائل"
+
+msgid "No berth is available for this transfer. Try again when a berth is free."
+msgstr "لا يتوفر رصيف لهذا التحويل. حاول مجددًا عندما يتوفر رصيف."
+
+msgid "Not enough warehouse capacity is available."
+msgstr "لا تتوفر سعة تخزين كافية."
+
+msgid "Ordinary storage"
+msgstr "تخزين عادي"
+
+msgid "Refrigerated storage"
+msgstr "تخزين مبرد"
+
+msgid "Release space"
+msgstr "إخلاء مساحة"
+
+msgid "Releasing empty capacity refunds half its unused rent. After expiry, collect cargo within 12 active-world hours. Remaining goods are cleared at half reference value and never for more than they cost; grace rent is capped at proceeds. Perishables continue aging. Liquid storage is dedicated to one cargo type."
+msgstr "يُسترد نصف الإيجار غير المستهلك عند إخلاء مساحة فارغة. بعد انتهاء العقد، اسحب البضائع خلال ١٢ ساعة من وقت العالم النشط. تُصفّى البضائع المتبقية بنصف القيمة المرجعية ودون تجاوز تكلفتها، ولا يتجاوز إيجار المهلة العائدات. تستمر صلاحية الأغذية في التناقص. يُخصص تخزين السوائل لنوع واحد من البضائع."
+
+msgid "Select your docked ship and a warehouse at the same port."
+msgstr "اختر سفينتك الراسية ومستودعًا في الميناء نفسه."
+
+msgid "Storage for cargo"
+msgstr "تخزين للبضائع"
+
+msgid "Storage terms"
+msgstr "شروط التخزين"
+
+msgid "Store"
+msgstr "إيداع في المستودع"
+
+msgid "This lease cannot receive cargo. Collect it during grace or lease new space."
+msgstr "لا يمكن لهذا العقد استقبال بضائع. اسحبها خلال المهلة أو استأجر مساحة جديدة."
+
+msgid "Wait for warehouse handling to finish."
+msgstr "انتظر انتهاء مناولة المستودع."
+
+msgid "Warehouses"
+msgstr "المستودعات"
+
+msgid "Your warehouse lease at %{port} expired. Collect its cargo within 12 active-world hours."
+msgstr "انتهى عقد مستودعك في %{port}. اسحب بضائعه خلال ١٢ ساعة من وقت العالم النشط."
+
+msgid "Warehouse cargo at %{port} was cleared. Net proceeds: %{refund}."
+msgstr "تمت تصفية بضائع المستودع في %{port}. صافي العائدات: %{refund}."
+
+msgid "Additional fuel or canal fees cannot be funded. The existing voyage is unchanged."
+msgstr "لا يمكن تمويل الوقود الإضافي أو رسوم القنوات. لم تتغير الرحلة الحالية."
+
+msgid "Additional fuel: %{extra} · released fuel: %{released}. Dashed teal shows the revised course. Port instructions stay at their original ports; repeating routes pause."
+msgstr "الوقود الإضافي: %{extra} · الوقود المحرر: %{released}. يوضح الخط الفيروزي المتقطع المسار المعدل. تبقى التعليمات مرتبطة بموانئها الأصلية وتتوقف المسارات المتكررة مؤقتًا."
+
+msgid "Choose a new destination"
+msgstr "اختر وجهة جديدة"
+
+msgid "Confirm reroute"
+msgstr "تأكيد تغيير المسار"
+
+msgid "Reroute ship"
+msgstr "تغيير مسار السفينة"
+
+msgid "The diversion estimate changed or the ship cannot reroute. Review the estimate and try again."
+msgstr "تغير تقدير الرحلة أو تعذر تغيير مسار السفينة. راجع التقدير وحاول مجددًا."

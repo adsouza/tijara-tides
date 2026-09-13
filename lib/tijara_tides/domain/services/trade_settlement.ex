@@ -2,7 +2,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   @moduledoc "Atomic manual trades across company cash, ship cargo and market liquidity, with journal postings."
   import TijaraTides.Domain.State
   import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2, voyage_quote: 3]
-  import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 1]
+  import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 1, max_lots: 0]
   import TijaraTides.Domain.PortCargoMarket, only: [quote: 4, handling_rate: 1]
   alias TijaraTides.Domain.{CompanyFinance, PortCargoMarket}
 
@@ -49,7 +49,8 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
          %{"manual" => true} = item <- catalogue["goods"][good],
          %{"merchant" => false} <- get(state, "markets", ship["port"] <> "|" <> good),
          true <-
-           is_integer(quantity) and quantity > 0 and quantity <= 10_000 and is_integer(limit) and
+           is_integer(quantity) and quantity > 0 and quantity <= max_lots() and
+             is_integer(limit) and
              limit >= 0 do
       market = get(state, "markets", ship["port"] <> "|" <> good)
       quote = quote(state, catalogue, ship["port"], good)

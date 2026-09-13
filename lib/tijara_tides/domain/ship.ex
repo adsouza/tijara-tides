@@ -8,7 +8,7 @@ defmodule TijaraTides.Domain.Ship do
 
   alias __MODULE__.CargoBatch
 
-  @fields ~w(id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
+  @fields ~w(voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
 
@@ -41,7 +41,7 @@ defmodule TijaraTides.Domain.Ship do
     |> Map.put("cargo", Enum.map(ship.cargo, &CargoBatch.to_row/1))
     |> Map.reject(fn {key, value} ->
       is_nil(value) and
-        key in ~w(berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)
+        key in ~w(voyage_path paid_canals berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)
     end)
     |> then(fn row ->
       if ship.voyage_speedup == nil, do: Map.delete(row, "voyage_speedup"), else: row
@@ -122,6 +122,11 @@ defmodule TijaraTides.Domain.Ship do
         pending_quantity: nil,
         pending_limit: nil,
         pending_destination: nil,
+        voyage_path: nil,
+        paid_canals:
+          Enum.reduce(estimate["route"]["passages"] || [], 0, fn p, n ->
+            Bitwise.bor(n, TijaraTides.Domain.Fleet.canal_bit(p))
+          end),
         destination: destination,
         depart_ms: now,
         arrive_ms: now + estimate["duration_ms"],
@@ -262,6 +267,8 @@ defmodule TijaraTides.Domain.Ship do
 
   defp retime_voyage(ship, _clock, _speedup), do: ship
 
+  defdelegate pause_diverted_route(state, id), to: __MODULE__.RoutePlan, as: :divert
+
   defdelegate edit_route(state, account, params, context), to: __MODULE__.RoutePlan, as: :execute
 
   def route_stops(state, ship),
@@ -353,6 +360,22 @@ defmodule TijaraTides.Domain.Ship do
   def depart(state, id, destination, estimate, speedup) do
     ship = State.get(state, "ships", id) |> from_row()
     store(state, begin_voyage(ship, destination, estimate, state.clock_ms, speedup))
+  end
+
+  def reroute(state, id, destination, quote, paid) do
+    ship = State.get(state, "ships", id) |> from_row()
+    unless ship.status == "sailing", do: raise(ArgumentError, "Only sailing ships can divert")
+
+    store(state, %{
+      ship
+      | destination: destination,
+        voyage_path: quote["route"]["coordinates"],
+        paid_canals: paid,
+        depart_ms: state.clock_ms,
+        arrive_ms: state.clock_ms + quote["duration_ms"],
+        fuel_total: quote["fuel"],
+        fuel_burned: 0
+    })
   end
 
   def advance_hull(state, id, elapsed, bankrupt, speedup, book_value) do

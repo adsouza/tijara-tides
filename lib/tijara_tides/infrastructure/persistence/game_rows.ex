@@ -1,6 +1,11 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "warehouses" =>
+      Enum.map(
+        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms),
+        &{&1, &1}
+      ),
     "reporting_accounts" => Enum.map(~w(id capital since_ms at_ms), &{&1, &1}),
     "financial_reports" =>
       Enum.map(
@@ -154,7 +159,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "ships" =>
       Enum.map(
-        ~w(berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+        ~w(paid_canals berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
         &{&1, &1}
       ) ++
         [
@@ -204,9 +209,17 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(accounts companies ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
+  @kinds ~w(accounts companies warehouses ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
 
   @children %{
+    "warehouses" =>
+      {"cargo", "game_warehouse_cargo_batches", "warehouse_id",
+       Enum.map(~w(lot_id quantity expires_ms good unit_cost), fn k ->
+         {k,
+          %{"quantity" => "quantity_lots", "good" => "good_id", "unit_cost" => "unit_cost_cents"}[
+            k
+          ] || k}
+       end)},
     "ships" =>
       {"cargo", "game_ship_cargo_batches", "ship_id",
        [
@@ -222,7 +235,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   }
   @optional %{
     "ships" =>
-      ~w(voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+      ~w(paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
     "invitations" => ["invitee"]
   }
 
@@ -244,10 +257,25 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       entities =
         Map.new(rows, &decode_row(kind, &1))
 
-      {kind, load_children(repo, world, kind, entities)}
+      {kind, load_children(repo, world, kind, entities) |> load_paths(repo, world, kind)}
     end)
     |> Map.reject(fn {_, rows} -> map_size(rows) == 0 end)
   end
+
+  defp load_paths(entities, repo, world, "ships") do
+    paths =
+      repo.query!(
+        "SELECT ship_id,longitude,latitude FROM game_ship_voyage_points WHERE world_id=$1 ORDER BY ship_id,position",
+        [world]
+      ).rows
+      |> Enum.group_by(&hd/1, fn [_, x, y] -> [x, y] end)
+
+    Map.new(entities, fn {id, row} ->
+      {id, if(paths[id], do: Map.put(row, "voyage_path", paths[id]), else: row)}
+    end)
+  end
+
+  defp load_paths(entities, _, _, _), do: entities
 
   def lookup(repo, world, kind, value, field \\ "id")
       when kind in ["sessions", "invitations", "email_requests"] and
@@ -423,6 +451,24 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       )
     end)
 
+    if kind == "ships" do
+      for {id, old, row} <- pending, (old && old["voyage_path"]) != row["voyage_path"] do
+        repo.query!("DELETE FROM game_ship_voyage_points WHERE world_id=$1 AND ship_id=$2", [
+          world,
+          id
+        ])
+
+        points = row["voyage_path"] || []
+
+        if points != [] do
+          repo.query!(
+            "INSERT INTO game_ship_voyage_points(world_id,ship_id,position,longitude,latitude) SELECT $1,$2,(ordinality-1)::integer,x,y FROM unnest($3::double precision[],$4::double precision[]) WITH ORDINALITY AS points(x,y,ordinality)",
+            [world, id, Enum.map(points, &hd/1), Enum.map(points, &List.last/1)]
+          )
+        end
+      end
+    end
+
     case @children[kind] do
       nil ->
         :ok
@@ -454,6 +500,15 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
         id
       end
 
+    # Cargo holdings are keyed by their owner's column, which @children already names, so a
+    # deleted owner takes its holdings with it without restating the column here.
+    with {_, _, parent, _} <- @children[kind], true <- ids != [] do
+      repo.query!(
+        "DELETE FROM game_cargo_holdings WHERE world_id=$1 AND #{parent}=ANY($2)",
+        [world, ids]
+      )
+    end
+
     if ids != [],
       do: repo.query!("DELETE FROM game_#{kind} WHERE world_id=$1 AND id=ANY($2)", [world, ids])
 
@@ -467,6 +522,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
   defp validate_entity!(kind, id, _old, data) do
     keys = Enum.map(@specs[kind], &elem(&1, 0))
+    keys = if kind == "ships", do: ["voyage_path" | keys], else: keys
 
     keys =
       case @children[kind] do
@@ -514,12 +570,22 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
             raise ArgumentError, "Unknown cargo lot"
         end
 
+        warehouse = if parent == "warehouse_id", do: id
         ship = if parent == "ship_id", do: id
         market = if parent == "market_id", do: id
 
         repo.query!(
-          "INSERT INTO game_cargo_holdings(world_id,lot_id,ship_id,market_id,position,quantity_lots,unit_cost_cents) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(world_id,lot_id) DO UPDATE SET ship_id=EXCLUDED.ship_id,market_id=EXCLUDED.market_id,position=EXCLUDED.position,quantity_lots=EXCLUDED.quantity_lots,unit_cost_cents=EXCLUDED.unit_cost_cents",
-          [world, row["lot_id"], ship, market, index, row["quantity"], row["unit_cost"]]
+          "INSERT INTO game_cargo_holdings(world_id,lot_id,ship_id,market_id,position,quantity_lots,unit_cost_cents,warehouse_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(world_id,lot_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,ship_id=EXCLUDED.ship_id,market_id=EXCLUDED.market_id,position=EXCLUDED.position,quantity_lots=EXCLUDED.quantity_lots,unit_cost_cents=EXCLUDED.unit_cost_cents",
+          [
+            world,
+            row["lot_id"],
+            ship,
+            market,
+            index,
+            row["quantity"],
+            row["unit_cost"],
+            warehouse
+          ]
         )
       end
 

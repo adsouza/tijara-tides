@@ -2,8 +2,8 @@ defmodule TijaraTides.Domain.Reporting do
   @moduledoc "Fixed active-world periods, journal-derived results and integer capital-time integrals."
   import TijaraTides.Domain.State
   @quarter 7 * 86_400_000
-  @assets ~w(cash_available cash_reserved inventory fleet guarantee_escrow)
-  @expenses ~w(cost_of_goods handling_expense cleaning_expense fuel_expense crew_expense spoilage_expense canal_expense interest_expense depreciation_expense ship_disposal_expense guarantee_expense)
+  @assets ~w(prepaid_rent cash_available cash_reserved inventory fleet guarantee_escrow)
+  @expenses ~w(rent_expense cost_of_goods handling_expense cleaning_expense fuel_expense crew_expense spoilage_expense canal_expense interest_expense depreciation_expense ship_disposal_expense guarantee_expense)
   @fields ~w(revenue cargo_cost operating depreciation)
 
   def duration("quarter"), do: @quarter
@@ -24,6 +24,12 @@ defmodule TijaraTides.Domain.Reporting do
 
       capital =
         company["cash"] +
+          Enum.sum(
+            for {_, w} <- entities(state, "warehouses"),
+                w["company_id"] == id,
+                do:
+                  w["prepaid"] + Enum.sum(for b <- w["cargo"], do: b["quantity"] * b["unit_cost"])
+          ) +
           Enum.sum(
             for s <- ships,
                 do:

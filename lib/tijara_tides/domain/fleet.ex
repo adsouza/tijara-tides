@@ -145,27 +145,113 @@ defmodule TijaraTides.Domain.Fleet do
         nil
 
       route ->
-        class = classes()[ship["class"]]
-        space = capacity(ship, catalogue)
-        fuel = route["nautical_miles"] * (8 + div(space.weight * 8, class["weight"]))
-
-        duration =
-          max(
-            @minimum_voyage_ms,
-            div(route["nautical_miles"] * 3_600_000, class["speed"] * @voyage_speedup)
-          )
-
-        %{
-          "fuel" => fuel,
-          "canal_fees" => Enum.count(route["passages"], &(&1 in ["panama", "suez"])) * 25_000,
-          "duration_ms" => duration,
-          "crew_estimate" => div(duration * class["crew"], 60_000),
-          "route" => route
-        }
+        route_quote(ship, route, catalogue)
     end
   end
 
   def voyage_quote(_ship, _destination, _catalogue), do: nil
+
+  defp route_quote(ship, route, catalogue) do
+    class = classes()[ship["class"]]
+    space = capacity(ship, catalogue)
+    fuel = route["nautical_miles"] * (8 + div(space.weight * 8, class["weight"]))
+
+    duration =
+      max(
+        @minimum_voyage_ms,
+        div(route["nautical_miles"] * 3_600_000, class["speed"] * @voyage_speedup)
+      )
+
+    %{
+      "fuel" => fuel,
+      "canal_fees" => Enum.count(route["passages"], &(&1 in ["panama", "suez"])) * 25_000,
+      "duration_ms" => duration,
+      "crew_estimate" => div(duration * class["crew"], 60_000),
+      "route" => route
+    }
+  end
+
+  def reroute_quote(ship, destination, clock, catalogue) do
+    case TijaraTides.Domain.VoyageNavigation.reroute(ship, clock, destination, catalogue) do
+      nil ->
+        nil
+
+      route ->
+        quote = route_quote(ship, route, catalogue)
+        paid = paid_canals(ship, catalogue)
+
+        fees =
+          Enum.count(route["passages"], fn p -> Bitwise.band(paid, canal_bit(p)) == 0 end) *
+            25_000
+
+        delta = quote["fuel"] - (ship["fuel_total"] - ship["fuel_burned"])
+
+        quote
+        |> Map.put("canal_fees", fees)
+        |> Map.put("additional_fuel", max(0, delta))
+        |> Map.put("released_fuel", max(0, -delta))
+    end
+  end
+
+  def canal_bit("panama"), do: 1
+  def canal_bit("suez"), do: 2
+  def canal_bit(_), do: 0
+
+  def paid_canals(ship, catalogue) do
+    ship["paid_canals"] ||
+      Enum.reduce(
+        get_in(catalogue, ["routes", ship["port"] <> "|" <> ship["destination"], "passages"]) ||
+          [],
+        0,
+        fn p, n -> Bitwise.bor(n, canal_bit(p)) end
+      )
+  end
+
+  def reroute(state, account, id, destination, limit, catalogue) do
+    ship = get(state, "ships", id)
+    company = get(state, "companies", account["company_id"])
+
+    with true <-
+           ship != nil and company != nil and ship["company_id"] == company["id"] and
+             is_nil(company["bankruptcy_ms"]),
+         true <- ship["status"] == "sailing",
+         %{} = quote <- reroute_quote(ship, destination, state.clock_ms, catalogue),
+         true <- is_integer(limit) and limit >= quote["fuel"],
+         true <- quote["duration_ms"] <= 86_400_000 do
+      delta = quote["fuel"] - (ship["fuel_total"] - ship["fuel_burned"])
+
+      if company["cash"] - company["reserved"] < delta + quote["canal_fees"] or
+           (company["unpaid"] > 0 and delta + quote["canal_fees"] > 0) do
+        {:error, :reroute_funds}
+      else
+        paid =
+          Enum.reduce(quote["route"]["passages"], paid_canals(ship, catalogue), fn p, n ->
+            Bitwise.bor(n, canal_bit(p))
+          end)
+
+        state = TijaraTides.Domain.Ship.reroute(state, id, destination, quote, paid)
+
+        state =
+          CompanyFinance.post(
+            state,
+            company["id"],
+            "reroute",
+            [
+              {"cash_reserved", delta},
+              {"cash_available", -delta - quote["canal_fees"]},
+              {"canal_expense", quote["canal_fees"]}
+            ],
+            %{ship: id}
+          )
+
+        state = TijaraTides.Domain.Ship.pause_diverted_route(state, id)
+
+        {:ok, state, %{"arrive_ms" => state.clock_ms + quote["duration_ms"]}}
+      end
+    else
+      _ -> {:error, :reroute_invalid}
+    end
+  end
 
   def sail(state, account, id, destination, limit, catalogue) do
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])

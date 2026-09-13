@@ -26,6 +26,18 @@ defmodule TijaraTides.Domain.Commands do
     catalogue = context.catalogue
 
     case command do
+      %{"action" => "reroute", "ship" => id, "destination" => destination, "fuel_limit" => limit} ->
+        TijaraTides.Domain.Fleet.reroute(state, account, id, destination, limit, catalogue)
+
+      %{"action" => "warehouse_lease"} ->
+        TijaraTides.Domain.Warehouse.lease(state, account, command, context.id, catalogue)
+
+      %{"action" => "warehouse_release", "warehouse" => id, "blocks" => blocks} ->
+        TijaraTides.Domain.Warehouse.release(state, account, id, blocks, catalogue)
+
+      %{"action" => "warehouse_transfer"} ->
+        TijaraTides.Domain.Warehouse.transfer(state, account, command, catalogue)
+
       %{"action" => "cancel_berth_trade", "ship" => id} ->
         TijaraTides.Domain.Services.BerthAllocation.cancel(state, account, id)
 

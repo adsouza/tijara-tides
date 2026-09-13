@@ -523,6 +523,16 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
     end)
   end
 
+  def divert(state, ship_id) do
+    case get(state, "ship_routes", ship_id) do
+      %RouteHeader{status: "running"} = route ->
+        pause(state, route, "Paused by player; committed handling continues")
+
+      _ ->
+        state
+    end
+  end
+
   defp pause(state, route, reason) do
     state =
       put(state, "ship_routes", route.id, %{route | status: "paused", reason: reason})

@@ -237,6 +237,22 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     %{
       berth_order_pending:
         gettext("Cancel the queued trade before submitting another order or departing."),
+      warehouse_invalid: gettext("Select your docked ship and a warehouse at the same port."),
+      warehouse_capacity: gettext("Not enough warehouse capacity is available."),
+      warehouse_occupied: gettext("Cargo or handling is using that space."),
+      warehouse_handling: gettext("Wait for warehouse handling to finish."),
+      warehouse_expired:
+        gettext("This lease cannot receive cargo. Collect it during grace or lease new space."),
+      warehouse_berth_busy:
+        gettext("No berth is available for this transfer. Try again when a berth is free."),
+      reroute_funds:
+        gettext(
+          "Additional fuel or canal fees cannot be funded. The existing voyage is unchanged."
+        ),
+      reroute_invalid:
+        gettext(
+          "The diversion estimate changed or the ship cannot reroute. Review the estimate and try again."
+        ),
       berth_busy: gettext("Waiting for a berth"),
       loan_recast_unavailable:
         gettext(
@@ -390,7 +406,8 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       # A removed route must not break rendering an already committed voyage.
       # Keep the marker at its departure port until arrival if geometry is absent.
       coords =
-        get_in(catalogue, ["routes", ship["port"] <> "|" <> ship["destination"], "coordinates"]) ||
+        ship["voyage_path"] ||
+          get_in(catalogue, ["routes", ship["port"] <> "|" <> ship["destination"], "coordinates"]) ||
           List.duplicate(catalogue["ports"][ship["port"]]["coordinates"], 2)
 
       fraction =

@@ -88,7 +88,9 @@ for origin in ports:
    coords=[locations[origin]]+coords+[locations[dest]]
    routes[key]={'nautical_miles':max(1,round(route['properties']['length']+approach)),
     'coordinates':coords,'passages':route['properties'].get('traversed_passages',[])}
-result={'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
+from searoute.data.marnet_dict import edge_list
+canal_edges=[{'from':list(a),'to':list(b),'passage':v['passage']} for a,adj in edge_list.items() for b,v in adj.items() if v.get('passage') in ('panama','suez')]
+result={'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
 (ROOT/'priv/game').mkdir(parents=True,exist_ok=True)
 (ROOT/'priv/game/catalogue.json').write_text(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n')
 print(f'Generated {len(goods)} goods, {len(ports)} ports, {len(routes)} directed sea routes')

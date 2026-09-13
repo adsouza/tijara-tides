@@ -39,6 +39,171 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "rerouting persists the sea path and reconciles released reservations", c do
+    alias TijaraTides.Domain.Fleet
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "diversion-company",
+        %{
+          "action" => "company",
+          "name" => "Diversions",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "depart",
+               %{
+                 "action" => "sail",
+                 "ship" => ship,
+                 "destination" => "Singapore",
+                 "fuel_limit" => 1_000_000
+               },
+               c.server
+             )
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 7_000)
+    game = :sys.get_state(c.server).game
+
+    quote =
+      Fleet.reroute_quote(
+        game.entities["ships"][ship],
+        "Jakarta",
+        game.clock_ms,
+        :sys.get_state(c.server).catalogue
+      )
+
+    cmd = %{
+      "action" => "reroute",
+      "ship" => ship,
+      "destination" => "Jakarta",
+      "fuel_limit" => quote["fuel"]
+    }
+
+    assert {:ok, result} = GameServer.command(token, "divert", cmd, c.server)
+    assert {:ok, ^result} = GameServer.command(token, "divert", cmd, c.server)
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+    conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => token})
+    {:ok, view, _} = live(conn, "/play")
+    render_click(view, "ship", %{"id" => ship})
+    assert has_element?(view, "#reroute-selector")
+    render_change(view, "preview", %{"destination" => "Colombo"})
+    assert render(view) =~ "Confirm reroute"
+    assert render(view) =~ "Additional fuel"
+    before = :sys.get_state(c.server).game
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
+    assert restored.entities["ships"][ship] == before.entities["ships"][ship]
+    assert length(restored.entities["ships"][ship]["voyage_path"]) >= 2
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    advance(c.server, quote["duration_ms"] + 1_000)
+    assert GameServer.snapshot(token, c.server).private["ships"][ship]["port"] == "Jakarta"
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "warehouse transfers, rent and lot locations survive reload and reconcile", c do
+    alias TijaraTides.Domain.Warehouse
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "warehouse-company",
+        %{
+          "action" => "company",
+          "name" => "Stored cargo",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+
+    command = %{
+      "action" => "warehouse_lease",
+      "port" => "Jakarta",
+      "storage" => "dry",
+      "blocks" => 10,
+      "days" => 1,
+      "price" => Warehouse.quote(0, "dry", 10, 1)
+    }
+
+    assert {:ok, _} = GameServer.command(token, "lease", command, c.server)
+    assert {:ok, _} = GameServer.command(token, "lease", command, c.server)
+    [lease] = GameServer.snapshot(token, c.server).private["warehouses"] |> Map.values()
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "buy",
+               %{
+                 "action" => "buy",
+                 "ship" => ship,
+                 "good" => "lumber",
+                 "quantity" => 10,
+                 "limit" => 1_000_000,
+                 "destination" => "Singapore"
+               },
+               c.server
+             )
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 6_000)
+
+    transfer = %{
+      "action" => "warehouse_transfer",
+      "warehouse" => lease["id"],
+      "ship" => ship,
+      "side" => "store",
+      "good" => "lumber",
+      "quantity" => 4
+    }
+
+    assert {:ok, _} = GameServer.command(token, "store", transfer, c.server)
+    before = :sys.get_state(c.server).game
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
+    assert restored.entities["warehouses"] == before.entities["warehouses"]
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+
+    assert [[4]] =
+             Repo.query!(
+               "SELECT sum(quantity_lots)::bigint FROM game_cargo_holdings WHERE world_id=$1 AND warehouse_id=$2",
+               [c.world_id, lease["id"]]
+             ).rows
+
+    advance(c.server, 3_000)
+
+    assert {:ok, _} =
+             GameServer.command(token, "collect", %{transfer | "side" => "collect"}, c.server)
+
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    advance(c.server, 3_000)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "release",
+               %{"action" => "warehouse_release", "warehouse" => lease["id"], "blocks" => 10},
+               c.server
+             )
+
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    assert GameServer.snapshot(token, c.server).private["warehouses"] == %{}
+  end
+
   test "berth queue and deferred trade survive relational reload without disclosing cargo", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
 

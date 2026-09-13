@@ -34,6 +34,16 @@ defmodule TijaraTides.Localization.Notifications do
 
   def render(notice, _goods), do: notice["text"] || ""
 
+  defp message("warehouse.expired", args),
+    do:
+      gettext(
+        "Your warehouse lease at %{port} expired. Collect its cargo within 12 active-world hours.",
+        args
+      )
+
+  defp message("warehouse.cleared", args),
+    do: gettext("Warehouse cargo at %{port} was cleared. Net proceeds: %{refund}.", args)
+
   defp message("ship.loaded", args), do: gettext("%{ship} finished loading at %{port}.", args)
   defp message("ship.unloaded", args), do: gettext("%{ship} finished unloading at %{port}.", args)
 

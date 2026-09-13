@@ -69,7 +69,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
     refute statement =~ "ON CONFLICT"
   end
 
-  test "deleting many rows of one kind issues one statement" do
+  test "deleting many rows of one kind issues one statement per table" do
     before = world(50, 0)
 
     changed =
@@ -78,8 +78,11 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
     GameRows.write(CountingRepo, "world", before, changed)
     written = sql()
 
-    assert length(written) == 1
-    assert hd(written) =~ "DELETE FROM game_ships"
+    # Owned cargo holdings are cleared before the rows they reference, both batched: the
+    # count tracks tables touched, never the fifty rows.
+    assert length(written) == 2
+    assert Enum.any?(written, &(&1 =~ "DELETE FROM game_cargo_holdings WHERE world_id=$1"))
+    assert Enum.any?(written, &(&1 =~ "DELETE FROM game_ships"))
   end
 
   test "rows that already exist are still written before new ones" do

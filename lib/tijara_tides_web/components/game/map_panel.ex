@@ -4,6 +4,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
   import TijaraTidesWeb.GameUI.Presentation
   alias TijaraTidesWeb.WorldMap
 
+  attr :preview, :any, default: nil
   attr :definitions, :any, required: true
   attr :inspected_ship, :any, required: true
   attr :map_filters_open, :any, required: true
@@ -123,11 +124,21 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
           fill="none"
           stroke="#1e293b"
         />
+        <path
+          :if={@preview && @preview["additional_fuel"] != nil}
+          d={WorldMap.path(@preview["route"]["coordinates"])}
+          fill="none"
+          stroke="#2dd4bf"
+          stroke-width="2"
+          stroke-dasharray="5 3"
+          vector-effect="non-scaling-stroke"
+        />
         <g :for={{id, s} <- @map_ships} data-map-route={id}>
           <% route =
-            @definitions.catalogue["routes"][s["port"] <> "|" <> s["destination"]][
-              "coordinates"
-            ] %>
+            s["voyage_path"] ||
+              @definitions.catalogue["routes"][s["port"] <> "|" <> s["destination"]][
+                "coordinates"
+              ] %>
           <path
             vector-effect="non-scaling-stroke"
             d={WorldMap.path(route)}

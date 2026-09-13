@@ -29,6 +29,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
     <section id="ships-panel" class="workspace-panel" aria-label={gettext("Ships")}>
       <h2 class="panel-title">{gettext("Ships")}</h2>
       <TijaraTidesWeb.GameUI.MapPanel.panel
+        preview={@preview}
         definitions={@definitions}
         inspected_ship={@inspected_ship}
         map_filters_open={@map_filters_open}
@@ -407,6 +408,27 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 </tbody>
               </table>
             </div>
+            <form
+              :if={@ship["status"] == "sailing"}
+              id="reroute-selector"
+              phx-change="preview"
+              class="mt-3"
+            >
+              <label class="text-sm">
+                {gettext("Reroute ship")}
+                <select name="destination" class="block rounded bg-slate-800 p-2">
+                  <option value="">{gettext("Choose a new destination")}</option>
+                  <option
+                    :for={port <- Enum.sort(Map.keys(@definitions.catalogue["ports"]))}
+                    :if={port != @ship["destination"]}
+                    value={port}
+                    selected={port == @destination}
+                  >
+                    {l10n(port)}
+                  </option>
+                </select>
+              </label>
+            </form>
             <button
               :if={@ship["status"] == "docked"}
               id="destination-picker-trigger"
@@ -429,6 +451,13 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               ship={@ship}
               destination={@destination}
             />
+            <p :if={@preview && @ship["status"] == "sailing"} class="mt-2 text-sm text-teal-200">
+              {gettext(
+                "Additional fuel: %{extra} · released fuel: %{released}. Dashed teal shows the revised course. Port instructions stay at their original ports; repeating routes pause.",
+                extra: money(@preview["additional_fuel"]),
+                released: money(@preview["released_fuel"])
+              )}
+            </p>
             <div :if={@preview} class="mt-3 flex flex-wrap items-center gap-3">
               <span>
                 {gettext(
@@ -442,7 +471,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 phx-click="sail"
                 phx-value-request_id={@request_id}
                 class="rounded bg-teal-600 px-4 py-2"
-              >{gettext("Reserve fuel and sail")}</button>
+              >{if @ship["status"] == "sailing",
+                do: gettext("Confirm reroute"),
+                else: gettext("Reserve fuel and sail")}</button>
               <.voyage_freshness
                 id={"preview-freshness-" <> @ship["id"]}
                 estimates={@preview["freshness"]}

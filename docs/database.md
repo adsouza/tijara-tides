@@ -346,3 +346,17 @@ after handling finishes; minimum-price limits still wait. Fixed targets remain a
 
 Migration `20260911000004` permits null route purchase caps. Null means no
 additional spending cap; positive caps retain their existing enforcement.
+
+### Warehouse leases and holdings
+
+`game_warehouses` stores finite-volume leases and their prepaid rent. Warehouse
+cargo uses the same `game_cargo_holdings` location table as ship and market cargo;
+a check constraint permits exactly one location, and the warehouse FK is deferred
+so transfers commit atomically. `game_warehouse_cargo_batches` is a relational
+read view joining immutable lot identity. Partial transfers create child lots;
+whole transfers retain the lot ID. Inventory reconciliation includes both ship
+and warehouse holdings, and `prepaid_rent` reconciles against lease balances.
+
+The world transaction currently serializes capacity checks across all leases in
+a port/storage pool. Removing that world lock will require a pool-level lock or
+version before warehouse capacity can be safely allocated by multiple writers.
