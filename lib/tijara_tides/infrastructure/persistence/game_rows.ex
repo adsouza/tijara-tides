@@ -152,26 +152,31 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"arrears_since", "arrears_since"},
       {"bankruptcy_ms", "bankruptcy_ms"}
     ],
-    "ships" => [
-      {"id", "id"},
-      {"company_id", "company_id"},
-      {"name", "name"},
-      {"class", "class_id"},
-      {"book_value", "book_value_cents"},
-      {"built_ms", "built_ms"},
-      {"build_value", "build_value_cents"},
-      {"port", "port_id"},
-      {"status", "status"},
-      {"arrive_ms", "arrive_ms"},
-      {"destination", "destination_port_id"},
-      {"depart_ms", "depart_ms"},
-      {"fuel_total", "fuel_total_cents"},
-      {"fuel_burned", "fuel_burned_cents"},
-      {"crew_remainder", "crew_remainder"},
-      {"last_cost_ms", "last_cost_ms"},
-      {"last_liquid", "last_liquid_good_id"},
-      {"voyage_speedup", "voyage_speedup"}
-    ],
+    "ships" =>
+      Enum.map(
+        ~w(berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+        &{&1, &1}
+      ) ++
+        [
+          {"id", "id"},
+          {"company_id", "company_id"},
+          {"name", "name"},
+          {"class", "class_id"},
+          {"book_value", "book_value_cents"},
+          {"built_ms", "built_ms"},
+          {"build_value", "build_value_cents"},
+          {"port", "port_id"},
+          {"status", "status"},
+          {"arrive_ms", "arrive_ms"},
+          {"destination", "destination_port_id"},
+          {"depart_ms", "depart_ms"},
+          {"fuel_total", "fuel_total_cents"},
+          {"fuel_burned", "fuel_burned_cents"},
+          {"crew_remainder", "crew_remainder"},
+          {"last_cost_ms", "last_cost_ms"},
+          {"last_liquid", "last_liquid_good_id"},
+          {"voyage_speedup", "voyage_speedup"}
+        ],
     "markets" => [
       {"port", "port_id"},
       {"good", "good_id"},
@@ -215,7 +220,11 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"batches", "game_market_stock_batches", "market_id",
        [{"lot_id", "lot_id"}, {"quantity", "quantity_lots"}, {"expires_ms", "expires_ms"}]}
   }
-  @optional %{"ships" => ["voyage_speedup"], "invitations" => ["invitee"]}
+  @optional %{
+    "ships" =>
+      ~w(voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+    "invitations" => ["invitee"]
+  }
 
   def load(repo, world, wall_ms \\ nil) do
     Map.new(@kinds, fn kind ->

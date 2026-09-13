@@ -3,11 +3,43 @@ defmodule TijaraTides.Domain.Visibility do
   import TijaraTides.Domain.State, only: [get: 3, entities: 2, owned: 4]
 
   def public(state, catalogue) do
+    # Group the fleet by port once. Asking PortBerths for each port's ships and each
+    # ship's queue position rescans and re-sorts the whole fleet every time, which is
+    # quadratic on a path that runs for every client refresh.
+    by_port =
+      entities(state, "ships")
+      |> Map.values()
+      |> Enum.filter(&(&1["status"] != "sailing"))
+      |> Enum.group_by(& &1["port"])
+
+    queues =
+      Map.new(by_port, fn {port, ships} ->
+        {port,
+         ships
+         |> Enum.filter(&(not is_nil(&1["berth_queued_ms"])))
+         |> Enum.sort_by(&{&1["berth_queued_ms"], &1["id"]})
+         |> Enum.with_index(1)
+         |> Map.new(fn {ship, position} -> {ship["id"], position} end)}
+      end)
+
     %{
       "clock_ms" => state.clock_ms,
       "revision" => state.revision,
       "ports" => catalogue["ports"],
       "goods" => catalogue["goods"],
+      "berths" =>
+        Map.new(catalogue["ports"], fn {port, _} ->
+          {port,
+           %{
+             "capacity" => TijaraTides.Domain.PortBerths.capacity(catalogue, port),
+             "occupied" =>
+               Enum.count(
+                 Map.get(by_port, port, []),
+                 &TijaraTides.Domain.PortBerths.occupied?/1
+               ),
+             "queued" => map_size(Map.get(queues, port, %{}))
+           }}
+        end),
       "companies" =>
         Map.new(entities(state, "companies"), fn {id, c} ->
           {id, Map.take(c, ["id", "name", "created_ms", "bankruptcy_ms"])}
@@ -24,8 +56,11 @@ defmodule TijaraTides.Domain.Visibility do
              "destination",
              "status",
              "depart_ms",
-             "arrive_ms"
-           ])}
+             "arrive_ms",
+             "berth_queued_ms",
+             "berth_granted_ms"
+           ])
+           |> Map.put("queue_position", get_in(queues, [s["port"], s["id"]]))}
         end)
     }
   end

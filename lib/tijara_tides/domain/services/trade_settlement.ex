@@ -7,6 +7,29 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   alias TijaraTides.Domain.{CompanyFinance, PortCargoMarket}
 
   def execute(state, account, %TijaraTides.Domain.Trade{} = trade, catalogue) do
+    result = check(state, account, trade, catalogue)
+
+    case result do
+      {:ok, changed, reply} ->
+        ship = get(state, "ships", trade.ship_id)
+
+        if TijaraTides.Domain.PortBerths.available?(state, ship, catalogue) do
+          changed =
+            TijaraTides.Domain.Ship.update_berth(changed, trade.ship_id, %{
+              berth_granted_ms: ship["berth_granted_ms"] || state.clock_ms
+            })
+
+          {:ok, changed, reply}
+        else
+          {:error, :berth_busy}
+        end
+
+      _ ->
+        result
+    end
+  end
+
+  def check(state, account, trade, catalogue) do
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
 
     trade(
@@ -206,7 +229,6 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
         cost = Enum.sum(Enum.map(sold, &(&1["quantity"] * &1["unit_cost"])))
 
         proceeds = quote["bid"] * quantity - handling
-        paid = min(company["unpaid"], max(0, proceeds))
 
         state =
           state
@@ -218,12 +240,11 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             company["id"],
             "sale",
             [
-              {"cash_available", proceeds - paid},
+              {"cash_available", proceeds},
               {"sales_revenue", -quote["bid"] * quantity},
               {"handling_expense", handling},
               {"cost_of_goods", cost},
-              {"inventory", -cost},
-              {"payables", paid}
+              {"inventory", -cost}
             ],
             %{ship: ship["id"], good: good}
           )

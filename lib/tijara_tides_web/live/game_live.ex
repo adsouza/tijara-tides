@@ -41,6 +41,7 @@ defmodule TijaraTidesWeb.GameLive do
         trade_quantities: %{},
         trade_edited: MapSet.new(),
         purchase_good: nil,
+        handling_focus_ship: nil,
         fleet_status: "all",
         port_market_side: "buy",
         trade_limits: %{},
@@ -527,6 +528,9 @@ defmodule TijaraTidesWeb.GameLive do
     )
   end
 
+  def handle_event("cancel-berth-trade", %{"id" => id}, socket),
+    do: run(socket, %{"action" => "cancel_berth_trade", "ship" => id})
+
   def handle_event("cancel-instruction", %{"id" => id}, socket) do
     run(socket, %{"action" => "cancel_instruction", "instruction" => id})
   end
@@ -612,6 +616,11 @@ defmodule TijaraTidesWeb.GameLive do
               ),
             else: socket
 
+        socket =
+          if command["action"] in ["buy", "sell"],
+            do: assign(socket, :handling_focus_ship, command["ship"]),
+            else: socket
+
         socket = if result["code"], do: assign(socket, :invite_code, result["code"]), else: socket
 
         socket =
@@ -622,7 +631,14 @@ defmodule TijaraTidesWeb.GameLive do
         {:noreply,
          socket
          |> assign(preview: nil, request_id: Game.request_id())
-         |> put_flash(:info, gettext("Done."))
+         |> put_flash(
+           :info,
+           if(result["queued"],
+             do:
+               gettext("Trade queued. Prices, stock and funds are checked again before handling."),
+             else: gettext("Done.")
+           )
+         )
          |> refresh()}
 
       {:error, reason} ->
@@ -661,6 +677,22 @@ defmodule TijaraTidesWeb.GameLive do
     end
   end
 
+  defp focus_trade_handling(socket, view) do
+    id = socket.assigns.handling_focus_ship
+    ship = if id && view.private, do: view.private["ships"][id]
+
+    cond do
+      ship &&
+          (ship["status"] in ["loading", "unloading"] or ship["pending_side"] in ["buy", "sell"]) ->
+        socket
+        |> assign(handling_focus_ship: nil)
+        |> push_event("workspace-panel", %{panel: 1, portrait_only: true})
+
+      true ->
+        assign(socket, :handling_focus_ship, nil)
+    end
+  end
+
   defp refresh(socket) do
     view = Game.snapshot(socket.assigns.token)
 
@@ -668,6 +700,43 @@ defmodule TijaraTidesWeb.GameLive do
       socket.assigns.preferred_locale || (view.private && view.private["account"]["locale"]) ||
         TijaraTides.Localization.locale()
     )
+
+    socket = focus_trade_handling(socket, view)
+
+    notices = if view.private, do: view.private["notices"] || [], else: []
+    previous = Map.get(socket.assigns, :system_notices)
+
+    socket =
+      if connected?(socket) and previous do
+        Enum.reduce(notices -- previous, socket, fn notice, acc ->
+          if notice["code"] in ["ship.loaded", "ship.unloaded"] do
+            push_event(acc, "system-notification", %{
+              title: gettext("Tijara Tides"),
+              body:
+                TijaraTides.Localization.Notifications.render(
+                  notice,
+                  socket.assigns.definitions.catalogue["goods"]
+                ),
+              tag:
+                Enum.join(
+                  [
+                    notice["account_id"],
+                    notice["code"],
+                    notice["arguments"]["ship"],
+                    notice["clock_ms"]
+                  ],
+                  ":"
+                )
+            })
+          else
+            acc
+          end
+        end)
+      else
+        socket
+      end
+
+    socket = assign(socket, :system_notices, notices)
 
     latest_notice = if view.private, do: List.first(view.private["notices"] || [])
 

@@ -39,6 +39,45 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "berth queue and deferred trade survive relational reload without disclosing cargo", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "berth-company",
+        %{
+          "action" => "company",
+          "name" => "Berth company",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    before = :sys.get_state(c.server).game
+    ship = company <> ":1"
+
+    changed =
+      TijaraTides.Domain.Ship.update_berth(before, ship, %{
+        berth_queued_ms: before.clock_ms,
+        pending_side: "buy",
+        pending_good: "lumber",
+        pending_quantity: 1,
+        pending_limit: 1_000_000,
+        pending_destination: "Singapore"
+      })
+
+    changed = TijaraTides.UseCases.CommitPreparation.prepare(before, changed)
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, changed)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, changed)
+    assert restored.entities["ships"][ship] == changed.entities["ships"][ship]
+    public = TijaraTides.Domain.Visibility.public(restored, :sys.get_state(c.server).catalogue)
+    assert public["ships"][ship]["queue_position"] == 1
+    refute Map.has_key?(public["ships"][ship], "pending_good")
+    refute Map.has_key?(public["ships"][ship], "cargo")
+  end
+
   test "language preference survives reload and does not require a company", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
 
@@ -2216,6 +2255,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "limit" => "30000"
     })
 
+    assert_push_event(view, "workspace-panel", %{panel: 1, portrait_only: true})
     assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["status"] == "loading"
     render_change(view, "fleet-status", %{"status" => "docked"})
     refute has_element?(view, ".fleet-list button[phx-value-id='#{ship["id"]}']")
@@ -2273,6 +2313,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "limit" => "30000"
     })
 
+    assert_push_event(view, "workspace-panel", %{panel: 1, portrait_only: true})
     assert has_element?(view, "#manifest-lumber td", "11")
     render_change(view, "market-good", %{"good" => "grain"})
     view |> element("#manifest-lumber button[phx-click=market-good]") |> render_click()
@@ -2386,6 +2427,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     render_change(view, "port", %{"id" => "Singapore"})
     refute has_element?(view, "td", "Appliances")
+    assert_push_event(view, "workspace-panel", %{panel: 1, portrait_only: true})
     after_sale = GameServer.snapshot(token, server)
     assert after_sale.private["ships"][ship["id"]]["cargo"] == []
     {:ok, spectator, _} = build_conn() |> live("/play")

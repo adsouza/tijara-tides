@@ -39,7 +39,7 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
           ship["status"] != "docked" ->
             departure_wait(state, plan, "Waiting for cargo handling to finish")
 
-          pending ->
+          pending or not is_nil(ship["pending_side"]) ->
             departure_wait(state, plan, "Waiting for cargo orders to be filled or cancelled")
 
           true ->
@@ -94,7 +94,8 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
   defp attempt(state, order, catalogue) do
     ship = get(state, "ships", order["ship_id"])
 
-    if ship && ship["status"] == "docked" && ship["port"] == order["port"] do
+    if ship && is_nil(ship["pending_side"]) && ship["status"] == "docked" &&
+         ship["port"] == order["port"] do
       company = get(state, "companies", order["company_id"])
       account = get(state, "accounts", company["account_id"])
       remaining = order["quantity"] - order["filled"]
@@ -135,6 +136,11 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
            else: result.(1)
 
       case first do
+        {:error, :berth_busy} ->
+          state
+          |> TijaraTides.Domain.Services.BerthAllocation.enqueue(ship["id"])
+          |> wait(order, "Waiting for a berth", catalogue)
+
         {:error, :capacity_exceeded} ->
           sales_pending =
             Enum.any?(entities(state, "ship_instructions"), fn {_, other} ->

@@ -18,7 +18,7 @@ defmodule TijaraTidesWeb.PortTraffic do
         case assigns.grouping do
           "company" -> ship["company_id"]
           "kind" -> ship["class"]
-          _ -> status(ship["status"])
+          _ -> status(ship)
         end
       end)
       |> Enum.map(fn {key, ships} ->
@@ -59,11 +59,18 @@ defmodule TijaraTidesWeb.PortTraffic do
       <p class="mt-2 text-sm text-slate-400">
         {gettext("Ships currently at %{value1}; vessels at sea are excluded.", value1: l10n(@port))}
       </p>
+      <p :if={@public["berths"]} class="mt-2 text-sm text-slate-300">
+        {gettext("Berths: %{used} / %{total} · Queued: %{queued}",
+          used: display_number(@public["berths"][@port]["occupied"]),
+          total: display_number(@public["berths"][@port]["capacity"]),
+          queued: display_number(@public["berths"][@port]["queued"])
+        )}
+      </p>
       <p :if={@total == 0} class="mt-3 text-slate-300">{gettext("No ships at this port.")}</p>
       <details
         :for={group <- @groups}
         id={group_id(@port, @grouping, group.key)}
-        open={@grouping == "status" and group.key in ["Loading", "Unloading"]}
+        open={@grouping == "status" and group.key in ["Queued", "Loading", "Unloading"]}
         phx-mounted={JS.ignore_attributes("open")}
         class="mt-3 rounded border border-slate-700 px-3 py-2"
       >
@@ -76,9 +83,12 @@ defmodule TijaraTidesWeb.PortTraffic do
               class="text-teal-200 underline underline-offset-2"
             >{ship["name"]}</button>
             <span class="text-slate-400"> · {if @grouping == "company",
-              do: l10n(status(ship["status"])),
+              do: l10n(status(ship)),
               else: company(@public, ship["company_id"])}</span>
-            <span :if={@grouping == "kind"} class="text-slate-400"> · {l10n(status(ship["status"]))}</span>
+            <span :if={@grouping == "kind"} class="text-slate-400"> · {l10n(status(ship))}</span>
+            <span :if={ship["queue_position"]}> · {gettext("Queue position: %{position}",
+              position: display_number(ship["queue_position"])
+            )}</span>
           </li>
         </ul>
       </details>
@@ -97,6 +107,14 @@ defmodule TijaraTidesWeb.PortTraffic do
 
   defp company(public, id),
     do: get_in(public, ["companies", id, "name"]) || gettext("Unknown company")
+
+  defp status(ship) when is_map(ship) do
+    cond do
+      ship["berth_queued_ms"] -> "Queued"
+      ship["status"] == "docked" and is_nil(ship["berth_granted_ms"]) -> "At anchorage"
+      true -> status(ship["status"])
+    end
+  end
 
   defp status("docked"), do: "Berthed"
   defp status("anchored"), do: "At anchorage"

@@ -37,7 +37,8 @@ defmodule TijaraTides.Domain.Fleet do
         company["account_id"] != account["id"] or company["bankruptcy_ms"] != nil ->
         {:error, :ship_not_owned}
 
-      ship["status"] != "docked" or ship["cargo"] != [] or committed ->
+      ship["status"] != "docked" or ship["cargo"] != [] or not is_nil(ship["pending_side"]) or
+          committed ->
         {:error, :ship_sale_unavailable}
 
       not is_integer(minimum) or minimum < 0 or
@@ -203,6 +204,9 @@ defmodule TijaraTides.Domain.Fleet do
           ship["company_id"] != account["company_id"] ->
         {:error, :departure_ship_unavailable}
 
+      not is_nil(ship["pending_side"]) ->
+        {:error, :berth_order_pending}
+
       ship["status"] != "docked" ->
         {:error,
          {:departure_busy, ship["status"],
@@ -269,6 +273,21 @@ defmodule TijaraTides.Domain.Fleet do
           @voyage_speedup,
           value.book
         )
+
+      state =
+        if row["status"] in ["loading", "unloading"] and row["arrive_ms"] <= now and
+             get_in(get(state, "ship_routes", id) || %{}, ["status"]) != "running" do
+          code = if row["status"] == "loading", do: "ship.loaded", else: "ship.unloaded"
+
+          TijaraTides.Domain.Notices.notice(
+            state,
+            company["account_id"],
+            "handling:" <> id <> ":" <> to_string(row["arrive_ms"]),
+            {code, %{"ship" => row["name"], "port" => row["port"]}}
+          )
+        else
+          state
+        end
 
       state
       |> CompanyFinance.ship_operations(company["id"], id, effects)

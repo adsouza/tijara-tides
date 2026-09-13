@@ -78,7 +78,8 @@ export const Workspace = {
     this.track.addEventListener("scroll", this.onScroll, {passive: true})
     this.resizeObserver = new ResizeObserver(() => this.selectPanel(this.activePanel))
     this.resizeObserver.observe(this.track)
-    this.handleEvent("workspace-panel", ({panel}) => {
+    this.handleEvent("workspace-panel", ({panel, portrait_only = false}) => {
+      if (portrait_only && !this.portrait()) return
       this.selectPanel(panel)
       this.el.querySelectorAll(".panel-content")[panel].scrollTop = 0
     })

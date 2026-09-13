@@ -2,7 +2,7 @@ defmodule TijaraTides.Domain.Commands do
   @moduledoc "Dispatch validated command shapes to the domain operation that owns their invariants."
   import TijaraTides.Domain.Account, only: [issue_invite: 3]
   import TijaraTides.Domain.Services.CompanyFormation, only: [create_company: 4]
-  alias TijaraTides.Domain.{Ship, Trade, Trading}
+  alias TijaraTides.Domain.{Ship, Trade}
   import TijaraTides.Domain.Fleet, only: [sail: 6]
 
   def execute(state, account, command, context, catalogue),
@@ -26,6 +26,9 @@ defmodule TijaraTides.Domain.Commands do
     catalogue = context.catalogue
 
     case command do
+      %{"action" => "cancel_berth_trade", "ship" => id} ->
+        TijaraTides.Domain.Services.BerthAllocation.cancel(state, account, id)
+
       %{"action" => "route"} ->
         Ship.edit_route(state, account, command, context)
 
@@ -86,7 +89,7 @@ defmodule TijaraTides.Domain.Commands do
         "limit" => limit
       }
       when action in ["buy", "sell"] ->
-        Trading.execute(
+        TijaraTides.Domain.Services.BerthAllocation.submit(
           state,
           account,
           %Trade{

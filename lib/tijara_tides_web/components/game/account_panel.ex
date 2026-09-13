@@ -38,6 +38,18 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
           >{gettext("Close ✕")}</button>
         </div>
         <Layouts.language_selector />
+        <div
+          id="system-notifications"
+          phx-hook="SystemNotifications"
+          class="mb-3 text-sm"
+          data-enabled={gettext("System notifications enabled")}
+          data-unavailable={gettext("System notifications unavailable or blocked")}
+          data-enable={gettext("Enable system notifications")}
+        >
+          <button type="button" class="rounded border px-3 py-1">{gettext(
+            "Enable system notifications"
+          )}</button>
+        </div>
         <p :if={is_nil(@view.private["account"]["email"])} class="text-sm text-amber-100">
           <%= if Application.get_env(:tijara_tides, :email_enabled, false) do %>
             {gettext(

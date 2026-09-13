@@ -235,6 +235,9 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
 
   def error_message(reason) do
     %{
+      berth_order_pending:
+        gettext("Cancel the queued trade before submitting another order or departing."),
+      berth_busy: gettext("Waiting for a berth"),
       loan_recast_unavailable:
         gettext(
           "Clear overdue bills before recasting. The loan must still have scheduled payments remaining."

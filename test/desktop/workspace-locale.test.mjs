@@ -28,7 +28,8 @@ for (const dir of ['ltr', 'rtl']) {
       querySelectorAll: selector => selector === '[data-panel]' ? buttons : panels,
       closest: () => null, addEventListener() {}, removeEventListener() {},
     }
-    const hook = {el, handleEvent() {}}
+    const handlers = {}
+    const hook = {el, handleEvent(name, callback) { handlers[name] = callback }}
     Workspace.mounted.call(hook)
     const sign = dir === 'rtl' ? -1 : 1
     assert.equal(track.scrollLeft, sign * 390)
@@ -42,6 +43,16 @@ for (const dir of ['ltr', 'rtl']) {
     assert.equal(hook.activePanel, dir === 'rtl' ? 2 : 0)
     hook.onKey({target: buttons[2], key: dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight', preventDefault() {}})
     assert.equal(hook.activePanel, 2)
+    hook.selectPanel(0)
+    handlers['workspace-panel']({panel: 1, portrait_only: true})
+    assert.equal(hook.activePanel, 1)
+    assert.equal(panels[1].scrollTop, 0)
+    globalThis.matchMedia = () => ({matches: false})
+    hook.selectPanel(0)
+    panels[1].scrollTop = 75
+    handlers['workspace-panel']({panel: 1, portrait_only: true})
+    assert.equal(hook.activePanel, 0)
+    assert.equal(panels[1].scrollTop, 75)
     Workspace.destroyed.call(hook)
   })
 }

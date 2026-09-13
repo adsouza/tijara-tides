@@ -196,7 +196,16 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               ]}
             >
               <strong>{s["name"]}</strong><p>
-                {l10n(@definitions.classes[s["class"]]["name"])} · {l10n(s["status"])}
+                {l10n(@definitions.classes[s["class"]]["name"])} ·
+                <%= if @view.public["ships"][id]["queue_position"] do %>
+                  <span class="text-amber-300">
+                    {gettext("Waiting for a berth")} · {gettext("Queue position: %{position}",
+                      position: display_number(@view.public["ships"][id]["queue_position"])
+                    )}
+                  </span>
+                <% else %>
+                  {l10n(s["status"])}
+                <% end %>
               </p><p>
                 {l10n(s["port"])}<span :if={s["destination"]}>{sailing_arrow()} {l10n(
                   s["destination"]
@@ -210,6 +219,22 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             </button>
           </div>
           <div :if={@ship} class="mt-4 rounded-xl bg-slate-900 p-5">
+            <p :if={@view.public["ships"][@ship["id"]]["queue_position"]} class="mb-3 text-amber-300">
+              {gettext("Queue position: %{position}",
+                position: display_number(@view.public["ships"][@ship["id"]]["queue_position"])
+              )}
+            </p>
+            <div :if={@ship["pending_side"]} class="mb-3 text-sm">
+              <p>
+                {gettext("Trade queued. Prices, stock and funds are checked again before handling.")}
+              </p>
+              <button
+                type="button"
+                phx-click="cancel-berth-trade"
+                phx-value-id={@ship["id"]}
+                class="mt-2 rounded border px-3 py-1"
+              >{gettext("Cancel order")}</button>
+            </div>
             <% ship_value =
               GameQueries.ship_sale_value(
                 @ship,

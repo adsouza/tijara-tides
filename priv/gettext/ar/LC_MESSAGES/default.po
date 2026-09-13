@@ -247,9 +247,6 @@ msgstr "أسواق البضائع"
 msgid "Cargo sold at cost"
 msgstr "تكلفة البضائع المباعة"
 
-msgid "Choose a destination before buying"
-msgstr "اختر وجهة قبل الشراء"
-
 msgid "Choose a destination in the voyage controls before adding instructions."
 msgstr "اختر وجهة من أدوات الرحلة قبل إضافة التعليمات."
 
@@ -318,9 +315,6 @@ msgstr "تنخفض القيمة خلال 28 يوماً من وقت العالم 
 
 msgid "Depreciation"
 msgstr "الإهلاك"
-
-msgid "Destination"
-msgstr "الوجهة"
 
 msgid "Destination bids: %{value1}. Gross profit excludes handling and voyage costs; demand and prices may change before arrival."
 msgstr "أسعار الشراء في الوجهة: %{value1}. لا يشمل إجمالي الربح تكاليف المناولة والرحلة؛ وقد تتغير الأسعار والطلب قبل الوصول."
@@ -1987,3 +1981,43 @@ msgstr "لا توجد فرصة تجارية"
 
 msgid "No compatible trade opportunities right now. You can still choose a port."
 msgstr "لا توجد فرص تجارية مناسبة حاليًا. لا يزال بإمكانك اختيار ميناء."
+
+#, elixir-format
+msgid "Berths: %{used} / %{total} · Queued: %{queued}"
+msgstr "الأرصفة: %{used} / %{total} · في الانتظار: %{queued}"
+
+#, elixir-format
+msgid "Queue position: %{position}"
+msgstr "الموقع في الطابور: %{position}"
+
+#, elixir-format
+msgid "Trade queued. Prices, stock and funds are checked again before handling."
+msgstr "أُضيفت الصفقة إلى الطابور. تُراجع الأسعار والمخزون والأموال مجددًا قبل المناولة."
+
+#, elixir-format
+msgid "Cancel the queued trade before submitting another order or departing."
+msgstr "ألغِ الصفقة المنتظرة قبل تقديم طلب آخر أو الإبحار."
+
+#, elixir-format
+msgid "Waiting for a berth"
+msgstr "في انتظار رصيف"
+
+#, elixir-format
+msgid "%{ship} finished loading at %{port}."
+msgstr "أكملت %{ship} التحميل في %{port}."
+
+#, elixir-format
+msgid "%{ship} finished unloading at %{port}."
+msgstr "أكملت %{ship} التفريغ في %{port}."
+
+#, elixir-format
+msgid "System notifications enabled"
+msgstr "إشعارات النظام مفعّلة"
+
+#, elixir-format
+msgid "System notifications unavailable or blocked"
+msgstr "إشعارات النظام غير متاحة أو محظورة"
+
+#, elixir-format
+msgid "Enable system notifications"
+msgstr "تفعيل إشعارات النظام"

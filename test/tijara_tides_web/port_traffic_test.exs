@@ -32,7 +32,7 @@ defmodule TijaraTidesWeb.PortTrafficTest do
     status = render_component(&PortTraffic.traffic/1, public: public, port: "Singapore")
     assert status =~ "Port traffic · 4 ships"
 
-    for label <- ["Berthed", "Loading", "Queued", "Unloading"],
+    for label <- ["At anchorage", "Loading", "Queued", "Unloading"],
         do: assert(status =~ "#{label} · 1 ship")
 
     refute status =~ "Departed"

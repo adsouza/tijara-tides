@@ -28,6 +28,128 @@ defmodule TijaraTides.Domain.GameTest do
     {state, Game.get(state, "accounts", "account"), catalogue}
   end
 
+  test "handling completion produces one private notice per operation" do
+    {state, account, catalogue} = setup_game()
+
+    {:ok, state, _} =
+      Game.execute(
+        state,
+        account,
+        %{
+          "action" => "buy",
+          "ship" => "company:1",
+          "good" => "lumber",
+          "quantity" => 1,
+          "limit" => 1_000_000,
+          "destination" => "Singapore"
+        },
+        %{},
+        catalogue
+      )
+
+    automated =
+      TijaraTides.Domain.State.put(state, "ship_routes", "company:1", %{"status" => "running"})
+
+    automated = TijaraTides.Domain.Fleet.advance(%{automated | clock_ms: 1000}, 1000)
+
+    refute Enum.any?(
+             Map.values(Game.entities(automated, "notices")),
+             &(&1["code"] == "ship.loaded")
+           )
+
+    state = Game.advance(state, 1000, catalogue)
+
+    notices =
+      Map.values(Game.entities(state, "notices")) |> Enum.filter(&(&1["code"] == "ship.loaded"))
+
+    assert [%{"account_id" => "account", "arguments" => %{"port" => "Jakarta"}}] = notices
+    later = Game.advance(state, 1000, catalogue)
+
+    assert Enum.filter(
+             Map.values(Game.entities(later, "notices")),
+             &(&1["code"] == "ship.loaded")
+           ) == notices
+  end
+
+  for debt <- [1250, 1_000_000] do
+    test "sale settles operating bills once with debt #{debt}" do
+      alias TijaraTides.Domain.{State, CompanyFinance}
+      {state, account, catalogue} = setup_game()
+
+      {:ok, state, _} =
+        Game.execute(
+          state,
+          account,
+          %{
+            "action" => "buy",
+            "ship" => "company:1",
+            "good" => "lumber",
+            "quantity" => 1,
+            "limit" => 1_000_000,
+            "destination" => "Singapore"
+          },
+          %{},
+          catalogue
+        )
+
+      state = Game.advance(state, 1000, catalogue)
+      ship = Game.get(state, "ships", "company:1")
+      state = State.put(state, "ships", ship["id"], %{ship | "port" => "Singapore"})
+      market = Game.get(state, "markets", "Singapore|lumber")
+
+      state =
+        State.put(state, "markets", "Singapore|lumber", %{
+          market
+          | "buyer" => true,
+            "demand" => 100,
+            "budget" => 10_000_000
+        })
+
+      cash = Game.get(state, "companies", "company")["cash"]
+
+      state =
+        CompanyFinance.post(state, "company", "operations", [
+          {"cash_available", -cash},
+          {"crew_expense", cash}
+        ])
+
+      state =
+        CompanyFinance.ship_operations(state, "company", ship["id"], %{
+          crew: unquote(debt),
+          fuel: 0,
+          depreciation: 0,
+          spoilage: 0
+        })
+
+      {:ok, sold, reply} =
+        Game.execute(
+          state,
+          account,
+          %{
+            "action" => "sell",
+            "ship" => ship["id"],
+            "good" => "lumber",
+            "quantity" => 1,
+            "limit" => 0
+          },
+          %{},
+          catalogue
+        )
+
+      company = Game.get(sold, "companies", "company")
+      assert company["cash"] == max(0, reply["received"] - unquote(debt))
+      assert company["unpaid"] == max(0, unquote(debt) - reply["received"])
+
+      assert Enum.sum(
+               Enum.map(Map.values(Game.entities(sold, "operating_bills")), & &1["remaining"])
+             ) == company["unpaid"]
+
+      settled = TijaraTides.Domain.Services.FinancialSettlement.settle(sold)
+      assert Game.get(settled, "companies", "company")["cash"] == company["cash"]
+      assert Game.get(settled, "companies", "company")["unpaid"] == company["unpaid"]
+    end
+  end
+
   test "redemption retries cannot revive expired sessions or overwrite another account" do
     {state, _account, _catalogue} = setup_game()
 

@@ -14,7 +14,9 @@ defmodule TijaraTides.Domain.Simulation do
     |> Fleet.advance(elapsed)
     |> TijaraTides.Domain.Services.FinancialSettlement.settle()
     |> PortCargoMarket.advance(catalogue)
+    |> TijaraTides.Domain.Services.BerthAllocation.advance(catalogue)
     |> TijaraTides.Domain.Services.AutomatedVisits.advance(catalogue)
+    |> TijaraTides.Domain.Services.BerthAllocation.release_idle(catalogue)
     |> Account.expire_invitations()
   end
 end

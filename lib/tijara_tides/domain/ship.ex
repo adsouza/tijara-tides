@@ -8,7 +8,7 @@ defmodule TijaraTides.Domain.Ship do
 
   alias __MODULE__.CargoBatch
 
-  @fields ~w(id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup)a
+  @fields ~w(id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
 
@@ -38,6 +38,10 @@ defmodule TijaraTides.Domain.Ship do
   def to_row(%__MODULE__{} = ship) do
     Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(ship, &1)})
     |> Map.put("cargo", Enum.map(ship.cargo, &CargoBatch.to_row/1))
+    |> Map.reject(fn {key, value} ->
+      is_nil(value) and
+        key in ~w(berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)
+    end)
     |> then(fn row ->
       if ship.voyage_speedup == nil, do: Map.delete(row, "voyage_speedup"), else: row
     end)
@@ -110,6 +114,13 @@ defmodule TijaraTides.Domain.Ship do
     %{
       ship
       | status: "sailing",
+        berth_queued_ms: nil,
+        berth_granted_ms: nil,
+        pending_side: nil,
+        pending_good: nil,
+        pending_quantity: nil,
+        pending_limit: nil,
+        pending_destination: nil,
         destination: destination,
         depart_ms: now,
         arrive_ms: now + estimate["duration_ms"],
@@ -200,6 +211,11 @@ defmodule TijaraTides.Domain.Ship do
           | port: ship.destination || ship.port,
             destination: nil,
             status: "docked",
+            # An arrival queues from its arrival time and holds no berth yet. Finishing
+            # handling keeps the berth it was already admitted to, so the rest of a visit's
+            # orders run on that one admission rather than re-queueing after each order.
+            berth_queued_ms: if(ship.status == "sailing", do: end_ms, else: ship.berth_queued_ms),
+            berth_granted_ms: if(ship.status == "sailing", do: nil, else: ship.berth_granted_ms),
             arrive_ms: nil,
             depart_ms: nil
         }
@@ -270,6 +286,17 @@ defmodule TijaraTides.Domain.Ship do
 
   @automation ~w(route_rules route_stops ship_routes ship_instructions visit_plans)
   def cancel_automation(state, ship_id) do
+    state =
+      update_berth(state, ship_id, %{
+        berth_queued_ms: nil,
+        berth_granted_ms: nil,
+        pending_side: nil,
+        pending_good: nil,
+        pending_quantity: nil,
+        pending_limit: nil,
+        pending_destination: nil
+      })
+
     Enum.reduce(@automation, state, fn kind, state ->
       Enum.reduce(State.entities(state, kind), state, fn {id, row}, state ->
         if row["ship_id"] == ship_id, do: State.delete(state, kind, id), else: state
@@ -323,6 +350,18 @@ defmodule TijaraTides.Domain.Ship do
     ship = State.get(state, "ships", id) |> from_row()
     {next, effects} = advance(ship, state.clock_ms, elapsed, bankrupt, speedup, book_value)
     {store(state, next), effects}
+  end
+
+  def update_berth(state, id, changes) do
+    ship = from_world(state, id)
+
+    allowed =
+      ~w(berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
+
+    unless Enum.all?(Map.keys(changes), &(&1 in allowed)),
+      do: raise(ArgumentError, "Invalid berth fields")
+
+    store(state, struct!(ship, changes))
   end
 
   defp store(state, %__MODULE__{} = ship), do: State.put(state, "ships", ship.id, to_row(ship))

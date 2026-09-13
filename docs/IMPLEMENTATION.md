@@ -185,7 +185,7 @@ emailed token inside the app. Google sign-in remains deferred.
 
 ## Following milestones
 
-Standing order matching; berth queues; warehouse leases
+Standing order matching; warehouse leases
 and reservations; auctions and procurement contracts; age-based maintenance.
 Player-owned industry stays a later expansion under section 14.
 
@@ -370,3 +370,42 @@ formatting and plural forms are implemented. Account language preferences persis
 across web and embedded desktop sessions. New notifications store codes and
 arguments; existing text notices remain readable. See [localization](localization.md)
 for conventions and the remaining translation scope.
+
+## Finite berth handling and arrival queues
+
+Ports now have finite handling capacity: the provisional low/medium/high berth
+tiers map to 2/4/6 berths, overridable with `berth_count` in the port catalogue.
+Arrivals receive persisted FIFO tickets, ordered by arrival time and ship ID for
+simultaneous arrivals. Loading and unloading occupy a berth; idle ships release
+access and wait at anchorage at the existing reduced upkeep rate. No voyage fuel
+is consumed while waiting. Existing idle ships do not monopolize berths.
+
+A manual trade that is currently feasible but cannot obtain a berth becomes a
+persisted, cancellable ship order. It reserves neither cash nor stock. The full
+quantity, limit price, funds, capacity and onward voyage affordability are
+rechecked before settlement; a changed market can leave it waiting. The Ships
+panel shows the queued trade and its cancellation button. Port traffic shows
+capacity, occupancy and queue positions without exposing anyone else's cargo.
+
+Automatic cargo instructions share the same admission policy. Unviable queued
+operations release their ticket at assignment, letting later eligible ships
+proceed. Failed admission retries have a configurable five-minute active-world
+cooldown (`berth_retry_ms`), and require viable conditions. Repeating routes
+continue automatically once their handling and orders finish. Queued manual
+orders prevent automatic or manual departure until filled or cancelled.
+
+Size-specific terminal groups, adaptive port expansion, and predictive queue
+wait estimates remain deferred; the current playable hull catalogue does not yet
+model the design's full size classes. Storage transfers remain a later milestone.
+
+In portrait mode, an accepted manual Buy or Sell switches from Ports to Ships
+immediately, whether handling starts or the trade queues for a berth. Later queue
+updates do not switch tabs again. Landscape layout and scroll positions are
+unchanged by this automatic navigation.
+
+Loading and unloading completion posts a private notice, except while the ship is
+running a repeating route. With browser notification permission enabled from the
+account popup, new completion notices also produce system notifications while
+the app is connected. Reconnecting does not replay old notices. Browsers or
+embedded clients without Notification API support show an unavailable control;
+this is not a background push service for closed apps.
