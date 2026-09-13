@@ -33,51 +33,76 @@ defmodule TijaraTides.Domain.GeneratedWorkflowsTest do
       account = Game.get(state, "accounts", "account")
       rng = :rand.seed_s(:exsss, {seed, seed + 101, seed + 203})
 
-      Enum.reduce(1..90, {state, rng}, fn step, {before, rng} ->
-        {choice, rng} = :rand.uniform_s(6, rng)
-        {number, rng} = :rand.uniform_s(3, rng)
-        {quantity, rng} = :rand.uniform_s(20, rng)
-        id = "company:#{number}"
-        ship = Game.get(before, "ships", id)
-        destination = if ship["port"] == "Jakarta", do: "Singapore", else: "Jakarta"
+      seen = %{applied: 0, berthed: false}
 
-        result =
-          case choice do
-            n when n in [1, 2, 3] ->
-              BerthAllocation.submit(
-                before,
-                account,
-                %Trade{
-                  ship_id: id,
-                  good: "lumber",
-                  side: if(ship["port"] == "Jakarta", do: "buy", else: "sell"),
-                  quantity: quantity,
-                  limit: if(ship["port"] == "Jakarta", do: 1_000_000, else: 0),
-                  destination: destination
-                },
-                catalogue
-              )
+      {final, _rng, seen} =
+        Enum.reduce(1..90, {state, rng, seen}, fn step, {before, rng, seen} ->
+          step(before, rng, seen, {seed, step}, account, catalogue)
+        end)
 
-            4 ->
-              Fleet.sail(before, account, id, destination, 100_000_000, catalogue)
+      # Every invariant below holds trivially on a world nothing happened to, so record
+      # that the sequence did something: a run where each command errors is a failure,
+      # not a pass. Berth state is checked as the run goes, since a ship that reached the
+      # queue may have sailed again before the last step.
+      assert seen.applied >= 20, "only #{seen.applied} of 90 generated actions were accepted"
+      assert seen.berthed, "no generated action ever reached the berth queue"
 
-            5 ->
-              BerthAllocation.cancel(before, account, id)
-
-            6 ->
-              {:ok, Game.advance(before, 60_000, catalogue), %{}}
-          end
-
-        after_state =
-          case result do
-            {:ok, next, _} -> next
-            {:error, _} -> before
-          end
-
-        assert_invariants(after_state, catalogue, {seed, step, choice})
-        {after_state, rng}
-      end)
+      assert Map.get(final, :journal, []) != [],
+             "no generated action ever posted to the journal"
     end
+  end
+
+  defp step(before, rng, seen, {seed, step}, account, catalogue) do
+    {choice, rng} = :rand.uniform_s(6, rng)
+    {number, rng} = :rand.uniform_s(3, rng)
+    {quantity, rng} = :rand.uniform_s(20, rng)
+    id = "company:#{number}"
+    ship = Game.get(before, "ships", id)
+    destination = if ship["port"] == "Jakarta", do: "Singapore", else: "Jakarta"
+
+    result =
+      case choice do
+        n when n in [1, 2, 3] ->
+          BerthAllocation.submit(
+            before,
+            account,
+            %Trade{
+              ship_id: id,
+              good: "lumber",
+              side: if(ship["port"] == "Jakarta", do: "buy", else: "sell"),
+              quantity: quantity,
+              limit: if(ship["port"] == "Jakarta", do: 1_000_000, else: 0),
+              destination: destination
+            },
+            catalogue
+          )
+
+        4 ->
+          Fleet.sail(before, account, id, destination, 100_000_000, catalogue)
+
+        5 ->
+          BerthAllocation.cancel(before, account, id)
+
+        6 ->
+          {:ok, Game.advance(before, 60_000, catalogue), %{}}
+      end
+
+    {after_state, seen} =
+      case result do
+        {:ok, next, _} -> {next, %{seen | applied: seen.applied + 1}}
+        {:error, _} -> {before, seen}
+      end
+
+    fleet = TijaraTides.Domain.ReadState.entities(after_state, "ships") |> Map.values()
+
+    seen = %{
+      seen
+      | berthed:
+          seen.berthed or Enum.any?(fleet, &(&1["berth_granted_ms"] || &1["berth_queued_ms"]))
+    }
+
+    assert_invariants(after_state, catalogue, {seed, step, choice})
+    {after_state, rng, seen}
   end
 
   defp assert_invariants(state, catalogue, context) do

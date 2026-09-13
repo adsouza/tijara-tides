@@ -156,7 +156,7 @@ defmodule TijaraTides.Domain.Ship do
   defp finish_operation(%{status: "sailing"} = ship, arrived_at) do
     %{
       ship
-      | port: ship.destination,
+      | port: ship.destination || ship.port,
         destination: nil,
         status: "docked",
         berth_queued_ms: arrived_at,
@@ -439,7 +439,10 @@ defmodule TijaraTides.Domain.Ship do
     ship = State.get(state, "ships", id) |> from_row()
     docked!(ship)
     unless ship.pending_side, do: raise(ArgumentError, "No pending trade to cancel")
-    store(state, clear_pending(ship)) |> release_berth(id)
+
+    # Give up the ticket and any berth, but keep berth_retry_ms: cancelling must not
+    # clear a cooldown a failed admission imposed, or resubmitting would evade it.
+    store(state, %{clear_pending(ship) | berth_queued_ms: nil, berth_granted_ms: nil})
   end
 
   defp clear_pending(ship),

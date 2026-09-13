@@ -3,24 +3,9 @@ defmodule TijaraTides.Domain.Visibility do
   import TijaraTides.Domain.State, only: [get: 3, entities: 2, owned: 4]
 
   def public(state, catalogue) do
-    # Group the fleet by port once. Asking PortBerths for each port's ships and each
-    # ship's queue position rescans and re-sorts the whole fleet every time, which is
-    # quadratic on a path that runs for every client refresh.
-    by_port =
-      entities(state, "ships")
-      |> Map.values()
-      |> Enum.filter(&(&1["status"] != "sailing"))
-      |> Enum.group_by(& &1["port"])
-
-    queues =
-      Map.new(by_port, fn {port, ships} ->
-        {port,
-         ships
-         |> Enum.filter(&(not is_nil(&1["berth_queued_ms"])))
-         |> Enum.sort_by(&{&1["berth_queued_ms"], &1["id"]})
-         |> Enum.with_index(1)
-         |> Map.new(fn {ship, position} -> {ship["id"], position} end)}
-      end)
+    # One pass over the fleet for every port, so the snapshot reads the same admission
+    # model the coordinator does rather than ranking queues by its own rules.
+    ports = TijaraTides.Domain.PortBerths.load_all(state, catalogue)
 
     %{
       "clock_ms" => state.clock_ms,
@@ -28,16 +13,12 @@ defmodule TijaraTides.Domain.Visibility do
       "ports" => catalogue["ports"],
       "goods" => catalogue["goods"],
       "berths" =>
-        Map.new(catalogue["ports"], fn {port, _} ->
+        Map.new(ports, fn {port, model} ->
           {port,
            %{
-             "capacity" => TijaraTides.Domain.PortBerths.capacity(catalogue, port),
-             "occupied" =>
-               Enum.count(
-                 Map.get(by_port, port, []),
-                 &TijaraTides.Domain.PortBerths.occupied?/1
-               ),
-             "queued" => map_size(Map.get(queues, port, %{}))
+             "capacity" => model.capacity,
+             "occupied" => MapSet.size(model.held),
+             "queued" => length(model.waiting)
            }}
         end),
       "companies" =>
@@ -60,10 +41,14 @@ defmodule TijaraTides.Domain.Visibility do
              "berth_queued_ms",
              "berth_granted_ms"
            ])
-           |> Map.put("queue_position", get_in(queues, [s["port"], s["id"]]))}
+           |> Map.put("queue_position", queue_position(ports[s["port"]], id))}
         end)
     }
   end
+
+  # A sailing ship's port holds no model of its own, so it ranks nowhere.
+  defp queue_position(nil, _id), do: nil
+  defp queue_position(model, id), do: TijaraTides.Domain.PortBerths.position(model, id)
 
   def private(state, account) do
     %{

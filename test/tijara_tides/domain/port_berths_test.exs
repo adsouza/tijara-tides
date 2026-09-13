@@ -87,7 +87,7 @@ defmodule TijaraTides.Domain.PortBerthsTest do
 
     assert Game.get(state, "companies", "company")["cash"] == cash
     assert Game.get(state, "ships", "company:2")["cargo"] == []
-    assert PortBerths.position(state, Game.get(state, "ships", "company:2")) == 1
+    assert PortBerths.position(PortBerths.load(state, "Jakarta", c.catalogue), "company:2") == 1
 
     assert {:error, :berth_order_pending} =
              BerthAllocation.submit(state, c.account, trade("company:2"), c.catalogue)
@@ -149,12 +149,21 @@ defmodule TijaraTides.Domain.PortBerthsTest do
 
     {:ok, next, _} = BerthAllocation.cancel(state, c.account, "company:1")
     refute Game.get(next, "ships", "company:1")["pending_side"]
-    assert PortBerths.queue(next, "Jakarta") == []
+    assert PortBerths.load(next, "Jakarta", c.catalogue).waiting == []
 
     # Without a queued trade there is nothing to cancel, and a berth the ship already
     # holds must not be revoked by the attempt.
     held = TijaraTides.Domain.BerthFixture.update(c.state, "company:1", %{berth_granted_ms: 0})
     assert {:error, :invalid_trade} = BerthAllocation.cancel(held, c.account, "company:1")
+
+    # Cancelling gives up the ticket but must leave a cooldown standing, or submitting
+    # and cancelling in a loop would evade the retry throttle entirely.
+    cooling =
+      TijaraTides.Domain.BerthFixture.update(state, "company:1", %{berth_retry_ms: 300_000})
+
+    {:ok, cancelled, _} = BerthAllocation.cancel(cooling, c.account, "company:1")
+    assert Game.get(cancelled, "ships", "company:1")["berth_retry_ms"] == 300_000
+    assert BerthAllocation.enqueue(cancelled, "company:1") == cancelled
   end
 
   test "automatic instructions wait for a berth and stand aside for a queued manual trade", c do

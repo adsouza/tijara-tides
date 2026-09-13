@@ -18,6 +18,8 @@ defmodule TijaraTides.Domain.PortAdmissionTest do
     assert decisions == [{"invalid", :retry}, {"first", :grant}]
     assert next.held == MapSet.new(["busy", "first"])
     assert next.waiting == [%{"id" => "second"}]
+    assert PortBerths.position(next, "second") == 1
+    assert PortBerths.position(next, "first") == nil
   end
 
   test "a full port makes no eligibility probes or grants" do
@@ -28,8 +30,10 @@ defmodule TijaraTides.Domain.PortAdmissionTest do
       waiting: [%{"id" => "waiting"}]
     }
 
-    assert PortBerths.allocate(port, fn _ -> flunk("full port must retain tickets") end) ==
-             {port, []}
+    {next, []} = PortBerths.allocate(port, fn _ -> flunk("full port must retain tickets") end)
+    assert next.held == port.held
+    assert next.waiting == port.waiting
+    assert PortBerths.position(next, "waiting") == 1
   end
 
   test "generated eligibility combinations preserve FIFO among eligible tickets" do

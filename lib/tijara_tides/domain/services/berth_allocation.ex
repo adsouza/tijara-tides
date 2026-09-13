@@ -52,9 +52,21 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
         end
       end)
 
+    # Viability turns on funds, bankruptcy, orders and markets. None of the berth
+    # transitions below touch any of those, so decide once and reuse the answer across
+    # all three passes. Only docked ships with tickets or pending trades are candidates;
+    # sailing, handling and idle ships must not incur speculative settlement checks.
+    eligible =
+      State.entities(state, "ships")
+      |> Enum.filter(fn {_, ship} ->
+        ship["status"] == "docked" and
+          (not is_nil(ship["pending_side"]) or not is_nil(ship["berth_queued_ms"]))
+      end)
+      |> Map.new(fn {id, ship} -> {id, viable?(state, ship, catalogue)} end)
+
     state =
       Enum.reduce(State.entities(state, "ships"), state, fn {id, ship}, acc ->
-        if ship["pending_side"] && viable?(acc, ship, catalogue), do: enqueue(acc, id), else: acc
+        if ship["pending_side"] && eligible[id], do: enqueue(acc, id), else: acc
       end)
 
     state =
@@ -65,7 +77,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
           PortBerths.allocate(model, fn ship ->
             cond do
               not has_work?(acc, ship) -> :release
-              viable?(acc, ship, catalogue) -> :grant
+              eligible[ship["id"]] -> :grant
               true -> :retry
             end
           end)
@@ -90,8 +102,9 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
 
     Enum.reduce(State.entities(state, "ships"), state, fn {id, ship}, acc ->
       # A grant can outlive the tick that issued it when the ship is mid-handling, so
-      # re-test viability here: the company may have gone bankrupt or vanished since.
-      if ship["pending_side"] && ship["berth_granted_ms"] && viable?(acc, ship, catalogue) do
+      # the eligibility decided above still gates execution: the company may have gone
+      # bankrupt or vanished since the grant was issued.
+      if ship["pending_side"] && ship["berth_granted_ms"] && eligible[id] do
         company = State.get(acc, "companies", ship["company_id"])
         account = State.get(acc, "accounts", company["account_id"])
 
