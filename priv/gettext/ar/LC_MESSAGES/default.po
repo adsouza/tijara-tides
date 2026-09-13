@@ -2034,9 +2034,6 @@ msgstr "الوحدات"
 msgid "Blocks to release"
 msgstr "الوحدات المراد إخلاؤها"
 
-msgid "Cargo or handling is using that space."
-msgstr "هذه المساحة مشغولة ببضائع أو بعمليات مناولة."
-
 msgid "Collect"
 msgstr "تحميل من المستودع"
 
@@ -2072,9 +2069,6 @@ msgstr "إخلاء مساحة"
 
 msgid "Releasing empty capacity refunds half its unused rent. After expiry, collect cargo within 12 active-world hours. Remaining goods are cleared at half reference value and never for more than they cost; grace rent is capped at proceeds. Perishables continue aging. Liquid storage is dedicated to one cargo type."
 msgstr "يُسترد نصف الإيجار غير المستهلك عند إخلاء مساحة فارغة. بعد انتهاء العقد، اسحب البضائع خلال ١٢ ساعة من وقت العالم النشط. تُصفّى البضائع المتبقية بنصف القيمة المرجعية ودون تجاوز تكلفتها، ولا يتجاوز إيجار المهلة العائدات. تستمر صلاحية الأغذية في التناقص. يُخصص تخزين السوائل لنوع واحد من البضائع."
-
-msgid "Select your docked ship and a warehouse at the same port."
-msgstr "اختر سفينتك الراسية ومستودعًا في الميناء نفسه."
 
 msgid "Storage for cargo"
 msgstr "تخزين للبضائع"
@@ -2117,3 +2111,78 @@ msgstr "تغيير مسار السفينة"
 
 msgid "The diversion estimate changed or the ship cannot reroute. Review the estimate and try again."
 msgstr "تغير تقدير الرحلة أو تعذر تغيير مسار السفينة. راجع التقدير وحاول مجددًا."
+
+msgid "%{days} days"
+msgstr "%{days} أيام"
+
+msgid "A warehouse reservation at %{port} was reduced or released because its cargo, ship, stop or lease is no longer available."
+msgstr "تم تقليص حجز مستودع في %{port} أو إلغاؤه لأن البضاعة أو السفينة أو المحطة أو عقد الإيجار لم يعد متاحًا."
+
+msgid "Auto-renew term"
+msgstr "مدة التجديد التلقائي"
+
+msgid "Cancel reservation"
+msgstr "إلغاء الحجز"
+
+msgid "Cargo, reservations, handling or a prepaid next term is using that space."
+msgstr "هذه المساحة مشغولة بالبضائع أو الحجوزات أو المناولة، أو مرتبطة بمدة لاحقة مدفوعة."
+
+msgid "Collection stop"
+msgstr "محطة الاستلام"
+
+msgid "Daily rent cap"
+msgstr "الحد الأقصى للإيجار اليومي"
+
+msgid "Earmark owned cargo or receiving space for the selected ship. Matching transfers use its reservation first. Linked reservations release when their route stop is removed. Unlinked reservations remain until used or cancelled."
+msgstr "احجز بضائع مملوكة أو مساحة استقبال للسفينة المحددة. تستخدم عمليات النقل المطابقة حجزها أولًا. تُلغى الحجوزات المرتبطة عند إزالة محطتها من المسار. وتبقى الحجوزات غير المرتبطة حتى استخدامها أو إلغائها."
+
+msgid "Lease renewal"
+msgstr "تجديد الإيجار"
+
+msgid "Next term paid: %{days} days, starting at current expiry."
+msgstr "تم دفع المدة التالية: %{days} أيام، تبدأ عند انتهاء المدة الحالية."
+
+msgid "Off"
+msgstr "متوقف"
+
+msgid "Owned stock"
+msgstr "المخزون المملوك"
+
+msgid "Receiving space"
+msgstr "مساحة الاستقبال"
+
+msgid "Renew %{days} days · %{price}"
+msgstr "تجديد لمدة %{days} أيام · %{price}"
+
+msgid "Renew during the final 6 hours. The daily quote locks when the window opens; the paid term starts at expiry. Auto-renew retries while funds are available and the locked daily rent is within your cap."
+msgstr "جدّد خلال الساعات الست الأخيرة. يُثبّت السعر اليومي عند فتح نافذة التجديد، وتبدأ المدة المدفوعة عند انتهاء الحالية. يحاول التجديد التلقائي مجددًا عند توفر الأموال ما دام الإيجار اليومي المثبّت ضمن الحد الذي حددته."
+
+msgid "Renewal is available only in the final six hours, before expiry, and once per term."
+msgstr "يتاح التجديد خلال الساعات الست الأخيرة فقط، قبل انتهاء الإيجار، ولمرة واحدة لكل مدة."
+
+msgid "Reservations"
+msgstr "الحجوزات"
+
+msgid "Reserve"
+msgstr "حجز"
+
+msgid "Reserved receiving space: %{volume} m³"
+msgstr "مساحة الاستقبال المحجوزة: %{volume} م³"
+
+msgid "Save renewal settings"
+msgstr "حفظ إعدادات التجديد"
+
+msgid "Select a valid warehouse, ship, cargo and quantity."
+msgstr "اختر مستودعًا وسفينة وبضاعة وكمية صالحة."
+
+msgid "Stop %{number}"
+msgstr "المحطة %{number}"
+
+msgid "The renewal window is closed."
+msgstr "نافذة التجديد مغلقة."
+
+msgid "Unlinked"
+msgstr "غير مرتبط"
+
+msgid "Warehouse renewal is now available at %{port}."
+msgstr "تجديد المستودع متاح الآن في %{port}."

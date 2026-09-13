@@ -2104,7 +2104,12 @@ the cap remains unaccepted unless the player changes the cap or renews manually.
 This quote lock affects renewals only; new leases use their current market quote.
 The Ports column includes a collapsed Warehouses disclosure whose open state survives live updates.
 It shows volume blocks, term, full rent, occupied capacity, expiry, consolidated
-cargo, bounded Store/Collect quantities, and release controls. Storage terms
+cargo, bounded Store/Collect quantities, and release controls.
+Warehouses also offer collapsed Reservations and Lease renewal disclosures with
+ship-specific stock or receiving-space claims, optional collection-stop links,
+cancellation controls, locked 1/3/7-day renewal offers and capped auto-renewal.
+Accepted future terms display their duration and start at current expiry.
+Storage terms
 remain behind a nested disclosure. Accepted transfers focus Ships in portrait.
 
 If not renewed:

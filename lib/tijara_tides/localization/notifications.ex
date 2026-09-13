@@ -34,6 +34,16 @@ defmodule TijaraTides.Localization.Notifications do
 
   def render(notice, _goods), do: notice["text"] || ""
 
+  defp message("warehouse.renewal_open", args),
+    do: gettext("Warehouse renewal is now available at %{port}.", args)
+
+  defp message("warehouse.reservation_released", args),
+    do:
+      gettext(
+        "A warehouse reservation at %{port} was reduced or released because its cargo, ship, stop or lease is no longer available.",
+        args
+      )
+
   defp message("warehouse.expired", args),
     do:
       gettext(

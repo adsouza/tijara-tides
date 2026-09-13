@@ -153,9 +153,9 @@ production remains part of the full economy. Consumer demand and spending budget
 replenish and are capped. Supply and demand recover one lot every 150 seconds
 of active world time (0.4 lots per minute); buyer budgets recover one lot’s
 reference value on the same interval. Partial intervals carry across ticks. This is a manual
-NPC market adapter, not the eventual central limit order book. Berth capacity
-and queues, warehouses, standing exchange orders, and annual
-invitation allocations remain deferred. Next-port cargo instructions and optional
+NPC market adapter, not the eventual central limit order book. Finite berths and queues, warehouse leases, transfers, reservations and renewals
+are available. Standing exchange orders and annual invitation allocations remain
+deferred. Next-port cargo instructions and optional
 automatic departure are available. Operating shortfalls accumulate as unpaid
 bills and participate in the implemented loan settlement and bankruptcy rules.
 
@@ -185,8 +185,7 @@ emailed token inside the app. Google sign-in remains deferred.
 
 ## Following milestones
 
-Standing order matching; warehouse leases
-and reservations; auctions and procurement contracts; age-based maintenance.
+Standing order matching; auctions and procurement contracts; age-based maintenance.
 Player-owned industry stays a later expansion under section 14.
 
 Markets by cargo compares applicable ports in two tables: Supply on the left
@@ -329,8 +328,10 @@ voyage-affordability checks as manual and single-visit trades. Partial fills ret
 and never accumulate across circuits. Once sales finish, exhausted hold capacity
 cancels the remaining loading shortfall with notification. Other unfilled targets
 wait until filled or explicitly cancelled. Expiry and maximum-wait controls,
-warehouse collection, linked exchange orders and advance purchase budgets remain
-future extensions.
+linked exchange orders and advance purchase budgets remain future extensions.
+Loading now takes compatible owned warehouse stock first, prioritizing stock
+earmarked for the ship, before buying the shortfall. Transfers retain cost and
+expiry and incur handling fees without consuming the market-purchase budget.
 
 Starting or resuming a route in the UI enables automatic departure. Existing
 routes are upgraded to automatic departure too. Normal funding and handling guards
@@ -439,9 +440,27 @@ Perishable aging continues. Expiry and clearance notify the owner. Until auction
 and exchange orders exist, remaining cargo goes directly to system clearance at
 50% of reference value, with grace rent deducted only from clearance proceeds.
 Bankrupt-company storage follows the same clearance fallback after committed
-handling finishes. All timings pause with the world. Auction stages, reservations,
-remote trading, automatic collection, renewal priority and automatic renewals,
-and port-specific warehouse tuning remain subsequent milestones.
+handling finishes. All timings pause with the world. Auction stages, remote
+exchange trading and port-specific warehouse tuning remain subsequent milestones.
+
+Reservations are relational, typed claims owned by the warehouse aggregate.
+Players earmark quantities of a cargo for a ship, or reserve receiving volume.
+Stored stock is not counted twice; other ships cannot take earmarked quantities,
+and unrelated deposits cannot consume reserved space. Matching transfers consume
+reservations atomically. Optional route-stop links release immediately when the
+stop is removed; unlinked claims last until collection, cancellation or expiry.
+Spoilage reduces stock claims in creation order after assigning remaining fresh
+stock; receiving claims end with the lease, while stock claims survive grace.
+The current reservation UI does not yet specify a minimum remaining freshness.
+
+Renewal quotes lock for the existing blocks during the final six active-world
+hours. Players can pay for 1, 3 or 7 days; the new term starts at the old expiry.
+Future prepaid rent is recorded separately and is not expensed before that date.
+Only one subsequent term can be booked. Capacity reductions are unavailable once
+the next term is paid. Optional auto-renewal takes a term and a daily rent cap,
+checks free cash and unpaid bills, and retries on world ticks before expiry.
+Reservation and renewal controls use persistent, collapsed disclosures inside
+Warehouses; amounts and text support English and Arabic.
 
 ## Diversions underway
 

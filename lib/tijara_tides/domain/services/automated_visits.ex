@@ -1,7 +1,7 @@
 defmodule TijaraTides.Domain.Services.AutomatedVisits do
   @moduledoc "Coordinate visit fills and automatic departures across ship, market and finance roots."
   import TijaraTides.Domain.State, only: [get: 3, entities: 2]
-  alias TijaraTides.Domain.{Ship, Fleet, Notices, Trade}
+  alias TijaraTides.Domain.{Ship, Fleet, Notices, Trade, Warehouse}
   alias TijaraTides.Domain.Services.TradeSettlement, as: Trading
   @open ["planned", "waiting"]
   def advance(state, catalogue) do
@@ -115,12 +115,15 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
         destination: order["onward"]
       }
 
+      source =
+        if order["side"] == "buy", do: Warehouse.collection_source(state, ship, order["good"])
+
       # Pure probes are discarded. Only the final successful fill is committed.
       result = fn quantity ->
-        case Trading.execute(state, account, %{trade | quantity: quantity}, catalogue) do
+        case execute_fill(state, account, %{trade | quantity: quantity}, source, catalogue) do
           {:ok, changed, reply} ->
             if order["side"] == "buy" and not is_nil(order["budget"]) and
-                 order["spent"] + reply["spent"] > order["budget"],
+                 order["spent"] + (reply["spent"] || 0) > order["budget"],
                do: {:error, :instruction_budget_exhausted},
                else: {:ok, changed, reply}
 
@@ -198,6 +201,39 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
       if ship && ship["port"] == order["port"] && ship["status"] in ["loading", "unloading"],
         do: wait(state, order, "Waiting for handling to finish", catalogue),
         else: state
+    end
+  end
+
+  defp execute_fill(state, account, trade, nil, catalogue),
+    do: Trading.execute(state, account, trade, catalogue)
+
+  defp execute_fill(state, account, trade, warehouse, catalogue) do
+    case Warehouse.transfer(
+           state,
+           account,
+           %{
+             "warehouse" => warehouse.id,
+             "ship" => trade.ship_id,
+             "good" => trade.good,
+             "quantity" => trade.quantity,
+             "side" => "collect"
+           },
+           catalogue
+         ) do
+      {:ok, changed, reply} ->
+        ship = get(changed, "ships", trade.ship_id)
+        quote = Fleet.voyage_quote(%{ship | "status" => "docked"}, trade.destination, catalogue)
+        company = get(changed, "companies", ship["company_id"])
+
+        if quote && company["cash"] - company["reserved"] >= quote["fuel"] + quote["canal_fees"],
+          do: {:ok, changed, reply},
+          else: {:error, :insufficient_cash}
+
+      {:error, :warehouse_berth_busy} ->
+        {:error, :berth_busy}
+
+      other ->
+        other
     end
   end
 

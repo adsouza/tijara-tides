@@ -172,6 +172,24 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "quantity" => 4
     }
 
+    reservation = %{
+      "action" => "warehouse_reserve",
+      "warehouse" => lease["id"],
+      "ship" => ship,
+      "good" => "lumber",
+      "kind" => "capacity",
+      "quantity" => 4
+    }
+
+    assert {:ok, _} = GameServer.command(token, "reserve-space", reservation, c.server)
+    assert {:ok, _} = GameServer.command(token, "reserve-space", reservation, c.server)
+    before_reserve = :sys.get_state(c.server).game
+    assert {:ok, restored_reserve} = GameStore.reload(Repo, c.world_id, before_reserve)
+
+    assert restored_reserve.entities["warehouse_reservations"] ==
+             before_reserve.entities["warehouse_reservations"]
+
+    assert map_size(restored_reserve.entities["warehouse_reservations"]) == 1
     assert {:ok, _} = GameServer.command(token, "store", transfer, c.server)
     before = :sys.get_state(c.server).game
     assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
@@ -185,6 +203,16 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              ).rows
 
     advance(c.server, 3_000)
+
+    assert GameServer.snapshot(token, c.server).private["warehouse_reservations"] == %{}
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "reserve-stock",
+               %{reservation | "kind" => "stock"},
+               c.server
+             )
 
     assert {:ok, _} =
              GameServer.command(token, "collect", %{transfer | "side" => "collect"}, c.server)
@@ -202,6 +230,45 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert :ok == FinancialLedger.audit(Repo, c.world_id)
     assert GameServer.snapshot(token, c.server).private["warehouses"] == %{}
+    assert {:ok, _} = GameServer.command(token, "new-lease", command, c.server)
+    [renewal_lease] = GameServer.snapshot(token, c.server).private["warehouses"] |> Map.values()
+    advance(c.server, 64_800_000)
+    row = GameServer.snapshot(token, c.server).private["warehouses"][renewal_lease["id"]]
+
+    html =
+      render_component(&TijaraTidesWeb.GameUI.WarehousePanel.panel/1,
+        definitions: GameServer.definitions(),
+        view: GameServer.snapshot(token, c.server),
+        port: "Jakarta",
+        ship: GameServer.snapshot(token, c.server).private["ships"][ship],
+        draft: %{},
+        request_id: "ui"
+      )
+
+    assert html =~ "Lease renewal"
+    assert html =~ "warehouse_renew"
+    assert html =~ "warehouse_reserve"
+    assert html =~ ~s(name="daily_cap")
+    refute html =~ ~s(id="warehouse-renewal-#{row["id"]}" open)
+
+    renewal = %{
+      "action" => "warehouse_renew",
+      "warehouse" => row["id"],
+      "days" => 3,
+      "price" => row["renewal_rate"] * 3
+    }
+
+    assert {:ok, _} = GameServer.command(token, "renew", renewal, c.server)
+    assert {:ok, _} = GameServer.command(token, "renew", renewal, c.server)
+    before_renewal = :sys.get_state(c.server).game
+    assert {:ok, restored_renewal} = GameStore.reload(Repo, c.world_id, before_renewal)
+    assert restored_renewal.entities["warehouses"] == before_renewal.entities["warehouses"]
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    advance(c.server, 21_600_000)
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+
+    assert GameServer.snapshot(token, c.server).private["warehouses"][row["id"]]["next_days"] ==
+             nil
   end
 
   test "berth queue and deferred trade survive relational reload without disclosing cargo", c do

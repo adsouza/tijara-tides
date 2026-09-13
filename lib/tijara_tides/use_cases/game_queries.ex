@@ -29,6 +29,8 @@ defmodule TijaraTides.UseCases.GameQueries do
       |> Enum.filter(&(&1["port"] == port))
       |> Enum.sort_by(& &1["id"])
 
+    reservation_rows = Map.values((view.private && view.private["warehouse_reservations"]) || %{})
+
     now = view.public["clock_ms"]
     handling = TijaraTides.Domain.PortCargoMarket.handling_rate(catalogue["ports"][port])
     docked = ship && ship["status"] == "docked" && ship["port"] == port
@@ -39,6 +41,8 @@ defmodule TijaraTides.UseCases.GameQueries do
       Enum.map(leases, fn row ->
         w = Warehouse.from_row(row)
         volume = Warehouse.volume(w, catalogue)
+        reserved_volume = Warehouse.reserved_volume(reservation_rows, w, catalogue)
+        reservations = Warehouse.reservations(reservation_rows, w)
         ready = docked && now >= w.protected_ms
 
         goods =
@@ -64,12 +68,23 @@ defmodule TijaraTides.UseCases.GameQueries do
             store =
               if now < w.expires_ms,
                 do:
-                  min(aboard, div(w.blocks * Warehouse.block_litres() - volume, item["volume_l"])),
+                  min(
+                    aboard,
+                    div(
+                      w.blocks * Warehouse.block_litres() - volume -
+                        Warehouse.reserved_volume(reservation_rows, w, catalogue, ship["id"], id),
+                      item["volume_l"]
+                    )
+                  ),
                 else: 0
 
             collect =
               min(
-                stored,
+                max(
+                  0,
+                  stored -
+                    Warehouse.reserved_quantity(reservation_rows, w, "stock", id, ship["id"])
+                ),
                 min(
                   div(class["weight"] - space.weight, item["weight_kg"]),
                   div(class["volume"] - space.volume, item["volume_l"])
@@ -96,9 +111,68 @@ defmodule TijaraTides.UseCases.GameQueries do
           row: row,
           volume: volume,
           transfers: transfers,
+          reserved_volume: reserved_volume,
+          reservations:
+            Enum.map(reservations, fn r ->
+              %{
+                id: r.id,
+                kind: r.kind,
+                good: r.good,
+                quantity: r.quantity,
+                ship: get_in(view.private, ["ships", r.ship_id, "name"]) || r.ship_id
+              }
+            end),
+          renewal_open: Warehouse.renewal_open?(w, now),
+          renewal_rate: w.renewal_rate,
+          reservation_options:
+            if(ship && now < w.expires_ms && now >= w.protected_ms,
+              do:
+                for(
+                  {id, item} <- Enum.sort(catalogue["goods"]),
+                  Warehouse.compatible?(w, item) and CargoRules.compatible_class?(ship, item),
+                  kind <- ["stock", "capacity"],
+                  n =
+                    if(kind == "stock",
+                      do:
+                        max(
+                          0,
+                          Enum.sum(
+                            for b <- w.cargo,
+                                b.good == id and (is_nil(b.expires_ms) or b.expires_ms > now),
+                                do: b.quantity
+                          ) - Warehouse.reserved_quantity(reservation_rows, w, "stock", id)
+                        ),
+                      else:
+                        max(
+                          0,
+                          div(
+                            w.blocks * Warehouse.block_litres() - volume - reserved_volume,
+                            item["volume_l"]
+                          )
+                        )
+                    ),
+                  n > 0,
+                  do: %{good: id, kind: kind, max: min(CargoRules.max_lots(), n)}
+                ),
+              else: []
+            ),
+          collection_stops:
+            if(ship,
+              do:
+                Enum.filter(
+                  Map.values(view.private["route_stops"] || %{}),
+                  &(&1["ship_id"] == ship["id"] and &1["port"] == port)
+                ),
+              else: []
+            ),
           free_blocks:
-            if(now >= w.protected_ms,
-              do: w.blocks - div(volume + Warehouse.block_litres() - 1, Warehouse.block_litres()),
+            if(now >= w.protected_ms and is_nil(w.next_days),
+              do:
+                w.blocks -
+                  div(
+                    volume + reserved_volume + Warehouse.block_litres() - 1,
+                    Warehouse.block_litres()
+                  ),
               else: 0
             )
         }

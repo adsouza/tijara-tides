@@ -64,6 +64,11 @@ defmodule TijaraTides.Domain.Visibility do
         |> Enum.map(fn row ->
           row |> Map.put("verified", row["used_session"] != nil) |> Map.delete("used_session")
         end),
+      "warehouse_reservations" =>
+        Map.new(
+          owned(state, "warehouse_reservations", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
       "warehouses" =>
         Map.new(owned(state, "warehouses", "company_id", account["company_id"]), &{&1["id"], &1}),
       "finance" => TijaraTides.Domain.CompanyFinance.summary(state, account),

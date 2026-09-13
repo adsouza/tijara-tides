@@ -28,7 +28,8 @@ defmodule TijaraTides.Domain.Reporting do
             for {_, w} <- entities(state, "warehouses"),
                 w["company_id"] == id,
                 do:
-                  w["prepaid"] + Enum.sum(for b <- w["cargo"], do: b["quantity"] * b["unit_cost"])
+                  w["prepaid"] + Map.get(w, "next_rent", 0) +
+                    Enum.sum(for b <- w["cargo"], do: b["quantity"] * b["unit_cost"])
           ) +
           Enum.sum(
             for s <- ships,

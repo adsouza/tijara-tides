@@ -1,9 +1,14 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "warehouse_reservations" =>
+      Enum.map(
+        ~w(id warehouse_id company_id ship_id good kind quantity created_ms stop_id),
+        &{&1, &1}
+      ),
     "warehouses" =>
       Enum.map(
-        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms),
+        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms renewal_rate next_rent next_days auto_days auto_cap),
         &{&1, &1}
       ),
     "reporting_accounts" => Enum.map(~w(id capital since_ms at_ms), &{&1, &1}),
@@ -209,7 +214,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(accounts companies warehouses ships markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
+  @kinds ~w(accounts companies warehouses ships warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
 
   @children %{
     "warehouses" =>

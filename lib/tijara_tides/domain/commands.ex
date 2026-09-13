@@ -18,7 +18,18 @@ defmodule TijaraTides.Domain.Commands do
     if TijaraTides.Domain.Guarantees.suspended?(current_account) do
       {:error, :account_suspended}
     else
-      dispatch(state, account, command, context)
+      case dispatch(state, account, command, context) do
+        {:ok, changed, reply} ->
+          {:ok,
+           TijaraTides.Domain.Warehouse.reconcile_reservations(
+             changed,
+             context.catalogue,
+             account["company_id"]
+           ), reply}
+
+        other ->
+          other
+      end
     end
   end
 
@@ -28,6 +39,18 @@ defmodule TijaraTides.Domain.Commands do
     case command do
       %{"action" => "reroute", "ship" => id, "destination" => destination, "fuel_limit" => limit} ->
         TijaraTides.Domain.Fleet.reroute(state, account, id, destination, limit, catalogue)
+
+      %{"action" => "warehouse_reserve"} ->
+        TijaraTides.Domain.Warehouse.reserve(state, account, command, context.id, catalogue)
+
+      %{"action" => "warehouse_cancel_reservation", "reservation" => id} ->
+        TijaraTides.Domain.Warehouse.cancel_reservation(state, account, id)
+
+      %{"action" => "warehouse_renew"} ->
+        TijaraTides.Domain.Warehouse.renew(state, account, command)
+
+      %{"action" => "warehouse_auto_renew"} ->
+        TijaraTides.Domain.Warehouse.renewal_settings(state, account, command)
 
       %{"action" => "warehouse_lease"} ->
         TijaraTides.Domain.Warehouse.lease(state, account, command, context.id, catalogue)

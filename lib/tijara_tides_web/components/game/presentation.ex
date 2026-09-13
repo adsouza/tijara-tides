@@ -237,9 +237,14 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     %{
       berth_order_pending:
         gettext("Cancel the queued trade before submitting another order or departing."),
-      warehouse_invalid: gettext("Select your docked ship and a warehouse at the same port."),
+      warehouse_invalid: gettext("Select a valid warehouse, ship, cargo and quantity."),
+      warehouse_renewal_closed:
+        gettext(
+          "Renewal is available only in the final six hours, before expiry, and once per term."
+        ),
       warehouse_capacity: gettext("Not enough warehouse capacity is available."),
-      warehouse_occupied: gettext("Cargo or handling is using that space."),
+      warehouse_occupied:
+        gettext("Cargo, reservations, handling or a prepaid next term is using that space."),
       warehouse_handling: gettext("Wait for warehouse handling to finish."),
       warehouse_expired:
         gettext("This lease cannot receive cargo. Collect it during grace or lease new space."),

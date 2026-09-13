@@ -141,6 +141,14 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   def handle_event("warehouse", params, socket) do
+    params =
+      if Map.has_key?(params, "daily_cap"),
+        do:
+          params
+          |> Map.put("price", Integer.to_string(report_number(params["daily_cap"]) * 100))
+          |> Map.delete("daily_cap"),
+        else: params
+
     command =
       params
       |> Map.drop(["_target"])

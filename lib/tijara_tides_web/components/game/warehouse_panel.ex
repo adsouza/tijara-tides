@@ -99,6 +99,137 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
               ),
             else: gettext("Expired: collection only during the 12-hour grace period.")}
         </p>
+        <p :if={lease.reserved_volume > 0} class="text-xs text-slate-400">
+          {gettext("Reserved receiving space: %{volume} m³",
+            volume: display_number(div(lease.reserved_volume, 1000))
+          )}
+        </p>
+        <p :if={lease.row["next_days"]} class="text-xs text-teal-300">
+          {gettext("Next term paid: %{days} days, starting at current expiry.",
+            days: display_number(lease.row["next_days"])
+          )}
+        </p>
+        <details
+          id={"warehouse-renewal-#{lease.row["id"]}"}
+          phx-mounted={JS.ignore_attributes("open")}
+          class="my-2"
+        >
+          <summary class="cursor-pointer font-semibold">{gettext("Lease renewal")}</summary>
+          <p class="my-1 text-xs text-slate-400">
+            {gettext(
+              "Renew during the final 6 hours. The daily quote locks when the window opens; the paid term starts at expiry. Auto-renew retries while funds are available and the locked daily rent is within your cap."
+            )}
+          </p>
+          <p :if={!lease.renewal_open && !lease.row["next_days"]} class="text-xs text-slate-400">
+            {gettext("The renewal window is closed.")}
+          </p>
+          <div :if={lease.renewal_open && lease.renewal_rate} class="flex flex-wrap gap-2">
+            <form :for={days <- @storage.terms} phx-submit="warehouse">
+              <input type="hidden" name="action" value="warehouse_renew" />
+              <input type="hidden" name="warehouse" value={lease.row["id"]} />
+              <input type="hidden" name="request_id" value={@request_id} />
+              <input type="hidden" name="days" value={days} />
+              <input type="hidden" name="price" value={lease.renewal_rate * days} />
+              <button
+                disabled={lease.renewal_rate * days > @storage.cash}
+                class="rounded border border-teal-700 px-2 py-1 disabled:opacity-40"
+              >{gettext("Renew %{days} days · %{price}",
+                days: display_number(days),
+                price: money(lease.renewal_rate * days)
+              )}</button>
+            </form>
+          </div>
+          <form phx-submit="warehouse" class="mt-2 flex flex-wrap items-end gap-2">
+            <input type="hidden" name="action" value="warehouse_auto_renew" />
+            <input type="hidden" name="warehouse" value={lease.row["id"]} />
+            <input type="hidden" name="request_id" value={@request_id} />
+            <label>{gettext("Auto-renew term")}
+            <select name="days" class="block rounded bg-slate-800 p-1">
+              <option value="0" selected={is_nil(lease.row["auto_days"])}>{gettext("Off")}</option>
+              <option
+                :for={days <- @storage.terms}
+                value={days}
+                selected={lease.row["auto_days"] == days}
+              >
+                {gettext("%{days} days", days: display_number(days))}
+              </option>
+            </select></label>
+            <label>{gettext("Daily rent cap")}<input
+              type="number"
+              name="daily_cap"
+              min="0"
+              value={div((lease.row["auto_cap"] || lease.renewal_rate || 0) + 99, 100)}
+              class="block w-28 rounded bg-slate-800 p-1"
+            /></label>
+            <button class="rounded border border-teal-700 px-2 py-1">{gettext("Save renewal settings")}</button>
+          </form>
+        </details>
+        <details
+          id={"warehouse-reservations-#{lease.row["id"]}"}
+          phx-mounted={JS.ignore_attributes("open")}
+          class="my-2"
+        >
+          <summary class="cursor-pointer font-semibold">{gettext("Reservations")}</summary>
+          <p class="my-1 text-xs text-slate-400">
+            {gettext(
+              "Earmark owned cargo or receiving space for the selected ship. Matching transfers use its reservation first. Linked reservations release when their route stop is removed. Unlinked reservations remain until used or cancelled."
+            )}
+          </p>
+          <div :for={r <- lease.reservations} class="my-1 flex flex-wrap items-center gap-2">
+            <span>{r.ship} · {cargo_name(r.good)} · {display_number(r.quantity)} · {if r.kind ==
+                                                                                         "stock",
+                                                                                       do:
+                                                                                         gettext(
+                                                                                           "Owned stock"
+                                                                                         ),
+                                                                                       else:
+                                                                                         gettext(
+                                                                                           "Receiving space"
+                                                                                         )}</span>
+            <form phx-submit="warehouse">
+              <input type="hidden" name="action" value="warehouse_cancel_reservation" />
+              <input type="hidden" name="reservation" value={r.id} />
+              <input type="hidden" name="request_id" value={@request_id} />
+              <button class="rounded border border-slate-500 px-2 py-1">{gettext("Cancel reservation")}</button>
+            </form>
+          </div>
+          <form
+            :for={option <- lease.reservation_options}
+            phx-submit="warehouse"
+            class="my-1 flex flex-wrap items-center gap-2"
+          >
+            <input type="hidden" name="action" value="warehouse_reserve" />
+            <input type="hidden" name="warehouse" value={lease.row["id"]} />
+            <input type="hidden" name="request_id" value={@request_id} />
+            <input type="hidden" name="ship" value={@ship["id"]} />
+            <input type="hidden" name="good" value={option.good} />
+            <input type="hidden" name="kind" value={option.kind} />
+            <span>{cargo_name(option.good)} · {if option.kind == "stock",
+              do: gettext("Owned stock"),
+              else: gettext("Receiving space")}</span>
+            <input
+              type="number"
+              name="quantity"
+              min="1"
+              max={option.max}
+              value={option.max}
+              aria-label={gettext("Lots")}
+              class="w-16 rounded bg-slate-800 p-1"
+            />
+            <select
+              :if={lease.collection_stops != []}
+              name="stop_id"
+              aria-label={gettext("Collection stop")}
+              class="max-w-32 rounded bg-slate-800 p-1"
+            >
+              <option value="">{gettext("Unlinked")}</option>
+              <option :for={stop <- lease.collection_stops} value={stop["id"]}>
+                {gettext("Stop %{number}", number: display_number(stop["position"] + 1))}
+              </option>
+            </select>
+            <button class="rounded border border-teal-700 px-2 py-1">{gettext("Reserve")}</button>
+          </form>
+        </details>
         <table :if={lease.row["cargo"] != []} class="my-2 w-full text-start text-xs">
           <thead>
             <tr>
