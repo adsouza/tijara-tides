@@ -237,6 +237,10 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     %{
       berth_order_pending:
         gettext("Cancel the queued trade before submitting another order or departing."),
+      exchange_invalid:
+        gettext(
+          "Choose standardized cargo, your warehouse, a positive limit price and 1–10,000 lots."
+        ),
       warehouse_invalid: gettext("Select a valid warehouse, ship, cargo and quantity."),
       warehouse_renewal_closed:
         gettext(

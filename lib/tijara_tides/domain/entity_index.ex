@@ -8,7 +8,7 @@ defmodule TijaraTides.Domain.EntityIndex do
   # narrower than any stored column. A company's closed loans are history that nothing
   # per-command acts on, and keeping them out of this key is what stops every command
   # paying for every loan the company has ever taken.
-  @derived ~w(open_company_id)
+  @derived ~w(open_company_id book_key)
   @all @fields ++ @derived
   def fields, do: @all
 
@@ -17,6 +17,9 @@ defmodule TijaraTides.Domain.EntityIndex do
   # row must match nothing at all.
   def value("loans", "open_company_id", row),
     do: if(row["status"] == "open", do: row["company_id"], else: :none)
+
+  def value(kind, "book_key", row) when kind in ["exchange_orders", "exchange_trades"],
+    do: row["port"] <> "|" <> row["good"]
 
   def value(_kind, field, row), do: row[field]
 

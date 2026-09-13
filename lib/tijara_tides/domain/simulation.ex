@@ -12,9 +12,11 @@ defmodule TijaraTides.Domain.Simulation do
     %{state | clock_ms: state.clock_ms + elapsed}
     |> TijaraTides.Domain.Services.FinancialSettlement.settle()
     |> Fleet.advance(elapsed)
+    |> TijaraTides.Domain.Services.Exchange.reconcile()
     |> TijaraTides.Domain.Warehouse.advance(catalogue)
     |> TijaraTides.Domain.Services.FinancialSettlement.settle()
     |> PortCargoMarket.advance(catalogue)
+    |> TijaraTides.Domain.Services.Exchange.advance(catalogue)
     |> TijaraTides.Domain.Services.BerthAllocation.advance(catalogue)
     |> TijaraTides.Domain.Services.AutomatedVisits.advance(catalogue)
     |> TijaraTides.Domain.Services.BerthAllocation.release_idle(catalogue)

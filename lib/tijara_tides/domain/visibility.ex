@@ -22,6 +22,8 @@ defmodule TijaraTides.Domain.Visibility do
              "queued" => length(model.waiting)
            }}
         end),
+      "order_books" => TijaraTides.Domain.OrderBook.public(state),
+      "exchange_trades" => TijaraTides.Domain.OrderBook.recent(state),
       "companies" =>
         Map.new(entities(state, "companies"), fn {id, c} ->
           {id, Map.take(c, ["id", "name", "created_ms", "bankruptcy_ms"])}
@@ -64,6 +66,11 @@ defmodule TijaraTides.Domain.Visibility do
         |> Enum.map(fn row ->
           row |> Map.put("verified", row["used_session"] != nil) |> Map.delete("used_session")
         end),
+      "exchange_orders" =>
+        Map.new(
+          owned(state, "exchange_orders", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
       "warehouse_reservations" =>
         Map.new(
           owned(state, "warehouse_reservations", "company_id", account["company_id"]),

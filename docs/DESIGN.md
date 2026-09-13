@@ -923,6 +923,11 @@ Remote sales require owned goods already at that port. Cargo aboard a ship can
 only sell when the ship has a berth and can unload; anchorage does not bypass
 port handling. Warehouse cargo can change ownership without a ship present.
 
+The Ports column provides a collapsed Cargo exchange disclosure for standardized
+cargo, with persistent open state, separate bid/ask depth, recent trades and
+warehouse-backed order placement, amendment and cancellation controls. Public
+depth aggregates price levels without revealing private warehouse or order IDs.
+
 Standing buy orders reserve cash and appropriate warehouse capacity. Standing
 sell orders reserve owned goods. Cargo auction bids also reserve cash and space.
 Orders and bids cannot collectively spend the same money, sell the same goods,

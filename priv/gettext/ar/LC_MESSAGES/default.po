@@ -685,9 +685,6 @@ msgstr "تشمل التقارير النشاط المسجل منذ بدء الت
 msgid "Reserve fuel and sail"
 msgstr "حجز الوقود والإبحار"
 
-msgid "Reserved fuel"
-msgstr "الوقود المحجوز"
-
 msgid "Resolve conflicting destinations"
 msgstr "حل تعارض الوجهات"
 
@@ -2186,3 +2183,75 @@ msgstr "غير مرتبط"
 
 msgid "Warehouse renewal is now available at %{port}."
 msgstr "تجديد المستودع متاح الآن في %{port}."
+
+msgid "Amend order"
+msgstr "تعديل الأمر"
+
+msgid "An exchange order at %{port} was cancelled because its backing or validity expired."
+msgstr "أُلغي أمر تداول في %{port} بسبب انتهاء صلاحيته أو عدم توفر ما يغطيه."
+
+msgid "Asks"
+msgstr "عروض البيع"
+
+msgid "Bids"
+msgstr "طلبات الشراء"
+
+msgid "Cargo exchange"
+msgstr "بورصة البضائع"
+
+msgid "Choose standardized cargo, your warehouse, a positive limit price and 1–10,000 lots."
+msgstr "اختر بضاعة قياسية ومستودعك وسعرًا محددًا موجبًا وكمية من ١ إلى ١٠٬٠٠٠ دفعة."
+
+msgid "Exchange cargo"
+msgstr "بضاعة التداول"
+
+msgid "Exchange order"
+msgstr "أمر تداول"
+
+msgid "Exchange rules"
+msgstr "قواعد التداول"
+
+msgid "Expires in minutes (optional)"
+msgstr "ينتهي بعد دقائق (اختياري)"
+
+msgid "Lease compatible warehouse space at this port to place orders."
+msgstr "استأجر مساحة مستودع مناسبة في هذا الميناء لوضع الأوامر."
+
+msgid "Limit price per lot ($)"
+msgstr "السعر المحدد لكل دفعة ($)"
+
+msgid "NPC"
+msgstr "المحاكاة"
+
+msgid "New expiry in minutes (optional)"
+msgstr "انتهاء جديد بعد دقائق (اختياري)"
+
+msgid "No expiry"
+msgstr "بلا انتهاء"
+
+msgid "Place buy order"
+msgstr "وضع أمر شراء"
+
+msgid "Place sell order"
+msgstr "وضع أمر بيع"
+
+msgid "Price"
+msgstr "السعر"
+
+msgid "Recent trades"
+msgstr "الصفقات الأخيرة"
+
+msgid "Remaining lots"
+msgstr "الدفعات المتبقية"
+
+msgid "Remote trades settle into warehouses. Buys reserve limit-price cash and space; sells reserve stock. Best price, then earliest order wins; fills use the resting price. Reducing quantity keeps priority; increasing quantity or changing price resets it. No exchange fees. NPC rows show only their current price level, shared with ship trading."
+msgstr "تُسوّى الصفقات عن بُعد في المستودعات. تحجز أوامر الشراء المبلغ بالسعر المحدد والمساحة، وتحجز أوامر البيع المخزون. الأولوية لأفضل سعر ثم للأمر الأسبق، وتُنفَّذ الصفقة بسعر الأمر القائم. تقليل الكمية يحفظ الأولوية، أما زيادتها أو تغيير السعر فيعيد ترتيبها. لا توجد رسوم للبورصة. تعرض صفوف المحاكاة مستوى السعر الحالي فقط، وهو مشترك مع تجارة السفن."
+
+msgid "Reserved funds"
+msgstr "الأموال المحجوزة"
+
+msgid "Warehouse"
+msgstr "المستودع"
+
+msgid "Your open orders"
+msgstr "أوامرك المفتوحة"

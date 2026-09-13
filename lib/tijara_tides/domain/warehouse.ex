@@ -455,7 +455,7 @@ defmodule TijaraTides.Domain.Warehouse do
   def reserved_quantity(state, w, kind, good, except_ship \\ nil) do
     Enum.sum(
       for r <- reservations(state, w),
-          r.kind == kind and r.good == good and r.ship_id != except_ship,
+          r.kind == kind and r.good == good and (is_nil(except_ship) or r.ship_id != except_ship),
           do: r.quantity
     )
   end
@@ -624,8 +624,15 @@ defmodule TijaraTides.Domain.Warehouse do
         ship = get(s, "ships", r.ship_id)
         stop = r.stop_id && get(s, "route_stops", r.stop_id)
 
+        order = r.order_id && get(s, "exchange_orders", r.order_id)
+
+        owner_valid =
+          if r.order_id,
+            do: order && order["company_id"] == w.company_id,
+            else: ship && ship["company_id"] == w.company_id
+
         valid =
-          ship && ship["company_id"] == w.company_id &&
+          owner_valid &&
             (is_nil(r.stop_id) or (stop && stop["ship_id"] == r.ship_id && stop["port"] == w.port)) &&
             (r.kind == "stock" or state.clock_ms < w.expires_ms) &&
             get(s, "companies", w.company_id)["bankruptcy_ms"] == nil
@@ -796,5 +803,83 @@ defmodule TijaraTides.Domain.Warehouse do
     else
       {state, w}
     end
+  end
+
+  @doc "Back an exchange order with exclusive stock or receiving space."
+  def back_order(state, order, catalogue) do
+    w = from_row(get(state, "warehouses", order.warehouse_id))
+    item = catalogue["goods"][order.good]
+    stock = Enum.sum(for b <- w.cargo, b.good == order.good, do: b.quantity)
+
+    cond do
+      state.clock_ms >= w.expires_ms ->
+        {:error, :warehouse_expired}
+
+      not compatible?(w, item) ->
+        {:error, :incompatible_cargo}
+
+      order.side == "buy" and
+          volume(w, catalogue) + reserved_volume(state, w, catalogue) +
+            order.quantity * item["volume_l"] > w.blocks * block_litres() ->
+        {:error, :warehouse_capacity}
+
+      order.side == "sell" and
+          stock - reserved_quantity(state, w, "stock", order.good) < order.quantity ->
+        {:error, :insufficient_cargo}
+
+      true ->
+        r = %Reservation{
+          id: "exchange:" <> order.id,
+          warehouse_id: w.id,
+          company_id: w.company_id,
+          ship_id: nil,
+          order_id: order.id,
+          good: order.good,
+          kind: if(order.side == "buy", do: "capacity", else: "stock"),
+          quantity: order.quantity,
+          created_ms: state.clock_ms,
+          stop_id: nil
+        }
+
+        {:ok, put(state, "warehouse_reservations", r.id, Reservation.to_row(r))}
+    end
+  end
+
+  def release_order(state, id), do: delete(state, "warehouse_reservations", "exchange:" <> id)
+
+  def order_backed?(state, order) do
+    w = get(state, "warehouses", order.warehouse_id)
+    r = get(state, "warehouse_reservations", "exchange:" <> order.id)
+
+    not is_nil(w) and w["expires_ms"] > state.clock_ms and not is_nil(r) and
+      r["quantity"] >= order.quantity
+  end
+
+  def exchange_ready?(state, order) do
+    row = get(state, "warehouses", order.warehouse_id)
+    order_backed?(state, order) && row["protected_ms"] <= state.clock_ms
+  end
+
+  defp consume_order(state, order, n) do
+    row = get(state, "warehouse_reservations", "exchange:" <> order.id)
+
+    if row["quantity"] == n,
+      do: release_order(state, order.id),
+      else:
+        put(state, "warehouse_reservations", row["id"], %{row | "quantity" => row["quantity"] - n})
+  end
+
+  def exchange_out(state, order, n) do
+    w = from_row(get(state, "warehouses", order.warehouse_id))
+    {state, cargo, remaining} = CargoBatch.take(state, w.cargo, n, order.good)
+    {state |> save(%{w | cargo: remaining}) |> consume_order(order, n), cargo}
+  end
+
+  def exchange_in(state, order, cargo, n) do
+    w = from_row(get(state, "warehouses", order.warehouse_id))
+
+    state
+    |> save(%{w | cargo: w.cargo ++ Enum.map(cargo, &CargoBatch.from_row/1)})
+    |> consume_order(order, n)
   end
 end

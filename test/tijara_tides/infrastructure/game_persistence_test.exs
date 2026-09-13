@@ -39,6 +39,116 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "warehouse exchange fills persist atomically with escrow and anonymous depth", c do
+    alias TijaraTides.Domain.Warehouse
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => a}} = GameServer.redeem(c.code, c.server)
+    {:ok, code} = GameServer.seed(c.server)
+    {:ok, %{"session" => b}} = GameServer.redeem(code, c.server)
+
+    leases =
+      Enum.map([{a, "Seller"}, {b, "Buyer"}], fn {token, name} ->
+        {:ok, _} =
+          TijaraTides.CompanyFixture.command(
+            token,
+            "company-#{name}",
+            %{"action" => "company", "name" => name, "port" => "Jakarta", "package" => "general"},
+            c.server
+          )
+
+        used =
+          Map.get(
+            GameServer.snapshot(token, c.server).public["warehouse_utilization"],
+            "Jakarta|dry",
+            0
+          )
+
+        {:ok, _} =
+          GameServer.command(
+            token,
+            "lease-#{name}",
+            %{
+              "action" => "warehouse_lease",
+              "port" => "Jakarta",
+              "storage" => "dry",
+              "blocks" => 10,
+              "days" => 1,
+              "price" => Warehouse.quote(used, "dry", 10, 1)
+            },
+            c.server
+          )
+
+        hd(Map.keys(GameServer.snapshot(token, c.server).private["warehouses"]))
+      end)
+
+    [aw, bw] = leases
+
+    place = fn token, id, warehouse, side, n, price ->
+      GameServer.command(
+        token,
+        id,
+        %{
+          "action" => "exchange_place",
+          "warehouse" => warehouse,
+          "good" => "lumber",
+          "side" => side,
+          "quantity" => n,
+          "price" => price
+        },
+        c.server
+      )
+    end
+
+    assert {:ok, _} = place.(a, "acquire", aw, "buy", 2, 1_000_000)
+    assert {:ok, _} = place.(a, "ask", aw, "sell", 2, 1000)
+    assert {:ok, _} = place.(b, "bid", bw, "buy", 3, 1000)
+    assert {:ok, _} = place.(b, "bid", bw, "buy", 3, 1000)
+    view = GameServer.snapshot(b, c.server)
+    [order] = Map.values(view.private["exchange_orders"])
+    assert order["quantity"] == 1
+    assert view.private["company"]["reserved"] == 1000
+
+    assert Enum.sum(for batch <- view.private["warehouses"][bw]["cargo"], do: batch["quantity"]) ==
+             2
+
+    assert view.public["order_books"]["Jakarta|lumber"] == [
+             %{"side" => "buy", "price" => 1000, "quantity" => 1}
+           ]
+
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    before = :sys.get_state(c.server).game
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
+    assert restored.entities["exchange_orders"] == before.entities["exchange_orders"]
+
+    assert restored.entities["warehouse_reservations"] ==
+             before.entities["warehouse_reservations"]
+
+    assert restored.entities["warehouses"] == before.entities["warehouses"]
+
+    html =
+      render_component(&TijaraTidesWeb.GameUI.ExchangePanel.panel/1,
+        definitions: GameServer.definitions(),
+        view: view,
+        port: "Jakarta",
+        good: "lumber",
+        request_id: "ui"
+      )
+
+    assert html =~ "Your open orders"
+    assert html =~ "Amend order"
+
+    assert {:ok, _} =
+             GameServer.command(
+               b,
+               "cancel",
+               %{"action" => "exchange_cancel", "order" => order["id"]},
+               c.server
+             )
+
+    assert GameServer.snapshot(b, c.server).private["company"]["reserved"] == 0
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "rerouting persists the sea path and reconciles released reservations", c do
     alias TijaraTides.Domain.Fleet
     alias TijaraTides.Infrastructure.Persistence.FinancialLedger

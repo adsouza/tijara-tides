@@ -4,6 +4,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
   import TijaraTidesWeb.GameUI.Presentation
   alias TijaraTides.UseCases.GameQueries
 
+  attr :exchange_good, :any, default: nil
   attr :warehouse_draft, :map, default: %{}
   attr :definitions, :any, required: true
   attr :destination, :any, required: true
@@ -63,6 +64,13 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               do: gettext("Selected destination"),
               else: gettext("Set as destination")}
           </button>
+          <TijaraTidesWeb.GameUI.ExchangePanel.panel
+            definitions={@definitions}
+            view={@view}
+            port={@selected_port}
+            good={@exchange_good}
+            request_id={@request_id}
+          />
           <TijaraTidesWeb.GameUI.WarehousePanel.panel
             definitions={@definitions}
             view={@view}

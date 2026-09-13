@@ -34,6 +34,13 @@ defmodule TijaraTides.Localization.Notifications do
 
   def render(notice, _goods), do: notice["text"] || ""
 
+  defp message("exchange.cancelled", args),
+    do:
+      gettext(
+        "An exchange order at %{port} was cancelled because its backing or validity expired.",
+        args
+      )
+
   defp message("warehouse.renewal_open", args),
     do: gettext("Warehouse renewal is now available at %{port}.", args)
 

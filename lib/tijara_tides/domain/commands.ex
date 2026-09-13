@@ -25,7 +25,8 @@ defmodule TijaraTides.Domain.Commands do
              changed,
              context.catalogue,
              account["company_id"]
-           ), reply}
+           )
+           |> TijaraTides.Domain.Services.Exchange.reconcile(), reply}
 
         other ->
           other
@@ -37,6 +38,15 @@ defmodule TijaraTides.Domain.Commands do
     catalogue = context.catalogue
 
     case command do
+      %{"action" => "exchange_place"} ->
+        TijaraTides.Domain.Services.Exchange.place(state, account, command, context.id, catalogue)
+
+      %{"action" => "exchange_amend"} ->
+        TijaraTides.Domain.Services.Exchange.amend(state, account, command, catalogue)
+
+      %{"action" => "exchange_cancel", "order" => id} ->
+        TijaraTides.Domain.Services.Exchange.cancel(state, account, id)
+
       %{"action" => "reroute", "ship" => id, "destination" => destination, "fuel_limit" => limit} ->
         TijaraTides.Domain.Fleet.reroute(state, account, id, destination, limit, catalogue)
 

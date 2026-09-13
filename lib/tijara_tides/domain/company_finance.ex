@@ -876,7 +876,14 @@ defmodule TijaraTides.Domain.CompanyFinance do
                 do: loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
           )
 
-      company["cash"] - company["reserved"] < liabilities
+      cancellable_orders =
+        Enum.sum(
+          for o <- owned(state, "exchange_orders", "company_id", company["id"]),
+              o["side"] == "buy",
+              do: o["quantity"] * o["price"]
+        )
+
+      company["cash"] - company["reserved"] + cancellable_orders < liabilities
     else
       false
     end

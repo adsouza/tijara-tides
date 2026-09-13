@@ -154,8 +154,8 @@ replenish and are capped. Supply and demand recover one lot every 150 seconds
 of active world time (0.4 lots per minute); buyer budgets recover one lot’s
 reference value on the same interval. Partial intervals carry across ticks. This is a manual
 NPC market adapter, not the eventual central limit order book. Finite berths and queues, warehouse leases, transfers, reservations and renewals
-are available. Standing exchange orders and annual invitation allocations remain
-deferred. Next-port cargo instructions and optional
+are available. Annual invitation allocations remain deferred. Warehouse-backed standing
+exchange orders are available for standardized cargo. Next-port cargo instructions and optional
 automatic departure are available. Operating shortfalls accumulate as unpaid
 bills and participate in the implemented loan settlement and bankruptcy rules.
 
@@ -185,7 +185,7 @@ emailed token inside the app. Google sign-in remains deferred.
 
 ## Following milestones
 
-Standing order matching; auctions and procurement contracts; age-based maintenance.
+Auctions and procurement contracts; age-based maintenance.
 Player-owned industry stays a later expansion under section 14.
 
 Markets by cargo compares applicable ports in two tables: Supply on the left
@@ -440,8 +440,7 @@ Perishable aging continues. Expiry and clearance notify the owner. Until auction
 and exchange orders exist, remaining cargo goes directly to system clearance at
 50% of reference value, with grace rent deducted only from clearance proceeds.
 Bankrupt-company storage follows the same clearance fallback after committed
-handling finishes. All timings pause with the world. Auction stages, remote
-exchange trading and port-specific warehouse tuning remain subsequent milestones.
+handling finishes. All timings pause with the world. Auction stages, port-specific warehouse tuning remain subsequent milestones.
 
 Reservations are relational, typed claims owned by the warehouse aggregate.
 Players earmark quantities of a cargo for a ship, or reserve receiving volume.
@@ -478,3 +477,39 @@ as the catalogue. Previously paid Panama/Suez fees remain spent and are not
 charged again during diversions of the same voyage. The normal next departure
 starts a fresh toll allowance. Port instructions stay at their original ports;
 a running repeating route is paused until explicitly resumed.
+
+
+## Standardized cargo exchange
+
+Ports expose a Cargo exchange disclosure for bulk commodities, mass consumer
+products and scrap. Books match warehouse-backed player orders and the existing
+finite NPC supply/demand adapter. NPC depth and budgets are shared with manual
+ship trades; ship trading still uses that adapter rather than routing through
+player warehouse orders. Perishables and auction cargo remain outside this book.
+
+Buy orders escrow quantity times limit price and reserve compatible receiving
+space. Sells reserve owned stock, excluding claims already earmarked for ships.
+Warehouse-to-warehouse ownership changes, cost basis, profit, escrow release and
+order quantities settle in one transaction. No exchange or handling fee is
+charged for a warehouse ownership transfer. Subsequent ship collection pays its
+normal handling fees. Price improvement is released immediately.
+
+Matching uses best price then server acceptance time and revision, with a stable
+ID tie-break. Player fills execute at the older resting price; own-company orders
+never match each other. NPC offers have priority at equal prices and change at
+25-lot depth boundaries. Placement and amendment each allow up to 512 fills. Tick matching shares a
+512-fill budget across all orders and visits at most 512 orders. A rotating
+in-memory priority cursor resumes after the last visited order, even if that
+order was removed; restarts/reloads restart scheduling from the oldest order.
+Counterpart selection retains price/time priority. Reconciliation and sorting
+still inspect all open orders, so these budgets bound fills and visits, not total
+tick CPU time. Remaining executable quantities retry on subsequent ticks. Orders are capped at 100 per
+company, 1,000 per port/cargo book, and 10,000 lots each. The book retains only open orders and the last 20
+public fills per port/cargo; the financial journal remains the durable audit.
+
+Cancellation releases all unfilled backing. Quantity reductions preserve
+priority, while increases and price changes reset it. Failed amendments retain
+the old order and its reservations. Optional active-world expiry does not extend
+a lease; lease expiry, missing backing and bankruptcy also cancel orders.
+The UI shows aggregated player price levels, the NPC's current price level,
+recent executions, and private order placement/amendment/cancellation controls.

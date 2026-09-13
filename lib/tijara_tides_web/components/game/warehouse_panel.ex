@@ -176,16 +176,12 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
             )}
           </p>
           <div :for={r <- lease.reservations} class="my-1 flex flex-wrap items-center gap-2">
-            <span>{r.ship} · {cargo_name(r.good)} · {display_number(r.quantity)} · {if r.kind ==
-                                                                                         "stock",
-                                                                                       do:
-                                                                                         gettext(
-                                                                                           "Owned stock"
-                                                                                         ),
-                                                                                       else:
-                                                                                         gettext(
-                                                                                           "Receiving space"
-                                                                                         )}</span>
+            <span>{r.ship || gettext("Exchange order")} · {cargo_name(r.good)} · {display_number(
+              r.quantity
+            )} · {if r.kind ==
+                       "stock",
+                     do: gettext("Owned stock"),
+                     else: gettext("Receiving space")}</span>
             <form phx-submit="warehouse">
               <input type="hidden" name="action" value="warehouse_cancel_reservation" />
               <input type="hidden" name="reservation" value={r.id} />

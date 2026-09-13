@@ -26,6 +26,7 @@ defmodule TijaraTidesWeb.GameLive do
         definitions: Game.definitions(),
         selected_port: "Singapore",
         warehouse_draft: %{},
+        exchange_good: nil,
         route_drafts: %{},
         destination_picker_open: false,
         report_open: false,
@@ -138,6 +139,40 @@ defmodule TijaraTidesWeb.GameLive do
        "blocks" => report_number(params["blocks"]),
        "days" => report_number(params["days"])
      })}
+  end
+
+  def handle_event("exchange-good", %{"good" => good}, socket),
+    do: {:noreply, assign(socket, :exchange_good, good)}
+
+  def handle_event("exchange", params, socket) do
+    command =
+      params
+      |> Map.drop(["_target", "minutes", "clear_expiry"])
+      |> Map.update("quantity", nil, &report_number/1)
+      |> Map.update("price", nil, &exchange_price/1)
+
+    command =
+      case params["minutes"] do
+        nil ->
+          command
+
+        "" ->
+          command
+
+        value ->
+          Map.put(
+            command,
+            "expires_ms",
+            socket.assigns.view.public["clock_ms"] + report_number(value) * 60_000
+          )
+      end
+
+    command = Map.reject(command, fn {_, v} -> is_nil(v) end)
+
+    command =
+      if params["clear_expiry"] == "true", do: Map.put(command, "expires_ms", nil), else: command
+
+    run(socket, command)
   end
 
   def handle_event("warehouse", params, socket) do
@@ -676,6 +711,13 @@ defmodule TijaraTidesWeb.GameLive do
     end
   end
 
+  defp exchange_price(value) do
+    case Float.parse(to_string(value)) do
+      {n, ""} when n >= 0.01 and n <= 10_000_000_000 -> round(n * 100)
+      _ -> 0
+    end
+  end
+
   defp report_number(value) when is_integer(value), do: value
 
   defp report_number(value) when is_binary(value) and byte_size(value) <= 12 do
@@ -1117,7 +1159,7 @@ defmodule TijaraTidesWeb.GameLive do
               </p>
             </div>
             <div>
-              {gettext("Reserved fuel")}
+              {gettext("Reserved funds")}
               <p class="text-2xl">{money(@view.private["company"]["reserved"])}</p>
             </div>
             <div>
@@ -1145,6 +1187,7 @@ defmodule TijaraTidesWeb.GameLive do
             <div class="workspace-panels">
               <TijaraTidesWeb.GameUI.PortsPanel.panel
                 warehouse_draft={@warehouse_draft}
+                exchange_good={@exchange_good}
                 definitions={@definitions}
                 destination={@destination}
                 port_market_side={@port_market_side}
