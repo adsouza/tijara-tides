@@ -2,7 +2,7 @@ defmodule TijaraTidesWeb.LocaleController do
   use TijaraTidesWeb, :controller
   alias TijaraTides.UseCases.Game
 
-  def update(conn, %{"locale" => locale}) when locale in ["en", "ar"] do
+  def update(conn, %{"locale" => locale} = params) when locale in ["en", "ar"] do
     result =
       case get_session(conn, :account_token) do
         nil ->
@@ -33,7 +33,8 @@ defmodule TijaraTidesWeb.LocaleController do
           )
       end
 
-    redirect(conn, to: "/play")
+    destination = if params["return_to"] in ["/", "/play"], do: params["return_to"], else: "/play"
+    redirect(conn, to: destination)
   end
 
   def update(conn, _), do: conn |> put_status(400) |> text("Unsupported language")

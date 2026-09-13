@@ -42,6 +42,26 @@ defmodule TijaraTidesWeb.LocaleControllerTest do
     assert page =~ "العربية"
   end
 
+  test "lobby language changes return to the lobby", %{conn: conn} do
+    page = conn |> get("/") |> html_response(200)
+    assert page =~ ~s(name="return_to" value="/")
+
+    for locale <- ["ar", "en"] do
+      result = conn |> recycle() |> post("/locale", locale: locale, return_to: "/")
+      assert redirected_to(result) == "/"
+      assert get_session(result, :locale) == locale
+    end
+  end
+
+  test "game language changes stay in the game and arbitrary redirects are rejected", %{
+    conn: conn
+  } do
+    for destination <- ["/play", "https://example.com", "//example.com", "/email/verify"] do
+      result = conn |> recycle() |> post("/locale", locale: "en", return_to: destination)
+      assert redirected_to(result) == "/play"
+    end
+  end
+
   test "unsupported preference is rejected", %{conn: conn} do
     assert conn |> post("/locale", locale: "unknown") |> response(400)
   end

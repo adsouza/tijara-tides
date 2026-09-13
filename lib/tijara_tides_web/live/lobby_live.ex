@@ -25,7 +25,7 @@ defmodule TijaraTidesWeb.LobbyLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <Layouts.language_selector />
+      <Layouts.language_selector return_to="/" />
       <section class="mx-auto max-w-5xl px-6 py-16 sm:py-24">
         <p class="text-xs font-semibold uppercase tracking-[0.3em] text-teal-300">
           {gettext("A shared world awaits")}

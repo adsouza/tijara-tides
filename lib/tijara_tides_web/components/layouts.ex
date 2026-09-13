@@ -2,10 +2,13 @@ defmodule TijaraTidesWeb.Layouts do
   use TijaraTidesWeb, :html
   embed_templates "layouts/*"
 
+  attr :return_to, :string, default: "/play"
+
   def language_selector(assigns) do
     ~H"""
     <form action="/locale" method="post" class="flex items-center gap-2 my-2">
       <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+      <input type="hidden" name="return_to" value={@return_to} />
       <label for="language-choice">{gettext("Language")}</label>
       <select id="language-choice" name="locale" class="rounded bg-slate-800 p-1" dir="auto">
         <option

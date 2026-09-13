@@ -258,7 +258,7 @@ msgstr ""
 msgid "An ocean of possibilities. A multiplayer marine trading game, beginning here."
 msgstr ""
 
-#: lib/tijara_tides_web/components/layouts.ex:19
+#: lib/tijara_tides_web/components/layouts.ex:22
 #, elixir-autogen, elixir-format
 msgid "Apply"
 msgstr ""
@@ -557,8 +557,8 @@ msgstr ""
 msgid "Destination trade opportunities"
 msgstr ""
 
-#: lib/tijara_tides_web/components/layouts.ex:52
-#: lib/tijara_tides_web/components/layouts.ex:53
+#: lib/tijara_tides_web/components/layouts.ex:55
+#: lib/tijara_tides_web/components/layouts.ex:56
 #, elixir-autogen, elixir-format
 msgid "Dismiss notification"
 msgstr ""
@@ -778,7 +778,7 @@ msgstr ""
 msgid "Kind"
 msgstr ""
 
-#: lib/tijara_tides_web/components/layouts.ex:9
+#: lib/tijara_tides_web/components/layouts.ex:12
 #, elixir-autogen, elixir-format
 msgid "Language"
 msgstr ""
@@ -1431,7 +1431,7 @@ msgid "This link expires in 15 minutes."
 msgstr ""
 
 #: lib/tijara_tides/localization/email.ex:6
-#: lib/tijara_tides_web/components/layouts.ex:32
+#: lib/tijara_tides_web/components/layouts.ex:35
 #: lib/tijara_tides_web/components/layouts/root.html.heex:10
 #: lib/tijara_tides_web/components/layouts/root.html.heex:10
 #: lib/tijara_tides_web/live/game_live.ex:797
