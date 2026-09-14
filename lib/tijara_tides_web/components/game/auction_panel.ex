@@ -239,7 +239,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
           "Browse open and upcoming auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
         )}
       </p>
-      <form phx-change="auction-grouping" class="my-2">
+      <form id="auction-grouping" phx-change="auction-grouping" class="my-2">
         <label>
           {gettext("Group by")}
           <select name="grouping" class="rounded bg-slate-800 p-1">

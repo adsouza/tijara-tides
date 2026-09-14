@@ -916,7 +916,10 @@ defmodule TijaraTidesWeb.GameLive do
     destination =
       if ship do
         saved = Map.get(destinations, ship["id"])
-        if saved in [nil, "", ship["port"]], do: planned || ship["destination"], else: saved
+
+        if saved in [nil, ""] or (ship["status"] != "sailing" and saved == ship["port"]),
+          do: planned || ship["destination"],
+          else: saved
       end
 
     socket = assign(socket, destination: destination, ship_destinations: destinations)

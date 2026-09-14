@@ -408,12 +408,20 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "fuel_limit" => quote["fuel"]
     }
 
-    assert {:ok, result} = GameServer.command(token, "divert", cmd, c.server)
-    assert {:ok, ^result} = GameServer.command(token, "divert", cmd, c.server)
     Application.put_env(:tijara_tides, :game_server, c.server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
     conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => token})
     {:ok, view, _} = live(conn, "/play")
+    render_click(view, "ship", %{"id" => ship})
+    render_change(view, "preview", %{"destination" => "Jakarta"})
+    assert has_element?(view, "#reroute-selector option[value=Jakarta][selected]")
+    assert has_element?(view, "button[phx-click=sail]", "Confirm reroute")
+    send(view.pid, {:game_changed, 0})
+    assert has_element?(view, "#reroute-selector option[value=Jakarta][selected]")
+    render_click(view, "sail", %{"request_id" => "divert"})
+    assert GameServer.snapshot(token, c.server).private["ships"][ship]["destination"] == "Jakarta"
+    assert {:ok, result} = GameServer.command(token, "divert", cmd, c.server)
+    assert {:ok, ^result} = GameServer.command(token, "divert", cmd, c.server)
     render_click(view, "ship", %{"id" => ship})
     assert has_element?(view, "#reroute-selector")
     render_change(view, "preview", %{"destination" => "Colombo"})
