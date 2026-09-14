@@ -139,11 +139,11 @@ defmodule TijaraTides.Domain.AuctionsTest do
     assert {:error, :auction_locked} = Auctions.withdraw_lot(s, c.a, "lot")
     {:ok, s, _} = bid(c, s, 2000)
     {:ok, same, _} = bid(c, %{s | revision: 5}, 2000)
-    assert Auction.bid(same, "lot", "bco")["priority_seq"] == 0
+    assert Auction.bid(same, "lot", "bco").priority_seq == 0
     assert {:error, :insufficient_cash} = bid(c, s, 1_000_000_000_000)
-    assert Auction.bid(s, "lot", "bco")["amount"] == 2000
+    assert Auction.bid(s, "lot", "bco").amount == 2000
     {:ok, s, _} = bid(c, %{s | revision: 6}, 2001)
-    assert Auction.bid(s, "lot", "bco")["priority_seq"] == 6
+    assert Auction.bid(s, "lot", "bco").priority_seq == 6
 
     assert {:error, :auction_locked} =
              Auctions.withdraw_bid(%{s | clock_ms: a.closes_ms}, c.b, "lot")

@@ -69,8 +69,9 @@ defmodule TijaraTides.Domain.MarketTransitionsTest do
   end
 
   test "settlement requires the close, reserve and winning bid, and happens only once" do
-    winner = %{"id" => "bid", "auction_id" => "lot", "company_id" => "buyer", "amount" => 300}
-    state = Auction.put_bid(Auction.list(world(), lot()), winner)
+    opened = %{Auction.list(world(), lot()) | clock_ms: 10}
+    {:ok, winner} = Auction.prepare_bid(opened, "lot", "buyer", "warehouse", 300, "bid")
+    state = Auction.accept_bid(opened, winner)
     assert_raise ArgumentError, fn -> Auction.close_sold(state, "lot", 200, winner) end
     assert_raise ArgumentError, fn -> Auction.close_unsold(state, "lot") end
     due = %{state | clock_ms: 20}
@@ -80,14 +81,15 @@ defmodule TijaraTides.Domain.MarketTransitionsTest do
     end
 
     for bad <- [
-          Map.put(winner, "auction_id", "other"),
-          Map.put(winner, "company_id", "seller"),
-          Map.put(winner, "id", "never-recorded")
+          %{winner | auction_id: "other"},
+          %{winner | company_id: "seller"},
+          %{winner | id: "never-recorded"}
         ] do
       assert_raise ArgumentError, fn -> Auction.close_sold(due, "lot", 200, bad) end
     end
 
-    outbid = Auction.put_bid(due, %{winner | "id" => "higher", "amount" => 400})
+    {:ok, higher} = Auction.prepare_bid(state, "lot", "other-buyer", "warehouse", 400, "higher")
+    outbid = %{Auction.accept_bid(state, higher) | clock_ms: 20}
     assert_raise ArgumentError, fn -> Auction.close_sold(outbid, "lot", 200, winner) end
 
     sold = Auction.close_sold(due, "lot", 200, winner)

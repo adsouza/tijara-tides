@@ -717,3 +717,27 @@ its existing query API to `MarketQueries`, `AuctionQueries`, `ExchangeQueries`,
 route/visit editor preparation and draft defaults. Market estimates remain
 shared pure calculations; neither estimates nor prepared editor options authorize
 writes. These implementation modules stay internal to the application boundary.
+
+
+## Typed auction bids
+
+`Auction.Bid` contains typed terms and priority rules without world-state access
+or row conversion. `Auction.BidRows` is the codec at the existing world-state
+boundary; it preserves the seven persisted fields and rejects unmapped or missing
+fields. Other roots still use their existing row representation: this is an
+incremental separation, not a change to the world transaction or database schema.
+
+`Auction.prepare_bid` validates the bidding window, reserve, seller exclusion,
+identifier ownership and bidder caps. It preserves priority when the amount is
+unchanged and produces proposed terms without mutating state. After securing cash
+and warehouse backing, the service calls `accept_bid` or `replace_bid`.
+Replacement requires the previous accepted terms; withdrawal and invalidation
+likewise reject stale bid snapshots. Reconciliation may invalidate a bid at close,
+while voluntary withdrawal is locked at that point.
+
+Simulated bids use a separate due-only recording operation on player consignments.
+They cannot overwrite accepted bids or enter through ordinary player acceptance.
+Their valuations still obey the service's finite market demand and budget checks.
+The service coordinates escrow release, cargo movement and settlement in the same
+atomic commit. Public and private projections retain their existing wire shapes,
+including sealed amounts until closing and historical bid retention.

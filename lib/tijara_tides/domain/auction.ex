@@ -1,6 +1,7 @@
 defmodule TijaraTides.Domain.Auction do
   @moduledoc "Scheduled luxury consignments and sealed company bids."
   import TijaraTides.Domain.State
+  alias __MODULE__.{Bid, BidRows}
 
   @fields ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed)a
   @enforce_keys @fields
@@ -51,21 +52,21 @@ defmodule TijaraTides.Domain.Auction do
 
   def close_unsold(s, id), do: store(s, %{due!(s, id) | status: "unsold"})
 
-  def close_sold(s, id, price, winner) do
+  def close_sold(s, id, price, %Bid{} = winner) do
     a = due!(s, id)
     recorded = bids(s, id)
 
     unless is_integer(price) and price >= a.reserve and
-             winner in recorded and is_integer(winner["amount"]) and
-             price <= winner["amount"] and winner["company_id"] != a.company_id and
-             Enum.all?(recorded, &(&1["amount"] <= winner["amount"])),
+             winner in recorded and is_integer(winner.amount) and
+             price <= winner.amount and winner.company_id != a.company_id and
+             Enum.all?(recorded, &(&1.amount <= winner.amount)),
            do:
              raise(
                ArgumentError,
                "A sale requires an eligible winning bid covering the clearing price"
              )
 
-    store(s, %{a | status: "sold", price: price, winner_id: winner["company_id"]})
+    store(s, %{a | status: "sold", price: price, winner_id: winner.company_id})
   end
 
   defp terms!(quantity, reserve) do
@@ -92,10 +93,144 @@ defmodule TijaraTides.Domain.Auction do
   end
 
   defp store(s, a), do: put(s, "auctions", a.id, to_row(a))
-  def bids(s, id), do: owned(s, "auction_bids", "auction_id", id)
-  def bid(s, id, company), do: Enum.find(bids(s, id), &(&1["company_id"] == company))
-  def put_bid(s, b), do: put(s, "auction_bids", b["id"], b)
-  def delete_bid(s, id), do: delete(s, "auction_bids", id)
+  def bids(s, id), do: Enum.map(owned(s, "auction_bids", "auction_id", id), &BidRows.decode/1)
+
+  def company_bids(s, company),
+    do: Enum.map(owned(s, "auction_bids", "company_id", company), &BidRows.decode/1)
+
+  def bid(_s, _id, company) when not is_binary(company), do: nil
+  def bid(s, id, company), do: Enum.find(bids(s, id), &(&1.company_id == company))
+
+  @doc "Plan acceptance or replacement without changing backing or stored bids."
+  def prepare_bid(s, id, company, warehouse, amount, request_id) do
+    case fetch(s, id) do
+      nil ->
+        {:error, :auction_invalid}
+
+      a ->
+        previous = bid(s, id, company)
+
+        with {:ok, proposed} <-
+               Bid.offer(
+                 a,
+                 previous,
+                 request_id,
+                 company,
+                 warehouse,
+                 amount,
+                 s.clock_ms,
+                 s.revision
+               ) do
+          # Caps and identifier ownership constrain a new bid only.
+          if previous == nil and
+               (get(s, "auction_bids", proposed.id) != nil or capped?(s, id, company)),
+             do: {:error, :auction_invalid},
+             else: {:ok, proposed}
+        end
+    end
+  end
+
+  @doc "Accept a new prepared bid after the service has secured its backing."
+  def accept_bid(s, %Bid{} = proposed) do
+    unless bid(s, proposed.auction_id, proposed.company_id) == nil and
+             get(s, "auction_bids", proposed.id) == nil,
+           do: raise(ArgumentError, "An existing bid must be replaced explicitly")
+
+    validate_prepared!(s, nil, proposed)
+
+    if capped?(s, proposed.auction_id, proposed.company_id),
+      do: raise(ArgumentError, "A new bid exceeds the current auction or company cap")
+
+    store_bid(s, proposed)
+  end
+
+  def replace_bid(s, %Bid{} = previous, %Bid{} = proposed) do
+    unless get(s, "auction_bids", previous.id) == BidRows.encode(previous) and
+             proposed.id == previous.id and proposed.auction_id == previous.auction_id and
+             proposed.company_id == previous.company_id,
+           do:
+             raise(
+               ArgumentError,
+               "Bid replacement requires the current accepted terms and identity"
+             )
+
+    validate_prepared!(s, previous, proposed)
+    store_bid(s, proposed)
+  end
+
+  defp capped?(s, id, company) do
+    Enum.count(owned(s, "auction_bids", "auction_id", id)) >= 1000 or
+      Enum.count(
+        owned(s, "auction_bids", "company_id", company),
+        &scheduled?(s, &1["auction_id"])
+      ) >=
+        100
+  end
+
+  defp scheduled?(s, auction_id) do
+    case fetch(s, auction_id) do
+      %__MODULE__{status: "scheduled"} -> true
+      _ -> false
+    end
+  end
+
+  defp validate_prepared!(s, previous, proposed) do
+    a = fetch(s, proposed.auction_id)
+
+    unless a != nil and
+             Bid.offer(
+               a,
+               previous,
+               proposed.id,
+               proposed.company_id,
+               proposed.warehouse_id,
+               proposed.amount,
+               s.clock_ms,
+               s.revision
+             ) == {:ok, proposed},
+           do: raise(ArgumentError, "Bid terms or priority are no longer valid")
+  end
+
+  def withdraw_bid(s, %Bid{} = bid) do
+    a = scheduled!(s, bid.auction_id)
+
+    unless s.clock_ms < a.closes_ms and is_binary(bid.company_id),
+      do: raise(ArgumentError, "A player bid cannot be withdrawn after closing")
+
+    remove_current_bid(s, bid)
+  end
+
+  @doc "Remove a bid whose backing was released by reconciliation or lot cancellation."
+  def invalidate_bid(s, %Bid{} = bid) do
+    scheduled!(s, bid.auction_id)
+    remove_current_bid(s, bid)
+  end
+
+  @doc "Record simulated valuations only during settlement of a player consignment."
+  def record_simulated_bids(s, id, bids) do
+    a = due!(s, id)
+
+    unless length(Enum.uniq_by(bids, & &1.id)) == length(bids),
+      do: raise(ArgumentError, "Simulated bid identifiers must be unique")
+
+    Enum.reduce(bids, s, fn %Bid{} = bid, acc ->
+      unless bid == Bid.simulated(a, bid.priority_seq, bid.amount) and
+               get(acc, "auction_bids", bid.id) == nil,
+             do: raise(ArgumentError, "Only new simulated bids may be recorded at settlement")
+
+      store_bid(acc, bid)
+    end)
+  end
+
+  defp store_bid(s, bid), do: put(s, "auction_bids", bid.id, BidRows.encode(bid))
+
+  defp remove_current_bid(s, bid) do
+    unless get(s, "auction_bids", bid.id) == BidRows.encode(bid),
+      do: raise(ArgumentError, "Bid removal requires the current accepted terms")
+
+    delete(s, "auction_bids", bid.id)
+  end
+
   def open?(a), do: a.status == "scheduled"
 
   # Existing schedules are immutable; these settings apply only to new listings.
@@ -121,9 +256,14 @@ defmodule TijaraTides.Domain.Auction do
   def private_bids(_s, nil), do: []
 
   def private_bids(s, company) do
-    for b <- owned(s, "auction_bids", "company_id", company), a = fetch(s, b["auction_id"]) do
+    for b <- company_bids(s, company), a = fetch(s, b.auction_id) do
       won = a.status == "sold" and a.winner_id == company
-      Map.merge(b, %{"status" => a.status, "won" => won, "paid" => if(won, do: a.price, else: 0)})
+
+      Map.merge(BidRows.encode(b), %{
+        "status" => a.status,
+        "won" => won,
+        "paid" => if(won, do: a.price, else: 0)
+      })
     end
   end
 
@@ -132,7 +272,7 @@ defmodule TijaraTides.Domain.Auction do
       row = Map.take(to_row(a), ~w(id port good quantity reserve opens_ms closes_ms status price))
 
       amounts =
-        if open?(a), do: [], else: Enum.sort(Enum.map(bids(s, a.id), & &1["amount"]), :desc)
+        if open?(a), do: [], else: Enum.sort(Enum.map(bids(s, a.id), & &1.amount), :desc)
 
       Map.put(row, "amounts", amounts)
     end)
@@ -147,7 +287,7 @@ defmodule TijaraTides.Domain.Auction do
       |> Enum.sort_by(&{&1.closes_ms, &1.id}, :desc)
       |> Enum.drop(20)
       |> Enum.reduce(s, fn a, s ->
-        s = Enum.reduce(bids(s, a.id), s, &delete_bid(&2, &1["id"]))
+        s = Enum.reduce(bids(s, a.id), s, &remove_current_bid(&2, &1))
         delete(s, "auctions", a.id)
       end)
     end)

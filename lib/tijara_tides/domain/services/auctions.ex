@@ -3,6 +3,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
   import TijaraTides.Domain.ReadState, only: [get: 3, owned: 4]
   alias TijaraTides.Domain.{Auction, Warehouse, CompanyFinance, PortCargoMarket, Notices}
   alias TijaraTides.Domain.Ship.CargoBatch
+  alias TijaraTides.Domain.Auction.Bid
   alias TijaraTides.Domain.Warehouse.Claim
   @max_lots TijaraTides.Domain.CargoRules.max_lots()
 
@@ -40,10 +41,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
   def bid_claim(a, b),
     do:
       Claim.new(
-        id: b["id"],
+        id: b.id,
         kind: :bid,
-        company_id: b["company_id"],
-        warehouse_id: b["warehouse_id"],
+        company_id: b.company_id,
+        warehouse_id: b.warehouse_id,
         good: a.good,
         quantity: a.quantity,
         side: "buy",
@@ -116,58 +117,38 @@ defmodule TijaraTides.Domain.Services.Auctions do
     w = get(s, "warehouses", cmd["warehouse"])
     company = account["company_id"]
 
-    if a && Auction.open?(a) && s.clock_ms >= a.opens_ms && s.clock_ms < a.closes_ms &&
-         a.company_id != company && live?(s, company) && w && w["company_id"] == company &&
-         w["port"] == a.port && amount?(cmd["price"]) && cmd["price"] >= a.reserve do
+    if a && live?(s, company) && w && w["company_id"] == company && w["port"] == a.port do
       old = Auction.bid(s, a.id, company)
 
-      b = %{
-        "id" => if(old, do: old["id"], else: id),
-        "auction_id" => a.id,
-        "company_id" => company,
-        "warehouse_id" => w["id"],
-        "amount" => cmd["price"],
-        "priority_ms" => s.clock_ms,
-        "priority_seq" => s.revision
-      }
+      with {:ok, b} <- Auction.prepare_bid(s, a.id, company, w["id"], cmd["price"], id) do
+        next = if old, do: release_bid(s, a, old), else: s
+        c = get(next, "companies", company)
 
-      b =
-        if old && old["amount"] == b["amount"],
-          do: Map.merge(b, Map.take(old, ~w(priority_ms priority_seq))),
-          else: b
+        cond do
+          c["cash"] - c["reserved"] < b.amount or
+              (c["unpaid"] > 0 and b.amount > ((old && old.amount) || 0)) ->
+            {:error, :insufficient_cash}
 
-      next = if old, do: release_bid(s, a, old), else: s
-      c = get(next, "companies", company)
-
-      cond do
-        old == nil and
-            (Enum.count(
-               owned(s, "auction_bids", "company_id", company),
-               &(Auction.fetch(s, &1["auction_id"]).status == "scheduled")
-             ) >= 100 or
-               length(Auction.bids(s, a.id)) >= 1000) ->
-          {:error, :auction_invalid}
-
-        c["cash"] - c["reserved"] < b["amount"] or
-            (c["unpaid"] > 0 and b["amount"] > ((old && old["amount"]) || 0)) ->
-          {:error, :insufficient_cash}
-
-        true ->
-          with :ok <- coverage(next, w, a),
-               {:ok, next} <- Warehouse.back_order(next, bid_claim(a, b), cat),
-               do: {:ok, next |> reserve(company, b["amount"]) |> Auction.put_bid(b), %{}}
+          true ->
+            with :ok <- coverage(next, w, a),
+                 {:ok, next} <- Warehouse.back_order(next, bid_claim(a, b), cat),
+                 do: {:ok, next |> reserve(company, b.amount) |> accept_prepared_bid(old, b), %{}}
+        end
       end
     else
       {:error, :auction_invalid}
     end
   end
 
+  defp accept_prepared_bid(s, nil, proposed), do: Auction.accept_bid(s, proposed)
+  defp accept_prepared_bid(s, previous, proposed), do: Auction.replace_bid(s, previous, proposed)
+
   def withdraw_bid(s, account, id) do
     a = Auction.fetch(s, id)
     b = a && Auction.bid(s, id, account["company_id"])
 
     if b && Auction.open?(a) && s.clock_ms < a.closes_ms,
-      do: {:ok, s |> release_bid(a, b) |> Auction.delete_bid(b["id"]), %{}},
+      do: {:ok, s |> release_bid(a, b) |> Auction.withdraw_bid(b), %{}},
       else: {:error, :auction_locked}
   end
 
@@ -178,12 +159,12 @@ defmodule TijaraTides.Domain.Services.Auctions do
   end
 
   defp release_bid(s, a, b),
-    do: s |> Warehouse.release_trade(bid_claim(a, b)) |> reserve(b["company_id"], -b["amount"])
+    do: s |> Warehouse.release_trade(bid_claim(a, b)) |> reserve(b.company_id, -b.amount)
 
   defp cancel(s, a) do
     s =
       Enum.reduce(Auction.bids(s, a.id), s, fn b, s ->
-        s |> release_bid(a, b) |> Auction.delete_bid(b["id"])
+        s |> release_bid(a, b) |> Auction.invalidate_bid(b)
       end)
 
     s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
@@ -202,8 +183,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
     mine = Enum.map(owned(s, "auctions", "company_id", company_id), &Auction.from_row/1)
 
     bid_on =
-      for b <- owned(s, "auction_bids", "company_id", company_id),
-          a = Auction.fetch(s, b["auction_id"]),
+      for b <- Auction.company_bids(s, company_id),
+          a = Auction.fetch(s, b.auction_id),
           do: a
 
     sweep(s, cat, Enum.uniq_by(mine ++ bid_on, & &1.id))
@@ -225,9 +206,9 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
             true ->
               Enum.reduce(Auction.bids(s, a.id), s, fn b, s ->
-                if not live?(s, b["company_id"]) or
+                if not live?(s, b.company_id) or
                      not Warehouse.order_backed?(s, bid_claim(a, b)),
-                   do: s |> release_bid(a, b) |> Auction.delete_bid(b["id"]),
+                   do: s |> release_bid(a, b) |> Auction.invalidate_bid(b),
                    else: s
               end)
           end
@@ -306,15 +287,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
               100
             ),
           value >= a.reserve and value <= m["budget"],
-          do: %{
-            "id" => "npc:#{a.id}:#{i}",
-            "auction_id" => a.id,
-            "company_id" => nil,
-            "warehouse_id" => nil,
-            "amount" => value,
-            "priority_ms" => a.closes_ms,
-            "priority_seq" => i
-          }
+          do: Bid.simulated(a, i, value)
     else
       []
     end
@@ -324,16 +297,16 @@ defmodule TijaraTides.Domain.Services.Auctions do
     {eligible, invalid} =
       Enum.split_with(
         Auction.bids(s, a.id),
-        &(live?(s, &1["company_id"]) and Warehouse.order_backed?(s, bid_claim(a, &1)))
+        &(live?(s, &1.company_id) and Warehouse.order_backed?(s, bid_claim(a, &1)))
       )
 
     s =
-      Enum.reduce(invalid, s, fn b, s -> s |> release_bid(a, b) |> Auction.delete_bid(b["id"]) end)
+      Enum.reduce(invalid, s, fn b, s -> s |> release_bid(a, b) |> Auction.invalidate_bid(b) end)
 
     bids =
       Enum.sort_by(
         eligible ++ npc_bids(s, a, cat),
-        &{-&1["amount"], &1["priority_ms"], &1["priority_seq"], &1["id"]}
+        &Bid.priority/1
       )
 
     if bids == [] or not suppliable?(s, a) do
@@ -344,7 +317,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
       Auction.close_unsold(s, a.id)
     else
       [winner | others] = bids
-      price = max(a.reserve, if(others == [], do: a.reserve, else: hd(others)["amount"]))
+      price = max(a.reserve, if(others == [], do: a.reserve, else: hd(others).amount))
 
       {s, cargo} =
         if a.company_id do
@@ -375,14 +348,14 @@ defmodule TijaraTides.Domain.Services.Auctions do
         end
 
       s =
-        if winner["company_id"] do
+        if winner.kind == :player do
           {s, cargo} = reprice(s, cargo, a, price)
 
           s
           |> Warehouse.exchange_in(bid_claim(a, winner), cargo, a.quantity)
-          |> CompanyFinance.post(winner["company_id"], "auction_purchase", [
-            {"cash_reserved", -winner["amount"]},
-            {"cash_available", winner["amount"] - price},
+          |> CompanyFinance.post(winner.company_id, "auction_purchase", [
+            {"cash_reserved", -winner.amount},
+            {"cash_available", winner.amount - price},
             {"inventory", price}
           ])
         else
@@ -391,14 +364,14 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
       s =
         Enum.reduce(eligible, s, fn b, s ->
-          if b["id"] != winner["id"], do: release_bid(s, a, b), else: s
+          if b.id != winner.id, do: release_bid(s, a, b), else: s
         end)
 
-      s = Enum.reduce(bids, s, &Auction.put_bid(&2, &1))
+      s = Auction.record_simulated_bids(s, a.id, Enum.filter(bids, &(&1.kind == :simulated)))
       s = Auction.close_sold(s, a.id, price, winner)
 
       Enum.reduce(
-        Enum.uniq([a.company_id | Enum.map(eligible, & &1["company_id"])]),
+        Enum.uniq([a.company_id | Enum.map(eligible, & &1.company_id)]),
         s,
         fn company, s ->
           if company,

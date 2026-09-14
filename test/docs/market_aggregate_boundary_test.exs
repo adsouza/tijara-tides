@@ -48,6 +48,8 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
     Code.ensure_loaded!(TijaraTides.Domain.Auction)
     Code.ensure_loaded!(TijaraTides.Domain.OrderBook)
     refute function_exported?(TijaraTides.Domain.Auction, :save, 2)
+    refute function_exported?(TijaraTides.Domain.Auction, :put_bid, 2)
+    refute function_exported?(TijaraTides.Domain.Auction, :delete_bid, 2)
     refute function_exported?(TijaraTides.Domain.OrderBook, :remove, 2)
   end
 end

@@ -885,9 +885,9 @@ defmodule TijaraTides.Domain.CompanyFinance do
 
       cancellable_bids =
         Enum.sum(
-          for b <- owned(state, "auction_bids", "company_id", company["id"]),
-              get(state, "auctions", b["auction_id"])["status"] == "scheduled",
-              do: b["amount"]
+          for b <- TijaraTides.Domain.Auction.company_bids(state, company["id"]),
+              get(state, "auctions", b.auction_id)["status"] == "scheduled",
+              do: b.amount
         )
 
       company["cash"] - company["reserved"] + cancellable_orders + cancellable_bids < liabilities
