@@ -19,7 +19,79 @@ defmodule TijaraTides.Domain.Auction do
     end
   end
 
-  def save(s, a), do: put(s, "auctions", a.id, to_row(a))
+  @doc "Register a new lot; existing lots can only change through named transitions."
+  def list(s, %__MODULE__{} = a) do
+    unless fetch(s, a.id) == nil and a.status == "scheduled" and
+             is_nil(a.price) and is_nil(a.winner_id) and
+             is_integer(a.opens_ms) and a.opens_ms > s.clock_ms and
+             is_integer(a.closes_ms) and a.closes_ms > a.opens_ms and
+             is_binary(a.valuation_seed) and (is_nil(a.company_id) or a.valuation_seed != ""),
+           do:
+             raise(
+               ArgumentError,
+               "A new auction requires a unique ID and a future bidding window"
+             )
+
+    terms!(a.quantity, a.reserve)
+    store(s, a)
+  end
+
+  def revise(s, id, quantity, reserve) do
+    a = scheduled!(s, id)
+
+    unless s.clock_ms < a.opens_ms,
+      do: raise(ArgumentError, "An auction cannot be revised after bidding opens")
+
+    terms!(quantity, reserve)
+    store(s, %{a | quantity: quantity, reserve: reserve})
+  end
+
+  @doc "Cancel a scheduled lot, including one whose backing was lost during bidding."
+  def cancel(s, id), do: store(s, %{scheduled!(s, id) | status: "cancelled"})
+
+  def close_unsold(s, id), do: store(s, %{due!(s, id) | status: "unsold"})
+
+  def close_sold(s, id, price, winner) do
+    a = due!(s, id)
+    recorded = bids(s, id)
+
+    unless is_integer(price) and price >= a.reserve and
+             winner in recorded and is_integer(winner["amount"]) and
+             price <= winner["amount"] and winner["company_id"] != a.company_id and
+             Enum.all?(recorded, &(&1["amount"] <= winner["amount"])),
+           do:
+             raise(
+               ArgumentError,
+               "A sale requires an eligible winning bid covering the clearing price"
+             )
+
+    store(s, %{a | status: "sold", price: price, winner_id: winner["company_id"]})
+  end
+
+  defp terms!(quantity, reserve) do
+    unless is_integer(quantity) and quantity in 1..TijaraTides.Domain.CargoRules.max_lots() and
+             is_integer(reserve) and reserve > 0,
+           do:
+             raise(ArgumentError, "Auction terms require a bounded quantity and positive reserve")
+  end
+
+  defp scheduled!(s, id) do
+    case fetch(s, id) do
+      %__MODULE__{status: "scheduled"} = a -> a
+      _ -> raise ArgumentError, "Only a scheduled auction can transition"
+    end
+  end
+
+  defp due!(s, id) do
+    a = scheduled!(s, id)
+
+    unless s.clock_ms >= a.closes_ms,
+      do: raise(ArgumentError, "An auction cannot settle before its closing time")
+
+    a
+  end
+
+  defp store(s, a), do: put(s, "auctions", a.id, to_row(a))
   def bids(s, id), do: owned(s, "auction_bids", "auction_id", id)
   def bid(s, id, company), do: Enum.find(bids(s, id), &(&1["company_id"] == company))
   def put_bid(s, b), do: put(s, "auction_bids", b["id"], b)

@@ -1,23 +1,13 @@
 defmodule TijaraTides.UseCases.GameRuntime do
-  @moduledoc "Runtime port for authenticated gameplay, identity, presence and operational services."
-  @callback snapshot(term()) :: term()
-  @callback reports(term(), term()) :: term()
-  @callback preview(term(), term(), term()) :: term()
-  @callback command(term(), term(), term()) :: term()
-  @callback connect(term()) :: term()
-  @callback subscribe() :: term()
-  @callback definitions() :: term()
-  @callback request_id() :: term()
-  @callback token() :: term()
-  @callback redeem_for_device(term(), term()) :: term()
-  @callback sign_out(term()) :: term()
-  @callback email_request(term(), term(), term(), term(), term()) :: term()
-  @callback email_redeem(term(), term(), term()) :: term()
-  @callback readiness() :: term()
-  @callback database_readiness() :: term()
-  @callback presence_snapshot() :: term()
-  @callback presence_subscribe(term()) :: term()
-  @callback presence_attach(term()) :: term()
-  @callback presence_detach() :: term()
-  @callback log_exception(term(), term(), term()) :: term()
+  @moduledoc "Runtime port for gameplay commands, authenticated reads and world subscriptions."
+  @type session :: String.t() | nil
+  @type result :: {:ok, map()} | {:error, term()}
+  @callback snapshot(session()) :: map()
+  @callback reports(session(), map()) :: result()
+  @callback preview(session(), String.t(), String.t()) :: map() | nil | {:error, term()}
+  @callback command(session(), String.t(), map()) :: result()
+  @callback connect(session()) :: :ok | {:error, term()}
+  @callback subscribe() :: :ok | {:error, term()}
+  @callback definitions() :: map()
+  @callback request_id() :: String.t()
 end

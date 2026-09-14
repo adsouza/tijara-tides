@@ -7,9 +7,9 @@ defmodule TijaraTidesWeb.ApplicationBoundaryTest do
   end
 
   setup do
-    previous = Application.fetch_env!(:tijara_tides, :game_runtime)
-    Application.put_env(:tijara_tides, :game_runtime, UnavailableRuntime)
-    on_exit(fn -> Application.put_env(:tijara_tides, :game_runtime, previous) end)
+    previous = Application.fetch_env!(:tijara_tides, :operations_runtime)
+    Application.put_env(:tijara_tides, :operations_runtime, UnavailableRuntime)
+    on_exit(fn -> Application.put_env(:tijara_tides, :operations_runtime, previous) end)
     :ok
   end
 

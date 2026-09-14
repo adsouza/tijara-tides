@@ -81,7 +81,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
       with :ok <- coverage(s, w, a),
            {:ok, s} <- Warehouse.back_order(s, claim(a), cat),
-           do: {:ok, Auction.save(s, a), %{}}
+           do: {:ok, Auction.list(s, a), %{}}
     else
       {:error, :auction_invalid}
     end
@@ -92,11 +92,12 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
     if a && Auction.open?(a) && s.clock_ms < a.opens_ms && a.company_id == account["company_id"] &&
          live?(s, a.company_id) && quantity?(cmd["quantity"]) && amount?(cmd["price"]) do
-      updated = %{a | quantity: cmd["quantity"], reserve: cmd["price"]}
+      revised = Auction.revise(s, a.id, cmd["quantity"], cmd["price"])
+      updated = Auction.fetch(revised, a.id)
 
       with {:ok, next} <-
-             Warehouse.back_order(Warehouse.release_trade(s, claim(a)), claim(updated), cat),
-           do: {:ok, Auction.save(next, updated), %{}}
+             Warehouse.back_order(Warehouse.release_trade(revised, claim(a)), claim(updated), cat),
+           do: {:ok, next, %{}}
     else
       {:error, :auction_locked}
     end
@@ -186,7 +187,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
       end)
 
     s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
-    Auction.save(s, %{a | status: "cancelled"})
+    Auction.cancel(s, a.id)
   end
 
   # Runs before lease liquidation, including on a tick that crosses the closing time.
@@ -265,7 +266,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
           n = min(available, supplier_lots)
           q = PortCargoMarket.quote(s, cat, port, good)
 
-          Auction.save(s, %Auction{
+          Auction.list(s, %Auction{
             id: id,
             company_id: nil,
             warehouse_id: nil,
@@ -340,7 +341,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
       # close. Settle as unsold rather than asking the market for cargo it no longer has.
       s = Enum.reduce(eligible, s, &release_bid(&2, a, &1))
       s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
-      Auction.save(s, %{a | status: "unsold"})
+      Auction.close_unsold(s, a.id)
     else
       [winner | others] = bids
       price = max(a.reserve, if(others == [], do: a.reserve, else: hd(others)["amount"]))
@@ -394,7 +395,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
         end)
 
       s = Enum.reduce(bids, s, &Auction.put_bid(&2, &1))
-      s = Auction.save(s, %{a | status: "sold", price: price, winner_id: winner["company_id"]})
+      s = Auction.close_sold(s, a.id, price, winner)
 
       Enum.reduce(
         Enum.uniq([a.company_id | Enum.map(eligible, & &1["company_id"])]),

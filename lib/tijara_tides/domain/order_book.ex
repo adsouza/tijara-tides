@@ -23,17 +23,68 @@ defmodule TijaraTides.Domain.OrderBook do
     end
   end
 
-  def accept(state, %__MODULE__{} = order),
-    do: put(state, "exchange_orders", order.id, to_row(order))
+  @doc "Accept a new order without overwriting an existing order's priority or terms."
+  def accept(state, %__MODULE__{} = order) do
+    unless fetch(state, order.id) == nil and order.side in ["buy", "sell"] and
+             order.priority_ms == state.clock_ms and order.priority_seq == state.revision,
+           do: raise(ArgumentError, "A new order requires a unique ID, side and current priority")
 
-  def remove(state, id), do: delete(state, "exchange_orders", id)
+    terms!(order.quantity, order.price, order.expires_ms, state.clock_ms)
+    store(state, order)
+  end
 
-  def fill(state, o, n),
-    do:
-      if(n == o.quantity,
-        do: remove(state, o.id),
-        else: accept(state, %{o | quantity: o.quantity - n})
-      )
+  def amend(state, id, quantity, price, expires_ms) do
+    o = fetch!(state, id)
+    terms!(quantity, price, expires_ms, state.clock_ms)
+    reset = quantity > o.quantity or price != o.price
+
+    store(state, %{
+      o
+      | quantity: quantity,
+        price: price,
+        expires_ms: expires_ms,
+        priority_ms: if(reset, do: state.clock_ms, else: o.priority_ms),
+        priority_seq: if(reset, do: state.revision, else: o.priority_seq)
+    })
+  end
+
+  def cancel(state, id) do
+    fetch!(state, id)
+    delete(state, "exchange_orders", id)
+  end
+
+  def fill(state, %__MODULE__{} = o, n) do
+    current = fetch!(state, o.id)
+
+    unless current == o and is_integer(n) and n > 0 and n <= current.quantity,
+      do:
+        raise(
+          ArgumentError,
+          "A fill requires a current order and a positive quantity within its remainder"
+        )
+
+    if n == current.quantity,
+      do: cancel(state, o.id),
+      else: store(state, %{current | quantity: current.quantity - n})
+  end
+
+  defp terms!(quantity, price, expiry, clock) do
+    unless is_integer(quantity) and quantity in 1..TijaraTides.Domain.CargoRules.max_lots() and
+             is_integer(price) and price in 1..1_000_000_000_000 and
+             (is_nil(expiry) or
+                (is_integer(expiry) and expiry > clock and expiry <= 9_000_000_000_000_000)),
+           do:
+             raise(
+               ArgumentError,
+               "Order terms require a bounded quantity, price and future expiry"
+             )
+  end
+
+  defp fetch!(state, id) do
+    fetch(state, id) || raise ArgumentError, "Order does not exist"
+  end
+
+  defp store(state, order), do: put(state, "exchange_orders", order.id, to_row(order))
 
   def priority(o), do: {o.priority_ms, o.priority_seq, o.id}
 

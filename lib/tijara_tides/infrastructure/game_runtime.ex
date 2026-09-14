@@ -1,6 +1,9 @@
 defmodule TijaraTides.Infrastructure.GameRuntime do
-  @moduledoc "OTP and infrastructure implementation of the application runtime port."
+  @moduledoc "OTP and infrastructure implementation of the focused application runtime ports."
   @behaviour TijaraTides.UseCases.GameRuntime
+  @behaviour TijaraTides.UseCases.IdentityRuntime
+  @behaviour TijaraTides.UseCases.PresenceRuntime
+  @behaviour TijaraTides.UseCases.OperationsRuntime
   alias TijaraTides.Infrastructure.{GameServer, WorldServer, ExceptionLog}
 
   @impl true

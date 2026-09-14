@@ -92,7 +92,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     case OrderBook.fetch(state, id) do
       %OrderBook{company_id: owner} = o ->
         if owner == account["company_id"],
-          do: {:ok, state |> unback(o) |> OrderBook.remove(id), %{}},
+          do: {:ok, state |> unback(o) |> OrderBook.cancel(id), %{}},
           else: {:error, :exchange_invalid}
 
       nil ->
@@ -122,21 +122,13 @@ defmodule TijaraTides.Domain.Services.Exchange do
         {:error, :finance_no_company}
 
       true ->
-        reset = n > o.quantity or price != o.price
-
-        updated = %{
-          o
-          | quantity: n,
-            price: price,
-            expires_ms: expiry,
-            priority_ms: if(reset, do: state.clock_ms, else: o.priority_ms),
-            priority_seq: if(reset, do: state.revision, else: o.priority_seq)
-        }
+        # Price the backing against the amended terms; commit them only once it holds.
+        updated = OrderBook.fetch(OrderBook.amend(state, o.id, n, price, expiry), o.id)
 
         with {:ok, next} <- back(unback(state, o), updated, catalogue, o.quantity * o.price) do
           {:ok,
            next
-           |> OrderBook.accept(updated)
+           |> OrderBook.amend(o.id, n, price, expiry)
            |> match_order(o.id, catalogue, @fill_budget)
            |> elem(0), %{}}
         end
@@ -163,7 +155,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
            not Warehouse.order_backed?(s, OrderBook.claim(o)) do
         s
         |> unback(o)
-        |> OrderBook.remove(o.id)
+        |> OrderBook.cancel(o.id)
         |> Notices.notice(
           company["account_id"],
           "exchange:" <> o.id,

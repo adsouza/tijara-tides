@@ -684,3 +684,36 @@ Only that module mutates warehouse rows. Transfer orchestration calls Ship and
 CompanyFinance operations, and records handling expense without changing cargo
 cost basis. Leases and cargo locations share the existing atomic world commit;
 read-side warehouse controls are projected through `UseCases.GameQueries`.
+
+## Auction and order transition ownership
+
+`Auction` registers new lots and owns revision, cancellation and sold/unsold
+closure. Revision locks at opening; settlement requires the closing time, a price
+at least equal to the reserve and a winning bid that covers it. Closed auctions
+cannot transition again. Cancellation remains available during bidding when
+backing is lost. There is no general auction save API.
+
+`OrderBook` accepts only new orders and owns amendment, cancellation and fills.
+Reductions and expiry-only amendments preserve priority; increases and repricing
+reset it. Fills require the current remainder and cannot be zero, negative or
+larger than that remainder. Services continue to validate authorization and
+coordinate backing, escrow and cargo in the same atomic world transaction.
+Root contract violations raise for programmer errors; ordinary command
+rejections retain their existing tagged results.
+
+## Focused runtime ports and query implementations
+
+`GameRuntime` covers gameplay; `IdentityRuntime`, `PresenceRuntime` and
+`OperationsRuntime` cover credentials, the ephemeral roster, and diagnostics
+respectively. The composition root configures `game_runtime`, `identity_runtime`,
+`presence_runtime` and `operations_runtime` independently. They currently share
+one infrastructure adapter, while a consumer can substitute a narrow adapter
+without implementing unrelated capabilities. `UseCases.Game` preserves the
+transport-facing API.
+
+`GameQueries` retains authenticated snapshot/preview construction and delegates
+its existing query API to `MarketQueries`, `AuctionQueries`, `ExchangeQueries`,
+`WarehouseQueries` and `ShipPlanningQueries`. Ship planning explicitly owns
+route/visit editor preparation and draft defaults. Market estimates remain
+shared pure calculations; neither estimates nor prepared editor options authorize
+writes. These implementation modules stay internal to the application boundary.
