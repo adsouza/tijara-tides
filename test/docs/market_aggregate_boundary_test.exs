@@ -44,11 +44,12 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
     end
   end
 
-  test "the typed auction root cannot depend on world access or row codecs" do
+  test "typed market roots cannot depend on world access or row codecs" do
     files =
-      ~w(lib/tijara_tides/domain/auction.ex lib/tijara_tides/domain/auction/bid.ex lib/tijara_tides/domain/order_book.ex)
+      ~w(lib/tijara_tides/domain/auction.ex lib/tijara_tides/domain/auction/bid.ex lib/tijara_tides/domain/order_book.ex lib/tijara_tides/domain/port_cargo_market.ex)
 
-    forbidden = ~w(State ReadState EntityIndex ChangeSet AuctionWorld OrderBookWorld Rows BidRows)
+    forbidden =
+      ~w(State ReadState EntityIndex ChangeSet AuctionWorld OrderBookWorld PortCargoMarketWorld Rows BidRows)
 
     for file <- files do
       {_ast, dependencies} =
@@ -63,9 +64,15 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
       assert Enum.filter(dependencies, &(&1 in forbidden)) == [], file
     end
 
-    Code.ensure_loaded!(TijaraTides.Domain.Auction)
-    refute function_exported?(TijaraTides.Domain.Auction, :from_row, 1)
-    refute function_exported?(TijaraTides.Domain.Auction, :to_row, 1)
+    for root <- [
+          TijaraTides.Domain.Auction,
+          TijaraTides.Domain.OrderBook,
+          TijaraTides.Domain.PortCargoMarket
+        ] do
+      Code.ensure_loaded!(root)
+      refute function_exported?(root, :from_row, 1)
+      refute function_exported?(root, :to_row, 1)
+    end
   end
 
   test "roots expose named transitions instead of general write APIs" do

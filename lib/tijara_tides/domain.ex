@@ -24,6 +24,7 @@ defmodule TijaraTides.Domain do
       Services.Bankruptcy,
       Services.Credit,
       PortCargoMarket,
+      PortCargoMarketWorld,
       Fleet,
       Trading,
       CargoRules,

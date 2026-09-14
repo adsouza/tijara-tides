@@ -1,10 +1,13 @@
 defmodule TijaraTides.Domain.Services.TradeSettlement do
+  alias TijaraTides.Domain.PortCargoMarketWorld
+
   @moduledoc "Atomic manual trades across company cash, ship cargo and market liquidity, with journal postings."
   import TijaraTides.Domain.State
   import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2, voyage_quote: 3]
   import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 1, max_lots: 0]
-  import TijaraTides.Domain.PortCargoMarket, only: [quote: 4, handling_rate: 1]
-  alias TijaraTides.Domain.{CompanyFinance, PortCargoMarket}
+  import TijaraTides.Domain.PortCargoMarketWorld, only: [quote: 4]
+  import TijaraTides.Domain.PortCargoMarket, only: [handling_rate: 1]
+  alias TijaraTides.Domain.CompanyFinance
 
   def execute(state, account, %TijaraTides.Domain.Trade{} = trade, catalogue) do
     result = check(state, account, trade, catalogue)
@@ -180,7 +183,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
       true ->
         {state, cargo} =
-          PortCargoMarket.release_stock(
+          PortCargoMarketWorld.release_stock(
             state,
             market["port"],
             market["good"],
@@ -230,7 +233,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
         state =
           state
-          |> PortCargoMarket.accept_cargo(market["port"], good, quantity, quote["bid"])
+          |> PortCargoMarketWorld.accept_cargo(market["port"], good, quantity, quote["bid"])
 
         state =
           CompanyFinance.post(

@@ -1,8 +1,9 @@
 defmodule TijaraTides.Domain.Services.Exchange do
+  alias TijaraTides.Domain.PortCargoMarketWorld
   alias TijaraTides.Domain.OrderBookWorld
   @moduledoc "Atomic exchange settlement across order, warehouse, market and finance roots."
   import TijaraTides.Domain.ReadState, only: [get: 3, owned: 4]
-  alias TijaraTides.Domain.{OrderBook, Warehouse, CompanyFinance, PortCargoMarket, Notices}
+  alias TijaraTides.Domain.{OrderBook, Warehouse, CompanyFinance, Notices}
   alias TijaraTides.Domain.Ship.CargoBatch
 
   @max_lots TijaraTides.Domain.CargoRules.max_lots()
@@ -250,7 +251,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
   end
 
   defp npc_offer(state, o, catalogue) do
-    q = PortCargoMarket.quote(state, catalogue, o.port, o.good)
+    q = PortCargoMarketWorld.quote(state, catalogue, o.port, o.good)
 
     if q && q["manual"] do
       {price, available} =
@@ -287,7 +288,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     state =
       if o.side == "buy" do
         {s, cargo} =
-          PortCargoMarket.release_stock(
+          PortCargoMarketWorld.release_stock(
             state,
             o.port,
             o.good,
@@ -302,7 +303,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
         cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
 
         s
-        |> PortCargoMarket.accept_cargo(o.port, o.good, n, price)
+        |> PortCargoMarketWorld.accept_cargo(o.port, o.good, n, price)
         |> seller_cash(o, n, price, cost)
       end
 

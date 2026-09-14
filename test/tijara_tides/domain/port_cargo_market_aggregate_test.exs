@@ -1,6 +1,7 @@
 defmodule TijaraTides.Domain.PortCargoMarketAggregateTest do
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.PortCargoMarket, as: Market
+  alias TijaraTides.Domain.PortCargoMarket.Lots
 
   defp supplier(good \\ "lumber") do
     %Market{
@@ -19,12 +20,12 @@ defmodule TijaraTides.Domain.PortCargoMarketAggregateTest do
 
   test "supplier releases only available stock and records a permanent lot" do
     item = %{"id" => "lumber", "shelf_ms" => 0}
-    state = %{clock_ms: 0}
+    state = %Lots{clock_ms: 0}
     {state, market, [cargo]} = Market.supply(state, supplier(), 10, 20, item)
     assert market.stock == 0
     assert market.budget == 300
-    assert cargo["quantity"] == 10
-    assert cargo["lot_id"] == hd(state.new_lots)["id"]
+    assert cargo.quantity == 10
+    assert cargo.lot_id == hd(state.new_lots)["id"]
     assert_raise ArgumentError, fn -> Market.supply(state, market, 1, 20, item) end
   end
 
@@ -39,15 +40,15 @@ defmodule TijaraTides.Domain.PortCargoMarketAggregateTest do
 
   test "expiry removes supplier stock before replenishment; partial lots preserve lineage" do
     item = %{"id" => "fruit", "shelf_ms" => 100_000, "reference_cents" => 20}
-    {state, lot} = TijaraTides.Domain.CargoLots.create(%{clock_ms: 0}, "fruit", 10, 100_000)
+    {state, lot} = Lots.create(%Lots{clock_ms: 0}, "fruit", 10, 100_000)
     market = %{supplier("fruit") | batches: [lot]}
     {state, market, [part]} = Market.supply(state, market, 4, 20, item)
     assert market.stock == 6
-    assert part["quantity"] == 4
-    assert part["lot_id"] != lot["lot_id"]
+    assert part.quantity == 4
+    assert part.lot_id != lot.lot_id
 
-    assert Enum.find(state.new_lots, &(&1["id"] == part["lot_id"]))["parent_lot_id"] ==
-             lot["lot_id"]
+    assert Enum.find(state.new_lots, &(&1["id"] == part.lot_id))["parent_lot_id"] ==
+             lot.lot_id
 
     assert_raise ArgumentError, fn ->
       Market.supply(%{state | clock_ms: 100_000}, market, 1, 20, item)
@@ -57,16 +58,16 @@ defmodule TijaraTides.Domain.PortCargoMarketAggregateTest do
     assert {expired.stock, expired.batches} == {0, []}
     {_, replenished} = Market.replenish(%{state | clock_ms: 150_000}, expired, item)
     assert replenished.stock == 1
-    assert hd(replenished.batches)["expires_ms"] == 250_000
+    assert hd(replenished.batches).expires_ms == 250_000
   end
 
   test "manufactured and merchant markets do not synthesize stock" do
     item = %{"id" => "appliances", "shelf_ms" => 0, "reference_cents" => 20}
-    {_, factory} = Market.replenish(%{clock_ms: 300_000}, supplier("appliances"), item)
+    {_, factory} = Market.replenish(%Lots{clock_ms: 300_000}, supplier("appliances"), item)
     assert factory.stock == 10
 
     {_, merchant} =
-      Market.replenish(%{clock_ms: 300_000}, %{supplier() | merchant: true}, %{
+      Market.replenish(%Lots{clock_ms: 300_000}, %{supplier() | merchant: true}, %{
         item
         | "id" => "lumber"
       })

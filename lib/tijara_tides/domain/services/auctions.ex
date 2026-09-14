@@ -1,7 +1,8 @@
 defmodule TijaraTides.Domain.Services.Auctions do
+  alias TijaraTides.Domain.PortCargoMarketWorld
   @moduledoc "Atomic luxury-auction scheduling, escrow and second-price settlement."
   import TijaraTides.Domain.ReadState, only: [get: 3]
-  alias TijaraTides.Domain.{Warehouse, CompanyFinance, PortCargoMarket, Notices}
+  alias TijaraTides.Domain.{Warehouse, CompanyFinance, Notices}
   alias TijaraTides.Domain.AuctionWorld
   alias TijaraTides.Domain.Auction
   alias TijaraTides.Domain.Ship.CargoBatch
@@ -251,7 +252,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
         if market && market["seller"] && available > 0 &&
              length(active) < 4 && AuctionWorld.fetch(s, id) == nil do
           n = min(available, supplier_lots)
-          q = PortCargoMarket.quote(s, cat, port, good)
+          q = PortCargoMarketWorld.quote(s, cat, port, good)
 
           AuctionWorld.list(s, %Auction{
             id: id,
@@ -280,7 +281,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
     # A supplier cannot compete for its own lot. Buyers consume finite demand and
     # budget at close; deterministic private valuations keep replanning reproducible.
     if a.company_id && m && m["buyer"] && m["demand"] >= a.quantity do
-      q = PortCargoMarket.quote(s, cat, a.port, a.good)
+      q = PortCargoMarketWorld.quote(s, cat, a.port, a.good)
       count = get_in(cat, ["auctions", "simulated_bidders"]) || 3
       spread = get_in(cat, ["auctions", "valuation_spread_percent"]) || 20
       true = is_integer(count) and count in 1..20 and is_integer(spread) and spread in 0..100
@@ -343,7 +344,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
           {s, batches}
         else
           {s, rows} =
-            PortCargoMarket.auction_supply(
+            PortCargoMarketWorld.auction_supply(
               s,
               a.port,
               a.good,
@@ -367,7 +368,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
             {"inventory", price}
           ])
         else
-          PortCargoMarket.auction_consume(s, a.port, a.good, a.quantity, price)
+          PortCargoMarketWorld.auction_consume(s, a.port, a.good, a.quantity, price)
         end
 
       s =

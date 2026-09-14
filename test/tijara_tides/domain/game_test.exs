@@ -738,7 +738,7 @@ defmodule TijaraTides.Domain.GameTest do
   test "market freshness expires between production boundaries" do
     {state, _, catalogue} = setup_game()
     market = Game.get(state, "markets", "Jakarta|fruit")
-    market = %{market | "batches" => [%{"quantity" => 500, "expires_ms" => 1}]}
+    market = %{market | "batches" => Enum.map(market["batches"], &%{&1 | "expires_ms" => 1})}
     state = TijaraTides.Domain.State.put(state, "markets", "Jakarta|fruit", market)
     state = Game.advance(state, 1, catalogue)
     assert Game.get(state, "markets", "Jakarta|fruit")["stock"] == 0

@@ -783,3 +783,17 @@ orders (including the complete snapshot used to reject stale fills), supplies
 clock, revision and identity facts, and records changes through State. OrderBook.Rows
 encodes the unchanged order schema. Public depth and trade-history projections
 remain in the world adapter. Settlement still commits in the atomic world transaction.
+
+## PortCargoMarket root migration
+
+PortCargoMarket now owns typed freshness batches and operates without world
+access or row conversion. Its Lots value contains only the clock, available
+lot identities and newly allocated lineage records. It reuses the existing
+allocator and exhaustion signal, preserving retry behavior and permanent split
+identities. Catalogue maps remain reference data supplied to the rules.
+
+PortCargoMarketWorld loads roots through PortCargoMarket.Rows, supplies scoped
+allocation values, appends new lot records, and records named market transitions
+through State. It converts typed outgoing cargo and quote batches back to their
+existing consumer representations. Stock, demand, budgets, production cadence,
+SQL schema and the atomic settlement transaction are unchanged.

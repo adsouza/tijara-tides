@@ -328,7 +328,7 @@ defmodule TijaraTides.Domain.AuctionsTest do
     market = Game.get(s, "markets", a.port <> "|" <> a.good)
 
     {s, _cargo} =
-      TijaraTides.Domain.PortCargoMarket.release_stock(
+      TijaraTides.Domain.PortCargoMarketWorld.release_stock(
         s,
         a.port,
         a.good,

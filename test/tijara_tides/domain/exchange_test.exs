@@ -223,7 +223,10 @@ defmodule TijaraTides.Domain.ExchangeTest do
   test "NPC fills obey changing depth and share finite market stock", c do
     m = Game.get(c.state, "markets", "Jakarta|lumber")
     s = State.put(c.state, "markets", "Jakarta|lumber", %{m | "stock" => 500})
-    price = TijaraTides.Domain.PortCargoMarket.quote(s, c.catalogue, "Jakarta", "lumber")["ask"]
+
+    price =
+      TijaraTides.Domain.PortCargoMarketWorld.quote(s, c.catalogue, "Jakarta", "lumber")["ask"]
+
     {:ok, s, _} = order(c, s, "b", "buy", 30, price, "npc")
     assert OrderBookWorld.fetch(s, "npc").quantity == 5
     assert Game.get(s, "markets", "Jakarta|lumber")["stock"] == 475

@@ -1,54 +1,11 @@
 defmodule TijaraTides.Domain.PortCargoMarket do
   @moduledoc "Finite market quotes, catalogue rules, producer output, demand and buyer-budget recovery."
-  import TijaraTides.Domain.State, only: [get: 3, entities: 2, put: 4]
-  alias TijaraTides.Domain.CargoLots
+  alias TijaraTides.Domain.PortCargoMarket.Lots
+  alias TijaraTides.Domain.Ship.CargoBatch
   @market_replenishment_ms 150_000
 
   @fields ~w(port good merchant seller buyer stock demand budget batches last_production)a
   defstruct @fields
-
-  def from_row(row),
-    do: struct!(__MODULE__, Map.new(@fields, &{&1, Map.fetch!(row, Atom.to_string(&1))}))
-
-  def to_row(%__MODULE__{} = market),
-    do: Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(market, &1)})
-
-  defp store(state, %__MODULE__{} = market),
-    do: put(state, "markets", market.port <> "|" <> market.good, to_row(market))
-
-  def release_stock(state, port, good, quantity, price, item) do
-    market = get(state, "markets", port <> "|" <> good) |> from_row()
-    {state, next, cargo} = supply(state, market, quantity, price, item)
-    {store(state, next), cargo}
-  end
-
-  def accept_cargo(state, port, good, quantity, price) do
-    market = get(state, "markets", port <> "|" <> good) |> from_row()
-    store(state, receive_cargo(market, quantity, price))
-  end
-
-  def auction_supply(s, port, good, quantity, amount, item) do
-    {s, cargo} = release_stock(s, port, good, quantity, 0, item)
-    m = get(s, "markets", port <> "|" <> good) |> from_row()
-    {store(s, %{m | budget: m.budget + amount}), cargo}
-  end
-
-  def auction_consume(s, port, good, quantity, amount) do
-    m = get(s, "markets", port <> "|" <> good) |> from_row()
-    true = m.buyer and m.demand >= quantity and m.budget >= amount
-
-    store(s, %{
-      m
-      | demand: m.demand - quantity,
-        budget: m.budget - amount,
-        stock: m.stock + if(m.merchant, do: quantity, else: 0)
-    })
-  end
-
-  def quote(state, catalogue, port, good) do
-    market = get(state, "markets", port <> "|" <> good)
-    if market && catalogue["goods"][good], do: __MODULE__.quote(from_row(market), catalogue)
-  end
 
   def quote(%__MODULE__{} = market, catalogue) do
     item = catalogue["goods"][market.good]
@@ -69,26 +26,36 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   end
 
   @doc "Release supplier cargo, preserving perishable lot identities and split lineage."
-  def supply(state, %__MODULE__{} = market, quantity, price, item) do
+  def supply(%Lots{} = lots, %__MODULE__{} = market, quantity, price, item) do
     unless item["id"] == market.good and market.seller and is_integer(quantity) and quantity > 0 and
              quantity <= market.stock and is_integer(price) and price >= 0,
            do: raise(ArgumentError, "Market cannot supply the requested cargo quantity or price")
 
-    {state, taken, remaining} =
+    {lots, taken, remaining} =
       if item["shelf_ms"] > 0 do
-        unless Enum.all?(market.batches, &(&1["expires_ms"] > state.clock_ms)) and
-                 Enum.sum(Enum.map(market.batches, & &1["quantity"])) == market.stock,
+        unless Enum.all?(market.batches, &(&1.expires_ms > lots.clock_ms)) and
+                 Enum.sum(Enum.map(market.batches, & &1.quantity)) == market.stock,
                do: raise(ArgumentError, "Market freshness batches must match its unexpired stock")
 
-        CargoLots.take(state, market.batches, quantity, market.good)
+        Lots.take(lots, market.batches, quantity, market.good)
       else
-        {next, lot} = CargoLots.create(state, market.good, quantity, nil)
+        {next, lot} = Lots.create(lots, market.good, quantity, nil)
         {next, [lot], []}
       end
 
-    cargo = Enum.map(taken, &Map.merge(&1, %{"good" => market.good, "unit_cost" => price}))
+    cargo =
+      Enum.map(
+        taken,
+        &%CargoBatch{
+          good: market.good,
+          unit_cost: price,
+          lot_id: &1.lot_id,
+          quantity: &1.quantity,
+          expires_ms: &1.expires_ms
+        }
+      )
 
-    {state,
+    {lots,
      %{
        market
        | stock: market.stock - quantity,
@@ -111,7 +78,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     }
   end
 
-  defp validate_catalogue!(catalogue) do
+  def validate_catalogue!(catalogue) do
     Enum.each(catalogue["goods"], fn {id, item} ->
       unless Regex.match?(~r/^[a-z]+(_[a-z]+)*$/, id) and item["id"] == id and
                is_binary(item["name"]) and String.trim(item["name"]) != "",
@@ -152,66 +119,62 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   def handling_rate(%{"tiers" => %{"cost" => "low"}}), do: 200
   def handling_rate(_), do: 400
 
-  def initialize(state, catalogue) do
-    validate_catalogue!(catalogue)
+  def initialize(%Lots{} = lots, port, good, role, item) do
+    merchant = String.contains?(role, "/")
+    seller = String.contains?(role, "exp")
+    buyer = String.contains?(role, "imp")
 
-    if map_size(entities(state, "markets")) == 0 do
-      Enum.reduce(catalogue["ports"], state, fn {port, definition}, state ->
-        Enum.reduce(definition["roles"], state, fn {good, role}, state ->
-          merchant = String.contains?(role, "/")
-          seller = String.contains?(role, "exp")
-          buyer = String.contains?(role, "imp")
+    {lots, batches} =
+      if item["shelf_ms"] > 0 and seller and not merchant do
+        {next, lot} = Lots.create(lots, good, 500, lots.clock_ms + item["shelf_ms"])
+        {next, [lot]}
+      else
+        {lots, []}
+      end
 
-          item = catalogue["goods"][good]
-
-          {state, batches} =
-            if item["shelf_ms"] > 0 and seller and not merchant do
-              {next, lot} = CargoLots.create(state, good, 500, state.clock_ms + item["shelf_ms"])
-              {next, [lot]}
-            else
-              {state, []}
-            end
-
-          market = %{
-            "port" => port,
-            "good" => good,
-            "merchant" => merchant,
-            "seller" => seller,
-            "buyer" => buyer,
-            "stock" => if(seller and not merchant, do: 500, else: 0),
-            "demand" => if(buyer, do: 500, else: 0),
-            "budget" => item["reference_cents"] * 1000,
-            "batches" => batches,
-            "last_production" => state.clock_ms
-          }
-
-          store(state, from_row(market))
-        end)
-      end)
-    else
-      state
-    end
+    {lots,
+     %__MODULE__{
+       port: port,
+       good: good,
+       merchant: merchant,
+       seller: seller,
+       buyer: buyer,
+       stock: if(seller and not merchant, do: 500, else: 0),
+       demand: if(buyer, do: 500, else: 0),
+       budget: item["reference_cents"] * 1000,
+       batches: batches,
+       last_production: lots.clock_ms
+     }}
   end
 
-  def advance(state, catalogue) do
-    Enum.reduce(entities(state, "markets"), state, fn {_, row}, state ->
-      {state, market} = replenish(state, from_row(row), catalogue["goods"][row["good"]])
-      store(state, market)
-    end)
+  def auction_supply(%Lots{} = lots, %__MODULE__{} = market, quantity, amount, item) do
+    {lots, next, cargo} = supply(lots, market, quantity, 0, item)
+    {lots, %{next | budget: next.budget + amount}, cargo}
   end
 
-  def replenish(state, %__MODULE__{} = market, item) do
-    now = state.clock_ms
+  def auction_consume(%__MODULE__{} = market, quantity, amount) do
+    true = market.buyer and market.demand >= quantity and market.budget >= amount
+
+    %{
+      market
+      | demand: market.demand - quantity,
+        budget: market.budget - amount,
+        stock: market.stock + if(market.merchant, do: quantity, else: 0)
+    }
+  end
+
+  def replenish(%Lots{} = lots, %__MODULE__{} = market, item) do
+    now = lots.clock_ms
 
     if item["id"] != market.good or now < market.last_production,
       do: raise(ArgumentError, "Market replenishment requires matching cargo and monotonic time")
 
     replenished = div(now - market.last_production, @market_replenishment_ms)
-    batches = Enum.reject(market.batches, &(&1["expires_ms"] <= now))
+    batches = Enum.reject(market.batches, &(&1.expires_ms <= now))
 
     stock =
       if item["shelf_ms"] > 0,
-        do: Enum.sum(Enum.map(batches, & &1["quantity"])),
+        do: Enum.sum(Enum.map(batches, & &1.quantity)),
         else: market.stock
 
     market = %{market | batches: batches, stock: stock}
@@ -223,15 +186,15 @@ defmodule TijaraTides.Domain.PortCargoMarket do
           do: min(max(0, 500 - stock), replenished),
           else: 0
 
-      {state, batches} =
+      {lots, batches} =
         if item["shelf_ms"] > 0 and produced > 0 do
-          {next, lot} = CargoLots.create(state, market.good, produced, now + item["shelf_ms"])
+          {next, lot} = Lots.create(lots, market.good, produced, now + item["shelf_ms"])
           {next, batches ++ [lot]}
         else
-          {state, batches}
+          {lots, batches}
         end
 
-      {state,
+      {lots,
        %{
          market
          | stock: stock + produced,
@@ -246,7 +209,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
            last_production: market.last_production + replenished * @market_replenishment_ms
        }}
     else
-      {state, market}
+      {lots, market}
     end
   end
 end

@@ -6,8 +6,7 @@ defmodule TijaraTides.PortCargoMarketBoundaryTest do
     files = Path.wildcard("lib/tijara_tides/domain/**/*.ex")
 
     for file <- files,
-        not String.contains?(file, "/port_cargo_market/") and
-          not String.ends_with?(file, "/port_cargo_market.ex") do
+        not String.ends_with?(file, "/port_cargo_market_world.ex") do
       {_ast, calls} =
         file
         |> File.read!()
