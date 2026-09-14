@@ -773,3 +773,13 @@ process or catalogue. Integration tests cover explicit mutations and bid retenti
 existing PostgreSQL scenarios cover persisted bid/reservation reload and ledger
 reconciliation. Dependency checks keep world access and codecs out of the root.
 Other roots retain their existing representation until migrated individually.
+
+## OrderBook root migration
+
+OrderBook owns typed order admission, amendments, fill validation and price-time
+ranking without world access or row conversion. Full fills return an explicit
+removal decision; partial fills preserve priority. OrderBookWorld loads current
+orders (including the complete snapshot used to reject stale fills), supplies
+clock, revision and identity facts, and records changes through State. OrderBook.Rows
+encodes the unchanged order schema. Public depth and trade-history projections
+remain in the world adapter. Settlement still commits in the atomic world transaction.

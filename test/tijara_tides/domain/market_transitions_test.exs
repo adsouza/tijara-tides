@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.MarketTransitionsTest do
+  alias TijaraTides.Domain.OrderBookWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.OrderBook
   alias TijaraTides.Domain.AuctionWorld, as: Auction
@@ -104,8 +105,8 @@ defmodule TijaraTides.Domain.MarketTransitionsTest do
   end
 
   test "orders reject invalid acceptance and cannot overwrite a live order" do
-    state = OrderBook.accept(world(), order())
-    assert_raise ArgumentError, fn -> OrderBook.accept(state, order()) end
+    state = OrderBookWorld.accept(world(), order())
+    assert_raise ArgumentError, fn -> OrderBookWorld.accept(state, order()) end
 
     for bad <- [
           %{order() | side: "other"},
@@ -114,60 +115,62 @@ defmodule TijaraTides.Domain.MarketTransitionsTest do
           %{order() | expires_ms: 0},
           %{order() | priority_seq: 0}
         ] do
-      assert_raise ArgumentError, fn -> OrderBook.accept(world(), bad) end
+      assert_raise ArgumentError, fn -> OrderBookWorld.accept(world(), bad) end
     end
   end
 
   test "only increases and repricing reset priority, including expiry-only amendments" do
-    state = %{OrderBook.accept(world(), order()) | clock_ms: 5, revision: 2}
-    reduced = OrderBook.amend(state, "order", 5, 100, 20)
-    assert OrderBook.priority(OrderBook.fetch(reduced, "order")) == {0, 1, "order"}
-    expiry = OrderBook.amend(reduced, "order", 5, 100, 30)
-    assert OrderBook.priority(OrderBook.fetch(expiry, "order")) == {0, 1, "order"}
+    state = %{OrderBookWorld.accept(world(), order()) | clock_ms: 5, revision: 2}
+    reduced = OrderBookWorld.amend(state, "order", 5, 100, 20)
+    assert OrderBook.priority(OrderBookWorld.fetch(reduced, "order")) == {0, 1, "order"}
+    expiry = OrderBookWorld.amend(reduced, "order", 5, 100, 30)
+    assert OrderBook.priority(OrderBookWorld.fetch(expiry, "order")) == {0, 1, "order"}
 
     for {n, price} <- [{6, 100}, {5, 101}] do
-      changed = OrderBook.amend(reduced, "order", n, price, nil)
-      assert OrderBook.priority(OrderBook.fetch(changed, "order")) == {5, 2, "order"}
+      changed = OrderBookWorld.amend(reduced, "order", n, price, nil)
+      assert OrderBook.priority(OrderBookWorld.fetch(changed, "order")) == {5, 2, "order"}
     end
 
     for {n, price, expiry} <- [{0, 100, nil}, {5, -1, nil}, {5, 100, 5}] do
-      assert_raise ArgumentError, fn -> OrderBook.amend(state, "order", n, price, expiry) end
+      assert_raise ArgumentError, fn -> OrderBookWorld.amend(state, "order", n, price, expiry) end
     end
   end
 
   test "fills reject stale terms even when amendments preserve quantity" do
     original = order()
-    state = %{OrderBook.accept(world(), original) | clock_ms: 5, revision: 2}
-    repriced = OrderBook.amend(state, original.id, original.quantity, 200, nil)
-    renewed = OrderBook.amend(state, original.id, original.quantity, original.price, 20)
-    repriced_back = OrderBook.amend(repriced, original.id, original.quantity, original.price, nil)
+    state = %{OrderBookWorld.accept(world(), original) | clock_ms: 5, revision: 2}
+    repriced = OrderBookWorld.amend(state, original.id, original.quantity, 200, nil)
+    renewed = OrderBookWorld.amend(state, original.id, original.quantity, original.price, 20)
+
+    repriced_back =
+      OrderBookWorld.amend(repriced, original.id, original.quantity, original.price, nil)
 
     for amended <- [repriced, renewed, repriced_back] do
-      current = OrderBook.fetch(amended, original.id)
+      current = OrderBookWorld.fetch(amended, original.id)
       assert current.quantity == original.quantity
-      assert_raise ArgumentError, fn -> OrderBook.fill(amended, original, 3) end
+      assert_raise ArgumentError, fn -> OrderBookWorld.fill(amended, original, 3) end
 
-      filled = OrderBook.fill(amended, current, 3)
-      assert OrderBook.fetch(filled, original.id) == %{current | quantity: 7}
+      filled = OrderBookWorld.fill(amended, current, 3)
+      assert OrderBookWorld.fetch(filled, original.id) == %{current | quantity: 7}
     end
   end
 
   test "partial fills retain priority and cannot overfill or apply a stale remainder" do
-    state = OrderBook.accept(world(), order())
+    state = OrderBookWorld.accept(world(), order())
 
     for n <- [0, -1, 11, 1.5] do
-      assert_raise ArgumentError, fn -> OrderBook.fill(state, order(), n) end
+      assert_raise ArgumentError, fn -> OrderBookWorld.fill(state, order(), n) end
     end
 
-    partial = OrderBook.fill(state, order(), 3)
-    remainder = OrderBook.fetch(partial, "order")
+    partial = OrderBookWorld.fill(state, order(), 3)
+    remainder = OrderBookWorld.fetch(partial, "order")
     assert remainder.quantity == 7
     assert OrderBook.priority(remainder) == OrderBook.priority(order())
-    assert_raise ArgumentError, fn -> OrderBook.fill(partial, order(), 3) end
-    filled = OrderBook.fill(partial, remainder, 7)
-    assert OrderBook.fetch(filled, "order") == nil
-    assert_raise ArgumentError, fn -> OrderBook.fill(filled, remainder, 1) end
-    assert_raise ArgumentError, fn -> OrderBook.amend(filled, "order", 1, 100, nil) end
-    assert_raise ArgumentError, fn -> OrderBook.cancel(filled, "order") end
+    assert_raise ArgumentError, fn -> OrderBookWorld.fill(partial, order(), 3) end
+    filled = OrderBookWorld.fill(partial, remainder, 7)
+    assert OrderBookWorld.fetch(filled, "order") == nil
+    assert_raise ArgumentError, fn -> OrderBookWorld.fill(filled, remainder, 1) end
+    assert_raise ArgumentError, fn -> OrderBookWorld.amend(filled, "order", 1, 100, nil) end
+    assert_raise ArgumentError, fn -> OrderBookWorld.cancel(filled, "order") end
   end
 end

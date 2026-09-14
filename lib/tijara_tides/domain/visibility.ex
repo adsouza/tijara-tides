@@ -23,8 +23,8 @@ defmodule TijaraTides.Domain.Visibility do
            }}
         end),
       "auctions" => TijaraTides.Domain.AuctionWorld.public(state),
-      "order_books" => TijaraTides.Domain.OrderBook.public(state),
-      "exchange_trades" => TijaraTides.Domain.OrderBook.recent(state),
+      "order_books" => TijaraTides.Domain.OrderBookWorld.public(state),
+      "exchange_trades" => TijaraTides.Domain.OrderBookWorld.recent(state),
       "companies" =>
         Map.new(entities(state, "companies"), fn {id, c} ->
           {id, Map.take(c, ["id", "name", "created_ms", "bankruptcy_ms"])}

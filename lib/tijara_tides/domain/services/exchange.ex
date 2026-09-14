@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.Services.Exchange do
+  alias TijaraTides.Domain.OrderBookWorld
   @moduledoc "Atomic exchange settlement across order, warehouse, market and finance roots."
   import TijaraTides.Domain.ReadState, only: [get: 3, owned: 4]
   alias TijaraTides.Domain.{OrderBook, Warehouse, CompanyFinance, PortCargoMarket, Notices}
@@ -35,7 +36,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
       length(owned(state, "exchange_orders", "company_id", company["id"])) >= 100 or
         length(owned(state, "exchange_orders", "book_key", row["port"] <> "|" <> cmd["good"])) >=
           1000 or
-          OrderBook.fetch(state, id) != nil ->
+          OrderBookWorld.fetch(state, id) != nil ->
         {:error, :exchange_invalid}
 
       true ->
@@ -55,7 +56,9 @@ defmodule TijaraTides.Domain.Services.Exchange do
 
         with {:ok, next} <- back(state, o, catalogue) do
           next =
-            OrderBook.accept(next, o) |> match_order(o.id, catalogue, @fill_budget) |> elem(0)
+            OrderBookWorld.accept(next, o)
+            |> match_order(o.id, catalogue, @fill_budget)
+            |> elem(0)
 
           {:ok, next, %{}}
         end
@@ -89,10 +92,10 @@ defmodule TijaraTides.Domain.Services.Exchange do
   end
 
   def cancel(state, account, id) do
-    case OrderBook.fetch(state, id) do
+    case OrderBookWorld.fetch(state, id) do
       %OrderBook{company_id: owner} = o ->
         if owner == account["company_id"],
-          do: {:ok, state |> unback(o) |> OrderBook.cancel(id), %{}},
+          do: {:ok, state |> unback(o) |> OrderBookWorld.cancel(id), %{}},
           else: {:error, :exchange_invalid}
 
       nil ->
@@ -101,7 +104,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
   end
 
   def amend(state, account, cmd, catalogue) do
-    o = OrderBook.fetch(state, cmd["order"])
+    o = OrderBookWorld.fetch(state, cmd["order"])
     n = cmd["quantity"]
     price = cmd["price"]
     expiry = Map.get(cmd, "expires_ms", o && o.expires_ms)
@@ -123,19 +126,19 @@ defmodule TijaraTides.Domain.Services.Exchange do
 
       true ->
         # Price the backing against the amended terms; commit them only once it holds.
-        updated = OrderBook.fetch(OrderBook.amend(state, o.id, n, price, expiry), o.id)
+        updated = OrderBookWorld.fetch(OrderBookWorld.amend(state, o.id, n, price, expiry), o.id)
 
         with {:ok, next} <- back(unback(state, o), updated, catalogue, o.quantity * o.price) do
           {:ok,
            next
-           |> OrderBook.amend(o.id, n, price, expiry)
+           |> OrderBookWorld.amend(o.id, n, price, expiry)
            |> match_order(o.id, catalogue, @fill_budget)
            |> elem(0), %{}}
         end
     end
   end
 
-  def reconcile(state), do: sweep(state, OrderBook.orders(state))
+  def reconcile(state), do: sweep(state, OrderBookWorld.orders(state))
 
   @doc "Post-command sweep: only the acting company's orders can have lost their backing."
   def reconcile(state, nil), do: state
@@ -144,7 +147,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     do:
       sweep(
         state,
-        Enum.map(owned(state, "exchange_orders", "company_id", company_id), &OrderBook.from_row/1)
+        OrderBookWorld.company_orders(state, company_id)
       )
 
   defp sweep(state, orders) do
@@ -155,7 +158,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
            not Warehouse.order_backed?(s, OrderBook.claim(o)) do
         s
         |> unback(o)
-        |> OrderBook.cancel(o.id)
+        |> OrderBookWorld.cancel(o.id)
         |> Notices.notice(
           company["account_id"],
           "exchange:" <> o.id,
@@ -173,7 +176,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     visits = Keyword.get(limits, :orders, @order_budget)
     true = is_integer(fills) and fills > 0 and is_integer(visits) and visits > 0
     state = reconcile(state)
-    orders = Enum.sort_by(OrderBook.orders(state), &OrderBook.priority/1)
+    orders = Enum.sort_by(OrderBookWorld.orders(state), &OrderBook.priority/1)
     cursor = Map.get(state, :exchange_cursor)
 
     {before, after_cursor} =
@@ -201,13 +204,13 @@ defmodule TijaraTides.Domain.Services.Exchange do
   defp match_order(state, _id, _catalogue, 0), do: {state, 0}
 
   defp match_order(state, id, catalogue, budget) do
-    case OrderBook.fetch(state, id) do
+    case OrderBookWorld.fetch(state, id) do
       nil ->
         {state, budget}
 
       o ->
         peer =
-          OrderBook.counterparts(state, o)
+          OrderBookWorld.counterparts(state, o)
           |> Enum.find(&Warehouse.exchange_ready?(state, OrderBook.claim(&1)))
 
         npc = npc_offer(state, o, catalogue)
@@ -275,8 +278,8 @@ defmodule TijaraTides.Domain.Services.Exchange do
     |> Warehouse.exchange_in(OrderBook.claim(buy), acquired, n)
     |> buyer_cash(buy, n, price)
     |> seller_cash(sell, n, price, cost)
-    |> OrderBook.fill(buy, n)
-    |> OrderBook.fill(sell, n)
+    |> OrderBookWorld.fill(buy, n)
+    |> OrderBookWorld.fill(sell, n)
     |> traded(buy, n, price)
   end
 
@@ -303,7 +306,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
         |> seller_cash(o, n, price, cost)
       end
 
-    state |> OrderBook.fill(o, n) |> traded(o, n, price)
+    state |> OrderBookWorld.fill(o, n) |> traded(o, n, price)
   end
 
   defp buyer_cash(s, o, n, price),
@@ -324,5 +327,13 @@ defmodule TijaraTides.Domain.Services.Exchange do
       ])
 
   defp traded(s, o, n, price),
-    do: OrderBook.record_trade(s, o.port, o.good, n, price, "#{o.id}:#{s.revision}:#{o.quantity}")
+    do:
+      OrderBookWorld.record_trade(
+        s,
+        o.port,
+        o.good,
+        n,
+        price,
+        "#{o.id}:#{s.revision}:#{o.quantity}"
+      )
 end
