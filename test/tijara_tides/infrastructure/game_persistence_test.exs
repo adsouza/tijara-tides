@@ -2806,6 +2806,17 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert_push_event(view, "workspace-panel", %{panel: 1, portrait_only: true})
     assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["status"] == "loading"
+    render_click(view, "ship", %{"id" => other_ship["id"]})
+    refute has_element?(view, "#destination-picker-trigger", "Singapore")
+    render_change(view, "preview", %{"destination" => "Tokyo"})
+    assert has_element?(view, "#destination-picker-trigger", "Tokyo")
+    render_click(view, "ship", %{"id" => ship["id"]})
+    send(view.pid, {:game_changed, 0})
+    # Loading temporarily hides voyage controls, but must not lose this ship's selection.
+    assert :sys.get_state(view.pid).socket.assigns.destination == "Singapore"
+    render_click(view, "ship", %{"id" => other_ship["id"]})
+    assert has_element?(view, "#destination-picker-trigger", "Tokyo")
+    render_click(view, "ship", %{"id" => ship["id"]})
     render_change(view, "fleet-status", %{"status" => "docked"})
     refute has_element?(view, ".fleet-list button[phx-value-id='#{ship["id"]}']")
     assert has_element?(view, ".fleet-list button[phx-value-id='#{other_ship["id"]}']")
