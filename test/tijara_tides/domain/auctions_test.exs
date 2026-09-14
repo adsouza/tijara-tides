@@ -1,6 +1,7 @@
 defmodule TijaraTides.Domain.AuctionsTest do
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Game, State, Warehouse, Auction, CargoLots, CompanyFinance}
+  alias TijaraTides.Domain.{Game, State, Warehouse, CargoLots, CompanyFinance}
+  alias TijaraTides.Domain.AuctionWorld, as: Auction
   alias TijaraTides.Domain.Services.Auctions
 
   setup do

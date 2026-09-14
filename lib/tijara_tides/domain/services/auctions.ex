@@ -1,7 +1,9 @@
 defmodule TijaraTides.Domain.Services.Auctions do
   @moduledoc "Atomic luxury-auction scheduling, escrow and second-price settlement."
-  import TijaraTides.Domain.ReadState, only: [get: 3, owned: 4]
-  alias TijaraTides.Domain.{Auction, Warehouse, CompanyFinance, PortCargoMarket, Notices}
+  import TijaraTides.Domain.ReadState, only: [get: 3]
+  alias TijaraTides.Domain.{Warehouse, CompanyFinance, PortCargoMarket, Notices}
+  alias TijaraTides.Domain.AuctionWorld
+  alias TijaraTides.Domain.Auction
   alias TijaraTides.Domain.Ship.CargoBatch
   alias TijaraTides.Domain.Auction.Bid
   alias TijaraTides.Domain.Warehouse.Claim
@@ -57,12 +59,12 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
     if w && w["company_id"] == account["company_id"] && live?(s, account["company_id"]) && item &&
          item["category"] == "Luxury items" && quantity?(cmd["quantity"]) && amount?(cmd["price"]) &&
-         Auction.fetch(s, id) == nil &&
+         AuctionWorld.fetch(s, id) == nil &&
          Enum.count(
-           Auction.all(s),
-           &(&1.company_id == account["company_id"] and Auction.open?(&1))
+           AuctionWorld.all(s),
+           &(&1.company_id == account["company_id"] and AuctionWorld.open?(&1))
          ) < 50 do
-      {opens, closes} = Auction.schedule(s.clock_ms, w["port"], cat)
+      {opens, closes} = AuctionWorld.schedule(s.clock_ms, w["port"], cat)
 
       a = %Auction{
         id: id,
@@ -82,19 +84,20 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
       with :ok <- coverage(s, w, a),
            {:ok, s} <- Warehouse.back_order(s, claim(a), cat),
-           do: {:ok, Auction.list(s, a), %{}}
+           do: {:ok, AuctionWorld.list(s, a), %{}}
     else
       {:error, :auction_invalid}
     end
   end
 
   def revise(s, account, cmd, cat) do
-    a = Auction.fetch(s, cmd["auction"])
+    a = AuctionWorld.fetch(s, cmd["auction"])
 
-    if a && Auction.open?(a) && s.clock_ms < a.opens_ms && a.company_id == account["company_id"] &&
+    if a && AuctionWorld.open?(a) && s.clock_ms < a.opens_ms &&
+         a.company_id == account["company_id"] &&
          live?(s, a.company_id) && quantity?(cmd["quantity"]) && amount?(cmd["price"]) do
-      revised = Auction.revise(s, a.id, cmd["quantity"], cmd["price"])
-      updated = Auction.fetch(revised, a.id)
+      revised = AuctionWorld.revise(s, a.id, cmd["quantity"], cmd["price"])
+      updated = AuctionWorld.fetch(revised, a.id)
 
       with {:ok, next} <-
              Warehouse.back_order(Warehouse.release_trade(revised, claim(a)), claim(updated), cat),
@@ -105,22 +108,23 @@ defmodule TijaraTides.Domain.Services.Auctions do
   end
 
   def withdraw_lot(s, account, id) do
-    a = Auction.fetch(s, id)
+    a = AuctionWorld.fetch(s, id)
 
-    if a && Auction.open?(a) && a.company_id == account["company_id"] && s.clock_ms < a.opens_ms,
-      do: {:ok, cancel(s, a), %{}},
-      else: {:error, :auction_locked}
+    if a && AuctionWorld.open?(a) && a.company_id == account["company_id"] &&
+         s.clock_ms < a.opens_ms,
+       do: {:ok, cancel(s, a), %{}},
+       else: {:error, :auction_locked}
   end
 
   def bid(s, account, cmd, id, cat) do
-    a = Auction.fetch(s, cmd["auction"])
+    a = AuctionWorld.fetch(s, cmd["auction"])
     w = get(s, "warehouses", cmd["warehouse"])
     company = account["company_id"]
 
     if a && live?(s, company) && w && w["company_id"] == company && w["port"] == a.port do
-      old = Auction.bid(s, a.id, company)
+      old = AuctionWorld.bid(s, a.id, company)
 
-      with {:ok, b} <- Auction.prepare_bid(s, a.id, company, w["id"], cmd["price"], id) do
+      with {:ok, b} <- AuctionWorld.prepare_bid(s, a.id, company, w["id"], cmd["price"], id) do
         next = if old, do: release_bid(s, a, old), else: s
         c = get(next, "companies", company)
 
@@ -140,15 +144,17 @@ defmodule TijaraTides.Domain.Services.Auctions do
     end
   end
 
-  defp accept_prepared_bid(s, nil, proposed), do: Auction.accept_bid(s, proposed)
-  defp accept_prepared_bid(s, previous, proposed), do: Auction.replace_bid(s, previous, proposed)
+  defp accept_prepared_bid(s, nil, proposed), do: AuctionWorld.accept_bid(s, proposed)
+
+  defp accept_prepared_bid(s, previous, proposed),
+    do: AuctionWorld.replace_bid(s, previous, proposed)
 
   def withdraw_bid(s, account, id) do
-    a = Auction.fetch(s, id)
-    b = a && Auction.bid(s, id, account["company_id"])
+    a = AuctionWorld.fetch(s, id)
+    b = a && AuctionWorld.bid(s, id, account["company_id"])
 
-    if b && Auction.open?(a) && s.clock_ms < a.closes_ms,
-      do: {:ok, s |> release_bid(a, b) |> Auction.withdraw_bid(b), %{}},
+    if b && AuctionWorld.open?(a) && s.clock_ms < a.closes_ms,
+      do: {:ok, s |> release_bid(a, b) |> AuctionWorld.withdraw_bid(b), %{}},
       else: {:error, :auction_locked}
   end
 
@@ -163,28 +169,28 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
   defp cancel(s, a) do
     s =
-      Enum.reduce(Auction.bids(s, a.id), s, fn b, s ->
-        s |> release_bid(a, b) |> Auction.invalidate_bid(b)
+      Enum.reduce(AuctionWorld.bids(s, a.id), s, fn b, s ->
+        s |> release_bid(a, b) |> AuctionWorld.invalidate_bid(b)
       end)
 
     s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
-    Auction.cancel(s, a.id)
+    AuctionWorld.cancel(s, a.id)
   end
 
   # Runs before lease liquidation, including on a tick that crosses the closing time.
-  def advance(s, cat), do: s |> reconcile(cat) |> seed(cat) |> Auction.prune()
+  def advance(s, cat), do: s |> reconcile(cat) |> seed(cat) |> AuctionWorld.prune()
 
-  def reconcile(s, cat), do: sweep(s, cat, Auction.all(s))
+  def reconcile(s, cat), do: sweep(s, cat, AuctionWorld.all(s))
 
   @doc "Post-command sweep: the acting company's own lots and the ones it has bid on."
   def reconcile(s, _cat, nil), do: s
 
   def reconcile(s, cat, company_id) do
-    mine = Enum.map(owned(s, "auctions", "company_id", company_id), &Auction.from_row/1)
+    mine = AuctionWorld.company_auctions(s, company_id)
 
     bid_on =
-      for b <- Auction.company_bids(s, company_id),
-          a = Auction.fetch(s, b.auction_id),
+      for b <- AuctionWorld.company_bids(s, company_id),
+          a = AuctionWorld.fetch(s, b.auction_id),
           do: a
 
     sweep(s, cat, Enum.uniq_by(mine ++ bid_on, & &1.id))
@@ -193,7 +199,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
   defp sweep(s, cat, auctions) do
     s =
       Enum.reduce(
-        auctions |> Enum.filter(&Auction.open?/1) |> Enum.sort_by(&{&1.closes_ms, &1.id}),
+        auctions |> Enum.filter(&AuctionWorld.open?/1) |> Enum.sort_by(&{&1.closes_ms, &1.id}),
         s,
         fn a, s ->
           cond do
@@ -205,10 +211,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
               close(s, a, cat)
 
             true ->
-              Enum.reduce(Auction.bids(s, a.id), s, fn b, s ->
+              Enum.reduce(AuctionWorld.bids(s, a.id), s, fn b, s ->
                 if not live?(s, b.company_id) or
                      not Warehouse.order_backed?(s, bid_claim(a, b)),
-                   do: s |> release_bid(a, b) |> Auction.invalidate_bid(b),
+                   do: s |> release_bid(a, b) |> AuctionWorld.invalidate_bid(b),
                    else: s
               end)
           end
@@ -224,8 +230,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
       |> Enum.sort()
 
     outstanding =
-      Auction.all(s)
-      |> Enum.filter(&(&1.company_id == nil and Auction.open?(&1)))
+      AuctionWorld.all(s)
+      |> Enum.filter(&(&1.company_id == nil and AuctionWorld.open?(&1)))
       |> Enum.group_by(&{&1.port, &1.good})
 
     supplier_lots = get_in(cat, ["auctions", "supplier_lots"]) || 5
@@ -234,7 +240,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
     Enum.reduce(Enum.sort(cat["ports"]), s, fn {port, _}, s ->
       Enum.reduce(luxury, s, fn {good, _item}, s ->
         market = get(s, "markets", port <> "|" <> good)
-        {opens, closes} = Auction.schedule(s.clock_ms, port, cat)
+        {opens, closes} = AuctionWorld.schedule(s.clock_ms, port, cat)
         id = "npc-auction:#{port}:#{good}:#{opens}"
 
         active = Map.get(outstanding, {port, good}, [])
@@ -243,11 +249,11 @@ defmodule TijaraTides.Domain.Services.Auctions do
           if market, do: market["stock"] - Enum.sum(Enum.map(active, & &1.quantity)), else: 0
 
         if market && market["seller"] && available > 0 &&
-             length(active) < 4 && Auction.fetch(s, id) == nil do
+             length(active) < 4 && AuctionWorld.fetch(s, id) == nil do
           n = min(available, supplier_lots)
           q = PortCargoMarket.quote(s, cat, port, good)
 
-          Auction.list(s, %Auction{
+          AuctionWorld.list(s, %Auction{
             id: id,
             company_id: nil,
             warehouse_id: nil,
@@ -296,12 +302,14 @@ defmodule TijaraTides.Domain.Services.Auctions do
   defp close(s, a, cat) do
     {eligible, invalid} =
       Enum.split_with(
-        Auction.bids(s, a.id),
+        AuctionWorld.bids(s, a.id),
         &(live?(s, &1.company_id) and Warehouse.order_backed?(s, bid_claim(a, &1)))
       )
 
     s =
-      Enum.reduce(invalid, s, fn b, s -> s |> release_bid(a, b) |> Auction.invalidate_bid(b) end)
+      Enum.reduce(invalid, s, fn b, s ->
+        s |> release_bid(a, b) |> AuctionWorld.invalidate_bid(b)
+      end)
 
     bids =
       Enum.sort_by(
@@ -314,7 +322,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
       # close. Settle as unsold rather than asking the market for cargo it no longer has.
       s = Enum.reduce(eligible, s, &release_bid(&2, a, &1))
       s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
-      Auction.close_unsold(s, a.id)
+      AuctionWorld.close_unsold(s, a.id)
     else
       [winner | others] = bids
       price = max(a.reserve, if(others == [], do: a.reserve, else: hd(others).amount))
@@ -367,8 +375,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
           if b.id != winner.id, do: release_bid(s, a, b), else: s
         end)
 
-      s = Auction.record_simulated_bids(s, a.id, Enum.filter(bids, &(&1.kind == :simulated)))
-      s = Auction.close_sold(s, a.id, price, winner)
+      s = AuctionWorld.record_simulated_bids(s, a.id, Enum.filter(bids, &(&1.kind == :simulated)))
+      s = AuctionWorld.close_sold(s, a.id, price, winner)
 
       Enum.reduce(
         Enum.uniq([a.company_id | Enum.map(eligible, & &1.company_id)]),

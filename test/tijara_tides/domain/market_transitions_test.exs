@@ -1,11 +1,13 @@
 defmodule TijaraTides.Domain.MarketTransitionsTest do
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Auction, OrderBook}
+  alias TijaraTides.Domain.OrderBook
+  alias TijaraTides.Domain.AuctionWorld, as: Auction
+  alias TijaraTides.Domain.Auction, as: Lot
 
   defp world, do: %{entities: %{}, clock_ms: 0, revision: 1}
 
   defp lot do
-    %Auction{
+    %Lot{
       id: "lot",
       company_id: "seller",
       warehouse_id: "storage",

@@ -3,7 +3,7 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
 
   test "auction and order rows are written only by their owning roots" do
     for {root, owned} <- [
-          {"auction", ~w(auctions auction_bids)},
+          {"auction_world", ~w(auctions auction_bids)},
           {"order_book", ~w(exchange_orders exchange_trades)}
         ] do
       files = Path.wildcard("lib/tijara_tides/domain/**/*.ex")
@@ -44,12 +44,37 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
     end
   end
 
+  test "the typed auction root cannot depend on world access or row codecs" do
+    files = ~w(lib/tijara_tides/domain/auction.ex lib/tijara_tides/domain/auction/bid.ex)
+    forbidden = ~w(State ReadState EntityIndex ChangeSet AuctionWorld Rows BidRows)
+
+    for file <- files do
+      {_ast, dependencies} =
+        file
+        |> File.read!()
+        |> Code.string_to_quoted!()
+        |> Macro.prewalk([], fn
+          {:__aliases__, _, parts} = node, acc -> {node, Enum.map(parts, &to_string/1) ++ acc}
+          node, acc -> {node, acc}
+        end)
+
+      assert Enum.filter(dependencies, &(&1 in forbidden)) == [], file
+    end
+
+    Code.ensure_loaded!(TijaraTides.Domain.Auction)
+    refute function_exported?(TijaraTides.Domain.Auction, :from_row, 1)
+    refute function_exported?(TijaraTides.Domain.Auction, :to_row, 1)
+  end
+
   test "roots expose named transitions instead of general write APIs" do
     Code.ensure_loaded!(TijaraTides.Domain.Auction)
     Code.ensure_loaded!(TijaraTides.Domain.OrderBook)
+    Code.ensure_loaded!(TijaraTides.Domain.AuctionWorld)
     refute function_exported?(TijaraTides.Domain.Auction, :save, 2)
     refute function_exported?(TijaraTides.Domain.Auction, :put_bid, 2)
     refute function_exported?(TijaraTides.Domain.Auction, :delete_bid, 2)
     refute function_exported?(TijaraTides.Domain.OrderBook, :remove, 2)
+    refute function_exported?(TijaraTides.Domain.AuctionWorld, :save, 2)
+    refute function_exported?(TijaraTides.Domain.AuctionWorld, :put_bid, 2)
   end
 end

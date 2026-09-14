@@ -687,8 +687,8 @@ read-side warehouse controls are projected through `UseCases.GameQueries`.
 
 ## Auction and order transition ownership
 
-`Auction` registers new lots and owns revision, cancellation and sold/unsold
-closure. Revision locks at opening; settlement requires the closing time, a price
+`Auction` validates new lots and owns revision, cancellation and sold/unsold
+closure. `AuctionWorld` checks world-wide identity uniqueness before registration. Revision locks at opening; settlement requires the closing time, a price
 at least equal to the reserve and a winning bid that covers it. Closed auctions
 cannot transition again. Cancellation remains available during bidding when
 backing is lost. There is no general auction save API.
@@ -727,8 +727,9 @@ boundary; it preserves the seven persisted fields and rejects unmapped or missin
 fields. Other roots still use their existing row representation: this is an
 incremental separation, not a change to the world transaction or database schema.
 
-`Auction.prepare_bid` validates the bidding window, reserve, seller exclusion,
-identifier ownership and bidder caps. It preserves priority when the amount is
+`Auction.prepare_bid` validates the bidding window, reserve, seller exclusion
+and bidder caps against typed children and supplied admission facts. `AuctionWorld`
+supplies current world-wide identifier occupancy and the company bid count. It preserves priority when the amount is
 unchanged and produces proposed terms without mutating state. After securing cash
 and warehouse backing, the service calls `accept_bid` or `replace_bid`.
 Replacement requires the previous accepted terms; withdrawal and invalidation
@@ -741,3 +742,34 @@ Their valuations still obey the service's finite market demand and budget checks
 The service coordinates escrow release, cargo movement and settlement in the same
 atomic commit. Public and private projections retain their existing wire shapes,
 including sealed amounts until closing and historical bid retention.
+
+
+## Auction root migration
+
+Auction is the first complete root migrated away from the world row representation.
+Its state includes typed `Bid` children keyed by bid ID. Lifecycle and bid operations
+accept that root plus explicit time/admission inputs and return a typed root or an
+`Auction.Transition`. They neither read the world nor call a row codec.
+
+`AuctionWorld` is the transitional in-memory integration adapter. It loads the
+complete auction and its bids, obtains current cross-auction facts, invokes a
+named root operation, and records the resulting changes in the existing world
+`ChangeSet`. `Auction.Rows` and `Auction.BidRows` encode the unchanged relational
+fields. The adapter remains pure and inside the domain boundary because existing
+simulation and settlement services still operate on world state; it is not a new
+SQL repository or transaction boundary.
+
+A transition lists bid additions and removals explicitly. A missing bid in a
+returned root is never interpreted as a deletion. Voluntary withdrawal,
+reconciliation and closed-history pruning remain distinct operations; changing
+an auction's status preserves its historical bid rows. Every write still joins
+the same world transaction with warehouse reservations, escrow, cargo and ledger
+postings. Persistence ownership fencing, receipts, retry/replan and publication
+are unchanged. No schema migration or database reset is required.
+
+Services and projections use `AuctionWorld` for world integration; `Auction` is
+the standalone business model. Direct root tests require no world map, repository,
+process or catalogue. Integration tests cover explicit mutations and bid retention;
+existing PostgreSQL scenarios cover persisted bid/reservation reload and ledger
+reconciliation. Dependency checks keep world access and codecs out of the root.
+Other roots retain their existing representation until migrated individually.

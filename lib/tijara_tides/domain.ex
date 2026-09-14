@@ -7,6 +7,7 @@ defmodule TijaraTides.Domain do
       Warehouse,
       OrderBook,
       Auction,
+      AuctionWorld,
       ChangeSet,
       LotIdsExhausted,
       EntityIndex,

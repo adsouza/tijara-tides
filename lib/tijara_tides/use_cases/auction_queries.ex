@@ -65,7 +65,7 @@ defmodule TijaraTides.UseCases.AuctionQueries do
         })
       end)
 
-    {opens, closes} = TijaraTides.Domain.Auction.schedule(clock, port, cat)
+    {opens, closes} = TijaraTides.Domain.AuctionWorld.schedule(clock, port, cat)
 
     %{
       listings: listings,

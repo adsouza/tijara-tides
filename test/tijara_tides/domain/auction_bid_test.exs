@@ -1,11 +1,12 @@
 defmodule TijaraTides.Domain.AuctionBidTest do
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.Auction
+  alias TijaraTides.Domain.AuctionWorld, as: Auction
+  alias TijaraTides.Domain.Auction, as: Lot
   alias TijaraTides.Domain.State
   alias TijaraTides.Domain.Auction.{Bid, BidRows}
 
   defp lot do
-    %Auction{
+    %Lot{
       id: "lot",
       company_id: "seller",
       warehouse_id: "seller-store",
@@ -164,7 +165,15 @@ defmodule TijaraTides.Domain.AuctionBidTest do
       Enum.reduce(1..100, opened(), fn i, state ->
         auction = %{lot() | id: "lot-#{i}"}
         b = %{bid | id: "bid-#{i}", auction_id: auction.id}
-        state = State.put(state, "auctions", auction.id, Auction.to_row(auction))
+
+        state =
+          State.put(
+            state,
+            "auctions",
+            auction.id,
+            TijaraTides.Domain.Auction.Rows.encode(auction)
+          )
+
         State.put(state, "auction_bids", b.id, BidRows.encode(b))
       end)
 
