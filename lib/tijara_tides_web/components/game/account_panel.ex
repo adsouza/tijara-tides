@@ -486,7 +486,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               <button
                 data-confirm={
                   gettext(
-                    "Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a new company starting with no cash or ships."
+                    "Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 3-minute world-clock cooldown before a new company starting with no cash or ships."
                   )
                 }
                 phx-disable-with={gettext("Declaring…")}

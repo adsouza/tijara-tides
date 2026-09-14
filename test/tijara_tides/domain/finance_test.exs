@@ -299,7 +299,26 @@ defmodule TijaraTides.Domain.FinanceTest do
     assert {:error, :finance_no_company} =
              Bankruptcy.bankrupt(state, c.account)
 
-    state = %{state | clock_ms: state.clock_ms + CompanyFinance.terms().cooldown_ms}
+    assert CompanyFinance.terms().cooldown_ms == 180_000
+
+    assert {:error, :bankruptcy_cooldown} =
+             CompanyFormation.create_company(
+               %{state | clock_ms: state.clock_ms + 179_999},
+               account,
+               "New",
+               %{id: "new", catalogue: c.catalogue}
+             )
+
+    # Previously recorded twenty-minute waits also honor the shorter policy.
+    state =
+      put_in(
+        state,
+        [:entities, "bankruptcy_events", "company", "restart_ms"],
+        state.clock_ms + 1_200_000
+      )
+
+    assert CompanyFinance.restart_at(state, account) == state.clock_ms + 180_000
+    state = %{state | clock_ms: state.clock_ms + 180_000}
 
     {:ok, new, _} =
       CompanyFormation.create_company(state, account, "New", %{

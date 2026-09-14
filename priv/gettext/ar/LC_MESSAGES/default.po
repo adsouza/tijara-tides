@@ -5,7 +5,7 @@ msgstr ""
 "Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);\n"
 
 msgid "%{company} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes."
-msgstr "أُعلنت شركة %{company} مفلسة. تبقى أصولها تحت التصفية. يمكن إنشاء شركة بديلة بعد 20 دقيقة من وقت العالم النشط."
+msgstr "أُعلنت شركة %{company} مفلسة. تبقى أصولها تحت التصفية. يمكن إنشاء شركة بديلة بعد 3 دقائق من وقت العالم النشط."
 
 msgid "%{reason}"
 msgstr "%{reason}"
@@ -1616,8 +1616,8 @@ msgstr "هل تريد إزالة هذا المسار وإلغاء أوامره �
 msgid "Fund this guarantee? Cash is locked immediately, including before the invitee borrows. It can be forfeited on their bankruptcy and is not withdrawable. Your own bankruptcy does not release it."
 msgstr "هل تريد تمويل هذا الضمان؟ يُحجز النقد فورًا، حتى قبل اقتراض المدعو. قد يُصادر عند إفلاسه ولا يمكن سحبه. ولا يؤدي إفلاسك إلى تحريره."
 
-msgid "Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 20-minute world-clock cooldown before a new company starting with no cash or ships."
-msgstr "هل تريد إعلان الإفلاس؟ سيؤدي ذلك إلى إغلاق شركتك وفقدان الوصول إلى أصولها، مع انتظار 20 دقيقة من وقت العالم قبل إنشاء شركة جديدة بلا نقد أو سفن."
+msgid "Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 3-minute world-clock cooldown before a new company starting with no cash or ships."
+msgstr "هل تريد إعلان الإفلاس؟ سيؤدي ذلك إلى إغلاق شركتك وفقدان الوصول إلى أصولها، مع انتظار 3 دقائق من وقت العالم قبل إنشاء شركة جديدة بلا نقد أو سفن."
 
 msgid "Sell this ship to the shipyard? The ship will leave your fleet."
 msgstr "هل تريد بيع هذه السفينة إلى حوض بناء السفن؟ ستغادر السفينة أسطولك."

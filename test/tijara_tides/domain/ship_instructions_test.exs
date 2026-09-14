@@ -99,6 +99,27 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     state
   end
 
+  test "departure archives completed history even on a return to the same port", c do
+    {:ok, state, _} = add(c, c.state, "next")
+    order = Game.get(state, "ship_instructions", "next")
+    old = %{order | "id" => "previous", "status" => "filled"}
+    state = State.put(state, "ship_instructions", "previous", old)
+
+    state =
+      TijaraTides.Domain.Ship.VisitOrders.depart(state, "company:1", "Singapore", c.catalogue)
+
+    assert Game.get(state, "ship_instructions", "previous")["history_archived"]
+    refute Game.get(state, "ship_instructions", "next")["history_archived"]
+    private = Game.private(state, c.account)
+
+    assert Enum.map(
+             TijaraTidesWeb.GameUI.Presentation.ship_instructions(private, "company:1"),
+             & &1["id"]
+           ) == ["next"]
+
+    assert Map.has_key?(private["ship_instructions"], "previous")
+  end
+
   test "automatic departure is opt-in, works empty, and reserves fuel only once", c do
     manual = automatic(c, c.state, false) |> then(&arrive(c, &1))
     assert ShipInstructions.advance(manual, c.catalogue) == manual

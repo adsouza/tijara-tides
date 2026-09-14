@@ -79,7 +79,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
   def ship_instructions(private, ship_id) do
     private["ship_instructions"]
     |> Map.values()
-    |> Enum.filter(&(&1["ship_id"] == ship_id))
+    |> Enum.filter(&(&1["ship_id"] == ship_id and &1["history_archived"] != true))
     |> Enum.sort_by(
       &{if(&1["status"] in ["planned", "waiting"], do: 0, else: 1), -&1["created_ms"], &1["id"]}
     )

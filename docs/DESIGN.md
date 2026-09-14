@@ -2351,7 +2351,7 @@ pending future asset auctions. Ordinary instructions and visit plans are cancell
 Committed fuel use, voyages, handling and spoilage continue; new crew charges
 stop for the closed company. Debt and unpaid bills are written off against
 receivership equity, without inflating operating profit. No assets or proceeds
-are inherited by the replacement company. The 20-minute restart cooldown uses
+are inherited by the replacement company. The 3-minute restart cooldown uses
 active world time and pauses during suspension.
 
 Only player companies can go bankrupt; simulated city actors remain operational
@@ -2362,7 +2362,7 @@ trading instructions, and clears its loan debt. Its unsettled awarded supplier
 contracts default immediately: reserved deposits go to the computer-controlled
 buyers, whose payment and receiving reservations are released. Already-settled
 sales finish handling. There are no player-buyer procurement contracts initially.
-A 20-active-world-minute cooldown begins when bankruptcy is declared, voluntarily or
+A 3-active-world-minute cooldown begins when bankruptcy is declared, voluntarily or
 through default. After it expires, the player may create a replacement company
 without waiting for liquidation to finish. The
 cooldown survives sign-out or restart and is not bypassed through another account.
@@ -2650,7 +2650,7 @@ change the list.
    identifies bankruptcy without revealing private cargo.
 8. **Complete — Abuse controls:** one active company per player with no alternate-
    account grant/history evasion, no direct gifts, blocked self-trades and
-   prohibited bids, suspicious-trade review, and a 20-real-minute bankruptcy
+   prohibited bids, suspicious-trade review, and a 3-active-world-minute bankruptcy
    restart cooldown. Account creation consumes an earned, non-transferable,
    expiring invitation, and the recorded invitation tree both rate-limits new
    accounts and localizes collusion review to subtrees. Borrowing limits

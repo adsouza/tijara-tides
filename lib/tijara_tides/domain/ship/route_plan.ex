@@ -471,6 +471,7 @@ defmodule TijaraTides.Domain.Ship.RoutePlan do
           "onward" => if(side == "buy", do: next.port),
           "status" => "planned",
           "reason" => "Route visit target",
+          "history_archived" => false,
           "created_ms" => state.clock_ms
         }
 

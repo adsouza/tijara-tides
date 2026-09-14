@@ -94,6 +94,7 @@ defmodule TijaraTides.Domain.Ship.VisitOrders do
           "onward" => if(side == "buy", do: onward),
           "status" => "planned",
           "reason" => "Awaiting arrival and a berth",
+          "history_archived" => false,
           "created_ms" => state.clock_ms
         }
 
@@ -203,6 +204,14 @@ defmodule TijaraTides.Domain.Ship.VisitOrders do
         if order["ship_id"] == ship_id and order["status"] in @open and
              (order["status"] == "waiting" or order["port"] != destination),
            do: finish(state, order, "Cancelled remainder on departure", catalogue),
+           else: state
+      end)
+
+    state =
+      Enum.reduce(entities(state, "ship_instructions"), state, fn {id, order}, state ->
+        if order["ship_id"] == ship_id and order["status"] not in @open and
+             not order["history_archived"],
+           do: put(state, "ship_instructions", id, Map.put(order, "history_archived", true)),
            else: state
       end)
 

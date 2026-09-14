@@ -209,7 +209,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
     credit_limit: 25_000_000,
     credit_floor: 10_000_000,
     grace_ms: 86_400_000,
-    cooldown_ms: 1_200_000,
+    cooldown_ms: 180_000,
     history_ms: TijaraTides.Domain.Account.history_ms()
   }
   def terms, do: @terms

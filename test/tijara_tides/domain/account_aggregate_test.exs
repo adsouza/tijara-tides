@@ -46,7 +46,7 @@ defmodule TijaraTides.Domain.AccountAggregateTest do
     state = Account.record_bankruptcy(state, "a", "c", "voluntary", 1_200_000)
     assert Account.from_world(state, "a").company_id == nil
     assert Account.counted(state, row()) == 1
-    assert Account.restart_at(state, row()) == 1_200_000
+    assert Account.restart_at(state, row()) == 180_000
 
     assert_raise ArgumentError, fn ->
       Account.record_bankruptcy(state, "a", "c", "voluntary", 1_200_000)

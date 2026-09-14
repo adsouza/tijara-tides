@@ -221,7 +221,7 @@ The account overlay supports bank borrowing, repayment schedules, full early
 repayment, partial repayment through recasting, and confirmed voluntary bankruptcy. Domain finance settles oldest-due
 installments and operating bills without using reserved voyage funds. One
 24-active-hour grace period leads to forced bankruptcy; suspension pauses it.
-Bankruptcy history, a 20-active-minute restart cooldown and reduced credit
+Bankruptcy history, a 3-active-minute restart cooldown and reduced credit
 limits survive database reloads. Closed companies retain their assets for
 future receivership auctions, which are not implemented in this milestone.
 
@@ -580,3 +580,9 @@ The lease selector offers one option per storage type, listing compatible cargo
 (with ordinary storage abbreviated to "non-perishable solid goods").
 Ordinary and refrigerated leases accept mixtures of their listed goods. Liquid
 leases additionally require a dedicated cargo, chosen from liquid goods only.
+
+Next-port instruction history displays the current journey only. Successful
+departure marks completed/cancelled prior instructions historical, without
+deleting their records. Active instructions remain visible. Legacy records lack
+journey identity; migration retains their newest contiguous destination group
+and active orders. Subsequent departures distinguish repeated visits exactly.

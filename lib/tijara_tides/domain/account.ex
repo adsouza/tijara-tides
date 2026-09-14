@@ -145,7 +145,15 @@ defmodule TijaraTides.Domain.Account do
     do: Enum.count(history(state, account), &(&1["created_ms"] + @history_ms > state.clock_ms))
 
   def restart_at(state, account),
-    do: history(state, account) |> Enum.map(& &1["restart_ms"]) |> Enum.max(fn -> 0 end)
+    do:
+      history(state, account)
+      |> Enum.map(
+        &min(
+          &1["restart_ms"],
+          &1["created_ms"] + TijaraTides.Domain.CompanyFinance.terms().cooldown_ms
+        )
+      )
+      |> Enum.max(fn -> 0 end)
 
   @doc """
   Record the closure. `escrow` names the guarantee this failure consumed and the debt it

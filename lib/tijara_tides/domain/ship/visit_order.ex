@@ -1,8 +1,21 @@
 defmodule TijaraTides.Domain.Ship.VisitOrder do
   @moduledoc "Snapshot of a visit's committed instruction terms and monotonic settlement progress."
-  @fields ~w(id ship_id company_id port good side quantity_mode quantity filled limit budget spent onward status reason created_ms)a
-  defstruct @fields
-  def from_row(row), do: struct!(__MODULE__, Map.new(@fields, &{&1, row[Atom.to_string(&1)]}))
+  @fields ~w(id ship_id company_id port good side quantity_mode quantity filled limit budget spent onward status reason created_ms history_archived)a
+  defstruct (@fields -- [:history_archived]) ++ [history_archived: false]
+
+  def from_row(row),
+    do:
+      struct!(
+        __MODULE__,
+        Map.new(
+          @fields,
+          &{&1,
+           if(&1 == :history_archived,
+             do: Map.get(row, "history_archived", false),
+             else: row[Atom.to_string(&1)]
+           )}
+        )
+      )
 
   def to_row(%__MODULE__{} = order),
     do: Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(order, &1)})
