@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.AuctionsTest do
+  alias TijaraTides.Domain.WarehouseWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.{Game, State, Warehouse, CargoLots, CompanyFinance}
   alias TijaraTides.Domain.AuctionWorld, as: Auction
@@ -31,7 +32,7 @@ defmodule TijaraTides.Domain.AuctionsTest do
         account = Game.get(s, "accounts", id)
 
         {:ok, s, _} =
-          Warehouse.lease(
+          WarehouseWorld.lease(
             s,
             account,
             %{
@@ -39,7 +40,7 @@ defmodule TijaraTides.Domain.AuctionsTest do
               "storage" => "dry",
               "blocks" => 10,
               "days" => 1,
-              "price" => Warehouse.quote(Warehouse.used(s, "Jakarta", "dry"), "dry", 10, 1)
+              "price" => Warehouse.quote(WarehouseWorld.used(s, "Jakarta", "dry"), "dry", 10, 1)
             },
             id <> "w",
             catalogue
@@ -163,7 +164,9 @@ defmodule TijaraTides.Domain.AuctionsTest do
     w = Game.get(s, "warehouses", "bw")
     s = State.put(s, "warehouses", "bw", %{w | "expires_ms" => a.closes_ms - 1})
     assert {:error, :auction_storage} = bid(c, s, 2000)
-    assert {:error, :warehouse_invalid} = Warehouse.cancel_reservation(s, c.a, "auction_id:lot")
+
+    assert {:error, :warehouse_invalid} =
+             WarehouseWorld.cancel_reservation(s, c.a, "auction_id:lot")
 
     assert {:error, :insufficient_cargo} =
              Auctions.consign(

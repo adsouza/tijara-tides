@@ -1,4 +1,5 @@
 defmodule Docs.BerthBoundaryTest do
+  alias TijaraTides.Domain.PortBerthsWorld
   alias TijaraTides.Domain.ShipWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.{Game, PortBerths}
@@ -60,10 +61,10 @@ defmodule Docs.BerthBoundaryTest do
         })
       end)
 
-    assert length(PortBerths.load(state, "Jakarta", c.catalogue).waiting) == 3
+    assert length(PortBerthsWorld.load(state, "Jakarta", c.catalogue).waiting) == 3
 
     admitted = BerthAllocation.advance(state, c.catalogue)
-    model = PortBerths.load(admitted, "Jakarta", c.catalogue)
+    model = PortBerthsWorld.load(admitted, "Jakarta", c.catalogue)
 
     # Jakarta has one berth, so at most one ship may hold it however many are waiting.
     assert model.held == MapSet.new(["company:1"])
@@ -72,7 +73,7 @@ defmodule Docs.BerthBoundaryTest do
     assert PortBerths.position(model, "company:2") == 1
     assert PortBerths.position(model, "company:3") == 2
 
-    assert Enum.count(PortBerths.ships(admitted, "Jakarta"), &PortBerths.occupied?/1) <=
+    assert Enum.count(PortBerthsWorld.ships(admitted, "Jakarta"), &PortBerths.occupied?/1) <=
              model.capacity
   end
 end

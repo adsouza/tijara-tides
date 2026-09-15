@@ -15,7 +15,7 @@ defmodule TijaraTides.Domain.Simulation do
     |> Fleet.advance(elapsed)
     |> TijaraTides.Domain.Services.Exchange.reconcile()
     |> TijaraTides.Domain.Services.Auctions.advance(catalogue)
-    |> TijaraTides.Domain.Warehouse.advance(catalogue)
+    |> TijaraTides.Domain.WarehouseWorld.advance(catalogue)
     |> TijaraTides.Domain.Services.FinancialSettlement.settle()
     |> PortCargoMarketWorld.advance(catalogue)
     |> TijaraTides.Domain.Services.Exchange.advance(catalogue)

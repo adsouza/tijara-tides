@@ -19,7 +19,7 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
         prepaid: 0,
         protected_ms: 0
       }
-      |> TijaraTides.Domain.Warehouse.to_row()
+      |> TijaraTides.Domain.Warehouse.Rows.encode()
 
     lot = %{
       "id" => "lot",

@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.PortBerthsTest do
+  alias TijaraTides.Domain.PortBerthsWorld
   alias TijaraTides.Domain.ShipWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.{Game, State, Trade, PortBerths}
@@ -88,7 +89,9 @@ defmodule TijaraTides.Domain.PortBerthsTest do
 
     assert Game.get(state, "companies", "company")["cash"] == cash
     assert Game.get(state, "ships", "company:2")["cargo"] == []
-    assert PortBerths.position(PortBerths.load(state, "Jakarta", c.catalogue), "company:2") == 1
+
+    assert PortBerths.position(PortBerthsWorld.load(state, "Jakarta", c.catalogue), "company:2") ==
+             1
 
     assert {:error, :berth_order_pending} =
              BerthAllocation.submit(state, c.account, trade("company:2"), c.catalogue)
@@ -97,7 +100,7 @@ defmodule TijaraTides.Domain.PortBerthsTest do
     assert Game.get(state, "ships", "company:2")["status"] == "loading"
     refute Game.get(state, "ships", "company:2")["pending_side"]
     assert length(Game.get(state, "ships", "company:2")["cargo"]) == 1
-    assert Enum.count(PortBerths.ships(state, "Jakarta"), &PortBerths.occupied?/1) == 1
+    assert Enum.count(PortBerthsWorld.ships(state, "Jakarta"), &PortBerths.occupied?/1) == 1
   end
 
   test "FIFO tickets survive repeated requests and invalid head does not block the next ship",
@@ -130,7 +133,7 @@ defmodule TijaraTides.Domain.PortBerthsTest do
     assert Game.get(admitted, "ships", "company:2")["berth_retry_ms"] == 300_000
     assert Game.get(admitted, "ships", "company:3")["berth_granted_ms"] == 0
     released = BerthAllocation.release_idle(admitted, c.catalogue)
-    assert Enum.count(PortBerths.ships(released, "Jakarta"), &PortBerths.occupied?/1) == 1
+    assert Enum.count(PortBerthsWorld.ships(released, "Jakarta"), &PortBerths.occupied?/1) == 1
     assert BerthAllocation.enqueue(released, "company:2") == released
   end
 
@@ -150,7 +153,7 @@ defmodule TijaraTides.Domain.PortBerthsTest do
 
     {:ok, next, _} = BerthAllocation.cancel(state, c.account, "company:1")
     refute Game.get(next, "ships", "company:1")["pending_side"]
-    assert PortBerths.load(next, "Jakarta", c.catalogue).waiting == []
+    assert PortBerthsWorld.load(next, "Jakarta", c.catalogue).waiting == []
 
     # Without a queued trade there is nothing to cancel, and a berth the ship already
     # holds must not be revoked by the attempt.

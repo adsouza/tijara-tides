@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.Services.BerthAllocation do
+  alias TijaraTides.Domain.PortBerthsWorld
   alias TijaraTides.Domain.ShipWorld
   @moduledoc "Coordinate persisted ship queue tickets, admission, and delayed manual trades."
   alias TijaraTides.Domain.{PortBerths, State, Trade}
@@ -72,7 +73,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
 
     state =
       Enum.reduce(Map.keys(catalogue["ports"]) |> Enum.sort(), state, fn port, acc ->
-        model = PortBerths.load(acc, port, catalogue)
+        model = PortBerthsWorld.load(acc, port, catalogue)
 
         {_model, decisions} =
           PortBerths.allocate(model, fn ship ->

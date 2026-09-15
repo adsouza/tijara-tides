@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.ExchangeTest do
+  alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.OrderBookWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.{Game, State, Warehouse, OrderBook, CargoLots, CompanyFinance}
@@ -27,7 +28,7 @@ defmodule TijaraTides.Domain.ExchangeTest do
         account = Game.get(s, "accounts", id)
 
         {:ok, s, _} =
-          Warehouse.lease(
+          WarehouseWorld.lease(
             s,
             account,
             %{
@@ -35,7 +36,7 @@ defmodule TijaraTides.Domain.ExchangeTest do
               "storage" => "dry",
               "blocks" => 10,
               "days" => 1,
-              "price" => Warehouse.quote(Warehouse.used(s, "Jakarta", "dry"), "dry", 10, 1)
+              "price" => Warehouse.quote(WarehouseWorld.used(s, "Jakarta", "dry"), "dry", 10, 1)
             },
             id <> "w",
             catalogue
@@ -154,7 +155,7 @@ defmodule TijaraTides.Domain.ExchangeTest do
     assert OrderBookWorld.fetch(s, "sell").quantity == 10
 
     assert {:error, :insufficient_cargo} =
-             Warehouse.transfer(
+             WarehouseWorld.transfer(
                s,
                c.a,
                %{
@@ -176,7 +177,7 @@ defmodule TijaraTides.Domain.ExchangeTest do
     {:ok, s, _} = order(c, s, "b", "buy", 10, 100, "next")
 
     s =
-      Warehouse.release_trade(s, OrderBook.claim(OrderBookWorld.fetch(s, "next")))
+      WarehouseWorld.release_trade(s, OrderBook.claim(OrderBookWorld.fetch(s, "next")))
       |> Exchange.reconcile()
 
     assert OrderBookWorld.fetch(s, "next") == nil

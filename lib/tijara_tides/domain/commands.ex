@@ -23,7 +23,7 @@ defmodule TijaraTides.Domain.Commands do
       case dispatch(state, account, command, context) do
         {:ok, changed, reply} ->
           {:ok,
-           TijaraTides.Domain.Warehouse.reconcile_reservations(
+           TijaraTides.Domain.WarehouseWorld.reconcile_reservations(
              changed,
              context.catalogue,
              account["company_id"]
@@ -79,25 +79,25 @@ defmodule TijaraTides.Domain.Commands do
         TijaraTides.Domain.Fleet.reroute(state, account, id, destination, limit, catalogue)
 
       %{"action" => "warehouse_reserve"} ->
-        TijaraTides.Domain.Warehouse.reserve(state, account, command, context.id, catalogue)
+        TijaraTides.Domain.WarehouseWorld.reserve(state, account, command, context.id, catalogue)
 
       %{"action" => "warehouse_cancel_reservation", "reservation" => id} ->
-        TijaraTides.Domain.Warehouse.cancel_reservation(state, account, id)
+        TijaraTides.Domain.WarehouseWorld.cancel_reservation(state, account, id)
 
       %{"action" => "warehouse_renew"} ->
-        TijaraTides.Domain.Warehouse.renew(state, account, command)
+        TijaraTides.Domain.WarehouseWorld.renew(state, account, command)
 
       %{"action" => "warehouse_auto_renew"} ->
-        TijaraTides.Domain.Warehouse.renewal_settings(state, account, command)
+        TijaraTides.Domain.WarehouseWorld.renewal_settings(state, account, command)
 
       %{"action" => "warehouse_lease"} ->
-        TijaraTides.Domain.Warehouse.lease(state, account, command, context.id, catalogue)
+        TijaraTides.Domain.WarehouseWorld.lease(state, account, command, context.id, catalogue)
 
       %{"action" => "warehouse_release", "warehouse" => id, "blocks" => blocks} ->
-        TijaraTides.Domain.Warehouse.release(state, account, id, blocks, catalogue)
+        TijaraTides.Domain.WarehouseWorld.release(state, account, id, blocks, catalogue)
 
       %{"action" => "warehouse_transfer"} ->
-        TijaraTides.Domain.Warehouse.transfer(state, account, command, catalogue)
+        TijaraTides.Domain.WarehouseWorld.transfer(state, account, command, catalogue)
 
       %{"action" => "cancel_berth_trade", "ship" => id} ->
         TijaraTides.Domain.Services.BerthAllocation.cancel(state, account, id)

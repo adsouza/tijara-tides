@@ -680,7 +680,7 @@ tests rather than replace them. Boundary tests prevent generic berth mutation
 from becoming public again and keep admission decisions in the port model.
 
 Warehouse leasing uses a typed `Domain.Warehouse` root with typed cargo batches.
-Only that module mutates warehouse rows. Transfer orchestration calls Ship and
+Only WarehouseWorld mutates warehouse rows. Transfer orchestration calls Ship and
 CompanyFinance operations, and records handling expense without changing cargo
 cost basis. Leases and cargo locations share the existing atomic world commit;
 read-side warehouse controls are projected through `UseCases.GameQueries`.
@@ -817,3 +817,33 @@ Route and visit workflow orchestration remains in ShipWorld.RoutePlans and
 ShipWorld.VisitOrders. Ship.RoutePlan is now just the typed snapshot. This pass
 does not redesign route editing or instruction scheduling; their existing child
 codecs and world-oriented workflows remain a further migration opportunity.
+
+
+## Warehouse root migration
+
+Warehouse now contains typed cargo and reservation children. Rent accrual,
+partial-release refunds, renewal rollover, spoilage, clearance valuation and
+reservation allocation operate without world-state access or row codecs.
+Warehouse.Transition returns the updated reservation snapshot together with
+explicit upserts and deletions; missing children alone never authorize deletion.
+
+WarehouseWorld loads the current lease and claims through Warehouse.Rows and
+Warehouse.ReservationRows. It supplies clock, pool utilization and owner-validity
+facts, records changes through State, and coordinates ship handling, finance and
+notices. Warehouse.Lots carries the scoped allocation cursor and new lineage
+records. Fresh cargo selection retains expired lots for normal spoilage accounting.
+
+Command ownership checks, payment orchestration and cross-root transfer admission
+remain in the world adapter. The existing lease/reservation schema, renewal prices,
+FIFO reservation priority and atomic world settlement remain unchanged.
+
+
+## Port berth world access
+
+PortBerthsWorld loads port fleets and supplies the current clock and capacity.
+PortBerths builds queue models from supplied fleet snapshots and makes FIFO and
+immediate-admission decisions without world access. Snapshot rows remain the
+input representation; this separation does not change berth rules or storage.
+Loading all ports still groups the fleet in one pass, and immediate admission
+still avoids sorting the queue. ShipWorld records the resulting ship transitions
+inside the existing atomic world transaction.

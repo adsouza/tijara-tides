@@ -59,4 +59,52 @@ defmodule TijaraTides.Domain.PortAdmissionTest do
       assert length(Enum.uniq_by(decisions, &elem(&1, 0))) == length(decisions)
     end
   end
+
+  test "immediate admission respects queue priority and cooldown without world access" do
+    ship = %{"id" => "s", "status" => "docked"}
+    assert PortBerths.available?([ship], ship, 10, 1)
+    refute PortBerths.available?([ship], Map.put(ship, "berth_retry_ms", 11), 10, 1)
+    queued = %{"id" => "queued", "status" => "docked", "berth_queued_ms" => 0}
+    refute PortBerths.available?([ship, queued], ship, 10, 2)
+    held = Map.put(ship, "berth_granted_ms", 0)
+    assert PortBerths.available?([held, queued], held, 10, 1)
+    refute PortBerths.available?([held, queued], queued, 10, 1)
+  end
+
+  test "world loaders agree, exclude sailing ships and include empty ports" do
+    alias TijaraTides.Domain.PortBerthsWorld
+    catalogue = %{"ports" => %{"p" => %{"berth_count" => 1}, "empty" => %{}}}
+
+    fleet = [
+      %{"id" => "later", "port" => "p", "status" => "docked", "berth_queued_ms" => 2},
+      %{"id" => "first", "port" => "p", "status" => "docked", "berth_queued_ms" => 1},
+      %{"id" => "away", "port" => "p", "status" => "sailing", "berth_granted_ms" => 0}
+    ]
+
+    state = %{clock_ms: 10, entities: %{"ships" => Map.new(fleet, &{&1["id"], &1})}}
+    all = PortBerthsWorld.load_all(state, catalogue)
+    assert all["p"] == PortBerthsWorld.load(state, "p", catalogue)
+    assert all["p"].held == MapSet.new()
+    assert Enum.map(all["p"].waiting, & &1["id"]) == ["first", "later"]
+    assert all["empty"].waiting == []
+    assert all["empty"].capacity == 4
+  end
+
+  test "the admission model has no world-reading dependency" do
+    ast = File.read!("lib/tijara_tides/domain/port_berths.ex") |> Code.string_to_quoted!()
+
+    Macro.prewalk(ast, fn
+      {:__aliases__, _, parts} = node ->
+        refute Enum.any?(parts, &(&1 in [:State, :ReadState, :PortBerthsWorld]))
+        node
+
+      node ->
+        node
+    end)
+
+    Code.ensure_loaded!(PortBerths)
+    refute function_exported?(PortBerths, :load, 3)
+    refute function_exported?(PortBerths, :load_all, 2)
+    refute function_exported?(PortBerths, :ships, 2)
+  end
 end

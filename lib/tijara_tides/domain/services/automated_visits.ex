@@ -1,9 +1,10 @@
 defmodule TijaraTides.Domain.Services.AutomatedVisits do
+  alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.ShipWorld
 
   @moduledoc "Coordinate visit fills and automatic departures across ship, market and finance roots."
   import TijaraTides.Domain.State, only: [get: 3, entities: 2]
-  alias TijaraTides.Domain.{Fleet, Notices, Trade, Warehouse}
+  alias TijaraTides.Domain.{Fleet, Notices, Trade}
   alias TijaraTides.Domain.Services.TradeSettlement, as: Trading
   @open ["planned", "waiting"]
   def advance(state, catalogue) do
@@ -118,7 +119,8 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
       }
 
       source =
-        if order["side"] == "buy", do: Warehouse.collection_source(state, ship, order["good"])
+        if order["side"] == "buy",
+          do: WarehouseWorld.collection_source(state, ship, order["good"])
 
       # Pure probes are discarded. Only the final successful fill is committed.
       result = fn quantity ->
@@ -216,7 +218,7 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
     do: Trading.execute(state, account, trade, catalogue)
 
   defp execute_fill(state, account, trade, warehouse, catalogue) do
-    case Warehouse.transfer(
+    case WarehouseWorld.transfer(
            state,
            account,
            %{

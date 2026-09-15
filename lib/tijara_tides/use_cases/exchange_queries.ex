@@ -15,7 +15,10 @@ defmodule TijaraTides.UseCases.ExchangeQueries do
       |> Map.values()
       |> Enum.filter(&(&1["port"] == port and &1["expires_ms"] > view.public["clock_ms"]))
       |> Enum.filter(
-        &TijaraTides.Domain.Warehouse.compatible?(TijaraTides.Domain.Warehouse.from_row(&1), item)
+        &TijaraTides.Domain.Warehouse.compatible?(
+          TijaraTides.Domain.WarehouseWorld.snapshot(&1),
+          item
+        )
       )
       |> Enum.sort_by(& &1["id"])
 

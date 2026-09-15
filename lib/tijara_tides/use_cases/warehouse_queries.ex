@@ -1,4 +1,5 @@
 defmodule TijaraTides.UseCases.WarehouseQueries do
+  alias TijaraTides.Domain.WarehouseWorld
   @moduledoc "Warehouse lease and transfer options from authorized read models."
   alias TijaraTides.Domain.{Fleet, CargoRules, Warehouse}
 
@@ -48,10 +49,10 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
 
     leases =
       Enum.map(leases, fn row ->
-        w = Warehouse.from_row(row)
+        w = WarehouseWorld.snapshot(row)
         volume = Warehouse.volume(w, catalogue)
-        reserved_volume = Warehouse.reserved_volume(reservation_rows, w, catalogue)
-        reservations = Warehouse.reservations(reservation_rows, w)
+        reserved_volume = WarehouseWorld.reserved_volume(reservation_rows, w, catalogue)
+        reservations = WarehouseWorld.reservations(reservation_rows, w)
         ready = docked && now >= w.protected_ms
 
         goods =
@@ -81,7 +82,13 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
                     aboard,
                     div(
                       w.blocks * Warehouse.block_litres() - volume -
-                        Warehouse.reserved_volume(reservation_rows, w, catalogue, ship["id"], id),
+                        WarehouseWorld.reserved_volume(
+                          reservation_rows,
+                          w,
+                          catalogue,
+                          ship["id"],
+                          id
+                        ),
                       item["volume_l"]
                     )
                   ),
@@ -92,7 +99,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
                 max(
                   0,
                   stored -
-                    Warehouse.reserved_quantity(reservation_rows, w, "stock", id, ship["id"])
+                    WarehouseWorld.reserved_quantity(reservation_rows, w, "stock", id, ship["id"])
                 ),
                 min(
                   div(class["weight"] - space.weight, item["weight_kg"]),
@@ -109,7 +116,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
                   0,
                   min(
                     min(CargoRules.max_lots(), collect),
-                    div(max(0, cash - Warehouse.cleaning_cost(ship, item)), max(1, handling))
+                    div(max(0, cash - WarehouseWorld.cleaning_cost(ship, item)), max(1, handling))
                   )
                 )
             }
@@ -150,7 +157,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
                             for b <- w.cargo,
                                 b.good == id and (is_nil(b.expires_ms) or b.expires_ms > now),
                                 do: b.quantity
-                          ) - Warehouse.reserved_quantity(reservation_rows, w, "stock", id)
+                          ) - WarehouseWorld.reserved_quantity(reservation_rows, w, "stock", id)
                         ),
                       else:
                         max(

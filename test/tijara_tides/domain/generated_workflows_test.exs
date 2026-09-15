@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.GeneratedWorkflowsTest do
+  alias TijaraTides.Domain.PortBerthsWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.{Game, Fleet, Ship, PortBerths, Trade}
   alias TijaraTides.Domain.Services.BerthAllocation
@@ -112,7 +113,7 @@ defmodule TijaraTides.Domain.GeneratedWorkflowsTest do
     fleet = TijaraTides.Domain.ReadState.entities(state, "ships") |> Map.values()
 
     for port <- ["Jakarta", "Singapore"] do
-      assert Enum.count(PortBerths.ships(state, port), &PortBerths.occupied?/1) <= 1,
+      assert Enum.count(PortBerthsWorld.ships(state, port), &PortBerths.occupied?/1) <= 1,
              inspect(context)
     end
 

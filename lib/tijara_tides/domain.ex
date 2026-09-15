@@ -5,6 +5,7 @@ defmodule TijaraTides.Domain do
     deps: [],
     exports: [
       Warehouse,
+      WarehouseWorld,
       OrderBook,
       OrderBookWorld,
       Auction,

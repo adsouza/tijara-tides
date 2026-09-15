@@ -4,7 +4,8 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
   test "auction and order rows are written only by their owning roots" do
     for {root, owned} <- [
           {"auction_world", ~w(auctions auction_bids)},
-          {"order_book_world", ~w(exchange_orders exchange_trades)}
+          {"order_book_world", ~w(exchange_orders exchange_trades)},
+          {"warehouse_world", ~w(warehouses warehouse_reservations)}
         ] do
       files = Path.wildcard("lib/tijara_tides/domain/**/*.ex")
 
@@ -46,10 +47,10 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
 
   test "typed market roots cannot depend on world access or row codecs" do
     files =
-      ~w(lib/tijara_tides/domain/auction.ex lib/tijara_tides/domain/auction/bid.ex lib/tijara_tides/domain/order_book.ex lib/tijara_tides/domain/port_cargo_market.ex)
+      ~w(lib/tijara_tides/domain/auction.ex lib/tijara_tides/domain/auction/bid.ex lib/tijara_tides/domain/order_book.ex lib/tijara_tides/domain/port_cargo_market.ex lib/tijara_tides/domain/warehouse.ex lib/tijara_tides/domain/warehouse/reservation.ex)
 
     forbidden =
-      ~w(State ReadState EntityIndex ChangeSet AuctionWorld OrderBookWorld PortCargoMarketWorld Rows BidRows)
+      ~w(State ReadState EntityIndex ChangeSet AuctionWorld OrderBookWorld PortCargoMarketWorld WarehouseWorld Rows BidRows ReservationRows CargoRows)
 
     for file <- files do
       {_ast, dependencies} =

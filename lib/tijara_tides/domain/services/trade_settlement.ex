@@ -16,7 +16,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       {:ok, changed, reply} ->
         ship = get(state, "ships", trade.ship_id)
 
-        if TijaraTides.Domain.PortBerths.available?(state, ship, catalogue) do
+        if TijaraTides.Domain.PortBerthsWorld.available?(state, ship, catalogue) do
           changed = TijaraTides.Domain.ShipWorld.admit_handling(changed, trade.ship_id)
 
           {:ok, changed, reply}

@@ -1,9 +1,10 @@
 defmodule TijaraTides.Domain.Services.Auctions do
+  alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.Ship.CargoRows
   alias TijaraTides.Domain.PortCargoMarketWorld
   @moduledoc "Atomic luxury-auction scheduling, escrow and second-price settlement."
   import TijaraTides.Domain.ReadState, only: [get: 3]
-  alias TijaraTides.Domain.{Warehouse, CompanyFinance, Notices}
+  alias TijaraTides.Domain.{CompanyFinance, Notices}
   alias TijaraTides.Domain.AuctionWorld
   alias TijaraTides.Domain.Auction
   alias TijaraTides.Domain.Ship.CargoBatch
@@ -85,7 +86,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
       }
 
       with :ok <- coverage(s, w, a),
-           {:ok, s} <- Warehouse.back_order(s, claim(a), cat),
+           {:ok, s} <- WarehouseWorld.back_order(s, claim(a), cat),
            do: {:ok, AuctionWorld.list(s, a), %{}}
     else
       {:error, :auction_invalid}
@@ -102,7 +103,11 @@ defmodule TijaraTides.Domain.Services.Auctions do
       updated = AuctionWorld.fetch(revised, a.id)
 
       with {:ok, next} <-
-             Warehouse.back_order(Warehouse.release_trade(revised, claim(a)), claim(updated), cat),
+             WarehouseWorld.back_order(
+               WarehouseWorld.release_trade(revised, claim(a)),
+               claim(updated),
+               cat
+             ),
            do: {:ok, next, %{}}
     else
       {:error, :auction_locked}
@@ -137,7 +142,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
           true ->
             with :ok <- coverage(next, w, a),
-                 {:ok, next} <- Warehouse.back_order(next, bid_claim(a, b), cat),
+                 {:ok, next} <- WarehouseWorld.back_order(next, bid_claim(a, b), cat),
                  do: {:ok, next |> reserve(company, b.amount) |> accept_prepared_bid(old, b), %{}}
         end
       end
@@ -167,7 +172,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
   end
 
   defp release_bid(s, a, b),
-    do: s |> Warehouse.release_trade(bid_claim(a, b)) |> reserve(b.company_id, -b.amount)
+    do: s |> WarehouseWorld.release_trade(bid_claim(a, b)) |> reserve(b.company_id, -b.amount)
 
   defp cancel(s, a) do
     s =
@@ -175,7 +180,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
         s |> release_bid(a, b) |> AuctionWorld.invalidate_bid(b)
       end)
 
-    s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
+    s = if a.company_id, do: WarehouseWorld.release_trade(s, claim(a)), else: s
     AuctionWorld.cancel(s, a.id)
   end
 
@@ -206,7 +211,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
         fn a, s ->
           cond do
             a.company_id &&
-                (not live?(s, a.company_id) or not Warehouse.order_backed?(s, claim(a))) ->
+                (not live?(s, a.company_id) or not WarehouseWorld.order_backed?(s, claim(a))) ->
               cancel(s, a)
 
             s.clock_ms >= a.closes_ms ->
@@ -215,7 +220,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
             true ->
               Enum.reduce(AuctionWorld.bids(s, a.id), s, fn b, s ->
                 if not live?(s, b.company_id) or
-                     not Warehouse.order_backed?(s, bid_claim(a, b)),
+                     not WarehouseWorld.order_backed?(s, bid_claim(a, b)),
                    do: s |> release_bid(a, b) |> AuctionWorld.invalidate_bid(b),
                    else: s
               end)
@@ -305,7 +310,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
     {eligible, invalid} =
       Enum.split_with(
         AuctionWorld.bids(s, a.id),
-        &(live?(s, &1.company_id) and Warehouse.order_backed?(s, bid_claim(a, &1)))
+        &(live?(s, &1.company_id) and WarehouseWorld.order_backed?(s, bid_claim(a, &1)))
       )
 
     s =
@@ -323,7 +328,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
       # Supplier stock is listed, not held, so ordinary trading can drain it before the
       # close. Settle as unsold rather than asking the market for cargo it no longer has.
       s = Enum.reduce(eligible, s, &release_bid(&2, a, &1))
-      s = if a.company_id, do: Warehouse.release_trade(s, claim(a)), else: s
+      s = if a.company_id, do: WarehouseWorld.release_trade(s, claim(a)), else: s
       AuctionWorld.close_unsold(s, a.id)
     else
       [winner | others] = bids
@@ -331,7 +336,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
       {s, cargo} =
         if a.company_id do
-          {s, batches} = Warehouse.exchange_out(s, claim(a), a.quantity)
+          {s, batches} = WarehouseWorld.exchange_out(s, claim(a), a.quantity)
           cost = Enum.sum(Enum.map(batches, &(&1.quantity * &1.unit_cost)))
 
           s =
@@ -362,7 +367,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
           {s, cargo} = reprice(s, cargo, a, price)
 
           s
-          |> Warehouse.exchange_in(bid_claim(a, winner), cargo, a.quantity)
+          |> WarehouseWorld.exchange_in(bid_claim(a, winner), cargo, a.quantity)
           |> CompanyFinance.post(winner.company_id, "auction_purchase", [
             {"cash_reserved", -winner.amount},
             {"cash_available", winner.amount - price},

@@ -1,26 +1,10 @@
 defmodule TijaraTides.Domain.PortBerths do
   @moduledoc "Port-level capacity and FIFO admission model. Decisions commit with ship transitions in one world transaction."
-  alias TijaraTides.Domain.State
 
   @enforce_keys [:port, :capacity, :held, :waiting]
   defstruct [:port, :capacity, :held, :waiting, positions: %{}]
 
-  def load(state, port, catalogue), do: from_fleet(port, ships(state, port), catalogue)
-
-  @doc "Every port's model from one pass over the fleet, for callers that need them all."
-  def load_all(state, catalogue) do
-    berthed =
-      State.entities(state, "ships")
-      |> Map.values()
-      |> Enum.reject(&(&1["status"] == "sailing"))
-      |> Enum.group_by(& &1["port"])
-
-    Map.new(catalogue["ports"], fn {port, _} ->
-      {port, from_fleet(port, Map.get(berthed, port, []), catalogue)}
-    end)
-  end
-
-  defp from_fleet(port, fleet, catalogue) do
+  def from_fleet(port, fleet, catalogue) do
     waiting = fleet |> Enum.filter(&queued?/1) |> Enum.sort_by(&{&1["berth_queued_ms"], &1["id"]})
 
     %__MODULE__{
@@ -74,24 +58,17 @@ defmodule TijaraTides.Domain.PortBerths do
       %{"low" => 2, "med" => 4, "high" => 6}[get_in(spec, ["tiers", "berths"])] || 4
   end
 
-  def ships(state, port),
-    do:
-      State.entities(state, "ships")
-      |> Map.values()
-      |> Enum.filter(&(&1["port"] == port and &1["status"] != "sailing"))
-
   def occupied?(ship),
     do: ship["status"] in ["loading", "unloading"] or not is_nil(ship["berth_granted_ms"])
 
   # Admission only asks whether anyone is ahead and whether a berth is free, so it skips
   # the ticket ordering allocate/2 needs — this runs on every trade.
-  def available?(state, ship, catalogue) do
-    fleet = ships(state, ship["port"])
+  def available?(fleet, ship, clock_ms, capacity) do
     held = held(fleet)
 
     MapSet.member?(held, ship["id"]) or
-      ((ship["berth_retry_ms"] || 0) <= state.clock_ms and is_nil(ship["berth_queued_ms"]) and
+      ((ship["berth_retry_ms"] || 0) <= clock_ms and is_nil(ship["berth_queued_ms"]) and
          not Enum.any?(fleet, &queued?/1) and
-         MapSet.size(held) < capacity(catalogue, ship["port"]))
+         MapSet.size(held) < capacity)
   end
 end

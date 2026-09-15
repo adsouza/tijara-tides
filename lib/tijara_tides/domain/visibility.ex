@@ -5,10 +5,10 @@ defmodule TijaraTides.Domain.Visibility do
   def public(state, catalogue) do
     # One pass over the fleet for every port, so the snapshot reads the same admission
     # model the coordinator does rather than ranking queues by its own rules.
-    ports = TijaraTides.Domain.PortBerths.load_all(state, catalogue)
+    ports = TijaraTides.Domain.PortBerthsWorld.load_all(state, catalogue)
 
     %{
-      "warehouse_utilization" => TijaraTides.Domain.Warehouse.pools(state),
+      "warehouse_utilization" => TijaraTides.Domain.WarehouseWorld.pools(state),
       "clock_ms" => state.clock_ms,
       "revision" => state.revision,
       "ports" => catalogue["ports"],

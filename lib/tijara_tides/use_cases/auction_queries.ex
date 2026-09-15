@@ -51,7 +51,7 @@ defmodule TijaraTides.UseCases.AuctionQueries do
             warehouses,
             &(&1["expires_ms"] >= a["closes_ms"] and &1["protected_ms"] <= clock and
                 TijaraTides.Domain.Warehouse.compatible?(
-                  TijaraTides.Domain.Warehouse.from_row(&1),
+                  TijaraTides.Domain.WarehouseWorld.snapshot(&1),
                   item
                 ))
           )
