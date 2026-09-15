@@ -58,7 +58,6 @@ defmodule TijaraTidesWeb.GameLive do
         market_sort: %{"supply" => {"ask", :asc}, "demand" => {"bid", :desc}},
         company_draft: %{"name" => "", "port" => "Singapore"},
         destination: nil,
-        ship_destinations: %{},
         invite_code: nil,
         request_id: Game.request_id(),
         preview: nil
@@ -656,10 +655,10 @@ defmodule TijaraTidesWeb.GameLive do
 
     socket =
       if is_binary(dest) && socket.assigns.definitions.catalogue["ports"][dest] &&
-           socket.assigns.ship && socket.assigns.ship["status"] == "docked" do
+           socket.assigns.ship do
         socket
         |> assign(selected_port: socket.assigns.ship["port"], port_market_side: "buy")
-        |> push_event("workspace-panel", %{panel: 0})
+        |> push_event("workspace-panel", %{panel: 0, scroll_to: "port-market-controls"})
       else
         socket
       end
@@ -699,11 +698,14 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   defp remember_destination(socket, destination) do
-    assign(socket,
-      destination: destination,
-      ship_destinations:
-        Map.put(socket.assigns.ship_destinations, socket.assigns.selected_ship, destination)
-    )
+    case Game.command(socket.assigns.token, Game.request_id(), %{
+           "action" => "plan_destination",
+           "ship" => socket.assigns.selected_ship,
+           "destination" => destination
+         }) do
+      {:ok, _} -> socket
+      {:error, reason} -> put_flash(socket, :error, error_message(reason))
+    end
   end
 
   defp run(socket, command) do
@@ -711,16 +713,6 @@ defmodule TijaraTidesWeb.GameLive do
 
     case Game.command(socket.assigns.token, request, command) do
       {:ok, result} ->
-        socket =
-          if command["action"] in ["sail", "reroute"],
-            do:
-              assign(
-                socket,
-                :ship_destinations,
-                Map.delete(socket.assigns.ship_destinations, command["ship"])
-              ),
-            else: socket
-
         socket =
           if command["action"] == "route" && command["operation"] in ["add_rule", "update_rule"],
             do:
@@ -907,22 +899,16 @@ defmodule TijaraTidesWeb.GameLive do
       if ship && view.private,
         do: get_in(view.private, ["visit_plans", ship["id"] <> "|" <> ship["port"], "onward"])
 
-    destinations =
-      Map.take(
-        socket.assigns.ship_destinations,
-        Map.keys((view.private && view.private["ships"]) || %{})
-      )
-
     destination =
       if ship do
-        saved = Map.get(destinations, ship["id"])
+        saved = ship["planned_destination"]
 
         if saved in [nil, ""] or (ship["status"] != "sailing" and saved == ship["port"]),
           do: planned || ship["destination"],
           else: saved
       end
 
-    socket = assign(socket, destination: destination, ship_destinations: destinations)
+    socket = assign(socket, destination: destination)
 
     preview =
       if socket.assigns.destination not in [nil, ""] && ship &&

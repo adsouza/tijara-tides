@@ -75,6 +75,9 @@ defmodule TijaraTides.Domain.Commands do
       %{"action" => "exchange_cancel", "order" => id} ->
         TijaraTides.Domain.Services.Exchange.cancel(state, account, id)
 
+      %{"action" => "plan_destination", "ship" => id, "destination" => destination} ->
+        ShipWorld.plan_destination(state, account, id, destination, catalogue)
+
       %{"action" => "reroute", "ship" => id, "destination" => destination, "fuel_limit" => limit} ->
         TijaraTides.Domain.Fleet.reroute(state, account, id, destination, limit, catalogue)
 

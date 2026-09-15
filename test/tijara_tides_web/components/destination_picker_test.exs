@@ -68,6 +68,61 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
              nil
   end
 
+  test "aboard cargo remains visible without local stock and uses cost of the lots a buyer can take" do
+    {definitions, view, ship} = fixture()
+    view = put_in(view, [:markets, "Singapore|a", "stock"], 0)
+
+    ship =
+      Map.put(ship, "cargo", [
+        %{"good" => "a", "quantity" => 10, "unit_cost" => 100},
+        %{"good" => "a", "quantity" => 30, "unit_cost" => 200}
+      ])
+
+    matrix = GameQueries.destination_matrix(definitions, view, ship)
+    assert {"a", definitions.catalogue["goods"]["a"]} in matrix.goods
+    opportunity = Enum.find(matrix.rows, &(&1.port == "Colombo")).cells["a"].outbound
+    assert opportunity.source == :aboard
+    assert opportunity.lots == 20
+    assert opportunity.proceeds == 3800
+    assert_in_delta opportunity.roi, 800 / 3000, 0.00001
+
+    html =
+      render_component(&DestinationPicker.panel/1,
+        definitions: definitions,
+        view: view,
+        ship: ship
+      )
+
+    assert html =~ "Sell aboard cargo"
+    tree = LazyHTML.from_fragment(html)
+    assert LazyHTML.query(tree, ".outbound rect") |> LazyHTML.to_html() =~ ~s(fill="currentColor")
+    assert LazyHTML.query(tree, ".outbound circle") |> LazyHTML.to_html() == ""
+
+    view = put_in(view, [:markets, "Colombo|a", "demand"], 0)
+    view = put_in(view, [:markets, "Dubai|a", "demand"], 0)
+    matrix = GameQueries.destination_matrix(definitions, view, ship)
+    assert {"a", definitions.catalogue["goods"]["a"]} in matrix.goods
+    assert Enum.all?(matrix.rows, &is_nil(&1.cells["a"].outbound))
+  end
+
+  test "zero-cost cargo shows sale proceeds without inventing an ROI" do
+    {definitions, view, ship} = fixture()
+    ship = Map.put(ship, "cargo", [%{"good" => "a", "quantity" => 5, "unit_cost" => 0}])
+    matrix = GameQueries.destination_matrix(definitions, view, ship)
+    opportunity = Enum.find(matrix.rows, &(&1.port == "Colombo")).cells["a"].outbound
+    assert opportunity.roi == nil
+    assert opportunity.lots == 5
+
+    html =
+      render_component(&DestinationPicker.panel/1,
+        definitions: definitions,
+        view: view,
+        ship: ship
+      )
+
+    assert html =~ "ROI unavailable for zero-cost cargo"
+  end
+
   test "ranking includes the best return opportunity, not just outbound" do
     {definitions, view, ship} = fixture()
     view = put_in(view, [:markets, "Dubai|b", "ask"], 50)

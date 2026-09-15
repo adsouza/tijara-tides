@@ -184,7 +184,12 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               "Whole lots · finite local supply and demand · trades require your selected ship to be docked here. Handling takes time."
             )}
           </p>
-          <div class="mb-3 flex gap-2" role="group" aria-label={gettext("Port market side")}>
+          <div
+            id="port-market-controls"
+            class="mb-3 flex gap-2"
+            role="group"
+            aria-label={gettext("Port market side")}
+          >
             <button
               :for={{side, label} <- [{"buy", "Buy / supply"}, {"sell", "Sell / demand"}]}
               type="button"

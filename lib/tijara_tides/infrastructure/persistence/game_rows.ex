@@ -196,6 +196,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
           {"status", "status"},
           {"arrive_ms", "arrive_ms"},
           {"destination", "destination_port_id"},
+          {"planned_destination", "planned_destination_port_id"},
           {"depart_ms", "depart_ms"},
           {"fuel_total", "fuel_total_cents"},
           {"fuel_burned", "fuel_burned_cents"},
@@ -257,7 +258,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   }
   @optional %{
     "ships" =>
-      ~w(paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+      ~w(planned_destination paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
     "invitations" => ["invitee"]
   }
 

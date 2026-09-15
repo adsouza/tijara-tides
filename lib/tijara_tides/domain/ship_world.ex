@@ -5,6 +5,28 @@ defmodule TijaraTides.Domain.ShipWorld do
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
   alias __MODULE__.{RoutePlans, VisitOrders}
 
+  def plan_destination(state, account, id, destination, catalogue) do
+    ship = State.get(state, "ships", id)
+    company = State.get(state, "companies", account["company_id"])
+    destination = if destination == "", do: nil, else: destination
+
+    cond do
+      is_nil(ship) or is_nil(company) or ship["company_id"] != company["id"] or
+        company["account_id"] != account["id"] or company["bankruptcy_ms"] != nil ->
+        {:error, :ship_not_owned}
+
+      destination != nil and
+          (not is_binary(destination) or
+             not Map.has_key?(catalogue["ports"], destination) or
+             (destination == ship["port"] and ship["status"] != "sailing")) ->
+        {:error, :invalid_port}
+
+      true ->
+        next = Ship.plan_destination(Rows.decode(ship), destination)
+        {:ok, store(state, next), %{}}
+    end
+  end
+
   def fetch(state, id) do
     ship = Rows.decode(State.get(state, "ships", id))
 

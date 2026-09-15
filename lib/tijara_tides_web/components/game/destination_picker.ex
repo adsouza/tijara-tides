@@ -1,7 +1,7 @@
 defmodule TijaraTidesWeb.GameUI.DestinationPicker do
   use TijaraTidesWeb, :html
   alias TijaraTides.UseCases.GameQueries
-  import TijaraTidesWeb.GameUI.Presentation, only: [cargo_roi: 1]
+  import TijaraTidesWeb.GameUI.Presentation, only: [cargo_roi: 1, money: 1]
   attr :definitions, :any, required: true
   attr :view, :any, required: true
   attr :ship, :map, required: true
@@ -20,7 +20,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
       |> Enum.flat_map(fn row ->
         Enum.flat_map(Map.values(row.cells), &[&1.outbound, &1.inbound])
       end)
-      |> Enum.filter(&(&1 && &1.roi > 0))
+      |> Enum.filter(&(&1 && is_number(&1.roi) && &1.roi > 0))
       |> Enum.map(&abs(&1.roi))
       |> Enum.max(fn -> 1 end)
 
@@ -54,10 +54,11 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
           </div>
           <p id="destination-picker-help" class="my-3 text-xs text-slate-400">
             {gettext(
-              "Disc radius shows ROI after handling, on a shared scale. Green: buy here, sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow discs mean zero ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; cash and capacity are not checked. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
+              "Symbol size shows ROI after handling, on a shared scale. Squares represent cargo aboard; circles represent new purchases. Green: sell cargo aboard, or buy here and sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; cargo aboard uses recorded cost and destination demand; new purchases do not check cash or capacity. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
             )}
           </p>
           <div class="mb-3 flex flex-wrap gap-4 text-sm">
+            <span class="text-green-400">■ {gettext("Cargo aboard")}</span>
             <span class="text-green-400">● {gettext("Outbound")}</span>
             <span class="text-red-400">● {gettext("Return")}</span>
           </div>
@@ -87,15 +88,28 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                   <td :for={{id, _} <- @matrix.goods} class="opportunity-cell">
                     <%= for {direction, opportunity} <- [{:outbound, row.cells[id].outbound}, {:inbound, row.cells[id].inbound}], opportunity do %>
                       <% description =
-                        gettext("%{direction}: %{roi} ROI · %{lots} market lots",
-                          direction:
-                            if(direction == :outbound,
-                              do: gettext("Outbound"),
-                              else: gettext("Return")
-                            ),
-                          roi: cargo_roi(opportunity.roi),
-                          lots: display_number(opportunity.lots)
-                        ) %>
+                        if Map.get(opportunity, :source) == :aboard do
+                          gettext(
+                            "Sell aboard cargo: %{roi} · %{lots} lots · %{proceeds} after sale handling",
+                            roi:
+                              if(is_number(opportunity.roi),
+                                do: cargo_roi(opportunity.roi) <> " ROI",
+                                else: gettext("ROI unavailable for zero-cost cargo")
+                              ),
+                            lots: display_number(opportunity.lots),
+                            proceeds: money(opportunity.proceeds)
+                          )
+                        else
+                          gettext("%{direction}: %{roi} ROI · %{lots} market lots",
+                            direction:
+                              if(direction == :outbound,
+                                do: gettext("Outbound"),
+                                else: gettext("Return")
+                              ),
+                            roi: cargo_roi(opportunity.roi),
+                            lots: display_number(opportunity.lots)
+                          )
+                        end %>
                       <span
                         class={[
                           "opportunity-disc",
@@ -106,22 +120,45 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                         aria-label={description}
                       >
                         <svg
-                          :if={opportunity.roi >= 0}
+                          :if={is_nil(opportunity.roi) || opportunity.roi >= 0}
                           width="48"
                           height="48"
                           viewBox="0 0 48 48"
                           aria-hidden="true"
                         >
+                          <rect
+                            :if={Map.get(opportunity, :source) == :aboard}
+                            x={24 - max(2, 21 * abs(opportunity.roi || 0) / @roi_scale)}
+                            y={24 - max(2, 21 * abs(opportunity.roi || 0) / @roi_scale)}
+                            width={2 * max(2, 21 * abs(opportunity.roi || 0) / @roi_scale)}
+                            height={2 * max(2, 21 * abs(opportunity.roi || 0) / @roi_scale)}
+                            fill={
+                              if is_number(opportunity.roi) && opportunity.roi > 0,
+                                do: "currentColor",
+                                else: "none"
+                            }
+                            stroke="currentColor"
+                            stroke-width="2"
+                          />
                           <circle
+                            :if={Map.get(opportunity, :source) != :aboard}
                             cx="24"
                             cy="24"
-                            r={max(2, 21 * abs(opportunity.roi) / @roi_scale)}
-                            fill={if opportunity.roi > 0, do: "currentColor", else: "none"}
+                            r={max(2, 21 * abs(opportunity.roi || 0) / @roi_scale)}
+                            fill={
+                              if is_number(opportunity.roi) && opportunity.roi > 0,
+                                do: "currentColor",
+                                else: "none"
+                            }
                             stroke="currentColor"
                             stroke-width="2"
                           />
                         </svg>
-                        <span :if={opportunity.roi < 0} class="opportunity-skull" aria-hidden="true">☠︎</span>
+                        <span
+                          :if={is_number(opportunity.roi) && opportunity.roi < 0}
+                          class="opportunity-skull"
+                          aria-hidden="true"
+                        >☠︎</span>
                         <span class="opportunity-tooltip" aria-hidden="true">{description}</span>
                       </span>
                     <% end %>

@@ -6,6 +6,8 @@ defmodule TijaraTides.UseCases.MarketQueries do
   @doc "Read-only market spreads for choosing a destination; quantities are market availability, not executable orders."
   def destination_matrix(definitions, view, ship) do
     if ship && ship["status"] == "docked" do
+      aboard = Enum.group_by(ship["cargo"] || [], & &1["good"])
+
       goods =
         definitions.catalogue["goods"]
         |> Enum.filter(fn {_, item} ->
@@ -25,7 +27,11 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
               {id,
                %{
-                 outbound: market_opportunity(local, remote),
+                 outbound:
+                   if(Map.has_key?(aboard, id),
+                     do: aboard_opportunity(aboard[id], remote),
+                     else: market_opportunity(local, remote)
+                   ),
                  inbound: market_opportunity(remote, local)
                }}
             end)
@@ -35,7 +41,9 @@ defmodule TijaraTides.UseCases.MarketQueries do
               cells
               |> Map.values()
               |> Enum.flat_map(fn cell ->
-                if cell[direction], do: [cell[direction].roi], else: []
+                if cell[direction] && is_number(cell[direction].roi),
+                  do: [cell[direction].roi],
+                  else: []
               end)
               |> Enum.max(fn -> 0 end)
             end
@@ -48,12 +56,36 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
       goods =
         Enum.filter(goods, fn {id, _} ->
-          Enum.any?(rows, fn row -> row.cells[id].outbound || row.cells[id].inbound end)
+          Map.has_key?(aboard, id) or
+            Enum.any?(rows, fn row -> row.cells[id].outbound || row.cells[id].inbound end)
         end)
 
       %{goods: goods, rows: rows}
     else
       %{goods: [], rows: []}
+    end
+  end
+
+  defp aboard_opportunity(batches, buyer) do
+    if buyer && buyer["manual"] && buyer["demand"] > 0 do
+      # Match the cargo order used by sales, including partial fills of a batch.
+      {remaining, cost} =
+        Enum.reduce(batches, {buyer["demand"], 0}, fn batch, {need, cost} ->
+          n = min(need, batch["quantity"])
+          {need - n, cost + n * batch["unit_cost"]}
+        end)
+
+      lots = buyer["demand"] - remaining
+      proceeds = lots * (buyer["bid"] - buyer["handling_fee"])
+
+      if lots > 0 do
+        %{
+          roi: if(cost > 0, do: (proceeds - cost) / cost),
+          lots: lots,
+          source: :aboard,
+          proceeds: proceeds
+        }
+      end
     end
   end
 

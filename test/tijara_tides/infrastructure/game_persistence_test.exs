@@ -2761,7 +2761,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              "button[phx-click=port-market-side][phx-value-side=buy][aria-pressed=true]"
            )
 
-    assert_push_event(view, "workspace-panel", %{panel: 0})
+    assert_push_event(view, "workspace-panel", %{panel: 0, scroll_to: "port-market-controls"})
     assert has_element?(view, "#purchase-voyage-summary", "Singapore")
     assert has_element?(view, "#purchase-voyage-summary", "estimated fleet upkeep")
 
@@ -2860,6 +2860,45 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
            )
 
     assert has_element?(loaded_startup, ".fleet-list button[aria-pressed=true]", "docked")
+    render_click(loaded_startup, "ship", %{"id" => ship["id"]})
+    assert has_element?(loaded_startup, "#destination-picker-trigger", "Singapore")
+    render_click(loaded_startup, "ship", %{"id" => other_ship["id"]})
+    assert has_element?(loaded_startup, "#destination-picker-trigger", "Tokyo")
+    before_reload = :sys.get_state(server).game
+
+    assert {:ok, restored} =
+             GameStore.reload(Repo, :sys.get_state(server).world_id, before_reload)
+
+    assert restored.entities["ships"][ship["id"]]["planned_destination"] == "Singapore"
+    assert restored.entities["ships"][other_ship["id"]]["planned_destination"] == "Tokyo"
+
+    assert {:error, :invalid_port} =
+             GameServer.command(
+               token,
+               "invalid-plan",
+               %{
+                 "action" => "plan_destination",
+                 "ship" => ship["id"],
+                 "destination" => "not-a-port"
+               },
+               server
+             )
+
+    assert {:error, :ship_not_owned} =
+             GameServer.command(
+               token,
+               "foreign-plan",
+               %{
+                 "action" => "plan_destination",
+                 "ship" => "not-owned",
+                 "destination" => "Tokyo"
+               },
+               server
+             )
+
+    assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["planned_destination"] ==
+             "Singapore"
+
     GenServer.stop(loaded_startup.pid)
 
     assert has_element?(
@@ -3044,7 +3083,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              "button[phx-click=port-market-side][phx-value-side=buy][aria-pressed=true]"
            )
 
-    assert_push_event(view, "workspace-panel", %{panel: 0})
+    assert_push_event(view, "workspace-panel", %{panel: 0, scroll_to: "port-market-controls"})
     view |> form("#trade-buy-fruit", %{"quantity" => "20"}) |> render_change()
     assert has_element?(view, "#trade-buy-fruit", "20 lots: first expiry")
     assert has_element?(view, "#trade-buy-fruit", "0.2 min handling")

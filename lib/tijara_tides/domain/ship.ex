@@ -9,9 +9,12 @@ defmodule TijaraTides.Domain.Ship do
   alias __MODULE__.CargoBatch
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
-  @fields ~w(voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
+  @fields ~w(planned_destination voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
+
+  def plan_destination(%__MODULE__{} = ship, destination),
+    do: %{ship | planned_destination: destination}
 
   def commission(%__MODULE__{} = ship) do
     unless ship.status == "docked" and ship.cargo == [] and ShipClass.all()[ship.class],
@@ -89,6 +92,7 @@ defmodule TijaraTides.Domain.Ship do
             Bitwise.bor(n, __MODULE__.canal_bit(p))
           end),
         destination: destination,
+        planned_destination: nil,
         depart_ms: now,
         arrive_ms: now + estimate["duration_ms"],
         fuel_total: estimate["fuel"],
@@ -273,6 +277,7 @@ defmodule TijaraTides.Domain.Ship do
     %{
       ship
       | destination: destination,
+        planned_destination: nil,
         voyage_path: quote["route"]["coordinates"],
         paid_canals: paid,
         depart_ms: now,
