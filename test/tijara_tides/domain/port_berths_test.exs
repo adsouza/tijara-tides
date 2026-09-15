@@ -1,6 +1,7 @@
 defmodule TijaraTides.Domain.PortBerthsTest do
+  alias TijaraTides.Domain.ShipWorld
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Game, Ship, State, Trade, PortBerths}
+  alias TijaraTides.Domain.{Game, State, Trade, PortBerths}
   alias TijaraTides.Domain.Services.BerthAllocation
 
   setup do
@@ -40,13 +41,13 @@ defmodule TijaraTides.Domain.PortBerthsTest do
     {:ok, handling, _} =
       BerthAllocation.submit(c.state, c.account, trade("company:1"), c.catalogue)
 
-    assert_raise ArgumentError, fn -> Ship.release_berth(handling, "company:1") end
-    assert_raise ArgumentError, fn -> Ship.grant_berth(handling, "company:1") end
-    assert_raise ArgumentError, fn -> Ship.cancel_pending_trade(c.state, "company:1") end
-    queued = Ship.queue_trade(c.state, trade("company:1"))
-    assert_raise ArgumentError, fn -> Ship.queue_trade(queued, trade("company:1")) end
-    assert Ship.request_berth(queued, "company:1") == queued
-    cancelled = Ship.cancel_pending_trade(queued, "company:1")
+    assert_raise ArgumentError, fn -> ShipWorld.release_berth(handling, "company:1") end
+    assert_raise ArgumentError, fn -> ShipWorld.grant_berth(handling, "company:1") end
+    assert_raise ArgumentError, fn -> ShipWorld.cancel_pending_trade(c.state, "company:1") end
+    queued = ShipWorld.queue_trade(c.state, trade("company:1"))
+    assert_raise ArgumentError, fn -> ShipWorld.queue_trade(queued, trade("company:1")) end
+    assert ShipWorld.request_berth(queued, "company:1") == queued
+    cancelled = ShipWorld.cancel_pending_trade(queued, "company:1")
     refute Game.get(cancelled, "ships", "company:1")["berth_queued_ms"]
     refute Game.get(cancelled, "ships", "company:1")["pending_side"]
   end

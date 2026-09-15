@@ -1,6 +1,7 @@
 defmodule TijaraTides.Domain.WarehouseTest do
+  alias TijaraTides.Domain.ShipWorld
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Game, Warehouse, CompanyFinance, CargoLots, Ship}
+  alias TijaraTides.Domain.{Game, Warehouse, CompanyFinance, CargoLots}
 
   setup do
     catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
@@ -59,7 +60,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
       Enum.map_reduce(batches, state, fn {good, quantity, expires}, state ->
         {state, lot} = CargoLots.create(state, good, quantity, expires)
 
-        {TijaraTides.Domain.Ship.CargoBatch.from_row(
+        {TijaraTides.Domain.Ship.CargoRows.decode(
            Map.merge(lot, %{"good" => good, "unit_cost" => 100, "expires_ms" => expires})
          ), state}
       end)
@@ -82,7 +83,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
     state = lease(c, c.state)
     {state, batch} = CargoLots.create(state, "lumber", 10, nil)
     batch = Map.merge(batch, %{"unit_cost" => 120, "good" => "lumber"})
-    state = Ship.load_cargo(state, "company:1", [batch], 0, c.catalogue)
+    state = ShipWorld.load_cargo(state, "company:1", [batch], 0, c.catalogue)
 
     state =
       CompanyFinance.post(state, "company", "purchase", [
@@ -161,7 +162,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
     state = Game.advance(state, 2000, c.catalogue)
     {:ok, state, _} = transfer(c, state, "collect", 4)
     assert Game.get(state, "warehouses", "lease")["cargo"] == []
-    assert Ship.cargo_available(state, "company:1", "lumber") == 10
+    assert ShipWorld.cargo_available(state, "company:1", "lumber") == 10
 
     assert Enum.any?(
              Game.get(state, "ships", "company:1")["cargo"],
@@ -534,7 +535,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
       TijaraTides.Domain.State.put(state, "ships", vessel["id"], %{vessel | "port" => "Singapore"})
 
     {:ok, state, _} =
-      Ship.add_instruction(
+      ShipWorld.add_instruction(
         state,
         c.account,
         %{

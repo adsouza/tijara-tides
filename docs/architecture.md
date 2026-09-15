@@ -221,7 +221,7 @@ and summaries remain atomically committed; this is CQRS, not event sourcing.
 
 ## Single-visit ship instructions
 
-`Domain.Ship` and its internal `Ship.VisitOrders` own private next-visit plans, partial-fill progress,
+`Domain.Ship` and its internal `ShipWorld.VisitOrders` own private next-visit plans, partial-fill progress,
 spending caps and cancellation. `Domain.Commands` dispatches creation and
 cancellation through the existing receipt-protected command workflow. Successful
 manual departure cancels waiting remainders and incompatible destination plans.
@@ -261,7 +261,7 @@ until the normal world claim.
 ## Repeating route orchestration
 
 `Ship.RoutePlan`, behind the `Ship` root, validates private route templates and
-materializes one visit at a time into `Ship.VisitOrders`. Sale instructions finish
+materializes one visit at a time into `ShipWorld.VisitOrders`. Sale instructions finish
 before loading targets
 are evaluated against retained cargo. The existing trading and fleet operations
 remain responsible for cash, cargo, handling and departure invariants.
@@ -797,3 +797,23 @@ allocation values, appends new lot records, and records named market transitions
 through State. It converts typed outgoing cargo and quote batches back to their
 existing consumer representations. Stock, demand, budgets, production cadence,
 SQL schema and the atomic settlement transaction are unchanged.
+
+
+## Ship root migration
+
+Ship hull, cargo, voyage, berth and pending-trade transitions now operate on the
+typed root without world access or row codecs. Ship.Rows and Ship.CargoRows
+preserve the existing persisted representation, including omitted optional
+berth/voyage fields. Ship.Lots supplies a scoped clock and allocation cursor;
+splits keep original costs, expiry and permanent parent lineage.
+
+ShipWorld loads current hulls, supplies clock/allocation inputs and records named
+transitions through State. Ordinary hull writes leave route and visit rows alone.
+Cancellation and retirement delete child rows explicitly; retirement checks the
+fully loaded automation snapshot before removing the hull. Cargo, cash, journals,
+receipts and retries still participate in the same atomic world transaction.
+
+Route and visit workflow orchestration remains in ShipWorld.RoutePlans and
+ShipWorld.VisitOrders. Ship.RoutePlan is now just the typed snapshot. This pass
+does not redesign route editing or instruction scheduling; their existing child
+codecs and world-oriented workflows remain a further migration opportunity.

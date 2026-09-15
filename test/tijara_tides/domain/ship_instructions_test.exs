@@ -106,7 +106,12 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     state = State.put(state, "ship_instructions", "previous", old)
 
     state =
-      TijaraTides.Domain.Ship.VisitOrders.depart(state, "company:1", "Singapore", c.catalogue)
+      TijaraTides.Domain.ShipWorld.VisitOrders.depart(
+        state,
+        "company:1",
+        "Singapore",
+        c.catalogue
+      )
 
     assert Game.get(state, "ship_instructions", "previous")["history_archived"]
     refute Game.get(state, "ship_instructions", "next")["history_archived"]

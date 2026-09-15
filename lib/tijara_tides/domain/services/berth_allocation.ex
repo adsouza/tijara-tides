@@ -1,9 +1,10 @@
 defmodule TijaraTides.Domain.Services.BerthAllocation do
+  alias TijaraTides.Domain.ShipWorld
   @moduledoc "Coordinate persisted ship queue tickets, admission, and delayed manual trades."
-  alias TijaraTides.Domain.{PortBerths, Ship, State, Trade}
+  alias TijaraTides.Domain.{PortBerths, State, Trade}
   alias TijaraTides.Domain.Services.TradeSettlement
 
-  defdelegate enqueue(state, id), to: Ship, as: :request_berth
+  defdelegate enqueue(state, id), to: ShipWorld, as: :request_berth
 
   def submit(state, account, trade, catalogue) do
     ship = State.get(state, "ships", trade.ship_id)
@@ -13,7 +14,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
     else
       case TradeSettlement.execute(state, account, trade, catalogue) do
         {:error, :berth_busy} ->
-          next = Ship.queue_trade(state, trade)
+          next = ShipWorld.queue_trade(state, trade)
 
           {:ok, next, %{"queued" => true}}
 
@@ -30,7 +31,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
       # Only a queued trade is cancellable. Without the pending check this would also
       # revoke a berth the ship currently holds, handing it to the next ship in line.
       %{"company_id" => ^company, "pending_side" => side} when not is_nil(side) ->
-        {:ok, Ship.cancel_pending_trade(state, id), %{}}
+        {:ok, ShipWorld.cancel_pending_trade(state, id), %{}}
 
       _ ->
         {:error, :invalid_trade}
@@ -38,7 +39,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
   end
 
   def advance(state, catalogue) do
-    state = Ship.prepare_visits(state, catalogue)
+    state = ShipWorld.prepare_visits(state, catalogue)
 
     # Release completed visits before admitting the queue, but retain grants for
     # ships whose remaining orders will be executed later in this tick.
@@ -46,7 +47,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
       Enum.reduce(State.entities(state, "ships"), state, fn {id, ship}, acc ->
         if ship["status"] == "docked" and not is_nil(ship["berth_granted_ms"]) and
              not has_work?(acc, ship) do
-          Ship.release_berth(acc, id)
+          ShipWorld.release_berth(acc, id)
         else
           acc
         end
@@ -85,13 +86,13 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
         Enum.reduce(decisions, acc, fn {id, decision}, next ->
           case decision do
             :grant ->
-              Ship.grant_berth(next, id)
+              ShipWorld.grant_berth(next, id)
 
             :release ->
-              Ship.release_berth(next, id)
+              ShipWorld.release_berth(next, id)
 
             :retry ->
-              Ship.release_berth(
+              ShipWorld.release_berth(
                 next,
                 id,
                 next.clock_ms + (catalogue["berth_retry_ms"] || 300_000)
@@ -118,7 +119,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
         }
 
         case TradeSettlement.execute(acc, account, trade, catalogue) do
-          {:ok, next, _} -> Ship.complete_pending_trade(next, id)
+          {:ok, next, _} -> ShipWorld.complete_pending_trade(next, id)
           {:error, _} -> acc
         end
       else
@@ -188,7 +189,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
 
         retry = if waiting, do: acc.clock_ms + (catalogue["berth_retry_ms"] || 300_000), else: nil
 
-        Ship.release_berth(acc, id, retry)
+        ShipWorld.release_berth(acc, id, retry)
       else
         acc
       end

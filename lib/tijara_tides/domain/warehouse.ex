@@ -1,7 +1,10 @@
 defmodule TijaraTides.Domain.Warehouse do
+  alias TijaraTides.Domain.Ship.CargoRows
+  alias TijaraTides.Domain.ShipWorld
+
   @moduledoc "Finite port storage leases with typed cargo, prepaid rent and preserved lot identity."
   import TijaraTides.Domain.State
-  alias TijaraTides.Domain.{CompanyFinance, Ship, CargoRules, PortBerths}
+  alias TijaraTides.Domain.{CompanyFinance, CargoRules, PortBerths}
   alias TijaraTides.Domain.Ship.CargoBatch
   alias TijaraTides.Domain.Warehouse.Claim
   @day 86_400_000
@@ -33,7 +36,7 @@ defmodule TijaraTides.Domain.Warehouse do
       |> Map.merge(
         Map.new(@renewal_defaults, fn {k, v} -> {k, Map.get(row, Atom.to_string(k), v)} end)
       )
-      |> Map.put(:cargo, Enum.map(row["cargo"], &CargoBatch.from_row/1))
+      |> Map.put(:cargo, Enum.map(row["cargo"], &CargoRows.decode/1))
     )
   end
 
@@ -43,7 +46,7 @@ defmodule TijaraTides.Domain.Warehouse do
         @fields ++ Keyword.keys(@renewal_defaults),
         &{Atom.to_string(&1), Map.fetch!(w, &1)}
       )
-      |> Map.put("cargo", Enum.map(w.cargo, &CargoBatch.to_row/1))
+      |> Map.put("cargo", Enum.map(w.cargo, &CargoRows.encode/1))
 
   defp save(state, w), do: put(state, "warehouses", w.id, to_row(w))
   def block_litres, do: 100_000
@@ -245,7 +248,7 @@ defmodule TijaraTides.Domain.Warehouse do
 
       available =
         if side == "store",
-          do: Ship.cargo_available(state, ship["id"], item["id"]),
+          do: ShipWorld.cargo_available(state, ship["id"], item["id"]),
           else:
             max(
               0,
@@ -299,15 +302,15 @@ defmodule TijaraTides.Domain.Warehouse do
 
           {state, w} =
             if side == "store" do
-              {s, cargo} = Ship.unload_cargo(state, ship["id"], item["id"], n)
-              {s, %{w | cargo: w.cargo ++ Enum.map(cargo, &CargoBatch.from_row/1)}}
+              {s, cargo} = ShipWorld.unload_cargo(state, ship["id"], item["id"], n)
+              {s, %{w | cargo: w.cargo ++ Enum.map(cargo, &CargoRows.decode/1)}}
             else
               {s, cargo, left} = CargoBatch.take(state, fresh, n, item["id"])
 
-              {Ship.load_cargo(
+              {ShipWorld.load_cargo(
                  s,
                  ship["id"],
-                 Enum.map(cargo, &CargoBatch.to_row/1),
+                 Enum.map(cargo, &CargoRows.encode/1),
                  cleaning,
                  catalogue
                ), %{w | cargo: left ++ stale}}
@@ -317,7 +320,7 @@ defmodule TijaraTides.Domain.Warehouse do
 
           state =
             save(state, w)
-            |> Ship.admit_handling(ship["id"])
+            |> ShipWorld.admit_handling(ship["id"])
             |> CompanyFinance.post(
               owner,
               "warehouse_transfer",
@@ -916,7 +919,7 @@ defmodule TijaraTides.Domain.Warehouse do
     w = from_row(get(state, "warehouses", order.warehouse_id))
 
     state
-    |> save(%{w | cargo: w.cargo ++ Enum.map(cargo, &CargoBatch.from_row/1)})
+    |> save(%{w | cargo: w.cargo ++ Enum.map(cargo, &CargoRows.decode/1)})
     |> consume_order(order, n)
   end
 end

@@ -119,7 +119,7 @@ defmodule TijaraTides.Domain.GeneratedWorkflowsTest do
     for row <- fleet do
       refute row["berth_granted_ms"] && row["berth_queued_ms"], inspect(context)
       if row["status"] == "sailing", do: refute(row["berth_granted_ms"], inspect(context))
-      capacity = Ship.capacity(Ship.from_row(row), catalogue)
+      capacity = Ship.capacity(Ship.Rows.decode(row), catalogue)
       class = Fleet.classes()[row["class"]]
       assert capacity.weight <= class["weight"], inspect(context)
       assert capacity.volume <= class["volume"], inspect(context)

@@ -1,17 +1,19 @@
 defmodule TijaraTides.Domain.Services.AutomatedVisits do
+  alias TijaraTides.Domain.ShipWorld
+
   @moduledoc "Coordinate visit fills and automatic departures across ship, market and finance roots."
   import TijaraTides.Domain.State, only: [get: 3, entities: 2]
-  alias TijaraTides.Domain.{Ship, Fleet, Notices, Trade, Warehouse}
+  alias TijaraTides.Domain.{Fleet, Notices, Trade, Warehouse}
   alias TijaraTides.Domain.Services.TradeSettlement, as: Trading
   @open ["planned", "waiting"]
   def advance(state, catalogue) do
-    state = Ship.prepare_visits(state, catalogue)
+    state = ShipWorld.prepare_visits(state, catalogue)
     # Stable order across restarts; sell instructions always precede purchases.
     entities(state, "ship_instructions")
     |> Map.values()
     |> Enum.filter(
       &(&1["status"] in @open and
-          Ship.automation_enabled?(state, &1["ship_id"]))
+          ShipWorld.automation_enabled?(state, &1["ship_id"]))
     )
     |> Enum.sort_by(&{if(&1["side"] == "sell", do: 0, else: 1), &1["created_ms"], &1["id"]})
     |> Enum.reduce(state, &attempt(&2, &1, catalogue))
@@ -25,7 +27,7 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
       ship = get(state, "ships", plan["ship_id"])
 
       if plan["auto_depart"] == true and
-           Ship.automation_enabled?(state, plan["ship_id"]) and
+           ShipWorld.automation_enabled?(state, plan["ship_id"]) and
            not is_nil(ship) and
            ship["port"] == plan["port"] and
            ship["status"] in ["docked", "loading", "unloading"] do
@@ -133,7 +135,7 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
       end
 
       first =
-        if length(Ship.visit_onwards(state, ship["id"], order["port"])) > 1 and
+        if length(ShipWorld.visit_onwards(state, ship["id"], order["port"])) > 1 and
              order["side"] == "buy",
            do: {:error, :instruction_onward_conflict},
            else: result.(1)
@@ -180,7 +182,7 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
                      :instruction_budget_exhausted
                    ] or match?({:purchase_voyage_funds, _, _, _}, reason))),
              do:
-               Ship.complete_visit_order(
+               ShipWorld.complete_visit_order(
                  state,
                  order["id"],
                  if(maximum_sell,
@@ -195,7 +197,13 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
           quantity = maximum(1, min(remaining, 10_000), result)
           {:ok, changed, reply} = result.(quantity)
 
-          Ship.record_visit_fill(changed, order["id"], quantity, reply["spent"] || 0, catalogue)
+          ShipWorld.record_visit_fill(
+            changed,
+            order["id"],
+            quantity,
+            reply["spent"] || 0,
+            catalogue
+          )
       end
     else
       if ship && ship["port"] == order["port"] && ship["status"] in ["loading", "unloading"],
@@ -249,12 +257,13 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
   end
 
   defp wait(state, order, reason, catalogue),
-    do: Ship.wait_for_order(state, order["id"], reason, catalogue)
+    do: ShipWorld.wait_for_order(state, order["id"], reason, catalogue)
 
   defp finish(state, order, reason, catalogue),
-    do: Ship.cancel_visit_order(state, order["id"], reason, catalogue)
+    do: ShipWorld.cancel_visit_order(state, order["id"], reason, catalogue)
 
-  defp departure_wait(state, plan, reason), do: Ship.wait_for_departure(state, plan["id"], reason)
+  defp departure_wait(state, plan, reason),
+    do: ShipWorld.wait_for_departure(state, plan["id"], reason)
 
   defp reason_text(:instruction_onward_conflict),
     do: "Choose one shared onward port for this visit before purchases can resume"

@@ -17,7 +17,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
         ship = get(state, "ships", trade.ship_id)
 
         if TijaraTides.Domain.PortBerths.available?(state, ship, catalogue) do
-          changed = TijaraTides.Domain.Ship.admit_handling(changed, trade.ship_id)
+          changed = TijaraTides.Domain.ShipWorld.admit_handling(changed, trade.ship_id)
 
           {:ok, changed, reply}
         else
@@ -192,7 +192,8 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             item
           )
 
-        state = TijaraTides.Domain.Ship.load_cargo(state, ship["id"], cargo, cleaning, catalogue)
+        state =
+          TijaraTides.Domain.ShipWorld.load_cargo(state, ship["id"], cargo, cleaning, catalogue)
 
         state =
           CompanyFinance.post(
@@ -213,7 +214,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   end
 
   defp sell(state, company, ship, good, quantity, limit, market, quote, handling) do
-    available = TijaraTides.Domain.Ship.cargo_available(state, ship["id"], good)
+    available = TijaraTides.Domain.ShipWorld.cargo_available(state, ship["id"], good)
 
     cond do
       available < quantity ->
@@ -226,7 +227,9 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
         {:error, :insufficient_demand}
 
       true ->
-        {state, sold} = TijaraTides.Domain.Ship.unload_cargo(state, ship["id"], good, quantity)
+        {state, sold} =
+          TijaraTides.Domain.ShipWorld.unload_cargo(state, ship["id"], good, quantity)
+
         cost = Enum.sum(Enum.map(sold, &(&1["quantity"] * &1["unit_cost"])))
 
         proceeds = quote["bid"] * quantity - handling

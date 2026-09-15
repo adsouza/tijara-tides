@@ -19,6 +19,7 @@ defmodule TijaraTides.Domain do
       EmailIdentity,
       Commands,
       Ship,
+      ShipWorld,
       CompanyFinance,
       Services.FinancialSettlement,
       Services.Bankruptcy,

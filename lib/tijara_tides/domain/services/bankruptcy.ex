@@ -1,7 +1,9 @@
 defmodule TijaraTides.Domain.Services.Bankruptcy do
+  alias TijaraTides.Domain.ShipWorld
+
   @moduledoc "Atomic receivership across financial balances, ship automation and account lifecycle."
   import TijaraTides.Domain.State, only: [get: 3, entities: 2]
-  alias TijaraTides.Domain.{CompanyFinance, Account, Ship}
+  alias TijaraTides.Domain.{CompanyFinance, Account}
   alias TijaraTides.Domain.CompanyFinance.Guarantees
 
   def bankrupt(state, account, reason \\ "voluntary") do
@@ -33,7 +35,9 @@ defmodule TijaraTides.Domain.Services.Bankruptcy do
 
         state =
           Enum.reduce(entities(state, "ships"), state, fn {id, ship}, acc ->
-            if ship["company_id"] == company["id"], do: Ship.cancel_automation(acc, id), else: acc
+            if ship["company_id"] == company["id"],
+              do: ShipWorld.cancel_automation(acc, id),
+              else: acc
           end)
 
         state =

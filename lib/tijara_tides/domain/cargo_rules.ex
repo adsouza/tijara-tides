@@ -2,8 +2,10 @@ defmodule TijaraTides.Domain.CargoRules do
   @moduledoc "Hold compatibility, handling durations and perishable freshness estimates."
   alias TijaraTides.Domain.ShipClass
 
-  def compatible_class?(ship, item) do
-    hold = ShipClass.all()[ship["class"]]["hold"]
+  def compatible_class?(ship, item), do: compatible_class_id?(ship["class"], item)
+
+  def compatible_class_id?(class, item) do
+    hold = ShipClass.all()[class]["hold"]
     item["hold"] == hold or (hold == "reefer" and item["hold"] == "dry")
   end
 

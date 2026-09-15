@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.Services.Auctions do
+  alias TijaraTides.Domain.Ship.CargoRows
   alias TijaraTides.Domain.PortCargoMarketWorld
   @moduledoc "Atomic luxury-auction scheduling, escrow and second-price settlement."
   import TijaraTides.Domain.ReadState, only: [get: 3]
@@ -353,7 +354,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
               cat["goods"][a.good]
             )
 
-          {s, Enum.map(rows, &CargoBatch.from_row/1)}
+          {s, Enum.map(rows, &CargoRows.decode/1)}
         end
 
       s =
@@ -408,13 +409,13 @@ defmodule TijaraTides.Domain.Services.Auctions do
     extra = rem(price, a.quantity)
 
     if extra == 0 do
-      {s, Enum.map(batches, &CargoBatch.to_row(%{&1 | unit_cost: div(price, a.quantity)}))}
+      {s, Enum.map(batches, &CargoRows.encode(%{&1 | unit_cost: div(price, a.quantity)}))}
     else
       {s, high, low} = CargoBatch.take(s, batches, extra, a.good)
 
       {s,
-       Enum.map(high, &CargoBatch.to_row(%{&1 | unit_cost: div(price, a.quantity) + 1})) ++
-         Enum.map(low, &CargoBatch.to_row(%{&1 | unit_cost: div(price, a.quantity)}))}
+       Enum.map(high, &CargoRows.encode(%{&1 | unit_cost: div(price, a.quantity) + 1})) ++
+         Enum.map(low, &CargoRows.encode(%{&1 | unit_cost: div(price, a.quantity)}))}
     end
   end
 end

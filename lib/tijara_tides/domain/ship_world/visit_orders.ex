@@ -1,4 +1,4 @@
-defmodule TijaraTides.Domain.Ship.VisitOrders do
+defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
   @moduledoc "Private, single-visit cargo instructions; fills and progress settle in the same world transaction."
   import TijaraTides.Domain.State, except: [get: 3, put: 4]
   alias TijaraTides.Domain.State
@@ -215,7 +215,7 @@ defmodule TijaraTides.Domain.Ship.VisitOrders do
            else: state
       end)
 
-    TijaraTides.Domain.Ship.RoutePlan.departed(state, ship_id, destination)
+    TijaraTides.Domain.ShipWorld.RoutePlans.departed(state, ship_id, destination)
   end
 
   def wait_for_departure(state, id, reason),

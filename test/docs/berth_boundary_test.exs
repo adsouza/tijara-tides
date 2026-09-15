@@ -1,6 +1,7 @@
 defmodule Docs.BerthBoundaryTest do
+  alias TijaraTides.Domain.ShipWorld
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Game, PortBerths, Ship}
+  alias TijaraTides.Domain.{Game, PortBerths}
   alias TijaraTides.Domain.Services.BerthAllocation
 
   setup do
@@ -32,24 +33,24 @@ defmodule Docs.BerthBoundaryTest do
   test "named transitions refuse berth states the aggregate forbids", c do
     sailing = TijaraTides.Domain.BerthFixture.update(c.state, "company:1", %{status: "sailing"})
 
-    assert_raise ArgumentError, fn -> Ship.grant_berth(sailing, "company:1") end
-    assert_raise ArgumentError, fn -> Ship.release_berth(sailing, "company:1") end
+    assert_raise ArgumentError, fn -> ShipWorld.grant_berth(sailing, "company:1") end
+    assert_raise ArgumentError, fn -> ShipWorld.release_berth(sailing, "company:1") end
 
     loading = TijaraTides.Domain.BerthFixture.update(c.state, "company:1", %{status: "loading"})
-    assert_raise ArgumentError, fn -> Ship.admit_handling(c.state, "company:1") end
-    assert Ship.admit_handling(loading, "company:1")
+    assert_raise ArgumentError, fn -> ShipWorld.admit_handling(c.state, "company:1") end
+    assert ShipWorld.admit_handling(loading, "company:1")
 
     # A cooldown must not be rewritten into the past, and a trade cannot be cancelled or
     # completed when there is none pending.
-    assert_raise ArgumentError, fn -> Ship.release_berth(c.state, "company:1", -1) end
-    assert_raise ArgumentError, fn -> Ship.cancel_pending_trade(c.state, "company:1") end
-    assert_raise ArgumentError, fn -> Ship.complete_pending_trade(c.state, "company:1") end
+    assert_raise ArgumentError, fn -> ShipWorld.release_berth(c.state, "company:1", -1) end
+    assert_raise ArgumentError, fn -> ShipWorld.cancel_pending_trade(c.state, "company:1") end
+    assert_raise ArgumentError, fn -> ShipWorld.complete_pending_trade(c.state, "company:1") end
   end
 
   test "admission never seats more ships than the port has berths", c do
     state =
       Enum.reduce(["company:1", "company:2", "company:3"], c.state, fn id, acc ->
-        Ship.queue_trade(acc, %TijaraTides.Domain.Trade{
+        ShipWorld.queue_trade(acc, %TijaraTides.Domain.Trade{
           ship_id: id,
           side: "buy",
           good: "lumber",

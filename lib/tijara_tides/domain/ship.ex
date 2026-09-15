@@ -1,56 +1,18 @@
 defmodule TijaraTides.Domain.Ship do
   @moduledoc """
   Ship aggregate root. Owns hull, hold, handling and voyage transitions.
-  World rows are an adapter representation, never the API for a ship transition.
+  Transitions accept typed state and scoped clock/allocation inputs.
   Settlement services coordinate returned ship changes with cash and journal writes.
   """
-  alias TijaraTides.Domain.{CargoRules, ShipClass, State}
+  alias TijaraTides.Domain.{CargoRules, ShipClass}
 
-  alias __MODULE__.CargoBatch
+  alias __MODULE__.{CargoBatch, Lots}
 
   @fields ~w(voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
 
-  def from_row(row) do
-    struct!(__MODULE__, Map.new(@fields, &{&1, row[Atom.to_string(&1)]}))
-    |> Map.update!(:cargo, &Enum.map(&1 || [], fn batch -> CargoBatch.from_row(batch) end))
-  end
-
-  def from_world(state, id) do
-    ship = from_row(State.get(state, "ships", id))
-
-    %{
-      ship
-      | route_plan: __MODULE__.RoutePlan.load(state, id),
-        visit_orders:
-          State.entities(state, "ship_instructions")
-          |> Map.values()
-          |> Enum.filter(&(&1["ship_id"] == id))
-          |> Enum.map(&__MODULE__.VisitOrder.from_row/1),
-        visit_plans:
-          State.entities(state, "visit_plans")
-          |> Map.values()
-          |> Enum.filter(&(&1["ship_id"] == id))
-          |> Enum.map(&__MODULE__.VisitPlan.from_row/1)
-    }
-  end
-
-  def to_row(%__MODULE__{} = ship) do
-    Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(ship, &1)})
-    |> Map.put("cargo", Enum.map(ship.cargo, &CargoBatch.to_row/1))
-    |> Map.reject(fn {key, value} ->
-      is_nil(value) and
-        key in ~w(voyage_path paid_canals berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)
-    end)
-    |> then(fn row ->
-      if ship.voyage_speedup == nil, do: Map.delete(row, "voyage_speedup"), else: row
-    end)
-  end
-
-  def commission(row) do
-    ship = from_row(row)
-
+  def commission(%__MODULE__{} = ship) do
     unless ship.status == "docked" and ship.cargo == [] and ShipClass.all()[ship.class],
       do: raise(ArgumentError, "A new ship must be an empty docked hull of a known class")
 
@@ -59,12 +21,10 @@ defmodule TijaraTides.Domain.Ship do
 
   def record_purchase(%__MODULE__{} = ship, cargo, now, cleaning, catalogue) do
     docked!(ship)
-    cargo = Enum.map(cargo, &CargoBatch.from_row/1)
-    row = to_row(ship)
 
-    unless Enum.all?(cargo, fn batch ->
+    unless Enum.all?(cargo, fn %CargoBatch{} = batch ->
              batch.quantity > 0 and
-               CargoRules.compatible_cargo?(row, catalogue["goods"][batch.good])
+               compatible_cargo?(ship, catalogue["goods"][batch.good])
            end),
            do: raise(ArgumentError, "Purchased cargo is incompatible with the ship")
 
@@ -85,23 +45,23 @@ defmodule TijaraTides.Domain.Ship do
     }
   end
 
-  def record_sale(state, %__MODULE__{} = ship, good, quantity) do
+  def record_sale(%Lots{} = lots, %__MODULE__{} = ship, good, quantity) do
     docked!(ship)
 
     unless is_integer(quantity) and quantity > 0 and quantity <= aboard(ship, good),
       do: raise(ArgumentError, "Sale requires a positive integer quantity available aboard")
 
-    {state, sold, remaining} =
-      CargoBatch.take(state, ship.cargo, quantity, good)
+    {lots, sold, remaining} =
+      CargoBatch.take(lots, ship.cargo, quantity, good)
 
     next = %{
       ship
       | cargo: remaining,
         status: "unloading",
-        arrive_ms: state.clock_ms + CargoRules.handling_ms(quantity)
+        arrive_ms: lots.clock_ms + CargoRules.handling_ms(quantity)
     }
 
-    {state, next, sold}
+    {lots, next, sold}
   end
 
   def begin_voyage(%__MODULE__{} = ship, destination, estimate, now, speedup) do
@@ -125,7 +85,7 @@ defmodule TijaraTides.Domain.Ship do
         voyage_path: nil,
         paid_canals:
           Enum.reduce(estimate["route"]["passages"] || [], 0, fn p, n ->
-            Bitwise.bor(n, TijaraTides.Domain.Fleet.canal_bit(p))
+            Bitwise.bor(n, __MODULE__.canal_bit(p))
           end),
         destination: destination,
         depart_ms: now,
@@ -135,6 +95,10 @@ defmodule TijaraTides.Domain.Ship do
         voyage_speedup: speedup
     }
   end
+
+  def canal_bit("panama"), do: 1
+  def canal_bit("suez"), do: 2
+  def canal_bit(_), do: 0
 
   def capacity(%__MODULE__{} = ship, catalogue) do
     Enum.reduce(ship.cargo, %TijaraTides.Domain.Capacity{}, fn batch, totals ->
@@ -267,170 +231,96 @@ defmodule TijaraTides.Domain.Ship do
 
   defp retime_voyage(ship, _clock, _speedup), do: ship
 
-  defdelegate pause_diverted_route(state, id), to: __MODULE__.RoutePlan, as: :divert
+  def cargo_available(%__MODULE__{cargo: cargo}, good),
+    do: Enum.sum(for batch <- cargo, batch.good == good, do: batch.quantity)
 
-  defdelegate edit_route(state, account, params, context), to: __MODULE__.RoutePlan, as: :execute
+  defp aboard(ship, good), do: cargo_available(ship, good)
 
-  def route_stops(state, ship),
-    do: __MODULE__.RoutePlan.stops(state, ship) |> Enum.map(&__MODULE__.RouteStop.to_row/1)
-
-  defdelegate automation_enabled?(state, ship), to: __MODULE__.RoutePlan, as: :executable?
-  defdelegate prepare_visits(state, catalogue), to: __MODULE__.RoutePlan, as: :advance
-  defdelegate route_departed(state, ship, destination), to: __MODULE__.RoutePlan, as: :departed
-
-  defdelegate add_instruction(state, account, params, context),
-    to: __MODULE__.VisitOrders,
-    as: :add
-
-  defdelegate change_onward(state, account, ship, port, onward, catalogue, auto_depart),
-    to: __MODULE__.VisitOrders
-
-  defdelegate cancel_instruction(state, account, id, catalogue),
-    to: __MODULE__.VisitOrders,
-    as: :cancel
-
-  defdelegate consume_departure(state, ship, destination, catalogue),
-    to: __MODULE__.VisitOrders,
-    as: :depart
-
-  defdelegate visit_onwards(state, ship, port), to: __MODULE__.VisitOrders
-  defdelegate wait_for_departure(state, id, reason), to: __MODULE__.VisitOrders
-  defdelegate wait_for_order(state, id, reason, catalogue), to: __MODULE__.VisitOrders
-  defdelegate cancel_visit_order(state, id, reason, catalogue), to: __MODULE__.VisitOrders
-  defdelegate complete_visit_order(state, id, reason, catalogue), to: __MODULE__.VisitOrders
-  defdelegate record_visit_fill(state, id, quantity, spent, catalogue), to: __MODULE__.VisitOrders
-
-  @automation ~w(route_rules route_stops ship_routes ship_instructions visit_plans)
-  def cancel_automation(state, ship_id) do
-    state =
-      update_berth(state, ship_id, %{
-        berth_queued_ms: nil,
-        berth_granted_ms: nil,
-        pending_side: nil,
-        pending_good: nil,
-        pending_quantity: nil,
-        pending_limit: nil,
-        pending_destination: nil
-      })
-
-    Enum.reduce(@automation, state, fn kind, state ->
-      Enum.reduce(State.entities(state, kind), state, fn {id, row}, state ->
-        if row["ship_id"] == ship_id, do: State.delete(state, kind, id), else: state
-      end)
-    end)
+  defp compatible_cargo?(ship, item) do
+    CargoRules.compatible_class_id?(ship.class, item) and
+      (ShipClass.all()[ship.class]["hold"] != "liquid" or
+         Enum.all?(ship.cargo, &(&1.good == item["id"])))
   end
 
-  def retire(state, ship_id) do
-    ship = from_world(state, ship_id)
+  def cancel_automation(%__MODULE__{} = ship) do
+    %{
+      clear_pending(ship)
+      | berth_queued_ms: nil,
+        berth_granted_ms: nil,
+        route_plan: %__MODULE__.RoutePlan{},
+        visit_orders: [],
+        visit_plans: []
+    }
+  end
+
+  def retire(%__MODULE__{} = ship) do
     docked!(ship)
 
     committed =
-      ship.route_plan.header != nil or ship.visit_plans != [] or
+      (ship.route_plan != nil and ship.route_plan.header != nil) or ship.visit_plans != [] or
         Enum.any?(ship.visit_orders, &(&1.status in ["planned", "waiting"]))
 
     if ship.cargo != [] or committed,
       do: raise(ArgumentError, "Cannot retire a ship with cargo or committed work")
 
-    state |> cancel_automation(ship_id) |> State.delete("ships", ship_id)
+    :retired
   end
 
-  def commission(state, row) do
-    if State.get(state, "ships", row["id"]), do: raise(ArgumentError, "Ship already exists")
-    store(state, commission(row))
-  end
-
-  def load_cargo(state, id, cargo, cleaning, catalogue) do
-    ship = State.get(state, "ships", id) |> from_row()
-    store(state, record_purchase(ship, cargo, state.clock_ms, cleaning, catalogue))
-  end
-
-  def unload_cargo(state, id, good, quantity) do
-    ship = State.get(state, "ships", id) |> from_row()
-    {state, ship, sold} = record_sale(state, ship, good, quantity)
-    {store(state, ship), Enum.map(sold, &CargoBatch.to_row/1)}
-  end
-
-  @doc "Lots of one good aboard. Callers must bound a sale by this, not by an older snapshot."
-  def cargo_available(state, id, good),
-    do: aboard(State.get(state, "ships", id) |> from_row(), good)
-
-  defp aboard(%__MODULE__{cargo: cargo}, good),
-    do: Enum.sum(for batch <- cargo, batch.good == good, do: batch.quantity)
-
-  def depart(state, id, destination, estimate, speedup) do
-    ship = State.get(state, "ships", id) |> from_row()
-    store(state, begin_voyage(ship, destination, estimate, state.clock_ms, speedup))
-  end
-
-  def reroute(state, id, destination, quote, paid) do
-    ship = State.get(state, "ships", id) |> from_row()
+  def reroute(%__MODULE__{} = ship, destination, quote, paid, now) do
     unless ship.status == "sailing", do: raise(ArgumentError, "Only sailing ships can divert")
 
-    store(state, %{
+    %{
       ship
       | destination: destination,
         voyage_path: quote["route"]["coordinates"],
         paid_canals: paid,
-        depart_ms: state.clock_ms,
-        arrive_ms: state.clock_ms + quote["duration_ms"],
+        depart_ms: now,
+        arrive_ms: now + quote["duration_ms"],
         fuel_total: quote["fuel"],
         fuel_burned: 0
-    })
+    }
   end
 
-  def advance_hull(state, id, elapsed, bankrupt, speedup, book_value) do
-    ship = State.get(state, "ships", id) |> from_row()
-    {next, effects} = advance(ship, state.clock_ms, elapsed, bankrupt, speedup, book_value)
-    {store(state, next), effects}
-  end
-
-  def request_berth(state, id) do
-    ship = State.get(state, "ships", id) |> from_row()
-
+  def request_berth(%__MODULE__{} = ship, now) do
     if ship.status == "docked" and is_nil(ship.berth_queued_ms) and
-         is_nil(ship.berth_granted_ms) and (ship.berth_retry_ms || 0) <= state.clock_ms,
-       do: store(state, %{ship | berth_queued_ms: state.clock_ms}),
-       else: state
+         is_nil(ship.berth_granted_ms) and (ship.berth_retry_ms || 0) <= now,
+       do: %{ship | berth_queued_ms: now},
+       else: ship
   end
 
-  def grant_berth(state, id) do
-    ship = State.get(state, "ships", id) |> from_row()
+  def grant_berth(%__MODULE__{} = ship, now) do
     docked!(ship)
 
-    store(state, %{
+    %{
       ship
       | berth_queued_ms: nil,
-        berth_granted_ms: ship.berth_granted_ms || state.clock_ms,
+        berth_granted_ms: ship.berth_granted_ms || now,
         berth_retry_ms: nil
-    })
+    }
   end
 
-  def admit_handling(state, id) do
-    ship = State.get(state, "ships", id) |> from_row()
-
+  def admit_handling(%__MODULE__{} = ship, now) do
     unless ship.status in ["loading", "unloading"],
       do: raise(ArgumentError, "Only handling ships can retain admission")
 
-    store(state, %{
+    %{
       ship
       | berth_queued_ms: nil,
-        berth_granted_ms: ship.berth_granted_ms || state.clock_ms,
+        berth_granted_ms: ship.berth_granted_ms || now,
         berth_retry_ms: nil
-    })
+    }
   end
 
-  def release_berth(state, id, retry_at \\ nil) do
-    ship = State.get(state, "ships", id) |> from_row()
+  def release_berth(%__MODULE__{} = ship, now, retry_at \\ nil) do
     docked!(ship)
 
-    unless is_nil(retry_at) or (is_integer(retry_at) and retry_at >= state.clock_ms),
+    unless is_nil(retry_at) or (is_integer(retry_at) and retry_at >= now),
       do: raise(ArgumentError, "Berth retry must not be in the past")
 
-    store(state, %{ship | berth_queued_ms: nil, berth_granted_ms: nil, berth_retry_ms: retry_at})
+    %{ship | berth_queued_ms: nil, berth_granted_ms: nil, berth_retry_ms: retry_at}
   end
 
-  def queue_trade(state, %TijaraTides.Domain.Trade{} = trade) do
-    ship = State.get(state, "ships", trade.ship_id) |> from_row()
+  def queue_trade(%__MODULE__{} = ship, %TijaraTides.Domain.Trade{} = trade, now) do
     docked!(ship)
 
     unless is_nil(ship.pending_side) and trade.side in ["buy", "sell"] and
@@ -438,34 +328,31 @@ defmodule TijaraTides.Domain.Ship do
              trade.limit >= 0,
            do: raise(ArgumentError, "Invalid pending berth trade")
 
-    store(state, %{
+    %{
       ship
       | pending_side: trade.side,
         pending_good: trade.good,
         pending_quantity: trade.quantity,
         pending_limit: trade.limit,
         pending_destination: trade.destination
-    })
-    |> request_berth(trade.ship_id)
+    }
+    |> request_berth(now)
   end
 
-  def complete_pending_trade(state, id) do
-    ship = State.get(state, "ships", id) |> from_row()
-
+  def complete_pending_trade(%__MODULE__{} = ship) do
     unless ship.status in ["loading", "unloading"] and not is_nil(ship.pending_side),
       do: raise(ArgumentError, "No pending trade has started handling")
 
-    store(state, clear_pending(ship))
+    clear_pending(ship)
   end
 
-  def cancel_pending_trade(state, id) do
-    ship = State.get(state, "ships", id) |> from_row()
+  def cancel_pending_trade(%__MODULE__{} = ship) do
     docked!(ship)
     unless ship.pending_side, do: raise(ArgumentError, "No pending trade to cancel")
 
     # Give up the ticket and any berth, but keep berth_retry_ms: cancelling must not
     # clear a cooldown a failed admission imposed, or resubmitting would evade it.
-    store(state, %{clear_pending(ship) | berth_queued_ms: nil, berth_granted_ms: nil})
+    %{clear_pending(ship) | berth_queued_ms: nil, berth_granted_ms: nil}
   end
 
   defp clear_pending(ship),
@@ -477,18 +364,4 @@ defmodule TijaraTides.Domain.Ship do
         pending_limit: nil,
         pending_destination: nil
     }
-
-  defp update_berth(state, id, changes) do
-    ship = from_world(state, id)
-
-    allowed =
-      ~w(berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
-
-    unless Enum.all?(Map.keys(changes), &(&1 in allowed)),
-      do: raise(ArgumentError, "Invalid berth fields")
-
-    store(state, struct!(ship, changes))
-  end
-
-  defp store(state, %__MODULE__{} = ship), do: State.put(state, "ships", ship.id, to_row(ship))
 end

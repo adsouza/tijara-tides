@@ -6,7 +6,8 @@ defmodule TijaraTides.ShipAggregateBoundaryTest do
     files = Path.wildcard("lib/tijara_tides/domain/**/*.ex")
 
     for file <- files,
-        not String.contains?(file, "/ship/") and not String.ends_with?(file, "/ship.ex") do
+        not String.contains?(file, "/ship_world/") and
+          not String.ends_with?(file, "/ship_world.ex") do
       {_ast, calls} =
         file
         |> File.read!()
@@ -29,6 +30,41 @@ defmodule TijaraTides.ShipAggregateBoundaryTest do
         end)
 
       assert Enum.filter(calls, &(&1 in owned)) == [], "#{file} bypasses the Ship aggregate"
+    end
+  end
+
+  test "the typed ship model cannot access world state or codecs" do
+    for file <-
+          ~w(lib/tijara_tides/domain/ship.ex lib/tijara_tides/domain/ship/cargo_batch.ex lib/tijara_tides/domain/ship/route_plan.ex) do
+      ast = file |> File.read!() |> Code.string_to_quoted!()
+
+      Macro.prewalk(ast, fn
+        {:__aliases__, _, parts} = node ->
+          assert Enum.all?(
+                   parts,
+                   &(&1 not in [
+                       :State,
+                       :ReadState,
+                       :ShipWorld,
+                       :Rows,
+                       :CargoRows,
+                       :Fleet,
+                       :Services
+                     ])
+                 ),
+                 file
+
+          node
+
+        node ->
+          node
+      end)
+    end
+
+    Code.ensure_loaded!(TijaraTides.Domain.Ship)
+
+    for {name, arity} <- [from_row: 1, to_row: 1, from_world: 2, store: 2] do
+      refute function_exported?(TijaraTides.Domain.Ship, name, arity)
     end
   end
 end

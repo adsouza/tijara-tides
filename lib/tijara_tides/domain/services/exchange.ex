@@ -1,10 +1,10 @@
 defmodule TijaraTides.Domain.Services.Exchange do
+  alias TijaraTides.Domain.Ship.CargoRows
   alias TijaraTides.Domain.PortCargoMarketWorld
   alias TijaraTides.Domain.OrderBookWorld
   @moduledoc "Atomic exchange settlement across order, warehouse, market and finance roots."
   import TijaraTides.Domain.ReadState, only: [get: 3, owned: 4]
   alias TijaraTides.Domain.{OrderBook, Warehouse, CompanyFinance, Notices}
-  alias TijaraTides.Domain.Ship.CargoBatch
 
   @max_lots TijaraTides.Domain.CargoRules.max_lots()
   @fill_budget 512
@@ -273,7 +273,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
   defp settle_pair(state, buy, sell, n, price) do
     {state, cargo} = Warehouse.exchange_out(state, OrderBook.claim(sell), n)
     cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
-    acquired = Enum.map(cargo, &CargoBatch.to_row(%{&1 | unit_cost: price}))
+    acquired = Enum.map(cargo, &CargoRows.encode(%{&1 | unit_cost: price}))
 
     state
     |> Warehouse.exchange_in(OrderBook.claim(buy), acquired, n)

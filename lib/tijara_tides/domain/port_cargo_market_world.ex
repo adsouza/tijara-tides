@@ -1,9 +1,9 @@
 defmodule TijaraTides.Domain.PortCargoMarketWorld do
+  alias TijaraTides.Domain.Ship.CargoRows
   @moduledoc "Loads typed markets and records their transitions within the atomic world."
   import TijaraTides.Domain.State, only: [get: 3, entities: 2, put: 4]
   alias TijaraTides.Domain.PortCargoMarket, as: Market
   alias TijaraTides.Domain.PortCargoMarket.{Lots, Rows}
-  alias TijaraTides.Domain.Ship.CargoBatch
 
   def fetch(state, port, good) do
     case get(state, "markets", port <> "|" <> good) do
@@ -36,7 +36,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     {lots, market, cargo} =
       Market.supply(lots(state), fetch(state, port, good), quantity, price, item)
 
-    {state |> record_lots(lots) |> store(market), Enum.map(cargo, &CargoBatch.to_row/1)}
+    {state |> record_lots(lots) |> store(market), Enum.map(cargo, &CargoRows.encode/1)}
   end
 
   def accept_cargo(state, port, good, quantity, price),
@@ -46,7 +46,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     {lots, market, cargo} =
       Market.auction_supply(lots(state), fetch(state, port, good), quantity, amount, item)
 
-    {state |> record_lots(lots) |> store(market), Enum.map(cargo, &CargoBatch.to_row/1)}
+    {state |> record_lots(lots) |> store(market), Enum.map(cargo, &CargoRows.encode/1)}
   end
 
   def auction_consume(state, port, good, quantity, amount),

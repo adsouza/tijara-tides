@@ -50,7 +50,7 @@ defmodule TijaraTides.Domain.Fleet do
 
         state =
           state
-          |> TijaraTides.Domain.Ship.retire(id)
+          |> TijaraTides.Domain.ShipWorld.retire(id)
           |> CompanyFinance.post(
             company["id"],
             "ship_sale",
@@ -124,7 +124,7 @@ defmodule TijaraTides.Domain.Fleet do
 
         state =
           state
-          |> TijaraTides.Domain.Ship.commission(ship)
+          |> TijaraTides.Domain.ShipWorld.commission(ship)
           |> CompanyFinance.post(
             company["id"],
             "ship_purchase",
@@ -137,7 +137,8 @@ defmodule TijaraTides.Domain.Fleet do
   end
 
   def capacity(ship, catalogue),
-    do: ship |> TijaraTides.Domain.Ship.from_row() |> TijaraTides.Domain.Ship.capacity(catalogue)
+    do:
+      ship |> TijaraTides.Domain.Ship.Rows.decode() |> TijaraTides.Domain.Ship.capacity(catalogue)
 
   def voyage_quote(ship, destination, catalogue) when is_binary(destination) do
     case catalogue["routes"][ship["port"] <> "|" <> destination] do
@@ -193,9 +194,7 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  def canal_bit("panama"), do: 1
-  def canal_bit("suez"), do: 2
-  def canal_bit(_), do: 0
+  defdelegate canal_bit(passage), to: TijaraTides.Domain.Ship
 
   def paid_canals(ship, catalogue) do
     ship["paid_canals"] ||
@@ -229,7 +228,7 @@ defmodule TijaraTides.Domain.Fleet do
             Bitwise.bor(n, canal_bit(p))
           end)
 
-        state = TijaraTides.Domain.Ship.reroute(state, id, destination, quote, paid)
+        state = TijaraTides.Domain.ShipWorld.reroute(state, id, destination, quote, paid)
 
         state =
           CompanyFinance.post(
@@ -244,7 +243,7 @@ defmodule TijaraTides.Domain.Fleet do
             %{ship: id}
           )
 
-        state = TijaraTides.Domain.Ship.pause_diverted_route(state, id)
+        state = TijaraTides.Domain.ShipWorld.pause_diverted_route(state, id)
 
         {:ok, state, %{"arrive_ms" => state.clock_ms + quote["duration_ms"]}}
       end
@@ -260,7 +259,9 @@ defmodule TijaraTides.Domain.Fleet do
            departure_check(state, account, id, destination, limit, catalogue) do
       owner = company["id"]
 
-      state = TijaraTides.Domain.Ship.depart(state, id, destination, estimate, @voyage_speedup)
+      state =
+        TijaraTides.Domain.ShipWorld.depart(state, id, destination, estimate, @voyage_speedup)
+
       ship = get(state, "ships", id)
 
       state =
@@ -276,7 +277,7 @@ defmodule TijaraTides.Domain.Fleet do
           %{ship: id}
         )
 
-      state = TijaraTides.Domain.Ship.consume_departure(state, id, destination, catalogue)
+      state = TijaraTides.Domain.ShipWorld.consume_departure(state, id, destination, catalogue)
       {:ok, state, %{"arrive_ms" => ship["arrive_ms"], "fuel" => estimate["fuel"]}}
     end
   end
@@ -351,7 +352,7 @@ defmodule TijaraTides.Domain.Fleet do
       value = sale_value(row, now)
 
       {state, effects} =
-        TijaraTides.Domain.Ship.advance_hull(
+        TijaraTides.Domain.ShipWorld.advance_hull(
           state,
           id,
           elapsed,
