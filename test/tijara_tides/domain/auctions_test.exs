@@ -158,13 +158,69 @@ defmodule TijaraTides.Domain.AuctionsTest do
     assert Auction.fetch(s, "lot").status == "unsold"
   end
 
+  test "paid next terms count for consignment and remain backed through current expiry", c do
+    s = stock(c, c.state, "a", 3)
+    w = Game.get(s, "warehouses", "aw")
+    s = State.put(s, "warehouses", "aw", %{w | "expires_ms" => 1000})
+    w = Warehouse.Rows.decode(Game.get(s, "warehouses", "aw"))
+    price = Warehouse.extension_rate(w, WarehouseWorld.used(s, w.port, w.storage))
+
+    {:ok, s, _} =
+      WarehouseWorld.renew(s, c.a, %{"warehouse" => "aw", "days" => 1, "price" => price}, true)
+
+    {:ok, s, _} =
+      Auctions.consign(
+        s,
+        c.a,
+        %{"warehouse" => "aw", "good" => "whisky", "quantity" => 3, "price" => 1000},
+        "extended-lot",
+        c.catalogue,
+        "seed"
+      )
+
+    a = Auction.fetch(s, "extended-lot")
+    assert a.closes_ms > 1000
+    assert WarehouseWorld.order_backed?(%{s | clock_ms: 1000}, Auctions.claim(a))
+    s = WarehouseWorld.advance(%{s | clock_ms: 1000}, c.catalogue)
+    assert WarehouseWorld.order_backed?(s, Auctions.claim(a))
+  end
+
+  test "consignment reports lease shortfall and handling delay separately", c do
+    {_, closes} = Auction.schedule(c.state.clock_ms, "Jakarta", c.catalogue)
+    w = Game.get(c.state, "warehouses", "aw")
+    shortfall = 3_661_000
+
+    s =
+      State.put(c.state, "warehouses", "aw", %{
+        w
+        | "expires_ms" => closes - shortfall,
+          "protected_ms" => c.state.clock_ms + 90_000
+      })
+
+    cmd = %{"warehouse" => "aw", "good" => "whisky", "quantity" => 1, "price" => 100}
+
+    assert {:error, {:auction_storage, ^shortfall, 90_000} = reason} =
+             Auctions.consign(s, c.a, cmd, "short-lease", c.catalogue, "seed")
+
+    text = TijaraTidesWeb.GameUI.Presentation.error_message(reason)
+    assert text =~ "01:01:01"
+    assert text =~ "00:01:30"
+    assert text =~ "before auction closing"
+
+    refute TijaraTidesWeb.GameUI.Presentation.error_message({:auction_storage, 0, 90_000}) =~
+             "lease ends"
+
+    refute TijaraTidesWeb.GameUI.Presentation.error_message({:auction_storage, shortfall, 0}) =~
+             "handling finishes"
+  end
+
   test "storage coverage and seller stock cannot be bypassed", c do
     s = lot(c, c.state)
     a = Auction.fetch(s, "lot")
     s = %{s | clock_ms: a.opens_ms}
     w = Game.get(s, "warehouses", "bw")
     s = State.put(s, "warehouses", "bw", %{w | "expires_ms" => a.closes_ms - 1})
-    assert {:error, :auction_storage} = bid(c, s, 2000)
+    assert {:error, {:auction_storage, 1, 0}} = bid(c, s, 2000)
 
     assert {:error, :warehouse_invalid} =
              WarehouseWorld.cancel_reservation(s, c.a, "auction_id:lot")
@@ -215,9 +271,24 @@ defmodule TijaraTides.Domain.AuctionsTest do
 
       assert Enum.count(
                notices,
-               &(&1["code"] == "auction.closed" and &1["arguments"]["port"] == a.port)
+               &(&1["code"] == if(account == c.b, do: "auction.won", else: "auction.closed") and
+                   &1["arguments"]["port"] == a.port)
              ) == 1
     end
+
+    win =
+      Enum.find(
+        TijaraTides.Domain.Visibility.private(s, c.b)["notices"],
+        &(&1["code"] == "auction.won")
+      )
+
+    assert win["arguments"]["price"] == 2001
+    assert win["arguments"]["quantity"] == a.quantity
+    assert win["arguments"]["cargo"] == a.good
+    text = TijaraTides.Localization.Notifications.render(win, c.catalogue["goods"])
+    assert text =~ "You won"
+    assert text =~ "$20"
+    assert text =~ "Ordinary storage"
 
     [a] = Enum.filter(Auction.public(s), &(&1["id"] == "lot"))
     assert a["amounts"] == [2001, 2001]

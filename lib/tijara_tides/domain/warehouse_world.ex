@@ -564,11 +564,17 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   defp lock_quote(state, w),
     do: Warehouse.lock_quote(w, state.clock_ms, used(state, w.port, w.storage))
 
-  def renew(state, account, cmd) do
+  def renew(state, account, cmd, early \\ false) do
     with %{"company_id" => owner} = row <- get(state, "warehouses", cmd["warehouse"]),
          true <- owner == account["company_id"],
          days when days in @terms <- cmd["days"] do
       w = lock_quote(state, load(state, row))
+
+      w =
+        if early,
+          do: %{w | renewal_rate: Warehouse.extension_rate(w, used(state, w.port, w.storage))},
+          else: w
+
       company = get(state, "companies", owner)
       price = w.renewal_rate && w.renewal_rate * days
 
@@ -576,7 +582,10 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         company["bankruptcy_ms"] != nil ->
           {:error, :finance_no_company}
 
-        not renewal_open?(w, state.clock_ms) ->
+        early and not Warehouse.extension_open?(w, state.clock_ms) ->
+          {:error, :warehouse_extension_closed}
+
+        not early and not renewal_open?(w, state.clock_ms) ->
           {:error, :warehouse_renewal_closed}
 
         price != cmd["price"] ->
@@ -586,7 +595,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
           {:error, :insufficient_cash}
 
         true ->
-          {state, w} = pay_renewal(state, w, days)
+          {state, w} = pay_renewal(state, w, days, early)
           {:ok, save(state, w), %{}}
       end
     else
@@ -611,7 +620,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     end
   end
 
-  defp pay_renewal(state, w, days) do
+  defp pay_renewal(state, w, days, early \\ false) do
     price = w.renewal_rate * days
 
     state =
@@ -620,7 +629,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         {"cash_available", -price}
       ])
 
-    {state, Warehouse.pay_renewal(w, days, state.clock_ms)}
+    {state, Warehouse.pay_renewal(w, days, state.clock_ms, early)}
   end
 
   defp prepare_renewal(state, w) do

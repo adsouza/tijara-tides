@@ -53,6 +53,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
         volume = Warehouse.volume(w, catalogue)
         reserved_volume = WarehouseWorld.reserved_volume(reservation_rows, w, catalogue)
         reservations = WarehouseWorld.reservations(reservation_rows, w)
+        claimed = %{w | reservations: reservations}
         ready = docked && now >= w.protected_ms
 
         goods =
@@ -128,6 +129,11 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
           volume: volume,
           transfers: transfers,
           reserved_volume: reserved_volume,
+          reserved_stock:
+            Map.new(
+              Enum.uniq(Enum.map(w.cargo, & &1.good)),
+              &{&1, Warehouse.reserved_quantity(claimed, "stock", &1)}
+            ),
           reservations:
             Enum.map(reservations, fn r ->
               %{
@@ -139,6 +145,12 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
                 auction: r.auction_id != nil or r.bid_id != nil
               }
             end),
+          extension_open: Warehouse.extension_open?(w, now),
+          extension_rate:
+            Warehouse.extension_rate(
+              w,
+              Map.get(view.public["warehouse_utilization"] || %{}, w.port <> "|" <> w.storage, 0)
+            ),
           renewal_open: Warehouse.renewal_open?(w, now),
           renewal_rate: w.renewal_rate,
           reservation_options:

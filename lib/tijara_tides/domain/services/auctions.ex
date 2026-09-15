@@ -167,9 +167,13 @@ defmodule TijaraTides.Domain.Services.Auctions do
   end
 
   defp coverage(s, w, a) do
-    if w["expires_ms"] >= a.closes_ms && w["protected_ms"] <= s.clock_ms,
+    covered = WarehouseWorld.snapshot(w) |> TijaraTides.Domain.Warehouse.covered_until()
+
+    if covered >= a.closes_ms && w["protected_ms"] <= s.clock_ms,
       do: :ok,
-      else: {:error, :auction_storage}
+      else:
+        {:error,
+         {:auction_storage, max(0, a.closes_ms - covered), max(0, w["protected_ms"] - s.clock_ms)}}
   end
 
   defp release_bid(s, a, b),
@@ -386,6 +390,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
       s = AuctionWorld.record_simulated_bids(s, a.id, Enum.filter(bids, &(&1.kind == :simulated)))
       s = AuctionWorld.close_sold(s, a.id, price, winner)
 
+      delivered = get(s, "warehouses", winner.warehouse_id)
+
       Enum.reduce(
         Enum.uniq([a.company_id | Enum.map(eligible, & &1.company_id)]),
         s,
@@ -396,7 +402,20 @@ defmodule TijaraTides.Domain.Services.Auctions do
                 s,
                 get(s, "companies", company)["account_id"],
                 "auction:#{a.id}:#{company}",
-                {"auction.closed", %{"port" => a.port}}
+                if(company == winner.company_id and winner.kind == :player,
+                  do:
+                    {"auction.won",
+                     %{
+                       "port" => a.port,
+                       "cargo" => a.good,
+                       "quantity" => a.quantity,
+                       "price" => price,
+                       "auction" => a.id,
+                       "storage" => delivered["storage"],
+                       "warehouse" => delivered["display_number"] || 1
+                     }},
+                  else: {"auction.closed", %{"port" => a.port}}
+                )
               ),
             else: s
         end

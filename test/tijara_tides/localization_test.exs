@@ -173,6 +173,33 @@ defmodule TijaraTides.LocalizationTest do
     end)
   end
 
+  test "auction wins render both legacy and explicit warehouse storage in both locales" do
+    args = %{
+      "cargo" => "whisky",
+      "quantity" => 2,
+      "price" => 10000,
+      "port" => "Dubai",
+      "warehouse" => 1
+    }
+
+    for locale <- ["en", "ar"] do
+      Localization.with_locale(locale, fn ->
+        legacy = Notifications.render(%{"code" => "auction.won", "arguments" => args}, %{})
+        assert legacy =~ Notifications.storage_name("dry")
+        refute legacy =~ "%{"
+
+        refrigerated =
+          Notifications.render(
+            %{"code" => "auction.won", "arguments" => Map.put(args, "storage", "reefer")},
+            %{}
+          )
+
+        assert refrigerated =~ Notifications.storage_name("reefer")
+        refute refrigerated =~ "%{"
+      end)
+    end
+  end
+
   test "structured notices retain arbitrary names and legacy messages remain readable" do
     notice = %{"code" => "company.formed", "arguments" => %{"company" => "<Ship & Co>"}}
 

@@ -53,6 +53,13 @@ defmodule TijaraTides.Domain.Warehouse do
       else: 0
   end
 
+  def extension_open?(w, now), do: now < w.expires_ms and is_nil(w.next_days)
+  def covered_until(w), do: w.expires_ms + (w.next_days || 0) * @day
+  def day_ms, do: @day
+
+  def extension_rate(w, used_blocks),
+    do: w.renewal_rate || quote(max(0, used_blocks - w.blocks), w.storage, w.blocks, 1)
+
   def renewal_window_ms, do: 21_600_000
 
   def renewal_open?(w, now),
@@ -100,9 +107,10 @@ defmodule TijaraTides.Domain.Warehouse do
       else: w
   end
 
-  def pay_renewal(%__MODULE__{} = w, days, now) do
-    unless days in @terms and renewal_open?(w, now) and is_integer(w.renewal_rate),
-      do: raise(ArgumentError, "Warehouse renewal is not open with a locked rate")
+  def pay_renewal(%__MODULE__{} = w, days, now, early \\ false) do
+    unless days in @terms and if(early, do: extension_open?(w, now), else: renewal_open?(w, now)) and
+             is_integer(w.renewal_rate),
+           do: raise(ArgumentError, "Warehouse renewal is not open with a locked rate")
 
     %{w | next_rent: w.renewal_rate * days, next_days: days}
   end
@@ -288,7 +296,7 @@ defmodule TijaraTides.Domain.Warehouse do
     r = Enum.find(w.reservations, &(&1.id == Claim.reservation_id(order)))
 
     (w.expires_ms > now or
-       (order.kind in [:auction, :bid] and w.expires_ms >= (order.closes_ms || now))) and
+       (order.kind in [:auction, :bid] and covered_until(w) >= (order.closes_ms || now))) and
       not is_nil(r) and r.quantity >= order.quantity and
       (order.side != "sell" or fresh_stock(w, order.good, now) >= order.quantity)
   end

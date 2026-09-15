@@ -144,6 +144,9 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   def handle_event("auction", params, socket) do
+    {reserve, params} = Map.pop(params, "reserve_dollars")
+    params = if reserve in [nil, ""], do: params, else: Map.put(params, "price", reserve)
+
     command =
       params
       |> Map.drop(["_target"])
@@ -749,7 +752,7 @@ defmodule TijaraTidesWeb.GameLive do
          |> refresh()}
 
       {:error, reason} ->
-        {:noreply, socket |> put_flash(:error, error_message(reason)) |> refresh()}
+        {:noreply, socket |> put_flash(:error, error_message(reason, command)) |> refresh()}
     end
   end
 
@@ -823,7 +826,7 @@ defmodule TijaraTidesWeb.GameLive do
     socket =
       if connected?(socket) and previous do
         Enum.reduce(notices -- previous, socket, fn notice, acc ->
-          if notice["code"] in ["ship.loaded", "ship.unloaded"] do
+          if notice["code"] in ["ship.loaded", "ship.unloaded", "auction.won"] do
             push_event(acc, "system-notification", %{
               title: gettext("Tijara Tides"),
               body:
@@ -836,7 +839,7 @@ defmodule TijaraTidesWeb.GameLive do
                   [
                     notice["account_id"],
                     notice["code"],
-                    notice["arguments"]["ship"],
+                    notice["arguments"]["auction"] || notice["arguments"]["ship"],
                     notice["clock_ms"]
                   ],
                   ":"

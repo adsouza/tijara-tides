@@ -87,6 +87,9 @@ defmodule TijaraTides.Domain.Commands do
       %{"action" => "warehouse_cancel_reservation", "reservation" => id} ->
         TijaraTides.Domain.WarehouseWorld.cancel_reservation(state, account, id)
 
+      %{"action" => "warehouse_extend"} ->
+        TijaraTides.Domain.WarehouseWorld.renew(state, account, command, true)
+
       %{"action" => "warehouse_renew"} ->
         TijaraTides.Domain.WarehouseWorld.renew(state, account, command)
 

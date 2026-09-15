@@ -56,6 +56,8 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         </p>
         <form
           :if={@auction.warehouses != []}
+          id={"auction-consign-form-" <> Base.url_encode64(@port, padding: false)}
+          phx-hook="ExchangeDraft"
           phx-submit="auction"
           class="my-2 flex flex-wrap items-end gap-2"
         >
@@ -87,8 +89,8 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
           <label>{gettext("Reserve ($)")}<input
             name="price"
             type="number"
-            min="0.01"
-            step="0.01"
+            min="1"
+            step="1"
             required
             class="block w-28 rounded bg-slate-800 p-1"
           /></label>
@@ -143,14 +145,19 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
             value={a["quantity"]}
             class="block w-20 rounded bg-slate-800 p-1"
           /></label>
+          <input type="hidden" name="price" value={dollars_input(a["reserve"])} />
           <label>{gettext("Reserve ($)")}<input
-            name="price"
+            name="reserve_dollars"
             type="number"
-            min="0.01"
-            step="0.01"
-            value={bid_input(a["reserve"])}
+            min="1"
+            step="1"
+            value={if rem(a["reserve"], 100) == 0, do: div(a["reserve"], 100), else: ""}
+            placeholder={dollars_input(a["reserve"])}
             class="block w-28 rounded bg-slate-800 p-1"
           /></label>
+          <p :if={rem(a["reserve"], 100) != 0} class="text-xs text-slate-400">
+            {gettext("Leave blank to keep the existing reserve.")}
+          </p>
           <button
             name="action"
             value="auction_revise"
@@ -236,7 +243,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
       <h3 class="font-semibold">{gettext("Luxury auctions")}</h3>
       <p class="my-2 text-xs text-slate-400">
         {gettext(
-          "Browse open and upcoming auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
+          "Browse open, upcoming and recently settled auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
         )}
       </p>
       <form id="auction-grouping" phx-change="auction-grouping" class="my-2">
@@ -248,7 +255,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
           </select>
         </label>
       </form>
-      <p :if={@groups == []}>{gettext("No open or upcoming luxury auctions.")}</p>
+      <p :if={@groups == []}>{gettext("No luxury auctions available.")}</p>
       <details
         :for={{group, listings} <- @groups}
         id={"discover-auctions-" <> @grouping <> "-" <> group}
@@ -286,8 +293,13 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
                 <td class="px-2 text-end">{display_number(a["quantity"])}</td>
                 <td class="px-2 text-end">{money(a["reserve"])}</td>
                 <td class="py-2 text-end">
-                  {status(a, @clock)}<br :if={a["opens_ms"] <= @clock} /><span :if={
-                    a["opens_ms"] <= @clock
+                  {status(a, @clock)}
+                  <p :if={a["status"] != "scheduled" && a["bid"]}>
+                    {if a["bid"]["won"], do: gettext("You won"), else: gettext("No purchase")}
+                  </p>
+                  <p :if={a["price"]}>{gettext("Sale price")}: {money(a["price"])}</p>
+                  <br :if={a["status"] == "scheduled" && a["opens_ms"] <= @clock} /><span :if={
+                    a["status"] == "scheduled" && a["opens_ms"] <= @clock
                   }>{gettext("Closes in %{time}", time: active_countdown(a["closes_ms"] - @clock))}</span>
                 </td>
               </tr>
@@ -300,10 +312,12 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
   end
 
   defp discovery_heading("cargo", good), do: cargo_name(good)
+  defp discovery_heading("status", "settled"), do: gettext("Settled auctions")
   defp discovery_heading("status", "open"), do: gettext("Open auctions")
   defp discovery_heading("status", "upcoming"), do: gettext("Upcoming auctions")
 
-  defp bid_input(cents),
+  # Preserve an existing fractional reserve when the seller only changes quantity.
+  defp dollars_input(cents),
     do: "#{div(cents, 100)}.#{String.pad_leading(Integer.to_string(rem(cents, 100)), 2, "0")}"
 
   defp status(a, clock) do

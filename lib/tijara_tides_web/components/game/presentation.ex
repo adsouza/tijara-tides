@@ -14,10 +14,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     end)
   end
 
-  # Keep persisted good IDs stable when their player-facing names change.
-  def storage_name("dry"), do: gettext("Ordinary storage")
-  def storage_name("reefer"), do: gettext("Refrigerated storage")
-  def storage_name("liquid"), do: gettext("Liquid storage")
+  defdelegate storage_name(storage), to: TijaraTides.Localization.Notifications
 
   def warehouse_name(warehouse) do
     kind =
@@ -162,7 +159,16 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     |> Enum.map_join(":", &TijaraTides.Localization.number(&1, format: "00"))
   end
 
+  # Commands that claim stock inside a warehouse; only ship trades mean cargo aboard.
+  @warehouse_stock ~w(auction_consign auction_revise warehouse_reserve exchange_place exchange_amend)
+
   @doc false
+  def error_message(:insufficient_cargo, %{"action" => action}) when action in @warehouse_stock do
+    gettext("You do not have enough unreserved cargo in that warehouse to cover that quantity.")
+  end
+
+  def error_message(reason, _command), do: error_message(reason)
+
   def error_message({:departure_busy, status, remaining}) do
     action =
       case status do
@@ -249,6 +255,26 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       )
   end
 
+  def error_message({:auction_storage, shortfall, busy}) do
+    lease =
+      if shortfall > 0 do
+        gettext(
+          "The warehouse lease ends %{shortfall} before auction closing (hours:minutes:seconds of active-world time). Prepay an extension under Lease renewal, or choose a warehouse with enough paid coverage. Only paid terms count; enabling auto-renew alone does not.",
+          shortfall: active_countdown(shortfall)
+        )
+      end
+
+    handling =
+      if busy > 0 do
+        gettext(
+          "Warehouse handling finishes in %{remaining} of active-world time (hours:minutes:seconds). Wait until it is idle before consigning or bidding.",
+          remaining: active_countdown(busy)
+        )
+      end
+
+    [lease, handling] |> Enum.reject(&is_nil/1) |> Enum.join(" ")
+  end
+
   def error_message(reason) do
     %{
       berth_order_pending:
@@ -261,10 +287,6 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         gettext(
           "This auction is locked. Consignments can change only before opening; bids only before closing."
         ),
-      auction_storage:
-        gettext(
-          "The warehouse must be idle and its lease must cover auction closing. Renew or choose a longer lease."
-        ),
       exchange_invalid:
         gettext(
           "Choose standardized cargo, your warehouse, a positive limit price and 1–10,000 lots."
@@ -273,6 +295,10 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       warehouse_renewal_closed:
         gettext(
           "Renewal is available only in the final six hours, before expiry, and once per term."
+        ),
+      warehouse_extension_closed:
+        gettext(
+          "An extension needs a lease that has not expired and no term already prepaid. Wait for the paid term to start before prepaying another."
         ),
       warehouse_capacity: gettext("Not enough warehouse capacity is available."),
       warehouse_occupied:

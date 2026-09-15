@@ -59,6 +59,76 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
     end
   end
 
+  test "discovery keeps older own sales, unsold consignments and bids beyond the global limit" do
+    listings =
+      for n <- 1..24,
+          do: %{
+            "id" => to_string(n),
+            "port" => "Port #{n}",
+            "good" => "jewelry",
+            "closes_ms" => n,
+            "status" => if(n == 2, do: "unsold", else: "sold")
+          }
+
+    view = %{
+      public: %{"clock_ms" => 100, "auctions" => listings},
+      private: %{
+        "consignments" => Enum.take(listings, 2),
+        "auction_bids" => [%{"auction_id" => "3", "won" => true}]
+      }
+    }
+
+    for grouping <- ["status", "cargo"] do
+      ids =
+        GameQueries.auction_discovery(view, grouping)
+        |> Enum.flat_map(&elem(&1, 1))
+        |> Enum.map(& &1["id"])
+
+      assert length(ids) == 23
+      assert Enum.all?(["1", "2", "3"], &(&1 in ids))
+      refute "4" in ids
+    end
+  end
+
+  test "reserve revisions use whole dollars while preserving unchanged legacy cents" do
+    for {reserve, value, exact} <- [{1000, "10", "10.00"}, {1001, "", "10.01"}] do
+      lot = %{
+        "id" => "own",
+        "good" => "jewelry",
+        "port" => "Dubai",
+        "quantity" => 2,
+        "reserve" => reserve,
+        "status" => "scheduled",
+        "opens_ms" => 2000,
+        "closes_ms" => 3000,
+        "price" => nil,
+        "amounts" => []
+      }
+
+      html =
+        render_component(&AuctionPanel.panel/1,
+          definitions: TijaraTides.UseCases.Game.definitions(),
+          port: "Dubai",
+          request_id: "test",
+          view: %{
+            public: %{"clock_ms" => 1000, "auctions" => [lot]},
+            private: %{"consignments" => [lot]}
+          }
+        )
+
+      tree = LazyHTML.from_fragment(html)
+      input = LazyHTML.query(tree, "#auction-own input[name=reserve_dollars]")
+      assert LazyHTML.attribute(input, "min") == ["1"]
+      assert LazyHTML.attribute(input, "step") == ["1"]
+      assert LazyHTML.attribute(input, "value") == [value]
+
+      assert LazyHTML.query(tree, "#auction-own input[name=price]") |> LazyHTML.attribute("value") ==
+               [exact]
+
+      if reserve == 1001, do: assert(html =~ "Leave blank to keep the existing reserve.")
+    end
+  end
+
   test "discovery groups live auctions and puts open bidding before upcoming lots" do
     lot = %{
       "good" => "jewelry",
@@ -76,14 +146,21 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
         "auctions" => [
           Map.merge(lot, %{"id" => "upcoming", "opens_ms" => 2000, "closes_ms" => 4000}),
           Map.put(lot, "id", "open"),
-          Map.merge(lot, %{"id" => "sold", "status" => "sold"}),
+          Map.merge(lot, %{"id" => "sold", "status" => "sold", "price" => 2_500_000}),
           Map.merge(lot, %{"id" => "expired", "closes_ms" => 1000})
         ]
       }
     }
 
-    assert [{"jewelry", [first, second]}] = GameQueries.auction_discovery(view, "cargo")
-    assert [{"open", [_]}, {"upcoming", [_]}] = GameQueries.auction_discovery(view)
+    view =
+      Map.put(view, :private, %{"auction_bids" => [%{"auction_id" => "sold", "won" => true}]})
+
+    assert [{"jewelry", [first, second, settled]}] = GameQueries.auction_discovery(view, "cargo")
+
+    assert [{"open", [_]}, {"upcoming", [_]}, {"settled", [_]}] =
+             GameQueries.auction_discovery(view)
+
+    assert settled["id"] == "sold"
     assert first["id"] == "open"
     assert second["id"] == "upcoming"
     html = render_component(&AuctionPanel.discovery/1, view: view)
@@ -102,13 +179,18 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
     assert html =~ "Bidding open"
     assert html =~ "Opens in"
     assert html =~ "auction-port"
-    refute html =~ "data-auction=\"sold\""
+    assert html =~ "data-auction=\"sold\""
+    assert html =~ "Settled auctions"
+    assert html =~ "You won"
+    assert html =~ "$25,000"
+    settled_row = LazyHTML.query(tree, "[data-auction=sold]") |> LazyHTML.text()
+    refute settled_row =~ "Closes in"
     refute html =~ "data-auction=\"expired\""
     assert html =~ "ignore_attrs"
   end
 
   test "empty discovery works without a public snapshot" do
     assert render_component(&AuctionPanel.discovery/1, view: %{}) =~
-             "No open or upcoming luxury auctions."
+             "No luxury auctions available."
   end
 end

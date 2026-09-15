@@ -456,6 +456,29 @@ defmodule TijaraTides.Domain.WarehouseTest do
     assert Game.get(state, "warehouse_reservations", "stock") == nil
   end
 
+  test "early extensions charge once, preserve current rent and cover the paid next term", c do
+    state = lease(c, c.state)
+    row = Game.get(state, "warehouses", "lease")
+    w = Warehouse.Rows.decode(row)
+    price = Warehouse.extension_rate(w, WarehouseWorld.used(state, w.port, w.storage)) * 3
+    cmd = %{"warehouse" => "lease", "days" => 3, "price" => price}
+
+    assert {:error, :price_changed} =
+             WarehouseWorld.renew(state, c.account, %{cmd | "price" => price + 1}, true)
+
+    cash = Game.get(state, "companies", "company")["cash"]
+    {:ok, paid, _} = WarehouseWorld.renew(state, c.account, cmd, true)
+    next = Warehouse.Rows.decode(Game.get(paid, "warehouses", "lease"))
+    assert next.expires_ms == w.expires_ms
+    assert next.prepaid == w.prepaid
+    assert next.next_rent == price
+    assert Warehouse.covered_until(next) == w.expires_ms + 3 * 86_400_000
+    assert Game.get(paid, "companies", "company")["cash"] == cash - price
+
+    assert {:error, :warehouse_extension_closed} =
+             WarehouseWorld.renew(paid, c.account, cmd, true)
+  end
+
   test "renewal locks its quote and preserves the current prepaid term", c do
     state = lease(c, c.state)
     cmd = %{"warehouse" => "lease", "days" => 3, "price" => 3000}

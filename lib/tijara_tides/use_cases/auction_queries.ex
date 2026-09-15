@@ -1,23 +1,51 @@
 defmodule TijaraTides.UseCases.AuctionQueries do
   @moduledoc "Auction discovery and owner-scoped bidding options."
+  alias TijaraTides.Domain.{Warehouse, WarehouseWorld}
+
+  # AuctionWorld.prune/1 keeps closed auctions per port, so the world-wide tail is
+  # long; discovery shows the newest few plus the player’s own bids and consignments.
+  @settled_shown 20
 
   def auction_discovery(view, grouping \\ "status") do
     public = Map.get(view, :public, %{})
     clock = public["clock_ms"] || 0
 
-    (public["auctions"] || [])
-    |> Enum.filter(&(&1["status"] == "scheduled" and &1["closes_ms"] > clock))
+    bids = Map.new(get_in(view, [:private, "auction_bids"]) || [], &{&1["auction_id"], &1})
+
+    consignments = MapSet.new(get_in(view, [:private, "consignments"]) || [], & &1["id"])
+
+    {scheduled, settled} =
+      Enum.split_with(public["auctions"] || [], &(&1["status"] == "scheduled"))
+
+    {recent, older} =
+      settled |> Enum.sort_by(& &1["closes_ms"], :desc) |> Enum.split(@settled_shown)
+
+    (Enum.filter(scheduled, &(&1["closes_ms"] > clock)) ++
+       recent ++ Enum.filter(older, &(bids[&1["id"]] || MapSet.member?(consignments, &1["id"]))))
+    |> Enum.map(&Map.put(&1, "bid", bids[&1["id"]]))
     |> Enum.group_by(fn a ->
-      if grouping == "cargo",
-        do: a["good"],
-        else: if(a["opens_ms"] <= clock, do: "open", else: "upcoming")
+      if grouping == "cargo", do: a["good"], else: discovery_status(a, clock)
     end)
-    |> Enum.sort_by(&elem(&1, 0))
-    |> Enum.map(fn {good, listings} ->
-      {good,
-       Enum.sort_by(listings, &{&1["opens_ms"] > clock, &1["closes_ms"], &1["port"], &1["id"]})}
+    |> Enum.sort_by(fn {group, _} ->
+      if grouping == "cargo",
+        do: group,
+        else: Enum.find_index(["open", "upcoming", "settled"], &(&1 == group))
+    end)
+    |> Enum.map(fn {group, listings} ->
+      {group,
+       Enum.sort_by(listings, fn a ->
+         {if(a["status"] == "scheduled", do: 0, else: 1),
+          a["status"] == "scheduled" and a["opens_ms"] > clock,
+          if(a["status"] == "scheduled", do: a["closes_ms"], else: -a["closes_ms"]), a["port"],
+          a["id"]}
+       end)}
     end)
   end
+
+  defp discovery_status(%{"status" => "scheduled"} = a, clock),
+    do: if(a["opens_ms"] <= clock, do: "open", else: "upcoming")
+
+  defp discovery_status(_, _), do: "settled"
 
   def auction_options(definitions, view, port) do
     cat = definitions.catalogue
@@ -28,6 +56,9 @@ defmodule TijaraTides.UseCases.AuctionQueries do
       Map.values(private["warehouses"] || %{})
       |> Enum.filter(&(&1["port"] == port and &1["expires_ms"] > clock))
       |> Enum.sort_by(& &1["id"])
+
+    # Decode each lease once here rather than once per listing in the filter below.
+    leased = Enum.map(warehouses, &{&1, WarehouseWorld.snapshot(&1)})
 
     goods =
       Enum.filter(cat["goods"], fn {_, i} -> i["category"] == "Luxury items" end) |> Enum.sort()
@@ -47,14 +78,10 @@ defmodule TijaraTides.UseCases.AuctionQueries do
         item = cat["goods"][a["good"]]
 
         storage =
-          Enum.filter(
-            warehouses,
-            &(&1["expires_ms"] >= a["closes_ms"] and &1["protected_ms"] <= clock and
-                TijaraTides.Domain.Warehouse.compatible?(
-                  TijaraTides.Domain.WarehouseWorld.snapshot(&1),
-                  item
-                ))
-          )
+          for {row, w} <- leased,
+              Warehouse.covered_until(w) >= a["closes_ms"] and row["protected_ms"] <= clock and
+                Warehouse.compatible?(w, item),
+              do: row
 
         Map.merge(a, %{
           "mine" => Map.has_key?(consignments, a["id"]),

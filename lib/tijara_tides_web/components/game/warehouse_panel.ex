@@ -161,6 +161,29 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
               )}</button>
             </form>
           </div>
+          <div :if={lease.extension_open && !lease.renewal_open}>
+            <p class="my-2 text-xs text-slate-400">
+              {gettext(
+                "Prepay one additional term now. It starts at current expiry and immediately counts toward auction storage coverage. The price uses current rates and is confirmed on payment."
+              )}
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <form :for={days <- @storage.terms} phx-submit="warehouse">
+                <input type="hidden" name="action" value="warehouse_extend" />
+                <input type="hidden" name="warehouse" value={lease.row["id"]} />
+                <input type="hidden" name="request_id" value={@request_id} />
+                <input type="hidden" name="days" value={days} />
+                <input type="hidden" name="price" value={lease.extension_rate * days} />
+                <button
+                  disabled={lease.extension_rate * days > @storage.cash}
+                  class="rounded border border-teal-700 px-2 py-1 disabled:opacity-40"
+                >{gettext("Extend %{days} days · %{price}",
+                  days: display_number(days),
+                  price: money(lease.extension_rate * days)
+                )}</button>
+              </form>
+            </div>
+          </div>
           <form phx-submit="warehouse" class="mt-2 flex flex-wrap items-end gap-2">
             <input type="hidden" name="action" value="warehouse_auto_renew" />
             <input type="hidden" name="warehouse" value={lease.row["id"]} />
@@ -253,6 +276,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           <thead>
             <tr>
               <th class="text-start">{gettext("Cargo")}</th><th>{gettext("Lots")}</th>
+              <th>{gettext("Reserved lots")}</th>
             </tr>
           </thead>
           <tbody>
@@ -260,6 +284,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
               <td>{cargo_name(good)}</td><td class="text-center">
                 {display_number(Enum.sum(for b <- batches, do: b["quantity"]))}
               </td>
+              <td class="text-center">{display_number(lease.reserved_stock[good] || 0)}</td>
             </tr>
           </tbody>
         </table>

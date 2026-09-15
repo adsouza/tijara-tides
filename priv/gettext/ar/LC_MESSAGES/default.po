@@ -1955,9 +1955,6 @@ msgstr "اختر الوجهة"
 msgid "Trade opportunities from %{port}"
 msgstr "فرص التجارة من %{port}"
 
-msgid "Disc radius shows ROI after handling, on a shared scale. Green: buy here, sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow discs mean zero ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; cash and capacity are not checked. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
-msgstr "يمثل نصف قطر القرص العائد على الاستثمار بعد المناولة بمقياس موحد. الأخضر: اشترِ هنا وبع هناك. الأحمر: اشترِ هناك وبع هنا. الجماجم تعني عائدًا سالبًا؛ والأقراص المجوفة تعني عائدًا صفريًا. مرّر المؤشر أو ركّز لعرض التفاصيل. لا تشمل التقديرات الوقود والقنوات والتشغيل والتنظيف والتلف، ولا تتحقق من النقد والسعة. تُرتّب الموانئ حسب مجموع أفضل عائد في كل اتجاه ثم المسافة. اختر ميناءً لتخطيط رحلتك."
-
 msgid "Distance (nm)"
 msgstr "المسافة (ميل بحري)"
 
@@ -2154,6 +2151,9 @@ msgstr "جدّد خلال الساعات الست الأخيرة. يُثبّت �
 msgid "Renewal is available only in the final six hours, before expiry, and once per term."
 msgstr "يتاح التجديد خلال الساعات الست الأخيرة فقط، قبل انتهاء الإيجار، ولمرة واحدة لكل مدة."
 
+msgid "An extension needs a lease that has not expired and no term already prepaid. Wait for the paid term to start before prepaying another."
+msgstr "يتطلب التمديد إيجارًا لم تنتهِ مدته وعدم وجود مدة مدفوعة مسبقًا. انتظر بدء المدة المدفوعة قبل دفع مدة أخرى مقدمًا."
+
 msgid "Reservations"
 msgstr "الحجوزات"
 
@@ -2349,12 +2349,6 @@ msgstr "دفعات"
 msgid "Auction commitment"
 msgstr "حجز للمزاد"
 
-msgid "Browse open and upcoming auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
-msgstr "تصفح المزادات المفتوحة والقادمة. اختر ميناءً للمزايدة؛ يلزم توفر مساحة تخزين مناسبة. الأسعار الاحتياطية للشحنة كاملة. الأوقات محسوبة بوقت العالم النشط."
-
-msgid "No open or upcoming luxury auctions."
-msgstr "لا توجد مزادات سلع فاخرة مفتوحة أو قادمة."
-
 msgid "Bidding"
 msgstr "المزايدة"
 
@@ -2375,3 +2369,45 @@ msgstr "يمكن لهذا المستودع تخزين أي مزيج من أنو�
 
 msgid "non-perishable solid goods"
 msgstr "بضائع صلبة غير قابلة للتلف"
+
+msgid "Browse open, upcoming and recently settled auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
+msgstr "تصفح المزادات المفتوحة والقادمة والمنتهية حديثًا. اختر ميناءً للمزايدة؛ يلزم توفر مساحة تخزين مناسبة. الأسعار الاحتياطية للشحنة كاملة. الأوقات محسوبة بوقت العالم النشط."
+
+msgid "No luxury auctions available."
+msgstr "لا توجد مزادات سلع فاخرة متاحة."
+
+msgid "Settled auctions"
+msgstr "المزادات المنتهية"
+
+msgid "ROI unavailable for zero-cost cargo"
+msgstr "العائد غير متاح للبضائع ذات التكلفة الصفرية"
+
+msgid "Sell aboard cargo: %{roi} · %{lots} lots · %{proceeds} after sale handling"
+msgstr "بيع البضائع على متن السفينة: %{roi} · %{lots} دفعات · %{proceeds} بعد مناولة البيع"
+
+msgid "You won %{quantity} lots of %{cargo} for %{price}. Delivered to %{port} %{storage} %{warehouse}."
+msgstr "فزت بـ %{quantity} دفعات من %{cargo} مقابل %{price}. تم التسليم إلى %{port} %{storage} %{warehouse}."
+
+msgid "Symbol size shows ROI after handling, on a shared scale. Squares represent cargo aboard; circles represent new purchases. Green: sell cargo aboard, or buy here and sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; cargo aboard uses recorded cost and destination demand; new purchases do not check cash or capacity. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
+msgstr "يعرض حجم الرمز العائد بعد المناولة على مقياس موحد. المربعات للبضائع على متن السفينة والدوائر للمشتريات الجديدة. الأخضر: بيع البضائع على متن السفينة، أو الشراء هنا والبيع هناك. الأحمر: الشراء هناك والبيع هنا. الجماجم تعني عائدًا سالبًا، والرموز المجوفة تعني عائدًا صفريًا أو غير متاح. مرر المؤشر أو ركز للاطلاع على التفاصيل. لا تشمل الحسابات الوقود والقنوات والصيانة والتنظيف والتلف؛ تُستخدم التكلفة المسجلة وطلب الوجهة للبضائع على متن السفينة، ولا تُفحص السيولة أو السعة للمشتريات الجديدة. تُرتب الصفوف حسب مجموع أفضل عائد في الاتجاهين ثم المسافة. اختر ميناءً لتخطيط رحلتك."
+
+msgid "Warehouse handling finishes in %{remaining} of active-world time (hours:minutes:seconds). Wait until it is idle before consigning or bidding."
+msgstr "تنتهي مناولة المستودع بعد %{remaining} من وقت العالم النشط (ساعات:دقائق:ثوانٍ). انتظر حتى يصبح غير مشغول قبل الإيداع للمزاد أو المزايدة."
+
+msgid "Extend %{days} days · %{price}"
+msgstr "تمديد %{days} أيام · %{price}"
+
+msgid "Prepay one additional term now. It starts at current expiry and immediately counts toward auction storage coverage. The price uses current rates and is confirmed on payment."
+msgstr "ادفع مقدمًا لمدة إضافية واحدة الآن. تبدأ عند انتهاء العقد الحالي وتُحتسب فورًا ضمن تغطية تخزين المزاد. يعتمد السعر على المعدلات الحالية ويُؤكد عند الدفع."
+
+msgid "The warehouse lease ends %{shortfall} before auction closing (hours:minutes:seconds of active-world time). Prepay an extension under Lease renewal, or choose a warehouse with enough paid coverage. Only paid terms count; enabling auto-renew alone does not."
+msgstr "ينتهي عقد المستودع قبل إغلاق المزاد بـ %{shortfall} (ساعات:دقائق:ثوانٍ من وقت العالم النشط). ادفع تمديدًا مقدمًا ضمن تجديد العقد، أو اختر مستودعًا بتغطية مدفوعة كافية. تُحتسب المدد المدفوعة فقط؛ تفعيل التجديد التلقائي وحده لا يكفي."
+
+msgid "You do not have enough unreserved cargo in that warehouse to cover that quantity."
+msgstr "لا توجد لديك بضائع غير محجوزة كافية في ذلك المستودع لتغطية هذه الكمية."
+
+msgid "Reserved lots"
+msgstr "الدفعات المحجوزة"
+
+msgid "Leave blank to keep the existing reserve."
+msgstr "اترك الحقل فارغًا للإبقاء على السعر الاحتياطي الحالي."

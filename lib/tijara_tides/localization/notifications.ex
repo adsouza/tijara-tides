@@ -4,13 +4,21 @@ defmodule TijaraTides.Localization.Notifications do
   alias TijaraTides.Localization
 
   def render(%{"code" => code} = notice, goods) when is_binary(code) do
+    arguments =
+      if code == "auction.won",
+        do: Map.put_new(notice["arguments"], "storage", "dry"),
+        else: notice["arguments"]
+
     args =
-      Map.new(notice["arguments"], fn
+      Map.new(arguments, fn
         {"cargo", good} ->
           {"cargo", Localization.text(get_in(goods, [good, "name"]) || good)}
 
-        {key, amount} when key in ["loss", "refund"] ->
+        {key, amount} when key in ["loss", "refund", "price"] ->
           {key, Localization.money(amount)}
+
+        {"storage", class} ->
+          {"storage", storage_name(class)}
 
         {key, value} when key in ["reason", "side", "port", "destination"] ->
           {key, Localization.text(value || "")}
@@ -24,7 +32,7 @@ defmodule TijaraTides.Localization.Notifications do
 
     bindings =
       for key <-
-            ~w(cargo loss refund reason side minutes company ship port destination filled quantity)a,
+            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse)a,
           Map.has_key?(args, Atom.to_string(key)),
           into: %{},
           do: {key, args[Atom.to_string(key)]}
@@ -33,6 +41,18 @@ defmodule TijaraTides.Localization.Notifications do
   end
 
   def render(notice, _goods), do: notice["text"] || ""
+
+  # Keep persisted storage classes stable when their player-facing names change.
+  def storage_name("dry"), do: gettext("Ordinary storage")
+  def storage_name("reefer"), do: gettext("Refrigerated storage")
+  def storage_name("liquid"), do: gettext("Liquid storage")
+
+  defp message("auction.won", args),
+    do:
+      gettext(
+        "You won %{quantity} lots of %{cargo} for %{price}. Delivered to %{port} %{storage} %{warehouse}.",
+        args
+      )
 
   defp message("auction.closed", args),
     do:
