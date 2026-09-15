@@ -1,8 +1,9 @@
 defmodule TijaraTides.Domain.ExchangeTest do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.OrderBookWorld
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Game, State, Warehouse, OrderBook, CargoLots, CompanyFinance}
+  alias TijaraTides.Domain.{Game, State, Warehouse, OrderBook, CargoLots}
   alias TijaraTides.Domain.Services.Exchange
 
   setup do
@@ -67,7 +68,7 @@ defmodule TijaraTides.Domain.ExchangeTest do
         | "cargo" => row["cargo"] ++ [Map.merge(lot, %{"good" => "lumber", "unit_cost" => 100})]
       })
 
-    CompanyFinance.post(state, c[String.to_existing_atom(owner)]["company_id"], "purchase", [
+    CompanyFinanceWorld.post(state, c[String.to_existing_atom(owner)]["company_id"], "purchase", [
       {"inventory", n * 100},
       {"cash_available", -n * 100}
     ])
@@ -249,6 +250,6 @@ defmodule TijaraTides.Domain.ExchangeTest do
     {:ok, s, _} = TijaraTides.Domain.Services.Credit.borrow(c.state, c.b, 1_000_000, "loan")
     company = Game.get(s, "companies", "bco")
     {:ok, s, _} = order(c, s, "b", "buy", 1, company["cash"], "escrow")
-    refute CompanyFinance.can_declare_bankruptcy?(s, c.b)
+    refute CompanyFinanceWorld.can_declare_bankruptcy?(s, c.b)
   end
 end

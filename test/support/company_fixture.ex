@@ -16,7 +16,7 @@ defmodule TijaraTides.CompanyFixture do
 
     state =
       state
-      |> TijaraTides.Domain.CompanyFinance.post(company, "test_capital", [
+      |> TijaraTides.Domain.CompanyFinanceWorld.post(company, "test_capital", [
         {"cash_available", 20_000_000},
         {"capital", -20_000_000}
       ])

@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
+  alias TijaraTides.Domain.CompanyFinanceWorld, as: FinanceWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.Services.{FinancialSettlement}
   alias TijaraTides.Domain.CompanyFinance, as: Finance
@@ -8,7 +9,7 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
   end
 
   test "reserving cash prevents a later purchase from spending it" do
-    finance = Finance.from_row(company())
+    finance = Finance.Rows.decode(company())
     reserved = Finance.apply_entries(finance, [{"cash_reserved", 800}, {"cash_available", -800}])
     assert reserved.cash == 1000
     assert Finance.available(reserved) == 200
@@ -28,14 +29,20 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
   test "financial balances and journal use the same entries; borrowing is not profit" do
     state = %{clock_ms: 10, entities: %{"companies" => %{"c" => company()}}}
     entries = [{"cash_available", 500}, {"loan_principal", -500}]
-    state = Finance.post(state, "c", "loan_draw", entries)
+    state = FinanceWorld.post(state, "c", "loan_draw", entries)
     assert state.entities["companies"]["c"]["cash"] == 1500
     assert state.entities["companies"]["c"]["profit"] == 0
     assert hd(state.journal).entries == entries
-    assert_raise ArgumentError, fn -> Finance.post(state, "c", "bad", [{"cash_available", 1}]) end
 
     assert_raise ArgumentError, fn ->
-      Finance.apply_entries(Finance.from_row(company()), [{"payables", 1}, {"cash_available", -1}])
+      FinanceWorld.post(state, "c", "bad", [{"cash_available", 1}])
+    end
+
+    assert_raise ArgumentError, fn ->
+      Finance.apply_entries(Finance.Rows.decode(company()), [
+        {"payables", 1},
+        {"cash_available", -1}
+      ])
     end
   end
 
@@ -44,7 +51,7 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
     state = %{clock_ms: 20, entities: %{"companies" => %{"c" => row}}}
 
     state =
-      Finance.ship_operations(state, "c", "ship", %{
+      FinanceWorld.ship_operations(state, "c", "ship", %{
         fuel: 300,
         crew: 200,
         depreciation: 0,
@@ -59,7 +66,7 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
              "unpaid_since" => 20
            } = state.entities["companies"]["c"]
 
-    assert Finance.from_world(state, "c").bills |> hd() |> Map.fetch!(:remaining) == 100
+    assert FinanceWorld.fetch(state, "c").bills |> hd() |> Map.fetch!(:remaining) == 100
   end
 
   test "loaded finance settles without accounts or ships and emits a receivership effect" do
@@ -74,7 +81,7 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
       })
 
     root = %{
-      Finance.from_row(row)
+      Finance.Rows.decode(row)
       | bills: [
           Finance.OperatingBill.from_row(%{
             "id" => "b",
@@ -126,7 +133,7 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
         }
       }
 
-      assert {_, %{receivership: true}} = Finance.settle_owned(state, "c")
+      assert {_, %{receivership: true}} = FinanceWorld.settle_owned(state, "c")
       next = FinancialSettlement.settle(state, ["c"])
       assert next.entities["companies"]["current"] == current
       assert next.entities["accounts"] == accounts
@@ -161,11 +168,11 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
       | entity_index: Map.delete(state.entity_index, {"operating_bills", "company_id", "c"})
     }
 
-    {unchanged_children, effects} = Finance.settle_owned(partial, "c")
+    {unchanged_children, effects} = FinanceWorld.settle_owned(partial, "c")
     assert unchanged_children.entities["operating_bills"]["bill"] == bill
     refute {"operating_bills", "bill", :delete, nil} in effects.children
 
-    {paid, effects} = Finance.settle_owned(state, "c")
+    {paid, effects} = FinanceWorld.settle_owned(state, "c")
     refute Map.has_key?(paid.entities["operating_bills"], "bill")
     assert {"operating_bills", "bill", :delete, nil} in effects.children
     assert paid.entities["companies"]["c"]["cash"] == 900
@@ -173,7 +180,9 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
 
   test "loan and installment children stay typed through borrowing and accrual" do
     alias TijaraTides.Domain.CompanyFinance.{Loan, Installment}
-    root = Finance.from_row(Map.merge(company(), %{"account_id" => "a", "bankruptcy_ms" => nil}))
+
+    root =
+      Finance.Rows.decode(Map.merge(company(), %{"account_id" => "a", "bankruptcy_ms" => nil}))
 
     assert {:ok, borrowed, _, _} =
              Finance.loan_transition(
@@ -191,7 +200,54 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
     {settled, _} = Finance.settle_finances(%{borrowed | cash: 0}, Finance.terms().period_ms)
     assert [%Installment{loan_id: "loan", principal_due: 2500} = bill] = settled.installments
     assert Installment.from_row(Installment.to_row(bill)) == bill
-    assert_raise ArgumentError, fn -> Finance.from_row(Map.put(company(), "future_column", 1)) end
-    assert Finance.from_row(Finance.to_row(root)) == root
+
+    assert_raise ArgumentError, fn ->
+      Finance.Rows.decode(Map.put(company(), "future_column", 1))
+    end
+
+    assert Finance.Rows.decode(Finance.Rows.encode(root)) == root
+  end
+
+  test "receivership emits closed loan history and explicit bill deletions with balanced write-offs" do
+    root = %{Finance.Rows.decode(company()) | account_id: "a"}
+
+    {:ok, borrowed, _, _} =
+      Finance.loan_transition(
+        root,
+        "a",
+        {:borrow, 10_000, "loan", %{suspended: false, available: 10_000, rate_bps: 800}},
+        0
+      )
+
+    {overdue, _} = Finance.settle_finances(%{borrowed | cash: 0}, Finance.terms().period_ms)
+
+    overdue = %{
+      overdue
+      | unpaid: 100,
+        unpaid_since: 0,
+        bills: [%Finance.OperatingBill{id: "bill", company_id: "c", due_ms: 0, remaining: 100}]
+    }
+
+    {closed, effects} = Finance.close_in_receivership(overdue, Finance.terms().period_ms + 1)
+    assert closed.loans == []
+    assert closed.bills == []
+    assert closed.installments == []
+    assert closed.unpaid == 0
+    assert closed.arrears_since == nil
+    assert closed.unpaid_since == nil
+    assert closed.bankruptcy_ms == Finance.terms().period_ms + 1
+    assert {:bills, "bill", :delete, nil} in effects.children
+    assert Enum.any?(effects.children, &match?({:installments, _, :delete, nil}, &1))
+    assert {:loans, "loan", :put, loan} = Enum.find(effects.children, &(elem(&1, 0) == :loans))
+    assert loan.status == "defaulted"
+    assert loan.remaining == 0
+    assert loan.interest_due == 0
+    assert Enum.any?(effects.journal, &({"loan_principal", 10_000} in &1.entries))
+    assert Enum.any?(effects.journal, &({"payables", 100} in &1.entries))
+
+    assert Enum.all?(
+             effects.journal,
+             &(Enum.sum(Enum.map(&1.entries, fn {_, amount} -> amount end)) == 0)
+           )
   end
 end

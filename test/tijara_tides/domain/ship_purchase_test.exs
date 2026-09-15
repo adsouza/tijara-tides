@@ -1,8 +1,9 @@
 defmodule TijaraTides.Domain.ShipPurchaseTest do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.AccountWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.Services.{Credit, CompanyFormation}
-  alias TijaraTides.Domain.{CompanyFinance, Fleet, Game, Journal}
+  alias TijaraTides.Domain.{Fleet, Game, Journal}
 
   setup do
     catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
@@ -33,7 +34,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
   test "empty companies borrow explicitly, then exchange cash for a ship without profit", c do
     assert Game.get(c.state, "companies", "company")["cash"] == 0
     assert Game.entities(c.state, "ships") == %{}
-    assert CompanyFinance.summary(c.state, c.account)["available"] == 25_000_000
+    assert CompanyFinanceWorld.summary(c.state, c.account)["available"] == 25_000_000
 
     assert {:error, :loan_limit} =
              Credit.borrow(c.state, c.account, 25_000_001, "loan")
@@ -60,7 +61,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
     assert %{"port" => "Jakarta", "cargo" => [], "status" => "docked", "book_value" => 4_000_000} =
              Game.get(state, "ships", "ship")
 
-    assert CompanyFinance.summary(state, c.account)["available"] == 15_000_000
+    assert CompanyFinanceWorld.summary(state, c.account)["available"] == 15_000_000
     assert [%{entries: [{"fleet", 4_000_000}, {"cash_available", -4_000_000}]}] = state.journal
 
     assert {:error, :ship_id_conflict} =

@@ -144,7 +144,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     state = TijaraTides.Domain.EntityIndex.rebuild(%{entities: entities, clock_ms: 0})
 
     assert {"release", 0} ==
-             TijaraTides.Domain.CompanyFinance.Guarantees.outcome(
+             TijaraTides.Domain.CompanyFinanceWorld.Guarantees.outcome(
                state,
                entities["guarantees"]["g"]
              )

@@ -1,7 +1,8 @@
 defmodule TijaraTides.Domain.AuctionsTest do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.WarehouseWorld
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Game, State, Warehouse, CargoLots, CompanyFinance}
+  alias TijaraTides.Domain.{Game, State, Warehouse, CargoLots}
   alias TijaraTides.Domain.AuctionWorld, as: Auction
   alias TijaraTides.Domain.Services.Auctions
 
@@ -72,7 +73,7 @@ defmodule TijaraTides.Domain.AuctionsTest do
         | "cargo" => row["cargo"] ++ [Map.merge(lot, %{"good" => "whisky", "unit_cost" => 100})]
       })
 
-    CompanyFinance.post(state, c[String.to_existing_atom(owner)]["company_id"], "purchase", [
+    CompanyFinanceWorld.post(state, c[String.to_existing_atom(owner)]["company_id"], "purchase", [
       {"inventory", n * 100},
       {"cash_available", -n * 100}
     ])

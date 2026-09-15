@@ -1,9 +1,9 @@
 defmodule TijaraTides.Domain.Services.CompanyFormation do
+  alias TijaraTides.Domain.CompanyFinanceWorld, as: FinanceWorld
   alias TijaraTides.Domain.AccountWorld
   @moduledoc "Atomic formation across account membership and company finances."
   import TijaraTides.Domain.State, only: [get: 3, entities: 2]
   import TijaraTides.Domain.Notices, only: [notice: 4]
-  alias TijaraTides.Domain.CompanyFinance, as: Finance
 
   def create_company(state, account, name, context) do
     account = get(state, "accounts", account["id"])
@@ -47,7 +47,7 @@ defmodule TijaraTides.Domain.Services.CompanyFormation do
 
         state =
           state
-          |> Finance.open(company)
+          |> FinanceWorld.open(company)
           |> AccountWorld.attach_company(account["id"], id)
 
         state =

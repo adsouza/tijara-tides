@@ -1,4 +1,5 @@
-defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
+defmodule TijaraTides.Domain.CompanyFinanceWorld.Guarantees do
+  alias TijaraTides.Domain.CompanyFinanceWorld, as: FinanceWorld
   @moduledoc "Cash-backed sponsor guarantees, held separately from spendable company cash."
   import TijaraTides.Domain.State
   alias TijaraTides.Domain.Notices
@@ -14,14 +15,14 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
 
     debt =
       Enum.sum(
-        for loan <- Finance.loans(state, sponsor["company_id"]),
+        for loan <- FinanceWorld.loans(state, sponsor["company_id"]),
             do: loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]
       )
 
     not suspended?(sponsor) and company != nil and company["bankruptcy_ms"] == nil and
       company["unpaid"] == 0 and debt <= company["cash"] - company["reserved"] and
       Enum.all?(
-        Finance.loans(state, sponsor["company_id"]),
+        FinanceWorld.loans(state, sponsor["company_id"]),
         &(&1["principal_due"] == 0 and &1["interest_due"] == 0)
       )
   end
@@ -45,14 +46,14 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
       not sponsor_eligible?(state, sponsor) ->
         {:error, :guarantee_sponsor_unavailable}
 
-      not suspended?(beneficiary) and Finance.rate(state, beneficiary) < 1600 ->
+      not suspended?(beneficiary) and FinanceWorld.rate(state, beneficiary) < 1600 ->
         {:error, :guarantee_not_required}
 
       active(state, beneficiary_id) != nil ->
         {:error, :guarantee_exists}
 
       not is_integer(amount) or amount < @minimum_pledge or
-          amount > Finance.credit_limit(state, beneficiary) ->
+          amount > FinanceWorld.credit_limit(state, beneficiary) ->
         {:error, :guarantee_amount}
 
       amount > company["cash"] - company["reserved"] ->
@@ -74,7 +75,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
         state =
           state
           |> put("guarantees", id, g)
-          |> Finance.post(company["id"], "guarantee_pledge", [
+          |> FinanceWorld.post(company["id"], "guarantee_pledge", [
             {"guarantee_escrow", amount},
             {"cash_available", -amount}
           ])
@@ -146,7 +147,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
       |> Finance.Guarantee.settle(loss)
       |> Finance.Guarantee.to_row()
     )
-    |> Finance.post(company["id"], "guarantee_settlement", [
+    |> FinanceWorld.post(company["id"], "guarantee_settlement", [
       {"cash_available", refund},
       {"guarantee_expense", loss},
       {"guarantee_escrow", -g["amount"]}
@@ -176,7 +177,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
     pending =
       owned(state, "accounts", "inviter", account["id"])
       |> Enum.filter(
-        &((suspended?(&1) or Finance.rate(state, &1) == 1600) and
+        &((suspended?(&1) or FinanceWorld.rate(state, &1) == 1600) and
             active(state, &1["id"]) == nil)
       )
       |> Enum.sort_by(& &1["id"])
@@ -184,10 +185,11 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
         %{
           "id" => a["id"],
           "name" => invitee_name(state, a),
-          "limit" => Finance.credit_limit(state, a),
+          "limit" => FinanceWorld.credit_limit(state, a),
           "minimum" => @minimum_pledge,
-          "maximum" => min(Finance.credit_limit(state, a), max(0, cash)),
-          "enabled" => eligible and min(Finance.credit_limit(state, a), cash) >= @minimum_pledge
+          "maximum" => min(FinanceWorld.credit_limit(state, a), max(0, cash)),
+          "enabled" =>
+            eligible and min(FinanceWorld.credit_limit(state, a), cash) >= @minimum_pledge
         }
       end)
 

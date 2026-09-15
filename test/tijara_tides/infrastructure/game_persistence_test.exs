@@ -1673,7 +1673,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     loss =
       before_loss
-      |> TijaraTides.Domain.CompanyFinance.post(company, "test_loss", [
+      |> TijaraTides.Domain.CompanyFinanceWorld.post(company, "test_loss", [
         {"crew_expense", cash},
         {"cash_available", -cash}
       ])

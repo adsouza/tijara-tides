@@ -1,18 +1,21 @@
 defmodule TijaraTides.Domain.LoanActionsTest do
-  use ExUnit.Case, async: true
   alias TijaraTides.Domain.CompanyFinance
+  use ExUnit.Case, async: true
 
-  defp company, do: %{"cash" => 20_000, "reserved" => 1000, "unpaid" => 0, "bankruptcy_ms" => nil}
+  defp company,
+    do: %CompanyFinance{id: "c", cash: 20_000, reserved: 1000, unpaid: 0, profit: 0}
 
-  defp loan,
-    do: %{
-      "status" => "open",
-      "remaining" => 10_000,
-      "interest_accrued" => 123,
-      "interest_due" => 0,
-      "principal_due" => 0,
-      "periods_left" => 4
-    }
+  defp loan do
+    {:ok, finance, _, _} =
+      CompanyFinance.loan_transition(
+        %{company() | account_id: "a"},
+        "a",
+        {:borrow, 10_000, "loan", %{suspended: false, available: 10_000, rate_bps: 800}},
+        0
+      )
+
+    %{hd(finance.loans) | interest_accrued: 123}
+  end
 
   test "repayment uses exact payoff while recast preserves interest plus a dollar of principal" do
     actions = CompanyFinance.loan_actions(company(), loan())
@@ -22,31 +25,37 @@ defmodule TijaraTides.Domain.LoanActionsTest do
     assert actions["recast_max"] == 10_123
     assert actions["recast_enabled"]
 
-    assert CompanyFinance.loan_actions(%{company() | "cash" => 11_122}, loan())["repay_enabled"] ==
+    assert CompanyFinance.loan_actions(%{company() | cash: 11_122}, loan())[
+             "repay_enabled"
+           ] ==
              false
 
-    assert CompanyFinance.loan_actions(%{company() | "cash" => 11_123}, loan())["repay_enabled"]
+    assert CompanyFinance.loan_actions(%{company() | cash: 11_123}, loan())[
+             "repay_enabled"
+           ]
   end
 
   test "cash reservations and arrears consistently bound eligibility" do
     for free <- [222, 223, 224] do
-      actions = CompanyFinance.loan_actions(%{company() | "cash" => free + 1000}, loan())
+      actions = CompanyFinance.loan_actions(%{company() | cash: free + 1000}, loan())
       assert actions["recast_max"] == free
       assert actions["recast_enabled"] == free >= 223
     end
 
     for blocked <- [
-          %{loan() | "principal_due" => 1},
-          %{loan() | "interest_due" => 1},
-          %{loan() | "periods_left" => 0},
-          %{loan() | "status" => "repaid"}
+          %{loan() | principal_due: 1},
+          %{loan() | interest_due: 1},
+          %{loan() | periods_left: 0},
+          %{loan() | status: "repaid"}
         ] do
       refute CompanyFinance.loan_actions(company(), blocked)["recast_allowed"]
     end
 
-    refute CompanyFinance.loan_actions(%{company() | "unpaid" => 1}, loan())["recast_allowed"]
+    refute CompanyFinance.loan_actions(%{company() | unpaid: 1}, loan())[
+             "recast_allowed"
+           ]
 
-    refute CompanyFinance.loan_actions(%{company() | "bankruptcy_ms" => 0}, loan())[
+    refute CompanyFinance.loan_actions(%{company() | bankruptcy_ms: 0}, loan())[
              "repay_enabled"
            ]
   end

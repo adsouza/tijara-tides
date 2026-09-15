@@ -23,6 +23,7 @@ defmodule TijaraTides.Domain do
       Ship,
       ShipWorld,
       CompanyFinance,
+      CompanyFinanceWorld,
       Services.FinancialSettlement,
       Services.Bankruptcy,
       Services.Credit,

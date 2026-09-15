@@ -1,7 +1,8 @@
 defmodule TijaraTides.Domain.Fleet do
+  alias TijaraTides.Domain.CompanyFinanceWorld
+
   @moduledoc "Ship definitions, capacity, departure funding, voyages, and operating-cost settlement."
   import TijaraTides.Domain.State
-  alias TijaraTides.Domain.CompanyFinance
   @voyage_speedup 600
   @minimum_voyage_ms 6_000
 
@@ -51,7 +52,7 @@ defmodule TijaraTides.Domain.Fleet do
         state =
           state
           |> TijaraTides.Domain.ShipWorld.retire(id)
-          |> CompanyFinance.post(
+          |> CompanyFinanceWorld.post(
             company["id"],
             "ship_sale",
             [
@@ -125,7 +126,7 @@ defmodule TijaraTides.Domain.Fleet do
         state =
           state
           |> TijaraTides.Domain.ShipWorld.commission(ship)
-          |> CompanyFinance.post(
+          |> CompanyFinanceWorld.post(
             company["id"],
             "ship_purchase",
             [{"fleet", class["price"]}, {"cash_available", -class["price"]}],
@@ -231,7 +232,7 @@ defmodule TijaraTides.Domain.Fleet do
         state = TijaraTides.Domain.ShipWorld.reroute(state, id, destination, quote, paid)
 
         state =
-          CompanyFinance.post(
+          CompanyFinanceWorld.post(
             state,
             company["id"],
             "reroute",
@@ -265,7 +266,7 @@ defmodule TijaraTides.Domain.Fleet do
       ship = get(state, "ships", id)
 
       state =
-        CompanyFinance.post(
+        CompanyFinanceWorld.post(
           state,
           owner,
           "departure",
@@ -377,7 +378,7 @@ defmodule TijaraTides.Domain.Fleet do
         end
 
       state
-      |> CompanyFinance.ship_operations(company["id"], id, effects)
+      |> CompanyFinanceWorld.ship_operations(company["id"], id, effects)
     end)
   end
 end

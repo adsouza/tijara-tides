@@ -1,7 +1,8 @@
 defmodule TijaraTides.Domain.Services.FinancialSettlement do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   @moduledoc "Coordinate owned financial transitions, receivership and guarantee release."
-  alias TijaraTides.Domain.{CompanyFinance, State}
-  alias TijaraTides.Domain.CompanyFinance.Guarantees
+  alias TijaraTides.Domain.{State}
+  alias TijaraTides.Domain.CompanyFinanceWorld.Guarantees
   alias TijaraTides.Domain.Services.Bankruptcy
 
   def settle(state, company_ids \\ :all) do
@@ -19,7 +20,7 @@ defmodule TijaraTides.Domain.Services.FinancialSettlement do
             state
 
           _ ->
-            {state, effects} = CompanyFinance.settle_owned(state, id)
+            {state, effects} = CompanyFinanceWorld.settle_owned(state, id)
             if effects.receivership, do: foreclose(state, id), else: state
         end
       end)

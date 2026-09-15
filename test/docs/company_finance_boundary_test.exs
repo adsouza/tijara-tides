@@ -7,8 +7,8 @@ defmodule TijaraTides.CompanyFinanceBoundaryTest do
 
     for file <- files,
         not String.ends_with?(file, "/state.ex") and
-          not String.contains?(file, "/company_finance/") and
-          not String.ends_with?(file, "/company_finance.ex") do
+          not String.contains?(file, "/company_finance_world/") and
+          not String.ends_with?(file, "/company_finance_world.ex") do
       {_ast, calls} =
         file
         |> File.read!()
@@ -32,6 +32,38 @@ defmodule TijaraTides.CompanyFinanceBoundaryTest do
 
       assert Enum.filter(calls, &(&1 in owned)) == [],
              "#{file} bypasses the CompanyFinance aggregate"
+    end
+  end
+
+  test "financial transitions cannot use world state, indexes or row codecs" do
+    for file <-
+          ~w(lib/tijara_tides/domain/company_finance.ex lib/tijara_tides/domain/company_finance/transition.ex lib/tijara_tides/domain/company_finance/loan_actions.ex) do
+      ast = file |> File.read!() |> Code.string_to_quoted!()
+
+      Macro.prewalk(ast, fn
+        {:__aliases__, _, parts} = node ->
+          refute Enum.any?(
+                   parts,
+                   &(&1 in [
+                       :State,
+                       :ReadState,
+                       :EntityIndex,
+                       :ChangeSet,
+                       :Rows,
+                       :CompanyFinanceWorld,
+                       :Notices
+                     ])
+                 )
+
+          node
+
+        {{:., _, [_module, function]}, _, _} = node when function in [:from_row, :to_row] ->
+          flunk("#{file} round-trips typed finance through rows")
+          node
+
+        node ->
+          node
+      end)
     end
   end
 end

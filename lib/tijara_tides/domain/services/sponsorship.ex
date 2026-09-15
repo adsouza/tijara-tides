@@ -2,7 +2,7 @@ defmodule TijaraTides.Domain.Services.Sponsorship do
   alias TijaraTides.Domain.AccountWorld
   @moduledoc "Coordinate a funded sponsor pledge with beneficiary reinstatement."
   alias TijaraTides.Domain.{State}
-  alias TijaraTides.Domain.CompanyFinance.Guarantees
+  alias TijaraTides.Domain.CompanyFinanceWorld.Guarantees
   alias TijaraTides.Domain.Services.FinancialSettlement
 
   def pledge(state, sponsor, beneficiary, amount, id) do

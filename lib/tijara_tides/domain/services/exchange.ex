@@ -1,11 +1,12 @@
 defmodule TijaraTides.Domain.Services.Exchange do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.Ship.CargoRows
   alias TijaraTides.Domain.PortCargoMarketWorld
   alias TijaraTides.Domain.OrderBookWorld
   @moduledoc "Atomic exchange settlement across order, warehouse, market and finance roots."
   import TijaraTides.Domain.ReadState, only: [get: 3, owned: 4]
-  alias TijaraTides.Domain.{OrderBook, CompanyFinance, Notices}
+  alias TijaraTides.Domain.{OrderBook, Notices}
 
   @max_lots TijaraTides.Domain.CargoRules.max_lots()
   @fill_budget 512
@@ -83,7 +84,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
 
   defp reserve_cash(state, company, n),
     do:
-      CompanyFinance.post(state, company, "exchange_reservation", [
+      CompanyFinanceWorld.post(state, company, "exchange_reservation", [
         {"cash_available", -n},
         {"cash_reserved", n}
       ])
@@ -313,7 +314,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
 
   defp buyer_cash(s, o, n, price),
     do:
-      CompanyFinance.post(s, o.company_id, "exchange_purchase", [
+      CompanyFinanceWorld.post(s, o.company_id, "exchange_purchase", [
         {"cash_reserved", -n * o.price},
         {"cash_available", n * (o.price - price)},
         {"inventory", n * price}
@@ -321,7 +322,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
 
   defp seller_cash(s, o, n, price, cost),
     do:
-      CompanyFinance.post(s, o.company_id, "exchange_sale", [
+      CompanyFinanceWorld.post(s, o.company_id, "exchange_sale", [
         {"inventory", -cost},
         {"cost_of_goods", cost},
         {"sales_revenue", -n * price},

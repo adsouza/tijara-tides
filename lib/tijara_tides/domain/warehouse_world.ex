@@ -1,11 +1,12 @@
 defmodule TijaraTides.Domain.WarehouseWorld do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.PortBerthsWorld
   alias TijaraTides.Domain.Ship.CargoRows
   alias TijaraTides.Domain.ShipWorld
 
   @moduledoc "Finite port storage leases with typed cargo, prepaid rent and preserved lot identity."
   import TijaraTides.Domain.State
-  alias TijaraTides.Domain.{CompanyFinance, CargoRules}
+  alias TijaraTides.Domain.{CargoRules}
   alias TijaraTides.Domain.Warehouse.Claim
   @day 86_400_000
   @terms [1, 3, 7]
@@ -111,7 +112,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
 
         state =
           save(state, w)
-          |> CompanyFinance.post(company["id"], "warehouse_lease", [
+          |> CompanyFinanceWorld.post(company["id"], "warehouse_lease", [
             {"prepaid_rent", price},
             {"cash_available", -price}
           ])
@@ -147,7 +148,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
             Warehouse.release_blocks(w, blocks, state.clock_ms, catalogue)
 
           state =
-            CompanyFinance.post(state, owner, "warehouse_release", [
+            CompanyFinanceWorld.post(state, owner, "warehouse_release", [
               {"prepaid_rent", -forfeited},
               {"cash_available", refund},
               {"rent_expense", forfeited - refund}
@@ -264,7 +265,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
           state =
             save(state, w)
             |> ShipWorld.admit_handling(ship["id"])
-            |> CompanyFinance.post(
+            |> CompanyFinanceWorld.post(
               owner,
               "warehouse_transfer",
               [{"handling_expense", fee}, {"cash_available", -fee}],
@@ -291,7 +292,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   defp accrue(state, w) do
     {w, amount} = Warehouse.accrue(w, state.clock_ms)
 
-    {CompanyFinance.post(state, w.company_id, "warehouse_rent", [
+    {CompanyFinanceWorld.post(state, w.company_id, "warehouse_rent", [
        {"prepaid_rent", -amount},
        {"rent_expense", amount}
      ]), w}
@@ -321,7 +322,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       state =
         if lost > 0,
           do:
-            CompanyFinance.post(state, w.company_id, "warehouse_spoilage", [
+            CompanyFinanceWorld.post(state, w.company_id, "warehouse_spoilage", [
               {"inventory", -lost},
               {"spoilage_expense", lost}
             ]),
@@ -340,7 +341,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         )
         |> clear_reservations(w)
         |> delete("warehouses", w.id)
-        |> CompanyFinance.post(w.company_id, "warehouse_clearance", [
+        |> CompanyFinanceWorld.post(w.company_id, "warehouse_clearance", [
           {"inventory", -cost},
           {"cost_of_goods", cost},
           {"sales_revenue", -value},
@@ -613,7 +614,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     price = w.renewal_rate * days
 
     state =
-      CompanyFinance.post(state, w.company_id, "warehouse_renewal", [
+      CompanyFinanceWorld.post(state, w.company_id, "warehouse_renewal", [
         {"prepaid_rent", price},
         {"cash_available", -price}
       ])
@@ -658,7 +659,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     state =
       if next != w,
         do:
-          CompanyFinance.post(state, w.company_id, "warehouse_rent", [
+          CompanyFinanceWorld.post(state, w.company_id, "warehouse_rent", [
             {"prepaid_rent", -amount},
             {"rent_expense", amount}
           ]),

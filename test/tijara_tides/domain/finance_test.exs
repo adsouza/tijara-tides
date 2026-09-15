@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.FinanceTest do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.AccountWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.Services.{Credit, FinancialSettlement, Bankruptcy, CompanyFormation}
@@ -51,19 +52,21 @@ defmodule TijaraTides.Domain.FinanceTest do
   end
 
   test "borrowing is a liability, not profit, with conservative available credit", c do
-    before = CompanyFinance.summary(c.state, c.account)
+    before = CompanyFinanceWorld.summary(c.state, c.account)
     {:ok, state, _} = loan(c)
 
     assert state.entities["companies"]["company"]["cash"] ==
              c.state.entities["companies"]["company"]["cash"] + 100_000
 
     assert state.entities["companies"]["company"]["profit"] == 0
-    assert CompanyFinance.summary(state, c.account)["available"] == before["available"] - 100_000
+
+    assert CompanyFinanceWorld.summary(state, c.account)["available"] ==
+             before["available"] - 100_000
 
     assert [%{entries: [{"cash_available", 100_000}, {"loan_principal", -100_000}]}] =
              state.journal
 
-    assert length(hd(CompanyFinance.summary(state, c.account)["loans"])["schedule"]) == 4
+    assert length(hd(CompanyFinanceWorld.summary(state, c.account)["loans"])["schedule"]) == 4
   end
 
   test "invalid loans and excessive credit cannot move money", c do
@@ -78,7 +81,7 @@ defmodule TijaraTides.Domain.FinanceTest do
              Credit.borrow(
                c.state,
                c.account,
-               CompanyFinance.summary(c.state, c.account)["available"] + 1,
+               CompanyFinanceWorld.summary(c.state, c.account)["available"] + 1,
                "x"
              )
 
@@ -107,7 +110,7 @@ defmodule TijaraTides.Domain.FinanceTest do
     state = Enum.reduce(2..4, state, fn n, s -> tick(s, n * period) end)
     assert state.entities["loans"]["loan"]["status"] == "repaid"
     assert state.entities["companies"]["company"]["profit"] == -20_000
-    assert CompanyFinance.summary(state, c.account)["debt"] == 0
+    assert CompanyFinanceWorld.summary(state, c.account)["debt"] == 0
   end
 
   test "recast pays accrued interest and reduces installments without extending maturity", c do
@@ -137,7 +140,7 @@ defmodule TijaraTides.Domain.FinanceTest do
              }
            ] = state.journal
 
-    assert hd(CompanyFinance.summary(state, c.account)["loans"])["schedule"]
+    assert hd(CompanyFinanceWorld.summary(state, c.account)["loans"])["schedule"]
            |> hd()
            |> Map.fetch!("interest") == 2_000
 
@@ -179,7 +182,7 @@ defmodule TijaraTides.Domain.FinanceTest do
   end
 
   test "early repayment waives future interest and cannot farm credit increases", c do
-    limit = CompanyFinance.summary(c.state, c.account)["limit"]
+    limit = CompanyFinanceWorld.summary(c.state, c.account)["limit"]
     {:ok, state, _} = loan(c)
 
     assert {:error, :loan_not_owned} =
@@ -189,7 +192,7 @@ defmodule TijaraTides.Domain.FinanceTest do
       Credit.repay(state, c.account, "loan")
 
     assert state.entities["companies"]["company"]["profit"] == 0
-    assert CompanyFinance.summary(state, c.account)["limit"] == limit
+    assert CompanyFinanceWorld.summary(state, c.account)["limit"] == limit
 
     assert {:ok, _, %{"repaid" => 0}} =
              Credit.repay(state, c.account, "loan")
@@ -213,11 +216,13 @@ defmodule TijaraTides.Domain.FinanceTest do
     assert loan["interest_accrued"] == 4000
     assert loan["interest_due"] == 0
 
-    assert hd(hd(CompanyFinance.summary(halfway, c.account)["loans"])["schedule"])["interest"] ==
+    assert hd(hd(CompanyFinanceWorld.summary(halfway, c.account)["loans"])["schedule"])[
+             "interest"
+           ] ==
              8000
 
-    assert CompanyFinance.summary(halfway, c.account)["arrears"] == 0
-    assert CompanyFinance.summary(halfway, c.account)["deadline"] == nil
+    assert CompanyFinanceWorld.summary(halfway, c.account)["arrears"] == 0
+    assert CompanyFinanceWorld.summary(halfway, c.account)["deadline"] == nil
     assert FinancialSettlement.settle(halfway) == halfway
 
     assert {:ok, repaid, %{"repaid" => 104_000}} =
@@ -244,22 +249,22 @@ defmodule TijaraTides.Domain.FinanceTest do
     period = CompanyFinance.terms().period_ms
     waiting = tick(state, period)
     assert waiting.entities["companies"]["company"]["cash"] == cash
-    assert CompanyFinance.summary(waiting, c.account)["available"] == 0
+    assert CompanyFinanceWorld.summary(waiting, c.account)["available"] == 0
     assert FinancialSettlement.settle(waiting) == waiting
-    deadline = CompanyFinance.summary(waiting, c.account)["deadline"]
+    deadline = CompanyFinanceWorld.summary(waiting, c.account)["deadline"]
 
     partial =
       put_in(waiting, [:entities, "companies", "company", "reserved"], cash - 500)
       |> FinancialSettlement.settle()
 
     assert partial.entities["loans"]["loan"]["interest_due"] == 7500
-    assert CompanyFinance.summary(partial, c.account)["deadline"] == deadline
+    assert CompanyFinanceWorld.summary(partial, c.account)["deadline"] == deadline
 
     recovered =
       put_in(partial, [:entities, "companies", "company", "reserved"], 0)
       |> FinancialSettlement.settle()
 
-    assert CompanyFinance.summary(recovered, c.account)["deadline"] == nil
+    assert CompanyFinanceWorld.summary(recovered, c.account)["deadline"] == nil
   end
 
   test "operating bills and installments compete oldest due first", c do
@@ -270,8 +275,8 @@ defmodule TijaraTides.Domain.FinanceTest do
       state
       |> put_in([:entities, "companies", "company", "unpaid"], 2000)
       |> put_in([:entities, "companies", "company", "cash"], 1500)
-      |> CompanyFinance.operating_bill("company", 1000, period - 1)
-      |> CompanyFinance.operating_bill("company", 1000, period + 1)
+      |> CompanyFinanceWorld.operating_bill("company", 1000, period - 1)
+      |> CompanyFinanceWorld.operating_bill("company", 1000, period + 1)
 
     state = tick(state, period + 1)
     assert state.entities["companies"]["company"]["unpaid"] == 1000
@@ -320,7 +325,7 @@ defmodule TijaraTides.Domain.FinanceTest do
         state.clock_ms + 1_200_000
       )
 
-    assert CompanyFinance.restart_at(state, account) == state.clock_ms + 180_000
+    assert CompanyFinanceWorld.restart_at(state, account) == state.clock_ms + 180_000
     state = %{state | clock_ms: state.clock_ms + 180_000}
 
     {:ok, new, _} =
@@ -378,16 +383,16 @@ defmodule TijaraTides.Domain.FinanceTest do
 
     {:ok, state, _} = loan(c)
     state = put_in(state, [:entities, "companies", "company", "cash"], 100_000)
-    refute CompanyFinance.can_declare_bankruptcy?(state, c.account)
+    refute CompanyFinanceWorld.can_declare_bankruptcy?(state, c.account)
 
     assert {:error, :bankruptcy_cash_covers_debts} =
              Bankruptcy.bankrupt(state, c.account)
 
     reserved = put_in(state, [:entities, "companies", "company", "reserved"], 1)
-    assert CompanyFinance.can_declare_bankruptcy?(reserved, c.account)
+    assert CompanyFinanceWorld.can_declare_bankruptcy?(reserved, c.account)
     assert {:ok, _, _} = Bankruptcy.bankrupt(reserved, c.account)
     accrued = tick(state, div(CompanyFinance.terms().period_ms, 2))
-    assert CompanyFinance.can_declare_bankruptcy?(accrued, c.account)
+    assert CompanyFinanceWorld.can_declare_bankruptcy?(accrued, c.account)
   end
 
   test "counted bankruptcies age out and credit limits recover", c do
@@ -400,11 +405,11 @@ defmodule TijaraTides.Domain.FinanceTest do
 
     {:ok, state, _} = Bankruptcy.bankrupt(troubled, c.account)
     a = state.entities["accounts"]["account"]
-    assert CompanyFinance.counted(state, a) == 1
-    assert CompanyFinance.summary(state, a)["limit"] == 12_500_000
+    assert CompanyFinanceWorld.counted(state, a) == 1
+    assert CompanyFinanceWorld.summary(state, a)["limit"] == 12_500_000
     restored = %{state | clock_ms: state.clock_ms + CompanyFinance.terms().history_ms}
-    assert CompanyFinance.counted(restored, a) == 0
-    assert CompanyFinance.summary(restored, a)["limit"] == 25_000_000
+    assert CompanyFinanceWorld.counted(restored, a) == 0
+    assert CompanyFinanceWorld.summary(restored, a)["limit"] == 25_000_000
     assert a["bankruptcies"] == 1
   end
 
@@ -420,7 +425,9 @@ defmodule TijaraTides.Domain.FinanceTest do
       # The lookup narrows to the loans finance still acts on. The loan itself stays:
       # the journal is the audit record, but history must not be walked per command.
       assert ["second"] == open_ids(state)
-      assert ["loan", "second"] == Enum.map(CompanyFinance.loans(state, "company"), & &1["id"])
+
+      assert ["loan", "second"] ==
+               Enum.map(CompanyFinanceWorld.loans(state, "company"), & &1["id"])
     end
 
     test "the finance view carries open loans only, and its totals are unchanged", c do
@@ -428,7 +435,7 @@ defmodule TijaraTides.Domain.FinanceTest do
       {:ok, state, _} = Credit.borrow(state, c.account, 250_000, "second")
       {:ok, state, _} = Credit.repay(state, c.account, "loan")
 
-      summary = CompanyFinance.summary(state, Game.get(state, "accounts", "account"))
+      summary = CompanyFinanceWorld.summary(state, Game.get(state, "accounts", "account"))
 
       assert ["second"] == Enum.map(summary["loans"], & &1["id"])
 

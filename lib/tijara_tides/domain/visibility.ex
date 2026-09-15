@@ -87,7 +87,7 @@ defmodule TijaraTides.Domain.Visibility do
         ),
       "warehouses" =>
         Map.new(owned(state, "warehouses", "company_id", account["company_id"]), &{&1["id"], &1}),
-      "finance" => TijaraTides.Domain.CompanyFinance.summary(state, account),
+      "finance" => TijaraTides.Domain.CompanyFinanceWorld.summary(state, account),
       "guarantees" => TijaraTides.Domain.Guarantees.view(state, account),
       "company" => get(state, "companies", account["company_id"]),
       "ships" =>

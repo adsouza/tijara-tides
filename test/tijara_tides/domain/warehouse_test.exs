@@ -1,8 +1,9 @@
 defmodule TijaraTides.Domain.WarehouseTest do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.ShipWorld
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Game, Warehouse, CompanyFinance, CargoLots}
+  alias TijaraTides.Domain.{Game, Warehouse, CargoLots}
 
   setup do
     catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
@@ -75,7 +76,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
         Warehouse.Rows.encode(%{w | cargo: cargo})
       )
 
-    CompanyFinance.post(state, "company", "purchase", [
+    CompanyFinanceWorld.post(state, "company", "purchase", [
       {"inventory", Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)},
       {"cash_available", -Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)}
     ])
@@ -88,7 +89,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
     state = ShipWorld.load_cargo(state, "company:1", [batch], 0, c.catalogue)
 
     state =
-      CompanyFinance.post(state, "company", "purchase", [
+      CompanyFinanceWorld.post(state, "company", "purchase", [
         {"inventory", 1200},
         {"cash_available", -1200}
       ])
@@ -357,7 +358,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
     state = TijaraTides.Domain.State.put(state, "warehouses", "lease", row)
 
     state =
-      CompanyFinance.post(state, "company", "purchase", [
+      CompanyFinanceWorld.post(state, "company", "purchase", [
         {"inventory", 49_900},
         {"cash_available", -49_900}
       ])

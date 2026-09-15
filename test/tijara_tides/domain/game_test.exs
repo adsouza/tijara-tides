@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.GameTest do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.Game
   alias TijaraTides.Infrastructure.GameCatalogue
@@ -73,7 +74,7 @@ defmodule TijaraTides.Domain.GameTest do
 
   for debt <- [1250, 1_000_000] do
     test "sale settles operating bills once with debt #{debt}" do
-      alias TijaraTides.Domain.{State, CompanyFinance}
+      alias TijaraTides.Domain.{State}
       {state, account, catalogue} = setup_game()
 
       {:ok, state, _} =
@@ -108,13 +109,13 @@ defmodule TijaraTides.Domain.GameTest do
       cash = Game.get(state, "companies", "company")["cash"]
 
       state =
-        CompanyFinance.post(state, "company", "operations", [
+        CompanyFinanceWorld.post(state, "company", "operations", [
           {"cash_available", -cash},
           {"crew_expense", cash}
         ])
 
       state =
-        CompanyFinance.ship_operations(state, "company", ship["id"], %{
+        CompanyFinanceWorld.ship_operations(state, "company", ship["id"], %{
           crew: unquote(debt),
           fuel: 0,
           depreciation: 0,

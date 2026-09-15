@@ -1,10 +1,11 @@
 defmodule TijaraTides.Domain.Services.Auctions do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.Ship.CargoRows
   alias TijaraTides.Domain.PortCargoMarketWorld
   @moduledoc "Atomic luxury-auction scheduling, escrow and second-price settlement."
   import TijaraTides.Domain.ReadState, only: [get: 3]
-  alias TijaraTides.Domain.{CompanyFinance, Notices}
+  alias TijaraTides.Domain.{Notices}
   alias TijaraTides.Domain.AuctionWorld
   alias TijaraTides.Domain.Auction
   alias TijaraTides.Domain.Ship.CargoBatch
@@ -25,7 +26,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
   defp reserve(s, company, n),
     do:
-      CompanyFinance.post(s, company, "auction_escrow", [
+      CompanyFinanceWorld.post(s, company, "auction_escrow", [
         {"cash_available", -n},
         {"cash_reserved", n}
       ])
@@ -340,7 +341,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
           cost = Enum.sum(Enum.map(batches, &(&1.quantity * &1.unit_cost)))
 
           s =
-            CompanyFinance.post(s, a.company_id, "auction_sale", [
+            CompanyFinanceWorld.post(s, a.company_id, "auction_sale", [
               {"inventory", -cost},
               {"cost_of_goods", cost},
               {"sales_revenue", -price},
@@ -368,7 +369,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
           s
           |> WarehouseWorld.exchange_in(bid_claim(a, winner), cargo, a.quantity)
-          |> CompanyFinance.post(winner.company_id, "auction_purchase", [
+          |> CompanyFinanceWorld.post(winner.company_id, "auction_purchase", [
             {"cash_reserved", -winner.amount},
             {"cash_available", winner.amount - price},
             {"inventory", price}

@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.GuaranteesTest do
+  alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.AccountWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.Services.{Credit, CompanyFormation}
@@ -62,11 +63,11 @@ defmodule TijaraTides.Domain.GuaranteesTest do
       state =
         put_in(c.state, [:entities, "bankruptcy_events"], if(count == 0, do: %{}, else: events))
 
-      assert CompanyFinance.rate(state, c.beneficiary) == rate
+      assert CompanyFinanceWorld.rate(state, c.beneficiary) == rate
     end
 
     aged = %{c.state | clock_ms: CompanyFinance.terms().history_ms}
-    assert CompanyFinance.rate(aged, c.beneficiary) == 800
+    assert CompanyFinanceWorld.rate(aged, c.beneficiary) == 800
     assert Guarantees.suspended?(Game.get(aged, "accounts", "beneficiary"))
 
     assert {:error, :account_suspended} =
@@ -151,7 +152,7 @@ defmodule TijaraTides.Domain.GuaranteesTest do
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, ["sponsor-company"])
     assert Guarantees.active(state, "beneficiary") == nil
     assert Game.get(state, "companies", "sponsor-company")["cash"] == 8_000_000
-    assert CompanyFinance.summary(state, beneficiary)["available"] == 0
+    assert CompanyFinanceWorld.summary(state, beneficiary)["available"] == 0
   end
 
   test "settlement caps sponsor losses and refunds excess even to a bankrupt sponsor", c do

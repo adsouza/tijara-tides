@@ -325,7 +325,7 @@ Fleet and Trading coordinate financial settlement with Ship transitions inside
 the existing atomic world transaction. `ship_operations` pays crew from free
 cash, consumes fuel reservations and records unpaid operating bills. Loan and
 company receivership rules reside in the root; guarantee coordination resides
-in `CompanyFinance.Guarantees`. A guarantee belongs to its sponsoring company's
+in `CompanyFinanceWorld.Guarantees`. A guarantee belongs to its sponsoring company's
 finances and references the beneficiary; it is not embedded in two aggregates.
 `Finance` and `Guarantees` remain compatibility entry points.
 
@@ -868,3 +868,24 @@ Wall-clock session expiry remains distinct from world-clock invitation expiry.
 Cache compaction still evicts rather than deletes durable history, read-through
 restoration remains non-mutating, and all accepted identity and lifecycle writes
 remain in the existing atomic world transaction.
+
+
+## CompanyFinance root migration
+
+CompanyFinance executes loans, interest accrual, ordered bill settlement and
+receivership on typed balances and children. Its Transition context holds only
+one financial root, clock and explicit effects; it does not construct a world,
+build an EntityIndex, invoke State or round-trip children through row codecs.
+Fractional interest carry, oldest-bill ordering, reservations and integer-balanced
+journal entries retain their existing rules.
+
+CompanyFinanceWorld loads current balances, open loans and explicitly addressed
+settled loans. It encodes declared child writes, checks ownership and posts journal
+events and notices within the shared world transaction. Omitted history never
+implies deletion; a named repaid loan remains available for idempotent repayment.
+Receivership explicitly loads all affected loan history before closing it.
+
+Cross-account credit facts, projections and sponsor guarantee workflows remain
+in CompanyFinanceWorld and CompanyFinanceWorld.Guarantees. CompanyFinance.Rows
+encodes the unchanged company schema; existing child codecs stay at the adapter
+boundary. No database or transaction-boundary migration is involved.
