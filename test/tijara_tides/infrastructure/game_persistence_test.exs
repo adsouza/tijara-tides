@@ -1,4 +1,5 @@
 defmodule TijaraTides.Infrastructure.GamePersistenceTest do
+  alias TijaraTides.Domain.AccountWorld
   use ExUnit.Case, async: false
   @moduletag :game_database
   alias TijaraTides.Infrastructure.GameServer
@@ -829,7 +830,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       session = %{state.game.entities["sessions"][session_id] | "expires_at" => expiry}
 
       game =
-        TijaraTides.Domain.Account.restore_history(state.game, "sessions", session_id, session)
+        TijaraTides.Domain.AccountWorld.restore_history(
+          state.game,
+          "sessions",
+          session_id,
+          session
+        )
 
       %{state | game: game, wall_clock: clock}
     end)
@@ -882,7 +888,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
   end
 
   test "identity history is evicted from cache but remains replayable after restart" do
-    alias TijaraTides.Domain.{Account, ReadState}
+    alias TijaraTides.Domain.{ReadState}
     alias TijaraTides.UseCases.LifecycleCommands
     alias TijaraTides.Infrastructure.Persistence.CommandStore
 
@@ -925,7 +931,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              Repo.query!("SELECT count(*) FROM game_invitations WHERE world_id=$1", [world]).rows
 
     now = 7_200_000
-    compact = Account.compact_history(requested.game, now)
+    compact = AccountWorld.compact_history(requested.game, now)
     refute ReadState.get(compact, "invitations", "invitation")
     refute ReadState.get(compact, "email_requests", "request")
     assert compact.changes == %{}

@@ -367,7 +367,7 @@ make aggregates separate processes or independently committed units.
 `Account` owns account identity, company association, device sessions, invitation
 quota and lifecycle, verified email credentials, bankruptcy history, suspension
 and reinstatement. Its typed root exposes current state and owned children via
-`from_world`. `Account.EmailIdentity` handles credential requests, redemption and
+`from_world`. `AccountWorld.EmailIdentity` handles credential requests, redemption and
 delivery state; transport, hashing and sending mail stay outside the domain.
 `Accounts` and `EmailIdentity` remain compatibility facades.
 
@@ -847,3 +847,24 @@ input representation; this separation does not change berth rules or storage.
 Loading all ports still groups the fleet in one pass, and immediate admission
 still avoids sorting the queue. ShipWorld records the resulting ship transitions
 inside the existing atomic world transaction.
+
+
+## Account root migration
+
+Account lifecycle rules now operate on typed accounts and bankruptcy events with
+explicit time and admission facts. Quota changes, company attachment, suspension,
+reinstatement, verified email changes and locale selection do not read world
+state or encode rows. Account.Rows preserves the locale fallback and existing
+account schema; Account.BankruptcyRows preserves closure and guarantee history.
+
+AccountWorld supplies current company, session, email-collision and sponsor facts,
+records named transitions, and coordinates notices. Invitation redemption,
+authentication and identity-history cache management remain in that adapter;
+email credential workflows live in AccountWorld.EmailIdentity, while address
+normalization remains a pure Account.EmailIdentity rule. Session and email
+workflow snapshots retain their current row representation in this pass.
+
+Wall-clock session expiry remains distinct from world-clock invitation expiry.
+Cache compaction still evicts rather than deletes durable history, read-through
+restoration remains non-mutating, and all accepted identity and lifecycle writes
+remain in the existing atomic world transaction.

@@ -17,6 +17,7 @@ defmodule TijaraTides.Domain do
       Journal,
       Reporting,
       Account,
+      AccountWorld,
       EmailIdentity,
       Commands,
       Ship,

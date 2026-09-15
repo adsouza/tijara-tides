@@ -7,7 +7,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Guarantees do
   @minimum_pledge 5_000_000
   def minimum_pledge, do: @minimum_pledge
 
-  defdelegate suspended?(account), to: TijaraTides.Domain.Account
+  defdelegate suspended?(account), to: TijaraTides.Domain.AccountWorld
 
   def sponsor_eligible?(state, sponsor) do
     company = get(state, "companies", sponsor["company_id"])

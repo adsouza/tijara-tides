@@ -75,7 +75,7 @@ defmodule TijaraTides.Infrastructure.Persistence.CommandStore do
                field
              ) do
           nil -> game
-          {id, row} -> TijaraTides.Domain.Account.restore_history(game, kind, id, row)
+          {id, row} -> TijaraTides.Domain.AccountWorld.restore_history(game, kind, id, row)
         end
       end
     end)

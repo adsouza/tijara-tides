@@ -1,8 +1,8 @@
 defmodule TijaraTides.Domain.Services.CompanyFormation do
+  alias TijaraTides.Domain.AccountWorld
   @moduledoc "Atomic formation across account membership and company finances."
   import TijaraTides.Domain.State, only: [get: 3, entities: 2]
   import TijaraTides.Domain.Notices, only: [notice: 4]
-  alias TijaraTides.Domain.Account
   alias TijaraTides.Domain.CompanyFinance, as: Finance
 
   def create_company(state, account, name, context) do
@@ -10,13 +10,13 @@ defmodule TijaraTides.Domain.Services.CompanyFormation do
     name = if is_binary(name), do: String.trim(name), else: ""
 
     cond do
-      Account.suspended?(get(state, "accounts", account["id"])) ->
+      AccountWorld.suspended?(get(state, "accounts", account["id"])) ->
         {:error, :account_suspended}
 
       account["company_id"] != nil ->
         {:error, :company_exists}
 
-      Account.restart_at(state, account) > state.clock_ms ->
+      AccountWorld.restart_at(state, account) > state.clock_ms ->
         {:error, :bankruptcy_cooldown}
 
       name == "" or String.length(name) > 60 ->
@@ -48,7 +48,7 @@ defmodule TijaraTides.Domain.Services.CompanyFormation do
         state =
           state
           |> Finance.open(company)
-          |> Account.attach_company(account["id"], id)
+          |> AccountWorld.attach_company(account["id"], id)
 
         state =
           notice(

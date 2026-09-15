@@ -1,7 +1,8 @@
 defmodule TijaraTides.Domain.Simulation do
+  alias TijaraTides.Domain.AccountWorld
   alias TijaraTides.Domain.PortCargoMarketWorld
   @moduledoc "World-clock choreography; every phase belongs to its domain and commits together."
-  alias TijaraTides.Domain.{Account, Fleet, Notices}
+  alias TijaraTides.Domain.{Fleet, Notices}
 
   def initialize(state, catalogue),
     do:
@@ -22,6 +23,6 @@ defmodule TijaraTides.Domain.Simulation do
     |> TijaraTides.Domain.Services.BerthAllocation.advance(catalogue)
     |> TijaraTides.Domain.Services.AutomatedVisits.advance(catalogue)
     |> TijaraTides.Domain.Services.BerthAllocation.release_idle(catalogue)
-    |> Account.expire_invitations()
+    |> AccountWorld.expire_invitations()
   end
 end

@@ -1,13 +1,16 @@
 defmodule TijaraTides.Domain.GuaranteesTest do
+  alias TijaraTides.Domain.AccountWorld
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.Services.{Credit, CompanyFormation}
-  alias TijaraTides.Domain.{Account, CompanyFinance, Game, Guarantees, Journal}
+  alias TijaraTides.Domain.{CompanyFinance, Game, Guarantees, Journal}
 
   setup do
     catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
     state = Game.initialize(%{entities: %{}, clock_ms: 0, epoch: 1, revision: 0}, catalogue)
-    {:ok, state, _} = Account.seed_invite(state, "invite")
-    {:ok, state, _} = Account.redeem(state, "invite", "session", %{id: "sponsor", wall_ms: 0})
+    {:ok, state, _} = AccountWorld.seed_invite(state, "invite")
+
+    {:ok, state, _} =
+      AccountWorld.redeem(state, "invite", "session", %{id: "sponsor", wall_ms: 0})
 
     {:ok, state, _} =
       TijaraTides.CompanyFixture.create_company(

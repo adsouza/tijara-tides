@@ -72,7 +72,7 @@ defmodule TijaraTides.UseCases.CommitPreparation do
       |> TijaraTides.Domain.ChangeSet.accepted()
 
     if is_integer(wall_ms),
-      do: TijaraTides.Domain.Account.compact_history(game, wall_ms),
+      do: TijaraTides.Domain.AccountWorld.compact_history(game, wall_ms),
       else: game
   end
 end

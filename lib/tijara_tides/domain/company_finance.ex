@@ -222,9 +222,9 @@ defmodule TijaraTides.Domain.CompanyFinance do
   def credit_limit(state, account),
     do: max(@terms.credit_floor, div(@terms.credit_limit, 1 + counted(state, account)))
 
-  defdelegate history(state, account), to: TijaraTides.Domain.Account
-  defdelegate counted(state, account), to: TijaraTides.Domain.Account
-  defdelegate restart_at(state, account), to: TijaraTides.Domain.Account
+  defdelegate history(state, account), to: TijaraTides.Domain.AccountWorld
+  defdelegate counted(state, account), to: TijaraTides.Domain.AccountWorld
+  defdelegate restart_at(state, account), to: TijaraTides.Domain.AccountWorld
 
   def loans(state, company),
     do:

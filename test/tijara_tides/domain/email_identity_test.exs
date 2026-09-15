@@ -1,11 +1,12 @@
 defmodule TijaraTides.Domain.EmailIdentityTest do
+  alias TijaraTides.Domain.AccountWorld
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Account, EmailIdentity, Game, Visibility}
+  alias TijaraTides.Domain.{EmailIdentity, Game, Visibility}
 
   setup do
     state = %{entities: %{}, clock_ms: 0, epoch: 1, revision: 0}
-    {:ok, state, _} = Account.seed_invite(state, "seed")
-    {:ok, state, _} = Account.redeem(state, "seed", "original", %{id: "sponsor", wall_ms: 0})
+    {:ok, state, _} = AccountWorld.seed_invite(state, "seed")
+    {:ok, state, _} = AccountWorld.redeem(state, "seed", "original", %{id: "sponsor", wall_ms: 0})
     %{state: state, account: Game.get(state, "accounts", "sponsor")}
   end
 
@@ -25,8 +26,8 @@ defmodule TijaraTides.Domain.EmailIdentityTest do
     assert {:error, :email_link_invalid} =
              EmailIdentity.redeem(state, "link-hash", "other", nil, context("retry"))
 
-    assert {:ok, _} = Account.authenticate(state, "original", 100)
-    assert {:ok, _} = Account.authenticate(state, "device", 100)
+    assert {:ok, _} = AccountWorld.authenticate(state, "original", 100)
+    assert {:ok, _} = AccountWorld.authenticate(state, "device", 100)
   end
 
   test "emailed invitation links atomically and cannot be redeemed as an unlinked code", c do
@@ -36,7 +37,7 @@ defmodule TijaraTides.Domain.EmailIdentityTest do
     assert Game.get(state, "accounts", "sponsor")["invite_quota"] == 2
 
     assert {:error, :invalid_invitation} =
-             Account.redeem(state, "invite-hash", "bypass", context("new"))
+             AccountWorld.redeem(state, "invite-hash", "bypass", context("new"))
 
     assert {:error, :email_wrong_account} =
              EmailIdentity.redeem(state, "invite-hash", "device", c.account, context("new"))
@@ -77,7 +78,7 @@ defmodule TijaraTides.Domain.EmailIdentityTest do
     assert {:error, :email_link_invalid} =
              EmailIdentity.redeem(expired, "invite-hash", "device", nil, context("new"))
 
-    expired = Account.expire_invitations(expired)
+    expired = AccountWorld.expire_invitations(expired)
     assert Game.get(expired, "accounts", "sponsor")["invite_quota"] == 3
   end
 
@@ -92,7 +93,7 @@ defmodule TijaraTides.Domain.EmailIdentityTest do
       EmailIdentity.request(state, nil, "login", "old@example.com", context("login"))
 
     {:ok, state, _} = EmailIdentity.redeem(state, "login-hash", "new-device", nil, context("v"))
-    assert {:ok, %{"id" => "sponsor"}} = Account.authenticate(state, "new-device", 100)
+    assert {:ok, %{"id" => "sponsor"}} = AccountWorld.authenticate(state, "new-device", 100)
 
     {:ok, state, _} =
       EmailIdentity.request(state, nil, "login", "old@example.com", context("old-login"))

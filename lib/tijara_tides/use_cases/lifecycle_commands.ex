@@ -1,6 +1,8 @@
 defmodule TijaraTides.UseCases.LifecycleCommands do
+  alias TijaraTides.Domain.AccountWorld
+
   @moduledoc "Identity and simulation workflows with explicit credentials, time and atomic persistence."
-  alias TijaraTides.Domain.{Account, EmailIdentity, Game, ReadState}
+  alias TijaraTides.Domain.{EmailIdentity, Game, ReadState}
   alias TijaraTides.UseCases.{Authentication, CommitExecutor}
 
   def run(game, operation, context, store) do
@@ -37,12 +39,13 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
     end
   end
 
-  defp execute(game, {:seed, hash}, _), do: Account.seed_invite(game, hash)
+  defp execute(game, {:seed, hash}, _), do: AccountWorld.seed_invite(game, hash)
 
   defp execute(game, {:redeem, code, session}, context),
-    do: Account.redeem(game, code, session, context)
+    do: AccountWorld.redeem(game, code, session, context)
 
-  defp execute(game, {:sign_out, session}, _), do: {:ok, Account.sign_out(game, session), %{}}
+  defp execute(game, {:sign_out, session}, _),
+    do: {:ok, AccountWorld.sign_out(game, session), %{}}
 
   defp execute(game, {:advance, elapsed}, context),
     do: {:ok, Game.advance(game, elapsed, context.catalogue), %{}}

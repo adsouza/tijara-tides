@@ -2,7 +2,7 @@ defmodule TijaraTides.Domain.Commands do
   alias TijaraTides.Domain.ShipWorld
 
   @moduledoc "Dispatch validated command shapes to the domain operation that owns their invariants."
-  import TijaraTides.Domain.Account, only: [issue_invite: 3]
+  import TijaraTides.Domain.AccountWorld, only: [issue_invite: 3]
   import TijaraTides.Domain.Services.CompanyFormation, only: [create_company: 4]
   alias TijaraTides.Domain.{Trade}
   import TijaraTides.Domain.Fleet, only: [sail: 6]
@@ -11,7 +11,7 @@ defmodule TijaraTides.Domain.Commands do
     do: execute(state, account, command, Map.put(context, :catalogue, catalogue))
 
   def execute(state, account, %{"action" => "locale", "locale" => locale}, _context),
-    do: TijaraTides.Domain.Account.set_locale(state, account, locale)
+    do: TijaraTides.Domain.AccountWorld.set_locale(state, account, locale)
 
   def execute(state, account, command, context) do
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])

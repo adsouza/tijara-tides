@@ -43,7 +43,7 @@ defmodule TijaraTides.UseCases.AuthenticationTest do
   end
 
   test "email linking reauthenticates after conflict reload", c do
-    revoked = TijaraTides.Domain.Account.sign_out(c.game, "session")
+    revoked = TijaraTides.Domain.AccountWorld.sign_out(c.game, "session")
 
     ops = %{
       commit: fn _, changed, _ ->

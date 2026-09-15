@@ -40,7 +40,7 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
   end
 
   test "conflict reload reauthenticates instead of reusing stale authorization", c do
-    fresh = TijaraTides.Domain.Account.sign_out(c.game, "session")
+    fresh = TijaraTides.Domain.AccountWorld.sign_out(c.game, "session")
 
     ops = %{
       receipt: fn _, _, _ -> :new end,

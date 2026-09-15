@@ -1,6 +1,7 @@
 defmodule TijaraTides.Domain.IdentityHistoryTest do
+  alias TijaraTides.Domain.AccountWorld
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Account, EntityIndex, ReadState}
+  alias TijaraTides.Domain.{EntityIndex, ReadState}
 
   test "compaction retains quota work, delivery work, rate window and ten visible requests" do
     now = 10_000_000
@@ -66,7 +67,7 @@ defmodule TijaraTides.Domain.IdentityHistoryTest do
       }
       |> EntityIndex.rebuild()
 
-    compact = Account.compact_history(game, now)
+    compact = AccountWorld.compact_history(game, now)
     assert Map.keys(compact.entities["sessions"]) == ["live"]
     assert Map.keys(compact.entities["invitations"]) == ["quota"]
     assert map_size(compact.entities["email_requests"]) == 12
@@ -77,7 +78,7 @@ defmodule TijaraTides.Domain.IdentityHistoryTest do
     refute ReadState.get(compact, "email_requests", "boundary")
     assert length(ReadState.owned(compact, "email_requests", "account_id", "a")) == 11
     assert ReadState.owned(compact, "email_requests", "account_id", nil) == [requests["rate"]]
-    restored = Account.restore_history(compact, "email_requests", "r1", requests["r1"])
+    restored = AccountWorld.restore_history(compact, "email_requests", "r1", requests["r1"])
     assert length(ReadState.owned(restored, "email_requests", "account_id", "a")) == 12
     assert Map.get(restored, :changes, %{}) == %{}
   end
