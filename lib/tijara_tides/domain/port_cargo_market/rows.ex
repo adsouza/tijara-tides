@@ -5,6 +5,9 @@ defmodule TijaraTides.Domain.PortCargoMarket.Rows do
   @fields ~w(port good merchant seller buyer stock demand budget batches last_production)a
 
   def decode(row) do
+    unknown = Map.keys(row) -- Enum.map(@fields, &Atom.to_string/1)
+    if unknown != [], do: raise(ArgumentError, "Unknown market fields: #{inspect(unknown)}")
+
     values = Map.new(@fields, &{&1, Map.fetch!(row, Atom.to_string(&1))})
     struct!(PortCargoMarket, %{values | batches: Enum.map(values.batches, &decode_batch/1)})
   end

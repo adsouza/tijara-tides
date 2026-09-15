@@ -1,7 +1,8 @@
 defmodule TijaraTides.Domain.Warehouse do
   @moduledoc "Typed storage, lease accounting and exclusive cargo claims."
   alias TijaraTides.Domain.Ship.CargoBatch
-  alias __MODULE__.{Claim, Reservation, Transition, Lots}
+  alias __MODULE__.{Claim, Reservation, Transition}
+  alias TijaraTides.Domain.CargoLots.Scope, as: Lots
   @day 86_400_000
   @terms [1, 3, 7]
   @storage_classes ["dry", "reefer", "liquid"]

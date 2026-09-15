@@ -137,9 +137,10 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  def capacity(ship, catalogue),
-    do:
-      ship |> TijaraTides.Domain.Ship.Rows.decode() |> TijaraTides.Domain.Ship.capacity(catalogue)
+  def capacity(ship, catalogue) do
+    cargo = Enum.map(ship["cargo"] || [], &TijaraTides.Domain.Ship.CargoRows.coerce/1)
+    TijaraTides.Domain.Ship.capacity(%TijaraTides.Domain.Ship{cargo: cargo}, catalogue)
+  end
 
   def voyage_quote(ship, destination, catalogue) when is_binary(destination) do
     case catalogue["routes"][ship["port"] <> "|" <> destination] do

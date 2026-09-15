@@ -13,7 +13,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   @storage_classes ["dry", "reefer", "liquid"]
   @max_lots CargoRules.max_lots()
   alias TijaraTides.Domain.Warehouse
-  alias TijaraTides.Domain.Warehouse.{Rows, ReservationRows, Lots, Transition}
+  alias TijaraTides.Domain.Warehouse.{Rows, ReservationRows, Transition}
+  alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
   defp load(state, row) do
     w = Rows.decode(row)
@@ -246,7 +247,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
           {state, w} =
             if side == "store" do
               {s, cargo} = ShipWorld.unload_cargo(state, ship["id"], item["id"], n)
-              {s, Warehouse.receive_cargo(w, Enum.map(cargo, &CargoRows.decode/1))}
+              {s, Warehouse.receive_cargo(w, Enum.map(cargo, &CargoRows.coerce/1))}
             else
               {lots, next, cargo} = Warehouse.release_cargo(lots(state), w, item["id"], n)
               s = record_lots(state, lots)
@@ -700,7 +701,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   def exchange_in(state, %Claim{} = order, cargo, n) do
     w = fetch(state, order.warehouse_id)
     transition = Warehouse.consume_order(w, order, n)
-    next = Warehouse.receive_cargo(w, Enum.map(cargo, &CargoRows.decode/1))
+    next = Warehouse.receive_cargo(w, Enum.map(cargo, &CargoRows.coerce/1))
     state |> save(next) |> apply_transition(transition)
   end
 

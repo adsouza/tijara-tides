@@ -6,7 +6,8 @@ defmodule TijaraTides.Domain.Ship do
   """
   alias TijaraTides.Domain.{CargoRules, ShipClass}
 
-  alias __MODULE__.{CargoBatch, Lots}
+  alias __MODULE__.CargoBatch
+  alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
   @fields ~w(voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]

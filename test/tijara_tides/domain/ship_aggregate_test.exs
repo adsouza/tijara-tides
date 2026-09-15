@@ -44,7 +44,7 @@ defmodule TijaraTides.Domain.ShipAggregateTest do
   end
 
   test "sale owns the split, preserves cost and expiry, and rejects invalid quantities" do
-    state = %Ship.Lots{clock_ms: 0}
+    state = %TijaraTides.Domain.CargoLots.Scope{clock_ms: 0}
     {state, batch} = TijaraTides.Domain.CargoLots.create(state, "crude_oil", 4, 90_000)
     batch = Map.merge(batch, %{"good" => "crude_oil", "unit_cost" => 123})
     ship = %{vessel() | cargo: [CargoRows.decode(batch)]}

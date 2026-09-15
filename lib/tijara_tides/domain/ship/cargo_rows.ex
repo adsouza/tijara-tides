@@ -3,7 +3,9 @@ defmodule TijaraTides.Domain.Ship.CargoRows do
   alias TijaraTides.Domain.Ship.CargoBatch
   @fields ~w(good quantity lot_id expires_ms unit_cost)a
 
-  def decode(%CargoBatch{} = batch), do: batch
+  @doc "Accept either representation where a collection's element type is not known."
+  def coerce(%CargoBatch{} = batch), do: batch
+  def coerce(row), do: decode(row)
 
   def decode(row) do
     unknown = Map.keys(row) -- Enum.map(@fields, &Atom.to_string/1)

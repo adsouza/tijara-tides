@@ -4,6 +4,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Transition do
   @children [:loans, :installments, :bills, :pledges]
 
   def new(finance, now), do: %__MODULE__{finance: finance, clock_ms: now}
+  # Callers read the open book; closed loans stay addressable through the adapter.
   def finance(t), do: %{t.finance | loans: Enum.filter(t.finance.loans, &(&1.status == "open"))}
 
   def effects(t),
@@ -38,7 +39,11 @@ defmodule TijaraTides.Domain.CompanyFinance.Transition do
     if get(t, kind, id) == child do
       t
     else
-      children = Enum.reject(Map.fetch!(t.finance, kind), &(&1.id == id)) ++ [child]
+      children =
+        case Enum.split_while(Map.fetch!(t.finance, kind), &(&1.id != id)) do
+          {before, [_stale | rest]} -> before ++ [child | rest]
+          {all, []} -> all ++ [child]
+        end
 
       %{
         t

@@ -13,7 +13,8 @@ defmodule TijaraTides.Domain.AccountAggregateTest do
       "suspended_ms" => nil,
       "email" => nil,
       "invite_quota" => 3,
-      "created_ms" => 0
+      "created_ms" => 0,
+      "locale" => "en"
     }
   end
 

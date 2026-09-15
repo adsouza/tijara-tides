@@ -1,7 +1,8 @@
 defmodule TijaraTides.Domain.ShipWorld do
   @moduledoc "Integrates ship transitions and automation with the shared atomic world."
   alias TijaraTides.Domain.{Ship, State}
-  alias TijaraTides.Domain.Ship.{Rows, CargoRows, Lots}
+  alias TijaraTides.Domain.Ship.{Rows, CargoRows}
+  alias TijaraTides.Domain.CargoLots.Scope, as: Lots
   alias __MODULE__.{RoutePlans, VisitOrders}
 
   def fetch(state, id) do
@@ -81,7 +82,7 @@ defmodule TijaraTides.Domain.ShipWorld do
     next =
       Ship.record_purchase(
         hull(state, id),
-        Enum.map(cargo, &CargoRows.decode/1),
+        Enum.map(cargo, &CargoRows.coerce/1),
         state.clock_ms,
         cleaning,
         catalogue

@@ -53,7 +53,12 @@ defmodule TijaraTides.Domain.AccountWorld do
   end
 
   def fetch(state, id) do
-    account = Rows.decode(get(state, "accounts", id))
+    # An absent account reads as an empty one; the codec no longer decodes a nil row.
+    account =
+      case get(state, "accounts", id) do
+        nil -> %Account{id: id, locale: "en"}
+        row -> Rows.decode(row)
+      end
 
     owned = fn kind, field ->
       TijaraTides.Domain.State.owned(state, kind, field, id)

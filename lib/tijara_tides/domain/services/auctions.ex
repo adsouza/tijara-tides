@@ -360,7 +360,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
               cat["goods"][a.good]
             )
 
-          {s, Enum.map(rows, &CargoRows.decode/1)}
+          {s, Enum.map(rows, &CargoRows.coerce/1)}
         end
 
       s =

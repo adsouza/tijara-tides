@@ -38,7 +38,17 @@ defmodule TijaraTides.Domain.GuaranteesTest do
 
     events =
       Map.new(1..5, fn i ->
-        {"past-#{i}", %{"account_id" => "beneficiary", "created_ms" => 0, "restart_ms" => 0}}
+        {"past-#{i}",
+         %{
+           "id" => "past-#{i}",
+           "company_id" => "past-#{i}",
+           "account_id" => "beneficiary",
+           "created_ms" => 0,
+           "restart_ms" => 0,
+           "reason" => "forced",
+           "guarantee_id" => nil,
+           "guaranteed_debt" => 0
+         }}
       end)
 
     state = put_in(state, [:entities, "bankruptcy_events"], events)
@@ -57,7 +67,17 @@ defmodule TijaraTides.Domain.GuaranteesTest do
           |> Enum.map(fn {r, n} -> {n, r} end) do
       events =
         Map.new(1..max(1, count), fn i ->
-          {i, %{"account_id" => "beneficiary", "created_ms" => 0}}
+          {i,
+           %{
+             "id" => "event-#{i}",
+             "company_id" => "beneficiary-company",
+             "account_id" => "beneficiary",
+             "created_ms" => 0,
+             "restart_ms" => 0,
+             "reason" => "forced",
+             "guarantee_id" => nil,
+             "guaranteed_debt" => 0
+           }}
         end)
 
       state =
