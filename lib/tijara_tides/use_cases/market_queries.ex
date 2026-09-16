@@ -143,14 +143,14 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
         profit =
           if voyage do
+            arrival = view.public["clock_ms"] + voyage["loading_ms"] + voyage["duration_ms"]
+            handling = CargoRules.handling_ms(lots)
+
             unloading_upkeep =
               Enum.sum(
                 Enum.map(fleet, fn s ->
-                  div(
-                    CargoRules.handling_ms(lots) * definitions.classes[s["class"]]["crew"] * 2 +
-                      119_999,
-                    120_000
-                  )
+                  div(handling * definitions.classes[s["class"]]["crew"] * 2 + 119_999, 120_000) +
+                    Fleet.maintenance_estimate(s, arrival, arrival + handling)
                 end)
               )
 

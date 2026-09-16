@@ -3,7 +3,7 @@ defmodule TijaraTides.Domain.Reporting do
   import TijaraTides.Domain.State
   @quarter 7 * 86_400_000
   @assets ~w(prepaid_rent cash_available cash_reserved inventory fleet guarantee_escrow)
-  @expenses ~w(rent_expense cost_of_goods handling_expense cleaning_expense fuel_expense crew_expense spoilage_expense canal_expense interest_expense depreciation_expense ship_disposal_expense guarantee_expense)
+  @expenses ~w(rent_expense cost_of_goods handling_expense cleaning_expense fuel_expense crew_expense maintenance_expense spoilage_expense canal_expense interest_expense depreciation_expense ship_disposal_expense guarantee_expense)
   @fields ~w(revenue cargo_cost operating depreciation)
 
   def duration("quarter"), do: @quarter

@@ -1923,11 +1923,11 @@ refrigeration costs continue. Offline cash shortages do not immediately liquidat
 ships; unpaid operating bills outside warehouse liquidation share the loan
 arrears process in section 12.
 
-The following age-based maintenance curve is a target design rule, deliberately
-deferred in the current playtest. Current crew upkeep has no age multiplier;
-fully depreciated hulls can continue at flat upkeep, so buybacks alone do not
-complete the intended retirement and replacement cash sink. See
-[implementation scope and tuning](IMPLEMENTATION.md).
+The age-based maintenance curve below is implemented with provisional playtest
+rates; see [implementation scope and tuning](IMPLEMENTATION.md). Crew upkeep
+remains separate from maintenance. The implementation includes the published
+replacement crossover and cost projections; long-term fleet turnover still
+requires simulation and playtesting.
 
 Ships carry a maintenance cost that follows a published curve against age. It is
 flat through the ship's useful life and rises steadily afterward, until operating

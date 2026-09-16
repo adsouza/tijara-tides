@@ -15,7 +15,7 @@ defmodule TijaraTides.Domain.CompanyFinance do
           pledges: [Guarantee.t()]
         }
 
-  @expenses ~w(rent_expense cost_of_goods handling_expense cleaning_expense fuel_expense crew_expense spoilage_expense canal_expense interest_expense depreciation_expense ship_disposal_expense guarantee_expense)
+  @expenses ~w(rent_expense cost_of_goods handling_expense cleaning_expense fuel_expense crew_expense maintenance_expense spoilage_expense canal_expense interest_expense depreciation_expense ship_disposal_expense guarantee_expense)
 
   def available(%__MODULE__{} = finance), do: finance.cash - finance.reserved
 

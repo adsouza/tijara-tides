@@ -307,8 +307,8 @@ msgstr "جارٍ الإعلان…"
 msgid "Depart automatically after orders and handling finish"
 msgstr "الإبحار تلقائياً بعد انتهاء الأوامر والمناولة"
 
-msgid "Depreciates over 28 active-world days to 20% of build value."
-msgstr "تنخفض القيمة خلال 28 يوماً من وقت العالم النشط إلى 20% من تكلفة البناء."
+msgid "Depreciates over %{days} active-world days to %{residual}% of build value."
+msgstr "تنخفض القيمة خلال %{days} يوماً من وقت العالم النشط إلى %{residual}% من تكلفة البناء."
 
 msgid "Depreciation"
 msgstr "الإهلاك"
@@ -2411,3 +2411,15 @@ msgstr "الدفعات المحجوزة"
 
 msgid "Leave blank to keep the existing reserve."
 msgstr "اترك الحقل فارغًا للإبقاء على السعر الاحتياطي الحالي."
+
+msgid "Departure reserves fuel and canal fees only. Crew and maintenance accrue as the voyage runs and become unpaid bills if available cash falls short."
+msgstr "لا يحجز الإبحار سوى الوقود ورسوم القنوات. تتراكم تكاليف الطاقم والصيانة أثناء الرحلة وتتحول إلى فواتير غير مدفوعة إذا نقص النقد المتاح."
+
+msgid "Maintenance: next day %{day}; next 7 days %{week}. New hull: %{replacement} per day."
+msgstr "الصيانة: اليوم القادم %{day}؛ الأيام السبعة القادمة %{week}. سفينة جديدة: %{replacement} يوميًا."
+
+msgid "Maintenance is flat for %{days} active-world days, then rises linearly. At age %{crossover} days its rate equals a new hull's maintenance plus depreciation. Crew costs are separate."
+msgstr "تظل الصيانة ثابتة لمدة %{days} يومًا من وقت العالم النشط، ثم ترتفع خطيًا. عند عمر %{crossover} يومًا، يساوي معدلها صيانة سفينة جديدة مضافًا إليها الإهلاك. تكاليف الطاقم منفصلة."
+
+msgid " · estimated maintenance %{cost}"
+msgstr " · الصيانة المقدرة %{cost}"

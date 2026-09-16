@@ -4,7 +4,7 @@ defmodule TijaraTides.UseCases.WorldProjection do
   sessions, receipts, cargo manifests or private accounting. Rebuilt after
   commit; never independently persisted or treated as authoritative write state.
   """
-  alias TijaraTides.Domain.{ReadState, Visibility, Markets}
+  alias TijaraTides.Domain.{Visibility, Markets}
   @enforce_keys [:revision, :public, :markets]
   defstruct [:revision, :public, :markets]
 
@@ -12,10 +12,7 @@ defmodule TijaraTides.UseCases.WorldProjection do
     %__MODULE__{
       revision: game.revision,
       public: Visibility.public(game, catalogue),
-      markets:
-        Map.new(ReadState.entities(game, "markets"), fn {id, market} ->
-          {id, Markets.quote(game, catalogue, market["port"], market["good"])}
-        end)
+      markets: Markets.quotes(game, catalogue)
     }
   end
 end

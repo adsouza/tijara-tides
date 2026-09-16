@@ -11,8 +11,8 @@ authoritative; the provisional tuning and deferred systems below describe the
 current implementation.
 
 Luxury cargo auctions and standing warehouse-backed exchange orders are implemented.
-Procurement and receivership auctions, escalating age-based maintenance and
-player industry remain deferred. Next-port instructions are implemented;
+Procurement and receivership auctions and player industry remain deferred.
+Age-based maintenance is implemented alongside depreciation. Next-port instructions are implemented;
 they execute ship-specific buy/sell actions on arrival rather than placing
 standing orders on a shared exchange.
 
@@ -70,14 +70,20 @@ replacement sooner. It is separate tuning from the 600× voyage speed, not a
 rescaling of all world timers. Existing hulls start aging from the deployment
 clock at their then-current book value; no retrospective depreciation is charged.
 
-Age-based maintenance escalation is deliberately deferred. Current crew upkeep
-is age-independent, with reduced upkeep when docked or waiting and higher upkeep
-while sailing. A hull at residual value can therefore operate indefinitely at
-the same crew rate. Buyback provides voluntary divestment, but the economic
-pressure to retire old hulls and sustain the replacement cash sink is incomplete.
-Before evaluating long-term fleet turnover or money-supply balance, implement
-and tune the published post-useful-life maintenance curve in DESIGN.md §10,
-including the cost crossover against a replacement hull and its UI disclosure.
+Maintenance is a separate operating expense, with crew rates unchanged. Its
+flat base rate costs 20% of the current replacement hull price over 28
+active-world days. After useful life, its rate rises linearly: at 32.2 days
+(15% beyond useful life) maintenance equals a new hull's base maintenance plus
+straight-line depreciation. Older hulls therefore cost more to maintain than
+that replacement benchmark. Charges integrate the curve over elapsed active
+world time using integer cumulative differences, preserving cents across tick
+sizes and reloads; rollout does not charge earlier intervals retroactively.
+Unpaid maintenance follows existing operating-bill arrears rules and cannot
+spend reserved voyage funds. The ship panel shows next-day and next-week costs
+and the new-hull comparison; voyage and purchase-affordability estimates include
+maintenance. Migration `20260923000000_add_ship_maintenance_account.exs` adds its
+separate ledger account, included in operating expenses and profit reports.
+These source-configured rates are provisional tuning, not a fleet-balance verdict.
 
 Manual purchases require a destination with a valid voyage. After paying for
 cargo, handling, and any tanker cleaning, available cash must cover fuel for the
@@ -162,6 +168,16 @@ pauses simulation timers; wall-clock session and magic-link expiry still apply.
 Raw-resource producers replenish finite stock; manufactured goods have a finite
 initial allocation until input-consuming production is implemented. Re-export
 merchants remain unavailable until their warehouse-backed inventory exists.
+Regional catchments use the catalogue's three clusters. Each good's shared
+operating price responds to average eligible supplier stock and buyer demand,
+within 80–120% of its fixed reference value. Local adjustments are capped at
+±2 percentage points, with a one-point quote spread on either side. Every
+executable regional NPC bid is additionally capped against every stocked
+supplier's ask plus both ports' handling fees. This conservative transport
+allowance includes no fuel/upkeep margin, preventing a positive instantaneous
+NPC spread after handling. Quotes recompute from current inventories on every
+read or fill; no cargo, demand, budget or receiving capacity is pooled, and
+player limit prices and published auction commitments remain unchanged.
 Major and minor trade roles currently share the same provisional rate;
 role-weighted production remains part of the full economy. Consumer demand and
 spending budgets replenish and are capped. Supply and demand recover one lot
@@ -203,12 +219,11 @@ emailed token inside the app. Google sign-in remains deferred.
 
 The completed decision groups in DESIGN.md describe agreed product rules, not
 completed implementation. Luxury auctions, manual warehouse transfers and
-repeating routes are already playable; the remaining initial-game work includes:
+repeating routes are already playable.
 
-- **Regional pricing and ship aging (next priorities):** shared catchment prices
-  driven by regional inventory and demand, with jointly bounded executable NPC
-  spreads; and age-based maintenance escalation, replacement-cost crossover,
-  affordability estimates and player-facing projections (§§5, 10).
+Regional catchment pricing and age-based maintenance have now been implemented,
+with launch tuning described in this document. Remaining work includes:
+
 - **Simulated economy:** input-consuming NPC manufacturing, warehouse-backed
   re-export merchants, differentiated production rates, and participation-scaled
   producer output and buyer budgets. Add economic activity weights, money-stock

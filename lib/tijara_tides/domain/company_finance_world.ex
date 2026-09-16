@@ -95,7 +95,9 @@ defmodule TijaraTides.Domain.CompanyFinanceWorld do
   @doc "Settle a ship's operating costs without spending voyage reservations on crew."
   def ship_operations(state, company_id, ship_id, effects) do
     company = get(state, "companies", company_id) |> Rows.decode()
-    paid = min(effects.crew, available(company))
+    maintenance = Map.get(effects, :maintenance, 0)
+    upkeep = effects.crew + maintenance
+    paid = min(upkeep, available(company))
 
     state
     |> post(
@@ -114,14 +116,15 @@ defmodule TijaraTides.Domain.CompanyFinanceWorld do
         {"fuel_expense", effects.fuel},
         {"cash_reserved", -effects.fuel},
         {"crew_expense", effects.crew},
+        {"maintenance_expense", maintenance},
         {"cash_available", -paid},
-        {"payables", -(effects.crew - paid)},
+        {"payables", -(upkeep - paid)},
         {"spoilage_expense", effects.spoilage},
         {"inventory", -effects.spoilage}
       ],
       %{ship: ship_id}
     )
-    |> operating_bill(company_id, effects.crew - paid, state.clock_ms)
+    |> operating_bill(company_id, upkeep - paid, state.clock_ms)
   end
 
   @terms CompanyFinance.terms()

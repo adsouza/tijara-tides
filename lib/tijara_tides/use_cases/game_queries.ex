@@ -65,6 +65,9 @@ defmodule TijaraTides.UseCases.GameQueries do
   defdelegate cargo_options(definitions, view, sort_roi, ship \\ nil),
     to: TijaraTides.UseCases.MarketQueries
 
+  defdelegate ship_maintenance(ship, clock), to: Fleet, as: :maintenance_forecast
+  defdelegate maintenance_curve(), to: Fleet, as: :maintenance_curve
+
   def ship_sale_value(ship, clock), do: Fleet.sale_value(ship, clock)
 
   def preview(game, catalogue, session, wall_ms, id, destination),
@@ -87,7 +90,9 @@ defmodule TijaraTides.UseCases.GameQueries do
         if ship["status"] == "sailing",
           do: Fleet.reroute_quote(ship, destination, game.clock_ms, catalogue),
           else:
-            if(ship["status"] == "docked", do: Fleet.voyage_quote(ship, destination, catalogue))
+            if(ship["status"] == "docked",
+              do: Fleet.voyage_quote(ship, destination, catalogue, game.clock_ms)
+            )
 
       case quote do
         nil ->

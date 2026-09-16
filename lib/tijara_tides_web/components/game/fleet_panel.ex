@@ -244,8 +244,26 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             <p class="text-sm">
               {gettext("Book value: %{value1}", value1: finance_money(ship_value.book))}
               <span class="ml-2 text-xs text-slate-400">{gettext(
-                "Depreciates over 28 active-world days to 20% of build value."
+                "Depreciates over %{days} active-world days to %{residual}% of build value.",
+                days: display_number(GameQueries.maintenance_curve().life_days),
+                residual: display_number(GameQueries.maintenance_curve().residual_percent)
               )}</span>
+            </p>
+            <% maintenance = GameQueries.ship_maintenance(@ship, @view.public["clock_ms"]) %>
+            <p class="text-sm">
+              {gettext(
+                "Maintenance: next day %{day}; next 7 days %{week}. New hull: %{replacement} per day.",
+                day: finance_money(maintenance.next_day),
+                week: finance_money(maintenance.next_week),
+                replacement: finance_money(maintenance.replacement_day)
+              )}
+            </p>
+            <p class="text-xs text-slate-400">
+              {gettext(
+                "Maintenance is flat for %{days} active-world days, then rises linearly. At age %{crossover} days its rate equals a new hull's maintenance plus depreciation. Crew costs are separate.",
+                days: display_number(GameQueries.maintenance_curve().life_days),
+                crossover: display_number(GameQueries.maintenance_curve().crossover_days)
+              )}
             </p>
             <details
               :if={@ship["status"] != "sailing"}
@@ -467,6 +485,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   value3: money(@preview["crew_estimate"]),
                   value4: money(@preview["canal_fees"])
                 )}
+                {gettext(" · estimated maintenance %{cost}",
+                  cost: money(@preview["maintenance_estimate"])
+                )}
               </span><button
                 phx-click="sail"
                 phx-value-request_id={@request_id}
@@ -479,6 +500,11 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 estimates={@preview["freshness"]}
               />
             </div>
+            <p :if={@preview} class="text-xs text-slate-400">
+              {gettext(
+                "Departure reserves fuel and canal fees only. Crew and maintenance accrue as the voyage runs and become unpaid bills if available cash falls short."
+              )}
+            </p>
             <.voyage_freshness
               id={"voyage-freshness-" <> @ship["id"]}
               estimates={@view.private["voyage_freshness"][@ship["id"]]}

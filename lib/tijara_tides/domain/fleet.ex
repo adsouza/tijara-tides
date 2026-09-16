@@ -1,14 +1,20 @@
 defmodule TijaraTides.Domain.Fleet do
   alias TijaraTides.Domain.CompanyFinanceWorld
+  alias TijaraTides.Domain.ShipMaintenance
 
   @moduledoc "Ship definitions, capacity, departure funding, voyages, and operating-cost settlement."
   import TijaraTides.Domain.State
   @voyage_speedup 600
   @minimum_voyage_ms 6_000
 
-  @useful_life_ms 28 * 86_400_000
-  @residual_bps 2000
+  @useful_life_ms ShipMaintenance.useful_life_ms()
+  @residual_bps ShipMaintenance.residual_bps()
   @buyback_bps 9000
+
+  # ShipMaintenance is internal to this boundary; Fleet is what Domain exports.
+  defdelegate maintenance_estimate(ship, from_ms, to_ms), to: ShipMaintenance, as: :estimate
+  defdelegate maintenance_forecast(ship, now), to: ShipMaintenance, as: :forecast
+  defdelegate maintenance_curve(), to: ShipMaintenance, as: :curve
 
   def sale_value(ship, now) do
     basis = ship["build_value"] || ship["book_value"]
@@ -142,19 +148,23 @@ defmodule TijaraTides.Domain.Fleet do
     TijaraTides.Domain.Ship.capacity(%TijaraTides.Domain.Ship{cargo: cargo}, catalogue)
   end
 
-  def voyage_quote(ship, destination, catalogue) when is_binary(destination) do
+  def voyage_quote(ship, destination, catalogue, clock \\ nil)
+
+  def voyage_quote(ship, destination, catalogue, clock) when is_binary(destination) do
     case catalogue["routes"][ship["port"] <> "|" <> destination] do
       nil ->
         nil
 
       route ->
-        route_quote(ship, route, catalogue)
+        route_quote(ship, route, catalogue, clock)
     end
   end
 
-  def voyage_quote(_ship, _destination, _catalogue), do: nil
+  def voyage_quote(_ship, _destination, _catalogue, _clock), do: nil
 
-  defp route_quote(ship, route, catalogue) do
+  defp route_quote(ship, route, catalogue, clock) do
+    aged = clock || ship["last_cost_ms"] || 0
+
     class = classes()[ship["class"]]
     space = capacity(ship, catalogue)
     fuel = route["nautical_miles"] * (8 + div(space.weight * 8, class["weight"]))
@@ -170,6 +180,9 @@ defmodule TijaraTides.Domain.Fleet do
       "canal_fees" => Enum.count(route["passages"], &(&1 in ["panama", "suez"])) * 25_000,
       "duration_ms" => duration,
       "crew_estimate" => div(duration * class["crew"], 60_000),
+      # Age the estimate from the caller's clock. The settlement cursor stands in only
+      # for funding and automation checks, which build synthetic ships and never read it.
+      "maintenance_estimate" => ShipMaintenance.estimate(ship, aged, aged + duration),
       "route" => route
     }
   end
@@ -180,7 +193,7 @@ defmodule TijaraTides.Domain.Fleet do
         nil
 
       route ->
-        quote = route_quote(ship, route, catalogue)
+        quote = route_quote(ship, route, catalogue, clock)
         paid = paid_canals(ship, catalogue)
 
         fees =

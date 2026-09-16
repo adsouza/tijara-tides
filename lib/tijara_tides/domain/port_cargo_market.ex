@@ -9,9 +9,9 @@ defmodule TijaraTides.Domain.PortCargoMarket do
 
   def quote(%__MODULE__{} = market, catalogue) do
     item = catalogue["goods"][market.good]
-    clustered = Enum.any?(catalogue["clusters"], fn {_, ports} -> market.port in ports end)
-    ask_base = if market.merchant or clustered, do: 105, else: 90
-    bid_base = if market.merchant or clustered, do: 95, else: 110
+    # Clustered ports take their ask and bid from RegionalPricing instead.
+    ask_base = if market.merchant, do: 105, else: 90
+    bid_base = if market.merchant, do: 95, else: 110
 
     %{
       "ask" => div(item["reference_cents"] * (ask_base + div(500 - market.stock, 25)), 100),

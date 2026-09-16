@@ -166,6 +166,17 @@ defmodule TijaraTides.Domain.Ship do
 
     crew = if not bankrupt, do: div(crew_numerator, 120_000), else: 0
 
+    maintenance =
+      if not bankrupt,
+        do:
+          TijaraTides.Domain.ShipMaintenance.cost(
+            ship.class,
+            ship.built_ms,
+            ship.last_cost_ms,
+            now
+          ),
+        else: 0
+
     fuel_burned =
       if ship.status == "sailing",
         do:
@@ -210,7 +221,14 @@ defmodule TijaraTides.Domain.Ship do
         visit_plans: aggregate.visit_plans
     }
 
-    {next, %{depreciation: depreciation, fuel: fuel, crew: crew, spoilage: spoilage}}
+    {next,
+     %{
+       depreciation: depreciation,
+       fuel: fuel,
+       crew: crew,
+       maintenance: maintenance,
+       spoilage: spoilage
+     }}
   end
 
   # Older in-flight voyages used 60x. Preserve their progress when tuning changes;

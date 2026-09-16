@@ -110,10 +110,14 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
           numerator =
             (horizon + sailing) * classes()[vessel["class"]]["crew"] + vessel["crew_remainder"]
 
-          total + div(numerator + 119_999, 120_000)
+          total + div(numerator + 119_999, 120_000) +
+            TijaraTides.Domain.ShipMaintenance.estimate(vessel, clock, clock + horizon)
         end)
 
       Map.merge(voyage, %{
+        "loading_ms" => loading,
+        "maintenance_estimate" =>
+          TijaraTides.Domain.ShipMaintenance.estimate(ship, clock + loading, clock + horizon),
         "upkeep" => upkeep,
         "required" => voyage["fuel"] + voyage["canal_fees"] + upkeep
       })

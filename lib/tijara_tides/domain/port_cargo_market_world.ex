@@ -4,6 +4,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
   import TijaraTides.Domain.State, only: [get: 3, entities: 2, put: 4]
   alias TijaraTides.Domain.PortCargoMarket, as: Market
   alias TijaraTides.Domain.PortCargoMarket.{Lots, Rows}
+  alias TijaraTides.Domain.RegionalPricing
 
   def fetch(state, port, good) do
     case get(state, "markets", port <> "|" <> good) do
@@ -56,9 +57,41 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     market = fetch(state, port, good)
 
     if market && catalogue["goods"][good] do
-      Market.quote(market, catalogue)
-      |> Map.update!("freshness_batches", &Enum.map(&1, fn batch -> Rows.encode_batch(batch) end))
+      ports = cluster(catalogue, port)
+      prices = ports && RegionalPricing.prices(cluster_markets(state, ports, good), catalogue)
+      build_quote(market, catalogue, prices && prices[port])
     end
+  end
+
+  @doc "Every quote for one revision, pricing each cluster once per good rather than once per member port."
+  def quotes(state, catalogue) do
+    regional =
+      for {_, ports} <- catalogue["clusters"] || %{},
+          good <- Map.keys(catalogue["goods"]),
+          markets = cluster_markets(state, ports, good),
+          markets != [],
+          {port, prices} <- RegionalPricing.prices(markets, catalogue),
+          into: %{},
+          do: {port <> "|" <> good, prices}
+
+    Map.new(entities(state, "markets"), fn {id, row} ->
+      {id, build_quote(Rows.decode(row), catalogue, regional[id])}
+    end)
+  end
+
+  defp cluster(catalogue, port),
+    do:
+      Enum.find_value(catalogue["clusters"] || %{}, fn {_, ports} ->
+        if port in ports, do: ports
+      end)
+
+  defp cluster_markets(state, ports, good),
+    do: ports |> Enum.map(&fetch(state, &1, good)) |> Enum.reject(&is_nil/1)
+
+  defp build_quote(market, catalogue, prices) do
+    Market.quote(market, catalogue)
+    |> Map.merge(if(prices, do: %{"ask" => prices.ask, "bid" => prices.bid}, else: %{}))
+    |> Map.update!("freshness_batches", &Enum.map(&1, fn batch -> Rows.encode_batch(batch) end))
   end
 
   def initialize(state, catalogue) do

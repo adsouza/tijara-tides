@@ -40,6 +40,67 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "maintenance expense persists, reports as operating cost and resumes without rebilling",
+       c do
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "maintenance-company",
+        %{
+          "action" => "company",
+          "name" => "Maintenance",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    :sys.replace_state(c.server, &%{&1 | active: true})
+    advance(c.server, 86_400_000)
+    before = :sys.get_state(c.server).game
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+
+    assert [[amount]] =
+             Repo.query!(
+               "SELECT sum(balance_cents)::bigint FROM game_ledger_balances WHERE world_id=$1 AND account_code='maintenance_expense'",
+               [c.world_id]
+             ).rows
+
+    assert is_integer(amount) and amount > 0
+
+    assert [[operating]] =
+             Repo.query!(
+               "SELECT sum(operating)::bigint FROM game_financial_reports WHERE world_id=$1 AND period='quarter'",
+               [c.world_id]
+             ).rows
+
+    assert is_integer(operating) and operating >= amount
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
+    assert restored.entities["ships"] == before.entities["ships"]
+    assert restored.entities["companies"] == before.entities["companies"]
+    :sys.replace_state(c.server, &%{&1 | game: restored})
+
+    assert [[^amount]] =
+             Repo.query!(
+               "SELECT sum(balance_cents)::bigint FROM game_ledger_balances WHERE world_id=$1 AND account_code='maintenance_expense'",
+               [c.world_id]
+             ).rows
+
+    advance(c.server, 86_400_000)
+
+    assert [[later]] =
+             Repo.query!(
+               "SELECT sum(balance_cents)::bigint FROM game_ledger_balances WHERE world_id=$1 AND account_code='maintenance_expense'",
+               [c.world_id]
+             ).rows
+
+    assert later > amount
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "luxury acquisition and resale persist bids, escrow, cargo and second-price outcomes", c do
     alias TijaraTides.Domain.Warehouse
     alias TijaraTides.Infrastructure.Persistence.FinancialLedger
@@ -2723,8 +2784,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         {is_nil(roi), -(roi || 0), Enum.find_index(alphabetical, &(&1 == good))}
       end)
 
-    # These untouched markets share the same ROI, so sorting has no useful effect.
-    refute has_element?(view, "#cargo-sort")
+    # Regional quotes make initial opportunities differ even before the first trade.
+    assert has_element?(view, "#cargo-sort")
     render_change(view, "cargo-sort-roi", %{"roi" => "true"})
     assert option_goods.() == expected
     send(view.pid, {:game_changed, 0})
