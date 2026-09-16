@@ -4,7 +4,7 @@ defmodule TijaraTides.Domain.Auction do
 
   @fields ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed)a
   @enforce_keys @fields
-  defstruct @fields ++ [bids: %{}]
+  defstruct @fields ++ [ship_id: nil, bids: %{}]
 
   def schedule(clock, offset, interval, window) do
     true = is_integer(interval) and interval > 0 and is_integer(window) and window > 0
@@ -23,6 +23,15 @@ defmodule TijaraTides.Domain.Auction do
              is_integer(a.closes_ms) and a.closes_ms > a.opens_ms and
              is_binary(a.valuation_seed) and (is_nil(a.company_id) or a.valuation_seed != ""),
            do: raise(ArgumentError, "A new auction requires a future bidding window and no bids")
+
+    unless is_nil(a.ship_id) or
+             (is_binary(a.ship_id) and is_binary(a.company_id) and is_nil(a.warehouse_id) and
+                a.quantity == 1),
+           do:
+             raise(
+               ArgumentError,
+               "Ship auctions require one estate hull without a cargo warehouse"
+             )
 
     terms!(a.quantity, a.reserve)
     a

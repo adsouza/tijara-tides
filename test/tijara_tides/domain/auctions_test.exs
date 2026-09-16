@@ -236,14 +236,18 @@ defmodule TijaraTides.Domain.AuctionsTest do
              )
   end
 
-  test "a seller bankruptcy cancels its auction and releases all bids", c do
+  test "a seller bankruptcy preserves an open consignment and sinks its proceeds", c do
     s = lot(c, c.state)
     a = Auction.fetch(s, "lot")
     {:ok, s, _} = bid(c, %{s | clock_ms: a.opens_ms}, 2000)
     company = Game.get(s, "companies", "aco")
     s = State.put(s, "companies", "aco", %{company | "bankruptcy_ms" => s.clock_ms})
     s = Auctions.advance(s, c.catalogue)
-    assert Auction.fetch(s, "lot").status == "cancelled"
+    assert Auction.fetch(s, "lot").status == "scheduled"
+    cash = Game.get(s, "companies", "aco")["cash"]
+    s = Auctions.advance(%{s | clock_ms: a.closes_ms}, c.catalogue)
+    assert Auction.fetch(s, "lot").status == "sold"
+    assert Game.get(s, "companies", "aco")["cash"] == cash
     assert Game.get(s, "companies", "bco")["reserved"] == 0
   end
 
@@ -426,5 +430,102 @@ defmodule TijaraTides.Domain.AuctionsTest do
     assert length(Auction.bids(s, a.id)) == 2
     again = Auctions.advance(s, c.catalogue)
     assert Game.entities(again, "companies") == Game.entities(s, "companies")
+  end
+
+  test "estate ship bids need no warehouse, reject the former account and retain hull age", c do
+    alias TijaraTides.Domain.Services.Estates
+    s = c.state
+    company = Game.get(s, "companies", "aco")
+    s = State.put(s, "companies", "aco", %{company | "bankruptcy_ms" => 0})
+    s = Estates.advance(s, c.catalogue)
+    a = Enum.find(Auction.all(s), &(&1.ship_id != nil))
+    assert a != nil
+    hull = Game.get(s, "ships", a.ship_id)
+    s = %{s | clock_ms: a.opens_ms}
+    former = Game.get(s, "companies", "cco")
+    s = State.put(s, "companies", "cco", %{former | "account_id" => "a"})
+    cmd = %{"auction" => a.id, "price" => a.reserve + 100}
+    assert {:error, :auction_invalid} = Auctions.bid(s, c.c, cmd, "former", c.catalogue)
+    {:ok, s, _} = Auctions.bid(s, c.b, cmd, "ship-bid", c.catalogue)
+    assert Auction.bid(s, a.id, "bco").warehouse_id == nil
+    s = Auctions.advance(%{s | clock_ms: a.closes_ms}, c.catalogue)
+    ship = Game.get(s, "ships", a.ship_id)
+    assert ship["company_id"] == "bco"
+    assert ship["built_ms"] == hull["built_ms"]
+    assert ship["build_value"] == hull["build_value"]
+    assert ship["acquisition_value"] == a.reserve
+    assert ship["book_value"] == a.reserve
+    assert Game.get(s, "companies", "bco")["reserved"] == 0
+    assert TijaraTides.Domain.Fleet.sale_value(ship, s.clock_ms).book == a.reserve
+    assert Auctions.advance(s, c.catalogue) == s
+  end
+
+  test "an unsold estate ship is scrapped and cannot be offered again", c do
+    alias TijaraTides.Domain.Services.Estates
+    company = Game.get(c.state, "companies", "aco")
+    s = State.put(c.state, "companies", "aco", %{company | "bankruptcy_ms" => 0})
+    s = Estates.advance(s, c.catalogue)
+    a = Enum.find(Auction.all(s), &(&1.ship_id != nil))
+    s = Auctions.advance(%{s | clock_ms: a.closes_ms}, c.catalogue)
+    assert Game.get(s, "ships", a.ship_id) == nil
+    assert Auction.fetch(s, a.id).status == "unsold"
+    s = Estates.advance(s, c.catalogue)
+    refute Enum.any?(Auction.all(s), &(&1.ship_id == a.ship_id and &1.status == "scheduled"))
+  end
+
+  test "estate cargo stays reserved through warehouse upkeep and an unsold lot is removed once",
+       c do
+    alias TijaraTides.Domain.Services.Estates
+    s = stock(c, c.state, "a", 3)
+    company = Game.get(s, "companies", "aco")
+    s = State.put(s, "companies", "aco", %{company | "bankruptcy_ms" => 0})
+    s = Estates.advance(s, c.catalogue)
+    a = Enum.find(Auction.all(s), &(&1.company_id == "aco" and &1.warehouse_id == "aw"))
+    assert a.quantity == 3
+    s = WarehouseWorld.advance(s, c.catalogue)
+    assert WarehouseWorld.order_backed?(s, Auctions.claim(a))
+    s = Estates.advance(s, c.catalogue)
+    assert Enum.count(Auction.all(s), &(&1.warehouse_id == "aw")) == 1
+    s = Auctions.advance(%{s | clock_ms: a.closes_ms}, c.catalogue)
+    assert Auction.fetch(s, a.id).status == "unsold"
+    assert Game.get(s, "warehouses", "aw")["cargo"] == []
+    s = WarehouseWorld.advance(s, c.catalogue)
+    assert Game.get(s, "warehouses", "aw") == nil
+  end
+
+  test "receiver unloads through paid finite storage and protects cargo until handling finishes",
+       c do
+    alias TijaraTides.Domain.Services.Estates
+
+    ship =
+      Enum.find_value(State.entities(c.state, "ships"), fn {_, ship} ->
+        if ship["company_id"] == "aco", do: ship
+      end)
+
+    {s, lot} = CargoLots.create(c.state, "whisky", 3, nil)
+    ship = %{ship | "cargo" => [Map.merge(lot, %{"good" => "whisky", "unit_cost" => 100})]}
+    s = State.put(s, "ships", ship["id"], ship)
+
+    s =
+      CompanyFinanceWorld.post(s, "aco", "purchase", [
+        {"inventory", 300},
+        {"cash_available", -300}
+      ])
+
+    s = CompanyFinanceWorld.close_in_receivership(s, "aco")
+    s = Estates.advance(s, c.catalogue)
+    hull = Game.get(s, "ships", ship["id"])
+    assert hull["cargo"] == []
+    assert hull["status"] == "unloading"
+
+    warehouse =
+      Enum.find_value(State.entities(s, "warehouses"), fn {_, w} -> if w["cargo"] != [], do: w end)
+
+    assert hd(warehouse["cargo"])["lot_id"] == lot["lot_id"]
+    assert warehouse["protected_ms"] == hull["arrive_ms"]
+    refute Enum.any?(Auction.all(s), &(&1.warehouse_id == warehouse["id"]))
+
+    assert WarehouseWorld.used(s, "Jakarta", "dry") >
+             WarehouseWorld.used(c.state, "Jakarta", "dry")
   end
 end

@@ -17,10 +17,18 @@ defmodule TijaraTides.Domain.Fleet do
   defdelegate maintenance_curve(), to: ShipMaintenance, as: :curve
 
   def sale_value(ship, now) do
-    basis = ship["build_value"] || ship["book_value"]
-    age = max(0, now - (ship["built_ms"] || now))
+    basis = ship["acquisition_value"] || ship["build_value"] || ship["book_value"]
+    age = max(0, now - (ship["acquired_ms"] || ship["built_ms"] || now))
+
+    life =
+      max(
+        86_400_000,
+        @useful_life_ms -
+          max(0, (ship["acquired_ms"] || ship["built_ms"] || now) - (ship["built_ms"] || now))
+      )
+
     residual = div(basis * @residual_bps, 10_000)
-    book = basis - div((basis - residual) * min(age, @useful_life_ms), @useful_life_ms)
+    book = basis - div((basis - residual) * min(age, life), life)
 
     %{
       book: min(ship["book_value"], book),

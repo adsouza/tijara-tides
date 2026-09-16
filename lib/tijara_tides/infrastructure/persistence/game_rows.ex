@@ -3,7 +3,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @specs %{
     "auctions" =>
       Enum.map(
-        ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed),
+        ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed ship_id),
         &{&1, &1}
       ),
     "auction_bids" =>
@@ -181,7 +181,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "ships" =>
       Enum.map(
-        ~w(paid_canals berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+        ~w(acquired_ms acquisition_value paid_canals berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
         &{&1, &1}
       ) ++
         [
@@ -257,8 +257,9 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
        [{"lot_id", "lot_id"}, {"quantity", "quantity_lots"}, {"expires_ms", "expires_ms"}]}
   }
   @optional %{
+    "auctions" => ~w(ship_id),
     "ships" =>
-      ~w(planned_destination paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+      ~w(acquired_ms acquisition_value planned_destination paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
     "invitations" => ["invitee"]
   }
 

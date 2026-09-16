@@ -364,6 +364,18 @@ defmodule TijaraTides.Domain.CompanyFinanceWorld do
     end
   end
 
+  def estate_expense(state, company_id, amount, account) do
+    company = TijaraTides.Domain.State.get(state, "companies", company_id)
+    unless company["bankruptcy_ms"] != nil, do: raise(ArgumentError, "Not an estate")
+    paid = min(amount, max(0, company["cash"] - company["reserved"]))
+
+    post(state, company_id, "estate_expense", [
+      {account, amount},
+      {"cash_available", -paid},
+      {"receivership", paid - amount}
+    ])
+  end
+
   def close_in_receivership(state, company_id) do
     # Receivership explicitly addresses settled history as well as open loans.
     addressed = Enum.map(loans(state, company_id), & &1["id"])

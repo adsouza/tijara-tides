@@ -40,6 +40,72 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "estate ship auction survives reload, transfers acquisition basis and reconciles", c do
+    alias TijaraTides.Domain.{State, CompanyFinanceWorld, AuctionWorld}
+    alias TijaraTides.Domain.Services.{Estates, Auctions}
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "estate-company",
+        %{"action" => "company", "name" => "Estate", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    {:ok, code} = GameServer.seed(c.server)
+    {:ok, %{"session" => buyer}} = GameServer.redeem(code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        buyer,
+        "buyer-company",
+        %{"action" => "company", "name" => "Buyer", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    before = :sys.get_state(c.server).game
+    cat = :sys.get_state(c.server).catalogue
+
+    [seller, buyer_company] =
+      Enum.sort_by(Map.values(State.entities(before, "companies")), & &1["name"])
+
+    # Alphabetically Buyer precedes Estate.
+    {seller, buyer_company} = {buyer_company, seller}
+
+    next =
+      before |> CompanyFinanceWorld.close_in_receivership(seller["id"]) |> Estates.advance(cat)
+
+    next = %{next | revision: before.revision + 1}
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    a = Enum.find(AuctionWorld.all(restored), &(&1.ship_id != nil))
+    account = State.get(restored, "accounts", buyer_company["account_id"])
+    open = %{restored | clock_ms: a.opens_ms, revision: restored.revision + 1}
+
+    {:ok, bid, _} =
+      Auctions.bid(
+        open,
+        account,
+        %{"auction" => a.id, "price" => a.reserve + 100},
+        "estate-bid",
+        cat
+      )
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, bid)
+    assert {:ok, bid} = GameStore.reload(Repo, c.world_id, bid)
+    settled = Auctions.advance(%{bid | clock_ms: a.closes_ms, revision: bid.revision + 1}, cat)
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, bid.epoch, bid, settled)
+    assert {:ok, reloaded} = GameStore.reload(Repo, c.world_id, settled)
+    ship = State.get(reloaded, "ships", a.ship_id)
+    assert ship["company_id"] == buyer_company["id"]
+    assert ship["acquisition_value"] == a.reserve
+    assert ship["built_ms"] == State.get(before, "ships", a.ship_id)["built_ms"]
+    assert AuctionWorld.fetch(reloaded, a.id).status == "sold"
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "maintenance expense persists, reports as operating cost and resumes without rebilling",
        c do
     alias TijaraTides.Infrastructure.Persistence.FinancialLedger
@@ -323,7 +389,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         request_id: "test"
       )
 
-    assert html =~ "Luxury auctions"
+    assert html =~ "Cargo and ship auctions"
     assert html =~ "Your bid"
     assert html =~ "phx-submit=\"auction\""
     before = :sys.get_state(c.server).game

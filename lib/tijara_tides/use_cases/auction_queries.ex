@@ -80,7 +80,7 @@ defmodule TijaraTides.UseCases.AuctionQueries do
         storage =
           for {row, w} <- leased,
               Warehouse.covered_until(w) >= a["closes_ms"] and row["protected_ms"] <= clock and
-                Warehouse.compatible?(w, item),
+                item != nil and Warehouse.compatible?(w, item),
               do: row
 
         Map.merge(a, %{

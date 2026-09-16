@@ -25,7 +25,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
       phx-mounted={JS.ignore_attributes("open")}
       class="my-3 rounded border border-slate-700 p-2 text-sm"
     >
-      <summary class="cursor-pointer font-semibold">{gettext("Luxury auctions")}</summary>
+      <summary class="cursor-pointer font-semibold">{gettext("Cargo and ship auctions")}</summary>
       <details
         id="auction-rules"
         phx-mounted={JS.ignore_attributes("open")}
@@ -107,7 +107,9 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         class="my-2 rounded border border-slate-700 p-2"
       >
         <summary class="cursor-pointer">
-          {cargo_name(a["good"])} · {display_number(a["quantity"])} {gettext("lots")} · {status(
+          {if a["ship_id"], do: a["good"], else: cargo_name(a["good"])} · {display_number(
+            a["quantity"]
+          )} {if a["ship_id"], do: gettext("Ship"), else: gettext("lots")} · {status(
             a,
             @auction.clock
           )}
@@ -172,7 +174,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         <form
           :if={
             a["status"] == "scheduled" and !a["mine"] and @auction.clock >= a["opens_ms"] and
-              @auction.clock < a["closes_ms"] and a["warehouses"] != []
+              @auction.clock < a["closes_ms"] and (a["ship_id"] != nil or a["warehouses"] != [])
           }
           phx-submit="auction"
           class="my-2 flex flex-wrap items-end gap-2"
@@ -182,7 +184,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
             name="auction"
             value={a["id"]}
           />
-          <label>{gettext("Warehouse")}<select
+          <label :if={is_nil(a["ship_id"])}>{gettext("Warehouse")}<select
             name="warehouse"
             class="block max-w-full rounded bg-slate-800 p-1"
           ><option
@@ -206,7 +208,10 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
           )}</button>
         </form>
         <p
-          :if={a["status"] == "scheduled" and !a["mine"] and a["warehouses"] == []}
+          :if={
+            a["status"] == "scheduled" and !a["mine"] and is_nil(a["ship_id"]) and
+              a["warehouses"] == []
+          }
           class="text-xs text-slate-400"
         >
           {gettext(
@@ -240,7 +245,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
 
     ~H"""
     <section id="auction-discovery" class="mb-3 rounded border border-slate-700 p-3 text-sm">
-      <h3 class="font-semibold">{gettext("Luxury auctions")}</h3>
+      <h3 class="font-semibold">{gettext("Cargo and ship auctions")}</h3>
       <p class="my-2 text-xs text-slate-400">
         {gettext(
           "Browse open, upcoming and recently settled auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
@@ -289,7 +294,9 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
                     class="text-teal-300 underline"
                   >{l10n(a["port"])}</button>
                 </td>
-                <td :if={@grouping == "status"} class="px-2">{cargo_name(a["good"])}</td>
+                <td :if={@grouping == "status"} class="px-2">
+                  {if a["ship_id"], do: a["good"], else: cargo_name(a["good"])}
+                </td>
                 <td class="px-2 text-end">{display_number(a["quantity"])}</td>
                 <td class="px-2 text-end">{money(a["reserve"])}</td>
                 <td class="py-2 text-end">

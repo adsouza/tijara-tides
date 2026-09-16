@@ -54,10 +54,13 @@ defmodule TijaraTides.Localization.Notifications do
         args
       )
 
+  defp message("auction.ship_won", args),
+    do: gettext("You won %{ship} for %{price}. The ship is ready at %{port}.", args)
+
   defp message("auction.closed", args),
     do:
       gettext(
-        "The luxury auction at %{port} has settled. See Luxury auctions for the result.",
+        "The auction at %{port} has settled. See Cargo and ship auctions for the result.",
         args
       )
 

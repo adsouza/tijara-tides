@@ -90,6 +90,11 @@ defmodule TijaraTides.Domain.ShipWorld do
     end)
   end
 
+  def acquire(state, id, company, price) do
+    state = cancel_automation(state, id)
+    store(state, Ship.acquire(fetch(state, id), company, price, state.clock_ms))
+  end
+
   def retire(state, id) do
     :retired = Ship.retire(fetch(state, id))
     state |> cancel_automation(id) |> State.delete("ships", id)

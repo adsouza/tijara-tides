@@ -2423,3 +2423,15 @@ msgstr "تظل الصيانة ثابتة لمدة %{days} يومًا من وقت
 
 msgid " · estimated maintenance %{cost}"
 msgstr " · الصيانة المقدرة %{cost}"
+
+msgid "Cargo and ship auctions"
+msgstr "مزادات البضائع والسفن"
+
+msgid "You won %{ship} for %{price}. The ship is ready at %{port}."
+msgstr "فزت بالسفينة %{ship} مقابل %{price}. السفينة جاهزة في %{port}."
+
+msgid "The auction at %{port} has settled. See Cargo and ship auctions for the result."
+msgstr "انتهى المزاد في %{port}. راجع مزادات البضائع والسفن لمعرفة النتيجة."
+
+msgid "Ship"
+msgstr "سفينة"

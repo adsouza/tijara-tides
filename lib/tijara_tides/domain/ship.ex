@@ -9,7 +9,7 @@ defmodule TijaraTides.Domain.Ship do
   alias __MODULE__.CargoBatch
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
-  @fields ~w(planned_destination voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
+  @fields ~w(acquired_ms acquisition_value planned_destination voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
 
@@ -273,6 +273,21 @@ defmodule TijaraTides.Domain.Ship do
         route_plan: %__MODULE__.RoutePlan{},
         visit_orders: [],
         visit_plans: []
+    }
+  end
+
+  def acquire(%__MODULE__{} = ship, company, price, now) do
+    :retired = retire(ship)
+
+    %{
+      cancel_automation(ship)
+      | company_id: company,
+        book_value: price,
+        acquisition_value: price,
+        acquired_ms: now,
+        last_cost_ms: now,
+        crew_remainder: 0,
+        planned_destination: nil
     }
   end
 

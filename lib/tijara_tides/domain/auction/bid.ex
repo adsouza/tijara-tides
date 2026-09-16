@@ -19,7 +19,9 @@ defmodule TijaraTides.Domain.Auction.Bid do
 
   def offer(auction, previous, id, company, warehouse, amount, clock, revision) do
     if auction.status == "scheduled" and clock >= auction.opens_ms and clock < auction.closes_ms and
-         is_binary(company) and company != auction.company_id and is_binary(warehouse) and
+         is_binary(company) and company != auction.company_id and
+         ((is_nil(auction.ship_id) and is_binary(warehouse)) or
+            (auction.ship_id != nil and is_nil(warehouse))) and
          is_binary(id) and is_integer(amount) and amount in 1..1_000_000_000_000 and
          amount >= auction.reserve do
       retained = previous && previous.amount == amount

@@ -144,7 +144,9 @@ defmodule TijaraTides.Domain.Warehouse do
   end
 
   def clearance(%__MODULE__{} = w, now, bankrupt, catalogue) do
-    if now >= w.protected_ms and (now >= w.expires_ms + div(@day, 2) or bankrupt) do
+    if now >= w.protected_ms and
+         ((bankrupt and w.cargo == [] and w.reservations == []) or
+            (not bankrupt and now >= w.expires_ms + div(@day, 2))) do
       cost = Enum.sum(for b <- w.cargo, do: b.quantity * b.unit_cost)
 
       value =

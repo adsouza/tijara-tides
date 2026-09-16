@@ -534,7 +534,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
           owner_valid &&
             (is_nil(r.stop_id) or (stop && stop["ship_id"] == r.ship_id && stop["port"] == w.port)) &&
             (r.kind == "stock" or state.clock_ms < w.expires_ms) &&
-            get(s, "companies", w.company_id)["bankruptcy_ms"] == nil
+            (get(s, "companies", w.company_id)["bankruptcy_ms"] == nil or r.auction_id != nil)
 
         if valid, do: MapSet.put(ids, r.id), else: ids
       end)
@@ -676,6 +676,72 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         else: state
 
     {state, next}
+  end
+
+  @doc "Receiver storage retains real pool occupancy and charges only available estate cash."
+  def estate_cover(state, id, until_ms) do
+    w = fetch(state, id)
+
+    if Warehouse.covered_until(w) > until_ms and w.expires_ms > state.clock_ms do
+      state
+    else
+      days = max(1, div(max(until_ms, state.clock_ms) - w.expires_ms, @day) + 1)
+      rate = Warehouse.extension_rate(w, used(state, w.port, w.storage))
+      charge = days * rate
+      state = CompanyFinanceWorld.estate_expense(state, w.company_id, charge, "rent_expense")
+      # The receiver pays the extension as an expense, keeping existing prepaid terms intact.
+      save(state, %{w | expires_ms: w.expires_ms + days * @day, auto_days: nil, auto_cap: nil})
+    end
+  end
+
+  def estate_unload(state, ship, item, catalogue) do
+    available_blocks = max(0, pool(item["hold"]).blocks - used(state, ship["port"], item["hold"]))
+
+    quantity =
+      min(
+        ShipWorld.cargo_available(state, ship["id"], item["id"]),
+        div(available_blocks * block_litres(), item["volume_l"])
+      )
+
+    blocks = div(quantity * item["volume_l"] + block_litres() - 1, block_litres())
+    price = quote(used(state, ship["port"], item["hold"]), item["hold"], blocks, 3)
+
+    if (quantity > 0 and price) && PortBerthsWorld.available?(state, ship, catalogue) do
+      id = "estate-storage:#{ship["id"]}:#{item["id"]}:#{state.clock_ms}"
+
+      w = %Warehouse{
+        id: id,
+        company_id: ship["company_id"],
+        port: ship["port"],
+        storage: item["hold"],
+        good: if(item["hold"] == "liquid", do: item["id"]),
+        blocks: blocks,
+        started_ms: state.clock_ms,
+        expires_ms: state.clock_ms + 3 * @day,
+        rent: price,
+        prepaid: price,
+        protected_ms: state.clock_ms
+      }
+
+      state =
+        state
+        |> save(w)
+        |> CompanyFinanceWorld.estate_expense(w.company_id, price, "prepaid_rent")
+
+      {state, cargo} = ShipWorld.unload_cargo(state, ship["id"], item["id"], quantity)
+      w = Warehouse.receive_cargo(w, Enum.map(cargo, &CargoRows.coerce/1))
+      w = Warehouse.protect_handling(w, get(state, "ships", ship["id"])["arrive_ms"])
+
+      fee =
+        quantity * TijaraTides.Domain.PortCargoMarket.handling_rate(catalogue["ports"][w.port])
+
+      state
+      |> save(w)
+      |> ShipWorld.admit_handling(ship["id"])
+      |> CompanyFinanceWorld.estate_expense(w.company_id, fee, "handling_expense")
+    else
+      state
+    end
   end
 
   def back_order(state, %Claim{} = order, catalogue) do

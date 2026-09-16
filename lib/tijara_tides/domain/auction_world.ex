@@ -186,7 +186,7 @@ defmodule TijaraTides.Domain.AuctionWorld do
       row =
         Map.take(
           Rows.encode(a),
-          ~w(id port good quantity reserve opens_ms closes_ms status price)
+          ~w(id port good quantity reserve opens_ms closes_ms status price ship_id)
         )
 
       amounts =

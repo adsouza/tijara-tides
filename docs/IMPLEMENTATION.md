@@ -11,7 +11,7 @@ authoritative; the provisional tuning and deferred systems below describe the
 current implementation.
 
 Luxury cargo auctions and standing warehouse-backed exchange orders are implemented.
-Procurement and receivership auctions and player industry remain deferred.
+Procurement auctions and player industry remain deferred.
 Age-based maintenance is implemented alongside depreciation. Next-port instructions are implemented;
 they execute ship-specific buy/sell actions on arrival rather than placing
 standing orders on a shared exchange.
@@ -229,9 +229,9 @@ with launch tuning described in this document. Remaining work includes:
   producer output and buyer budgets. Add economic activity weights, money-stock
   and source/sink monitoring, and price-level monitoring (§5).
 - **Dormancy and estates:** durable owner-absence tracking and closure warnings,
-  dormant liquidation without a bankruptcy count, receivership asset auctions,
+  dormant liquidation without a bankruptcy count,
   full warehouse liquidation stages, won-cargo storage grace and replacement
-  leases, residual estate cleanup and terminal scrapping (§§5, 7, 11, 12).
+  leases (§§5, 7, 11, 12).
 - **Procurement:** machinery delivery auctions, supplier deposits, buyer funding
   and receiving-capacity commitments, delivery deadlines, settlement/default and
   system-fault protections (§7).
@@ -291,8 +291,18 @@ repayment, partial repayment through recasting, and confirmed voluntary bankrupt
 installments and operating bills without using reserved voyage funds. One
 24-active-hour grace period leads to forced bankruptcy; suspension pauses it.
 Bankruptcy history, a 3-active-minute restart cooldown and reduced credit
-limits survive database reloads. Closed companies retain their assets for
-future receivership auctions, which are not implemented in this milestone.
+limits survive database reloads. Receivers unload cargo into finite compatible
+storage after voyages and handling finish, then offer warehouse cargo and empty
+ships through sealed second-price auctions. Open consignments continue; new
+estate listings cannot be bid on by the previous owner’s replacement company.
+Payments and residual cash leave the economy. Unsold cargo is removed and unsold
+ships are scrapped. Necessary storage/handling costs use available estate cash;
+the receiver absorbs shortfalls without adding arrears. Used ship purchases retain
+hull age and maintenance history while recording acquisition cost separately.
+The new cost depreciates over remaining useful life (at least one active day),
+with a 20% residual. Estate reserves use 10% of cargo reference or ship book value;
+these are provisional tuning constants. Perishables use a two-hour expedited
+window if they survive it; otherwise the receiver disposes of them immediately.
 
 ## Verified email identities
 
@@ -509,11 +519,12 @@ identities only for partial batches. Committed warehouse space is protected
 until handling finishes. Stored cargo remains private to its company.
 
 Expiry prevents new deposits and allows 12 active-world hours for collection.
-Perishable aging continues. Expiry and clearance notify the owner. Until
-receivership auctions are implemented, remaining cargo goes to system clearance at
+Perishable aging continues. Expiry and clearance notify the owner. Ordinary
+expired leases still send remaining cargo to system clearance at
 50% of reference value, with grace rent deducted only from clearance proceeds.
-Bankrupt-company storage follows the same clearance fallback after committed
-handling finishes. All timings pause with the world. Liquidation auction stages and port-specific
+Bankrupt-company storage instead remains occupied through estate auctions after
+committed handling finishes. All timings pause with the world. Ordinary expired-lease
+liquidation auction stages and port-specific
 warehouse tuning remain subsequent milestones.
 
 Reservations are relational, typed claims owned by the warehouse aggregate.
@@ -647,8 +658,8 @@ with at most 1,000 active bids per listing. Each lot is at most 10,000 cargo lot
 The latest 20 completed listings per port retain anonymous final bid amounts;
 older auction rows are pruned, while the financial journal keeps the audit trail.
 Closing work settles all due lots before lease liquidation; it does not share
-the standardized exchange's tick matching budget. Industrial machinery,
-receivership auctions, and berth-side direct bidding remain later milestones.
+the standardized exchange's tick matching budget. Industrial machinery and
+berth-side direct bidding remain later milestones.
 
 The Cargo panel also provides a global luxury-auction browser grouped by status
 by default, with an option to group by cargo. Open auctions start expanded;
