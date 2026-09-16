@@ -107,16 +107,28 @@ not silently change that selection. The Cargo demand table adds sea-route
 distance in nautical miles from the selected docked ship, after price and demand
 as the third default sort key. Unknown distances remain last.
 
-The Ships destination selector opens a port-by-cargo opportunity matrix. Port
-names select the destination and close the popup, returning to the current
-port's Buy view. Compatible cargo columns show green outbound and red return
-discs; radius is proportional to positive ROI on one shared scale, with hollow
-discs for zero ROI and black skulls for negative ROI. ROI is the current bid minus ask and both handling
-fees, divided by ask plus purchase handling. Hover/focus exposes ROI and market
-lots. These are market comparisons, excluding cash, capacity, cleaning, voyage
-costs and spoilage, rather than executable trade quotes. Ports sort by the sum of their best
-ROI in each direction (missing directions contribute zero), then sea distance. The popup supports Escape, explicit dismissal,
-keyboard focus containment, Arabic labels and RTL layout.
+The Ships destination selector opens a port-by-cargo opportunity matrix,
+populated for a docked ship. Port names select the destination and close the
+popup, switching to the current port's Buy view and scrolling to its market side
+controls; that switch now follows a destination chosen for a sailing ship as
+well. The choice is a persisted command on the hull rather than a
+browser-session value, so it survives a reconnect and a second window, and
+departing or rerouting clears it. Compatible cargo columns show green outbound
+and red return symbols on one shared scale: circles price a fresh purchase here,
+squares price cargo already aboard against the candidate port's demand. Symbol
+size is proportional to positive ROI, with hollow symbols for zero or
+unavailable ROI and black skulls for negative ROI. Purchase ROI is the current
+bid minus ask and both handling fees, divided by ask plus purchase handling.
+Aboard-cargo ROI uses the recorded lot costs a sale would consume, in that order
+and including a partial fill of the final batch; cargo whose recorded cost is
+zero reports its proceeds with no ROI rather than dividing by nothing. A good
+stays in the matrix when the hold is the only reason to visit, with no local
+stock required. Hover/focus exposes ROI, lots and aboard-cargo proceeds. These
+are market comparisons, excluding cash, capacity, cleaning, voyage costs and
+spoilage, rather than executable trade quotes. Ports sort by the sum of their
+best ROI in each direction (missing directions contribute zero), then sea
+distance. The popup supports Escape, explicit dismissal, keyboard focus
+containment, Arabic labels and RTL layout.
 
 Inspecting another port with a docked ship opens a destination comparison using
 compatible stock at the ship's current port. Each candidate load is capped by
@@ -150,14 +162,16 @@ pauses simulation timers; wall-clock session and magic-link expiry still apply.
 Raw-resource producers replenish finite stock; manufactured goods have a finite
 initial allocation until input-consuming production is implemented. Re-export
 merchants remain unavailable until their warehouse-backed inventory exists.
-Major and minor trade roles currently share the same provisional rate; role-weighted
-production remains part of the full economy. Consumer demand and spending budgets
-replenish and are capped. Supply and demand recover one lot every 150 seconds
-of active world time (0.4 lots per minute); buyer budgets recover one lot’s
-reference value on the same interval. Partial intervals carry across ticks. This is a manual
-NPC market adapter, not the eventual central limit order book. Finite berths and queues, warehouse leases, transfers, reservations and renewals
-are available. Annual invitation allocations remain deferred. Warehouse-backed standing
-exchange orders are available for standardized cargo. Next-port cargo instructions and optional
+Major and minor trade roles currently share the same provisional rate;
+role-weighted production remains part of the full economy. Consumer demand and
+spending budgets replenish and are capped. Supply and demand recover one lot
+every 150 seconds of active world time (0.4 lots per minute); buyer budgets
+recover one lot’s reference value on the same interval. Partial intervals carry
+across ticks. This is a manual NPC market adapter, not the eventual central
+limit order book. Finite berths and queues, warehouse leases, transfers,
+reservations, renewals and extensions are available. Annual invitation
+allocations remain deferred. Warehouse-backed standing exchange orders are
+available for standardized cargo. Next-port cargo instructions and optional
 automatic departure are available. Operating shortfalls accumulate as unpaid
 bills and participate in the implemented loan settlement and bankruptcy rules.
 
@@ -187,8 +201,48 @@ emailed token inside the app. Google sign-in remains deferred.
 
 ## Following milestones
 
-Auctions and procurement contracts; age-based maintenance.
-Player-owned industry stays a later expansion under section 14.
+The completed decision groups in DESIGN.md describe agreed product rules, not
+completed implementation. Luxury auctions, manual warehouse transfers and
+repeating routes are already playable; the remaining initial-game work includes:
+
+- **Regional pricing and ship aging (next priorities):** shared catchment prices
+  driven by regional inventory and demand, with jointly bounded executable NPC
+  spreads; and age-based maintenance escalation, replacement-cost crossover,
+  affordability estimates and player-facing projections (§§5, 10).
+- **Simulated economy:** input-consuming NPC manufacturing, warehouse-backed
+  re-export merchants, differentiated production rates, and participation-scaled
+  producer output and buyer budgets. Add economic activity weights, money-stock
+  and source/sink monitoring, and price-level monitoring (§5).
+- **Dormancy and estates:** durable owner-absence tracking and closure warnings,
+  dormant liquidation without a bankruptcy count, receivership asset auctions,
+  full warehouse liquidation stages, won-cargo storage grace and replacement
+  leases, residual estate cleanup and terminal scrapping (§§5, 7, 11, 12).
+- **Procurement:** machinery delivery auctions, supplier deposits, buyer funding
+  and receiving-capacity commitments, delivery deadlines, settlement/default and
+  system-fault protections (§7).
+- **Perishable and unified markets:** freshness-graded order books, minimum
+  freshness requirements, markdown schedules and presets, mixed-grade backing,
+  freshness-aware reservation replacement, and direct ship trades against
+  player order books (§§6–8).
+- **Automation:** linked remote orders and their atomic handover at berth,
+  earmarked advance purchase budgets, optional expiry and maximum-wait controls,
+  and departure-funding allocation and accumulation policies (§8).
+- **Ports and physical handling:** full ship-size, terminal and waterway limits,
+  predictive queue estimates, automatic warehouse-transfer queuing, transfers
+  between storage types, and utilization-triggered berth/storage growth with
+  published construction lead times (§§4, 10, 11).
+- **Accounts and disclosures:** earned annual invitations, Google identity
+  linking, asset-triggered linking prompts, concrete suspicious-trade and
+  invitation-subtree review mechanisms, and remaining required disclosures,
+  including local-time estimates alongside actionable countdowns (§§2, 3, 7).
+
+Numerical parameters remain tuning work; the systems above still need code and
+verification. The sections below describe the current implementation and its
+interim behavior. Player-owned mines and factories, land, construction, carriage
+for hire and player-funded port infrastructure remain explicitly later
+expansions under §14, separate from initial-game NPC manufacturing.
+
+## Cross-port cargo markets
 
 Markets by cargo compares applicable ports in two tables: Supply on the left
 and Demand on the right, stacking on narrow screens. Each shows quantity and its
@@ -401,7 +455,9 @@ orders prevent automatic or manual departure until filled or cancelled.
 
 Size-specific terminal groups, adaptive port expansion, and predictive queue
 wait estimates remain deferred; the current playable hull catalogue does not yet
-model the design's full size classes. Storage transfers remain a later milestone.
+model the design's full size classes. Manual ship–warehouse transfers are
+implemented with berth access and handling time, as described below. Automatic
+queuing of those transfers and transfers between storage types remain deferred.
 
 In portrait mode, an accepted manual Buy or Sell switches from Ports to Ships
 immediately, whether handling starts or the trade queues for a berth. Later queue
@@ -456,13 +512,20 @@ stock; receiving claims end with the lease, while stock claims survive grace.
 The current reservation UI does not yet specify a minimum remaining freshness.
 
 Renewal quotes lock for the existing blocks during the final six active-world
-hours. Players can pay for 1, 3 or 7 days; the new term starts at the old expiry.
-Future prepaid rent is recorded separately and is not expensed before that date.
-Only one subsequent term can be booked. Capacity reductions are unavailable once
-the next term is paid. Optional auto-renewal takes a term and a daily rent cap,
-checks free cash and unpaid bills, and retries on world ticks before expiry.
-Reservation and renewal controls use persistent, collapsed disclosures inside
-Warehouses; amounts and text support English and Arabic.
+hours. Players can pay for 1, 3 or 7 days; the new term starts at the old
+expiry. Future prepaid rent is recorded separately and is not expensed before
+that date. Only one subsequent term can be booked. Capacity reductions are
+unavailable once the next term is paid. Optional auto-renewal takes a term and a
+daily rent cap, checks free cash and unpaid bills, and retries on world ticks
+before expiry. An extension prepays that same single term at any point before
+expiry, quoted at current rates and confirmed on payment, for consignments and
+bids whose auction closes after the current term ends. A prepaid term counts
+toward auction storage coverage as soon as it is paid; enabling auto-renewal
+alone does not. Renewal and extension report separate errors, so the six-hour
+rule is never quoted at the extension form. Reservation, renewal and extension
+controls use persistent, collapsed disclosures inside Warehouses, where the
+stored-cargo table shows reserved lots beside stored lots; amounts and text
+support English and Arabic.
 
 ## Diversions underway
 
@@ -518,12 +581,18 @@ recent executions, and private order placement/amendment/cancellation controls.
 
 ## Luxury cargo auctions
 
-The Ports column offers a collapsed Luxury auctions disclosure, with consignment,
-sealed bidding, bid revision/withdrawal, and anonymous final amounts. Bids are
-whole-lot totals, not prices per cargo lot. Player consignments require available
-warehouse stock and lease coverage through closing. Sellers can change quantity
-and reserve or withdraw before opening; afterward the commitment locks. Each
-company has one active bid per listing. Amount changes reset acceptance priority;
+The Ports column offers a collapsed Luxury auctions disclosure, with
+consignment, sealed bidding, bid revision/withdrawal, and anonymous final
+amounts. Bids are whole-lot totals, not prices per cargo lot, and reserves and
+bids are entered in whole dollars; a seller revising a listing keeps an existing
+fractional reserve unless they type over it. Player consignments require
+available warehouse stock and lease coverage through closing, which a prepaid
+next term satisfies. A rejection reports how far the lease falls short of
+closing and how long warehouse handling still has to run, as separate sentences
+and only where each applies, and a rejection for want of stock names the
+warehouse rather than cargo aboard a ship. Sellers can change quantity and
+reserve or withdraw before opening; afterward the commitment locks. Each company
+has one active bid per listing. Amount changes reset acceptance priority;
 unchanged amounts retain it. Cash and receiving volume remain reserved until
 withdrawal, disqualification, or settlement. Failed revisions preserve backing.
 
@@ -532,7 +601,11 @@ Ties use server acceptance time/revision and a stable ID tie-break. Losing cash
 and capacity and winner price improvement release atomically. Whole-lot prices
 are apportioned across immutable cargo batches without losing fractional cents
 or resetting lineage. Auction transfer has no exchange or handling fee; later
-ship collection uses normal handling. Bankruptcy cancels seller commitments and
+ship collection uses normal handling. The winner receives a notice naming the
+quantity, cargo, price and the warehouse the lot was delivered to, reading that
+lease's storage class rather than assuming one, and it raises a system
+notification the way a completed load does; the seller and the other eligible
+bidders receive the settled notice. Bankruptcy cancels seller commitments and
 disqualifies bids. Insufficient lease coverage is rejected before acceptance.
 
 Schedule settings are application configuration under `:tijara_tides, :auctions`,
@@ -562,13 +635,16 @@ Closing work settles all due lots before lease liquidation; it does not share
 the standardized exchange's tick matching budget. Industrial machinery,
 receivership auctions, and berth-side direct bidding remain later milestones.
 
-The Cargo panel also provides a global luxury-auction browser grouped by status by default,
-with an option to group by cargo. Open auctions start expanded; upcoming auctions
-start collapsed.
-It lists open and upcoming lots, with open bidding first, then closing time.
-Rows show port, quantity, whole-lot reserve and active-world countdowns. Selecting
+The Cargo panel also provides a global luxury-auction browser grouped by status
+by default, with an option to group by cargo. Open auctions start expanded;
+upcoming and settled auctions start collapsed. It lists open, upcoming and
+recently settled lots, with open bidding first, then closing time. Rows show
+port, quantity, whole-lot reserve and active-world countdowns; a settled row
+adds its sale price and, where the player bid, whether they won. Settled lots
+are bounded to the twenty most recently closed world-wide plus the player's own
+bids and consignments, since twenty closed lots are retained per port. Selecting
 a port switches to the Ports panel and expands its auction section. Group
-disclosures preserve their state through live updates; closed lots are omitted.
+disclosures preserve their state through live updates.
 
 Warehouse headings and selectors use localized port, dedicated cargo (or shared
 storage type), and a persisted company lease number. Internal IDs remain the
