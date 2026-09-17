@@ -65,23 +65,32 @@ defmodule TijaraTides.Domain.PortCargoMarketAggregateTest do
       Market.supply(%{state | clock_ms: 100_000}, market, 1, 20, item)
     end
 
-    {_, expired} = Market.replenish(%{state | clock_ms: 100_000}, market, item)
+    {_, expired, _} = Market.replenish(%{state | clock_ms: 100_000}, market, item, 10_000, 1)
     assert {expired.stock, expired.batches} == {0, []}
-    {_, replenished} = Market.replenish(%{state | clock_ms: 150_000}, expired, item)
+
+    {_, replenished, _} =
+      Market.replenish(%{state | clock_ms: 150_000}, expired, item, 10_000, 1)
+
     assert replenished.stock == 1
     assert hd(replenished.batches).expires_ms == 250_000
   end
 
   test "manufactured and merchant markets do not synthesize stock" do
     item = %{"id" => "appliances", "shelf_ms" => 0, "reference_cents" => 20}
-    {_, factory} = Market.replenish(%Lots{clock_ms: 300_000}, supplier("appliances"), item)
+
+    {_, factory, _} =
+      Market.replenish(%Lots{clock_ms: 300_000}, supplier("appliances"), item, 10_000, 1)
+
     assert factory.stock == 10
 
-    {_, merchant} =
-      Market.replenish(%Lots{clock_ms: 300_000}, %{supplier() | merchant: true}, %{
-        item
-        | "id" => "lumber"
-      })
+    {_, merchant, _} =
+      Market.replenish(
+        %Lots{clock_ms: 300_000},
+        %{supplier() | merchant: true},
+        %{item | "id" => "lumber"},
+        10_000,
+        1
+      )
 
     assert merchant.stock == 10
   end

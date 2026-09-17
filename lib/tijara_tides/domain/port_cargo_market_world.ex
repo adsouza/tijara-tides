@@ -106,25 +106,32 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     market = fetch(state, port, good)
 
     if market && catalogue["goods"][good] do
+      reserved = reserved_lots(state)
       ports = cluster(catalogue, port)
-      prices = ports && RegionalPricing.prices(cluster_markets(state, ports, good), catalogue)
-      build_quote(available(state, market), catalogue, prices && prices[port])
+
+      prices =
+        ports &&
+          RegionalPricing.prices(cluster_markets(state, ports, good, reserved), catalogue)
+
+      build_quote(available(state, market, reserved), catalogue, prices && prices[port])
     end
   end
 
   @doc "Every quote for one revision, pricing each cluster once per good rather than once per member port."
   def quotes(state, catalogue) do
+    reserved = reserved_lots(state)
+
     regional =
       for {_, ports} <- catalogue["clusters"] || %{},
           good <- Map.keys(catalogue["goods"]),
-          markets = cluster_markets(state, ports, good),
+          markets = cluster_markets(state, ports, good, reserved),
           markets != [],
           {port, prices} <- RegionalPricing.prices(markets, catalogue),
           into: %{},
           do: {port <> "|" <> good, prices}
 
     Map.new(entities(state, "markets"), fn {id, row} ->
-      {id, build_quote(available(state, Rows.decode(row)), catalogue, regional[id])}
+      {id, build_quote(available(state, Rows.decode(row), reserved), catalogue, regional[id])}
     end)
   end
 
@@ -134,38 +141,45 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
         if port in ports, do: ports
       end)
 
-  defp cluster_markets(state, ports, good),
+  defp cluster_markets(state, ports, good, reserved),
     do:
       ports
       |> Enum.map(&fetch(state, &1, good))
       |> Enum.reject(&is_nil/1)
-      |> Enum.map(&available(state, &1))
+      |> Enum.map(&available(state, &1, reserved))
 
-  defp unreserved(state, market) do
-    reserved =
-      Enum.sum(
-        for {_, a} <- entities(state, "auctions"),
-            is_nil(a["company_id"]) and a["status"] == "scheduled" and a["port"] == market.port and
-              a["good"] == market.good,
-            do: a["quantity"]
-      )
-
-    max(0, market.stock - reserved)
+  # Scheduled NPC lots hold merchant stock. Index them once per read rather than
+  # rescanning the auction table for every market a projection quotes.
+  defp reserved_lots(state) do
+    Enum.reduce(entities(state, "auctions"), %{}, fn {_, a}, index ->
+      if is_nil(a["company_id"]) and a["status"] == "scheduled",
+        do:
+          Map.update(
+            index,
+            a["port"] <> "|" <> a["good"],
+            a["quantity"],
+            &(&1 + a["quantity"])
+          ),
+        else: index
+    end)
   end
 
-  defp available(state, %Market{merchant: true} = market) do
+  defp unreserved(state, market),
+    do: max(0, market.stock - Map.get(reserved_lots(state), market.port <> "|" <> market.good, 0))
+
+  defp available(state, %Market{merchant: true} = market, reserved) do
     id = market.port <> "|" <> market.good
     active = MerchantWarehouseWorld.active?(state, id)
 
     %{
       market
       | warehouse_active: active,
-        stock: if(active, do: unreserved(state, market), else: 0),
+        stock: if(active, do: max(0, market.stock - Map.get(reserved, id, 0)), else: 0),
         demand: min(market.demand, MerchantWarehouseWorld.free(state, id, market.stock))
     }
   end
 
-  defp available(_state, market), do: market
+  defp available(_state, market, _reserved), do: market
 
   defp build_quote(market, catalogue, prices) do
     Market.quote(market, catalogue)
@@ -239,27 +253,30 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     scale = Map.get(state, :participation_bps, 10_000)
     quarters = TijaraTides.Domain.Participation.settings(catalogue)["budget_quarters"]
 
-    cycles =
-      Map.new(entities(state, "markets"), fn {id, row} ->
-        {id,
-         elem(
-           TijaraTides.Domain.Participation.cycles(
-             div(state.clock_ms - row["last_production"], 150_000),
-             scale,
-             row["production_credit"] || 0
-           ),
-           0
-         )}
-      end)
-
-    state =
-      Enum.reduce(entities(state, "markets"), state, fn {_, row}, state ->
+    {state, cycles} =
+      Enum.reduce(entities(state, "markets"), {state, %{}}, fn {id, row}, {state, cycles} ->
         market = Rows.decode(row)
 
-        {lots, market} =
+        {lots, market, charged} =
           Market.replenish(lots(state), market, catalogue["goods"][market.good], scale, quarters)
 
-        state |> record_lots(lots) |> store(market)
+        {state |> record_lots(lots) |> store(market), Map.put(cycles, id, charged)}
+      end)
+
+    # Price each distinct feedstock once, before any recipe consumes it: production
+    # then neither re-prices a cluster per input nor depends on the order recipes run in.
+    asks =
+      for {id, row} <- entities(state, "markets"),
+          cycles[id] > 0,
+          recipe = Manufacturing.recipes(catalogue)[row["good"]],
+          recipe != nil and row["seller"] and not row["merchant"],
+          good <- Map.keys(recipe["inputs"]),
+          into: MapSet.new(),
+          do: {row["port"], good}
+
+    asks =
+      Map.new(asks, fn {port, good} ->
+        {port <> "|" <> good, quote(state, catalogue, port, good)["ask"]}
       end)
 
     Enum.reduce(Enum.sort(entities(state, "markets")), state, fn {id, row}, s ->
@@ -271,9 +288,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
 
         if Enum.all?(inputs, fn {_, market} -> market != nil and market.feedstock end) do
           prices =
-            Map.new(inputs, fn {good, _} ->
-              {good, quote(s, catalogue, row["port"], good)["ask"]}
-            end)
+            Map.new(inputs, fn {good, _} -> {good, asks[row["port"] <> "|" <> good]} end)
 
           {output, consumed} =
             Manufacturing.produce(

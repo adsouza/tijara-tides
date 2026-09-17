@@ -107,9 +107,9 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         class="my-2 rounded border border-slate-700 p-2"
       >
         <summary class="cursor-pointer">
-          {if a["ship_id"], do: a["good"], else: cargo_name(a["good"])} · {display_number(
-            a["quantity"]
-          )} {if a["ship_id"], do: gettext("Ship"), else: gettext("lots")} · {status(
+          {auction_name(@definitions, a)} · {display_number(a["quantity"])} {if a["ship_id"],
+            do: gettext("Ship"),
+            else: gettext("lots")} · {status(
             a,
             @auction.clock
           )}
@@ -232,6 +232,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
   end
 
   attr :view, :any, required: true
+  attr :definitions, :any, required: true
 
   attr :grouping, :string, default: "status"
 
@@ -295,7 +296,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
                   >{l10n(a["port"])}</button>
                 </td>
                 <td :if={@grouping == "status"} class="px-2">
-                  {if a["ship_id"], do: a["good"], else: cargo_name(a["good"])}
+                  {auction_name(@definitions, a)}
                 </td>
                 <td class="px-2 text-end">{display_number(a["quantity"])}</td>
                 <td class="px-2 text-end">{money(a["reserve"])}</td>
@@ -316,6 +317,13 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
       </details>
     </section>
     """
+  end
+
+  # Ship auctions carry a hull class in `good`; name it the way every other surface does.
+  defp auction_name(definitions, a) do
+    if a["ship_id"],
+      do: l10n(definitions.classes[a["good"]]["name"] || a["good"]),
+      else: cargo_name(a["good"])
   end
 
   defp discovery_heading("cargo", good), do: cargo_name(good)

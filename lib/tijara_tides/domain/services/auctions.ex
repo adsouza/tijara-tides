@@ -6,6 +6,9 @@ defmodule TijaraTides.Domain.Services.Auctions do
   alias TijaraTides.Domain.Ship.CargoRows
   alias TijaraTides.Domain.PortCargoMarketWorld
   @moduledoc "Atomic luxury-auction scheduling, escrow and second-price settlement."
+  @open_limit 50
+  @doc "Open listings one company may hold, whether it consigns them or a receiver does."
+  def open_limit, do: @open_limit
   import TijaraTides.Domain.ReadState, only: [get: 3]
   alias TijaraTides.Domain.{Notices}
   alias TijaraTides.Domain.AuctionWorld
@@ -69,7 +72,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
          Enum.count(
            AuctionWorld.all(s),
            &(&1.company_id == account["company_id"] and AuctionWorld.open?(&1))
-         ) < 50 do
+         ) < @open_limit do
       {opens, closes} = AuctionWorld.schedule(s.clock_ms, w["port"], cat)
 
       a = %Auction{
@@ -249,7 +252,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
             a.company_id &&
                 (not seller_backed?(s, a) or
                    (not live?(s, a.company_id) and s.clock_ms < a.opens_ms and
-                      not String.starts_with?(a.id, "estate-"))) ->
+                      not Estates.estate?(s, a.company_id))) ->
               cancel(s, a)
 
             s.clock_ms >= a.closes_ms ->

@@ -167,7 +167,7 @@ msgstr ""
 msgid "Aboard"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:31
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:35
 #, elixir-autogen, elixir-format
 msgid "About cargo markets"
 msgstr ""
@@ -303,7 +303,7 @@ msgstr ""
 msgid "Average capital employed"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:86
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:90
 #, elixir-autogen, elixir-format
 msgid "Bid / ask"
 msgstr ""
@@ -384,11 +384,11 @@ msgid "Capacity used: %{value1} / %{value2} kg · %{value3} / %{value4}"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:69
-#: lib/tijara_tides_web/components/game/auction_panel.ex:259
-#: lib/tijara_tides_web/components/game/auction_panel.ex:279
+#: lib/tijara_tides_web/components/game/auction_panel.ex:260
+#: lib/tijara_tides_web/components/game/auction_panel.ex:280
 #: lib/tijara_tides_web/components/game/cargo_panel.ex:20
 #: lib/tijara_tides_web/components/game/cargo_panel.ex:21
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:86
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:90
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:324
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:589
 #: lib/tijara_tides_web/components/game/map_panel.ex:338
@@ -456,7 +456,7 @@ msgstr ""
 msgid "Choose a port in the Ports panel to buy there. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:83
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:87
 #, elixir-autogen, elixir-format
 msgid "Choose cargo"
 msgstr ""
@@ -684,7 +684,7 @@ msgstr ""
 msgid "Generate shareable"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:256
+#: lib/tijara_tides_web/components/game/auction_panel.ex:257
 #: lib/tijara_tides_web/components/port_traffic.ex:46
 #, elixir-autogen, elixir-format
 msgid "Group by"
@@ -706,7 +706,7 @@ msgstr ""
 msgid "Harbor lobby"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:120
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:124
 #, elixir-autogen, elixir-format
 msgid "Highest first: (best bid − best ask) ÷ best ask, before handling and voyage costs."
 msgstr ""
@@ -830,7 +830,7 @@ msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:80
 #: lib/tijara_tides_web/components/game/auction_panel.ex:142
-#: lib/tijara_tides_web/components/game/auction_panel.ex:280
+#: lib/tijara_tides_web/components/game/auction_panel.ex:281
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:57
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:95
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:137
@@ -894,8 +894,8 @@ msgstr ""
 msgid "No cargo is available to %{value1} here right now."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:74
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:104
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:78
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:108
 #, elixir-autogen, elixir-format
 msgid "No cargo markets available"
 msgstr ""
@@ -915,7 +915,7 @@ msgstr ""
 msgid "No eligible companies for this ranking yet."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:236
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:240
 #, elixir-autogen, elixir-format
 msgid "No ports for this cargo."
 msgstr ""
@@ -1000,8 +1000,8 @@ msgstr ""
 msgid "Pledging…"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:278
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:157
+#: lib/tijara_tides_web/components/game/auction_panel.ex:279
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:161
 #: lib/tijara_tides_web/components/game/destination_picker.ex:69
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:89
 #: lib/tijara_tides_web/components/ship_route_editor.ex:223
@@ -1091,8 +1091,8 @@ msgstr ""
 #: lib/tijara_tides_web/components/financial_reports.ex:50
 #: lib/tijara_tides_web/components/financial_reports.ex:135
 #: lib/tijara_tides_web/components/financial_reports.ex:165
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:86
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:100
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:90
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:104
 #, elixir-autogen, elixir-format
 msgid "ROI"
 msgstr ""
@@ -1326,7 +1326,7 @@ msgstr ""
 msgid "Shipyard offer"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:52
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:56
 #, elixir-autogen, elixir-format
 msgid "Show only cargo carried by %{value1}"
 msgstr ""
@@ -1346,7 +1346,7 @@ msgstr ""
 msgid "Sign-in email"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:117
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:121
 #, elixir-autogen, elixir-format
 msgid "Sort by ROI"
 msgstr ""
@@ -1376,7 +1376,7 @@ msgstr ""
 msgid "Start with an invitation"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:258
+#: lib/tijara_tides_web/components/game/auction_panel.ex:259
 #: lib/tijara_tides_web/components/port_traffic.ex:52
 #, elixir-autogen, elixir-format
 msgid "Status"
@@ -1392,7 +1392,7 @@ msgstr ""
 msgid "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Removing the current or next stop returns the route to draft; committed voyages and handling finish. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. No cash is earmarked. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:33
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:37
 #, elixir-autogen, elixir-format
 msgid "Supply and demand in lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
 msgstr ""
@@ -1459,7 +1459,7 @@ msgstr ""
 msgid "Trade"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:222
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:226
 #, elixir-autogen, elixir-format
 msgid "Trading not available yet"
 msgstr ""
@@ -2412,7 +2412,7 @@ msgstr ""
 msgid "Expand map ⛶"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:131
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:135
 #, elixir-autogen, elixir-format
 msgid "Select a docked ship to compare sea-route distances."
 msgstr ""
@@ -2507,7 +2507,7 @@ msgstr ""
 msgid "%{side} %{cargo} quantity slider"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:149
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:153
 #, elixir-autogen, elixir-format
 msgid "%{side} for selected cargo"
 msgstr ""
@@ -3236,7 +3236,7 @@ msgstr ""
 msgid "Yantian"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/cargo_panel.ex:128
+#: lib/tijara_tides_web/components/game/cargo_panel.ex:132
 #, elixir-autogen, elixir-format
 msgid "Sea-route distances from %{port} in nautical miles."
 msgstr ""
@@ -3588,7 +3588,7 @@ msgid "Reservations"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:118
-#: lib/tijara_tides_web/components/game/auction_panel.ex:281
+#: lib/tijara_tides_web/components/game/auction_panel.ex:282
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:272
 #, elixir-autogen, elixir-format
 msgid "Reserve"
@@ -3758,12 +3758,12 @@ msgstr ""
 msgid "Auction rules"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:335
+#: lib/tijara_tides_web/components/game/auction_panel.ex:343
 #, elixir-autogen, elixir-format
 msgid "Bidding open"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:344
+#: lib/tijara_tides_web/components/game/auction_panel.ex:352
 #, elixir-autogen, elixir-format
 msgid "Cancelled"
 msgstr ""
@@ -3775,7 +3775,7 @@ msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:49
 #: lib/tijara_tides_web/components/game/auction_panel.ex:122
-#: lib/tijara_tides_web/components/game/auction_panel.ex:310
+#: lib/tijara_tides_web/components/game/auction_panel.ex:311
 #, elixir-autogen, elixir-format
 msgid "Closes in %{time}"
 msgstr ""
@@ -3811,7 +3811,7 @@ msgid "No luxury auctions at this port yet."
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:129
-#: lib/tijara_tides_web/components/game/auction_panel.ex:305
+#: lib/tijara_tides_web/components/game/auction_panel.ex:306
 #, elixir-autogen, elixir-format
 msgid "No purchase"
 msgstr ""
@@ -3822,7 +3822,7 @@ msgstr ""
 msgid "No simulated buyers"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:334
+#: lib/tijara_tides_web/components/game/auction_panel.ex:342
 #, elixir-autogen, elixir-format
 msgid "Opens in %{time}"
 msgstr ""
@@ -3834,7 +3834,7 @@ msgid "Reserve ($)"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:124
-#: lib/tijara_tides_web/components/game/auction_panel.ex:307
+#: lib/tijara_tides_web/components/game/auction_panel.ex:308
 #, elixir-autogen, elixir-format
 msgid "Sale price"
 msgstr ""
@@ -3844,7 +3844,7 @@ msgstr ""
 msgid "Sealed bids reserve the full amount and warehouse space. Highest bid wins and pays the reserve or second-highest bid, whichever is greater. Earliest bid wins ties. Revise or withdraw bids before closing; consignments lock when bidding opens. Amounts are for the whole lot. No auction fees."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:338
+#: lib/tijara_tides_web/components/game/auction_panel.ex:346
 #, elixir-autogen, elixir-format
 msgid "Sold"
 msgstr ""
@@ -3864,7 +3864,7 @@ msgstr ""
 msgid "This auction is locked. Consignments can change only before opening; bids only before closing."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:341
+#: lib/tijara_tides_web/components/game/auction_panel.ex:349
 #, elixir-autogen, elixir-format
 msgid "Unsold"
 msgstr ""
@@ -3885,7 +3885,7 @@ msgid "Withdraw consignment"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:129
-#: lib/tijara_tides_web/components/game/auction_panel.ex:305
+#: lib/tijara_tides_web/components/game/auction_panel.ex:306
 #, elixir-autogen, elixir-format
 msgid "You won"
 msgstr ""
@@ -3905,17 +3905,17 @@ msgstr ""
 msgid "Auction commitment"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:282
+#: lib/tijara_tides_web/components/game/auction_panel.ex:283
 #, elixir-autogen, elixir-format
 msgid "Bidding"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:323
+#: lib/tijara_tides_web/components/game/auction_panel.ex:331
 #, elixir-autogen, elixir-format
 msgid "Open auctions"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:324
+#: lib/tijara_tides_web/components/game/auction_panel.ex:332
 #, elixir-autogen, elixir-format
 msgid "Upcoming auctions"
 msgstr ""
@@ -3970,17 +3970,17 @@ msgstr ""
 msgid "Symbol size shows ROI after handling, on a shared scale. Squares represent cargo aboard; circles represent new purchases. Green: sell cargo aboard, or buy here and sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; cargo aboard uses recorded cost and destination demand; new purchases do not check cash or capacity. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:250
+#: lib/tijara_tides_web/components/game/auction_panel.ex:251
 #, elixir-autogen, elixir-format
 msgid "Browse open, upcoming and recently settled auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:263
+#: lib/tijara_tides_web/components/game/auction_panel.ex:264
 #, elixir-autogen, elixir-format
 msgid "No luxury auctions available."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:322
+#: lib/tijara_tides_web/components/game/auction_panel.ex:330
 #, elixir-autogen, elixir-format
 msgid "Settled auctions"
 msgstr ""
@@ -4056,12 +4056,12 @@ msgid "Maintenance is flat for %{days} active-world days, then rises linearly. A
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:28
-#: lib/tijara_tides_web/components/game/auction_panel.ex:248
+#: lib/tijara_tides_web/components/game/auction_panel.ex:249
 #, elixir-autogen, elixir-format
 msgid "Cargo and ship auctions"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:112
+#: lib/tijara_tides_web/components/game/auction_panel.ex:111
 #, elixir-autogen, elixir-format
 msgid "Ship"
 msgstr ""

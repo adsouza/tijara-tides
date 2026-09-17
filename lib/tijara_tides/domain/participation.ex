@@ -13,12 +13,33 @@ defmodule TijaraTides.Domain.Participation do
     settings
   end
 
+  # exp(-t/decay) = 2^(-t/half_life), evaluated as a 1/16-step table of 2^(-k/16) in
+  # basis points with linear interpolation inside a step. Integer throughout, so the
+  # world-wide scale reproduces across hosts and Erlang builds rather than tracking libm.
+  @ln2_bps 6931
+  @steps {10_000, 9576, 9170, 8781, 8409, 8052, 7711, 7384, 7071, 6771, 6484, 6208, 5946, 5693,
+          5453, 5221, 5000}
+
   def weight(nil, _now, _settings), do: 0
 
   def weight(last, now, settings) do
-    decay = settings["decay_ms"]
-    true = is_integer(decay) and decay > 0
-    round(10_000 * :math.exp(-max(0, now - last) / decay))
+    half = div(settings["decay_ms"] * @ln2_bps, 10_000)
+    elapsed = max(0, now - last)
+    halvings = div(elapsed, half)
+
+    if halvings > 14 do
+      0
+    else
+      offset = elapsed - halvings * half
+      index = div(offset * 16, half)
+      from = elem(@steps, index)
+      into = elem(@steps, index + 1)
+
+      div(
+        from - div((from - into) * (offset * 16 - index * half), half),
+        Integer.pow(2, halvings)
+      )
+    end
   end
 
   def qualifies?(event, settings) do

@@ -44,6 +44,10 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     end)
   end
 
+  @doc "Blocks a port pool can still lease for one storage class."
+  def spare_blocks(state, port, storage),
+    do: max(0, pool(storage).blocks - used(state, port, storage))
+
   @doc "Blocks leased in one pool, without building the world-wide utilization map."
   def used(state, port, storage) do
     Enum.sum(

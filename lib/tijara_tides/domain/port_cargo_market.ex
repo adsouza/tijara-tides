@@ -190,7 +190,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
 
   def clear_merchant(%__MODULE__{merchant: true} = market), do: %{market | stock: 0, batches: []}
 
-  def replenish(%Lots{} = lots, %__MODULE__{} = market, item, scale \\ 10_000, quarters \\ 1) do
+  @doc "Returns the market and the cycles charged against its credit, so callers never recompute them."
+  def replenish(%Lots{} = lots, %__MODULE__{} = market, item, scale, quarters) do
     now = lots.clock_ms
 
     if item["id"] != market.good or now < market.last_production,
@@ -247,9 +248,9 @@ defmodule TijaraTides.Domain.PortCargoMarket do
              ),
            production_credit: credit,
            last_production: market.last_production + intervals * @market_replenishment_ms
-       }}
+       }, replenished}
     else
-      {lots, market}
+      {lots, market, 0}
     end
   end
 end

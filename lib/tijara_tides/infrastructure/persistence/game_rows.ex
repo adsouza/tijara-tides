@@ -261,6 +261,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"batches", "game_market_stock_batches", "market_id",
        [{"lot_id", "lot_id"}, {"quantity", "quantity_lots"}, {"expires_ms", "expires_ms"}]}
   }
+  # Columns the database always stores but state omits at their default, both ways.
+  @defaults %{"markets" => %{"feedstock" => false, "production_credit" => 0}}
   @optional %{
     "auctions" => ~w(ship_id),
     "ships" =>
@@ -338,14 +340,9 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       end)
 
     data =
-      if kind == "markets" and data["feedstock"] == false,
-        do: Map.delete(data, "feedstock"),
-        else: data
-
-    data =
-      if kind == "markets" and data["production_credit"] == 0,
-        do: Map.delete(data, "production_credit"),
-        else: data
+      Enum.reduce(Map.get(@defaults, kind, %{}), data, fn {key, default}, data ->
+        if data[key] == default, do: Map.delete(data, key), else: data
+      end)
 
     data = if kind == "notices", do: normalize_notice(data), else: data
     {id, data}
@@ -554,8 +551,10 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     :ok
   end
 
-  defp column_value("production_credit", nil), do: 0
-  defp column_value("feedstock", nil), do: false
+  for {_kind, defaults} <- @defaults, {key, default} <- defaults do
+    defp column_value(unquote(key), nil), do: unquote(default)
+  end
+
   defp column_value("locale", nil), do: "en"
   defp column_value("arguments", nil), do: %{}
   defp column_value("capital_ms", value), do: Decimal.new(value)
@@ -563,7 +562,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
   defp validate_entity!(kind, id, _old, data) do
     if kind == "markets" and data["merchant"] and
-         Enum.sum(Enum.map(data["batches"], & &1["quantity"])) != data["stock"],
+         Enum.sum(Enum.map(data["batches"] || [], & &1["quantity"])) != data["stock"],
        do: raise(ArgumentError, "Merchant inventory must be backed by cargo holdings")
 
     keys = Enum.map(@specs[kind], &elem(&1, 0))

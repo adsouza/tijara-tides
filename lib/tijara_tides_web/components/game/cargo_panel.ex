@@ -21,7 +21,11 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
       <h2 class="panel-title">{gettext("Cargo")}</h2>
       <div class="panel-content" tabindex="0" aria-label={gettext("Cargo markets")}>
         <section id="cargo-markets" class="my-6 rounded-xl border border-slate-700 p-5">
-          <TijaraTidesWeb.GameUI.AuctionPanel.discovery view={@view} grouping={@auction_grouping} />
+          <TijaraTidesWeb.GameUI.AuctionPanel.discovery
+            view={@view}
+            definitions={@definitions}
+            grouping={@auction_grouping}
+          />
           <div class="space-y-3">
             <details
               id="cargo-market-help"

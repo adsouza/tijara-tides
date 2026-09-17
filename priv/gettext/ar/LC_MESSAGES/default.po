@@ -2280,9 +2280,6 @@ msgstr "اعرض سلعًا فاخرة في المزاد"
 msgid "Countdowns use active-world time and pause while the world is stopped. Auctions settle automatically."
 msgstr "يستخدم العد التنازلي وقت العالم النشط ويتوقف عندما يتوقف العالم. تُسوّى المزادات تلقائيًا."
 
-msgid "Luxury auctions"
-msgstr "مزادات السلع الفاخرة"
-
 msgid "Maximum bid ($)"
 msgstr "الحد الأقصى للعرض ($)"
 
@@ -2315,9 +2312,6 @@ msgstr "بيع"
 
 msgid "Submit sealed bid"
 msgstr "قدّم عرضًا مختومًا"
-
-msgid "The luxury auction at %{port} has settled. See Luxury auctions for the result."
-msgstr "تمت تسوية مزاد السلع الفاخرة في %{port}. راجع مزادات السلع الفاخرة لمعرفة النتيجة."
 
 msgid "The warehouse must be idle and its lease must cover auction closing. Renew or choose a longer lease."
 msgstr "يجب أن يكون المستودع غير مشغول وأن يستمر إيجاره حتى إغلاق المزاد. جدّد الإيجار أو اختر مدة أطول."

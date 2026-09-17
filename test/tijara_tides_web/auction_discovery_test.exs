@@ -1,5 +1,7 @@
 defmodule TijaraTidesWeb.AuctionDiscoveryTest do
   use ExUnit.Case, async: true
+
+  defp definitions, do: TijaraTides.UseCases.Game.definitions()
   import Phoenix.LiveViewTest
   alias TijaraTides.UseCases.GameQueries
   alias TijaraTidesWeb.GameUI.AuctionPanel
@@ -163,7 +165,7 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
     assert settled["id"] == "sold"
     assert first["id"] == "open"
     assert second["id"] == "upcoming"
-    html = render_component(&AuctionPanel.discovery/1, view: view)
+    html = render_component(&AuctionPanel.discovery/1, view: view, definitions: definitions())
     tree = LazyHTML.from_fragment(html)
 
     assert LazyHTML.query(tree, "#discover-auctions-status-open[open]") |> LazyHTML.to_html() !=
@@ -173,7 +175,14 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
              ""
 
     assert html =~ "Open auctions"
-    cargo_html = render_component(&AuctionPanel.discovery/1, view: view, grouping: "cargo")
+
+    cargo_html =
+      render_component(&AuctionPanel.discovery/1,
+        view: view,
+        definitions: definitions(),
+        grouping: "cargo"
+      )
+
     assert cargo_html =~ "discover-auctions-cargo-jewelry"
     refute cargo_html =~ "Open auctions"
     assert html =~ "Bidding open"
@@ -190,7 +199,7 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
   end
 
   test "empty discovery works without a public snapshot" do
-    assert render_component(&AuctionPanel.discovery/1, view: %{}) =~
+    assert render_component(&AuctionPanel.discovery/1, view: %{}, definitions: definitions()) =~
              "No luxury auctions available."
   end
 end

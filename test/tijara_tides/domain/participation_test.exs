@@ -60,17 +60,17 @@ defmodule TijaraTides.Domain.ParticipationTest do
     }
 
     item = %{"id" => "lumber", "shelf_ms" => 0, "reference_cents" => 100}
-    {_, first} = PortCargoMarket.replenish(%Lots{clock_ms: 150_000}, market, item, 5000)
+    {_, first, _} = PortCargoMarket.replenish(%Lots{clock_ms: 150_000}, market, item, 5000, 1)
     assert {first.stock, first.production_credit} == {0, 5000}
-    {_, second} = PortCargoMarket.replenish(%Lots{clock_ms: 300_000}, first, item, 5000)
-    {_, together} = PortCargoMarket.replenish(%Lots{clock_ms: 300_000}, market, item, 5000)
+    {_, second, _} = PortCargoMarket.replenish(%Lots{clock_ms: 300_000}, first, item, 5000, 1)
+    {_, together, _} = PortCargoMarket.replenish(%Lots{clock_ms: 300_000}, market, item, 5000, 1)
     assert second == together
     assert {second.stock, second.budget, second.production_credit} == {1, 100, 0}
-    {_, stopped} = PortCargoMarket.replenish(%Lots{clock_ms: 300_000}, market, item, 0)
+    {_, stopped, _} = PortCargoMarket.replenish(%Lots{clock_ms: 300_000}, market, item, 0, 1)
     assert {stopped.stock, stopped.budget, stopped.demand} == {0, 0, 0}
 
-    {_, capped} =
-      PortCargoMarket.replenish(%Lots{clock_ms: 3 * 604_800_000}, market, item, 20_000)
+    {_, capped, _} =
+      PortCargoMarket.replenish(%Lots{clock_ms: 3 * 604_800_000}, market, item, 20_000, 1)
 
     assert capped.stock == 500
     assert capped.budget == 100 * div(604_800_000, 150_000) * 2

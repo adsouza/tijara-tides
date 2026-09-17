@@ -30,12 +30,15 @@ defmodule TijaraTides.Domain.Services.Estates do
               list_ship(s, ship, cat)
 
             [batch | _] ->
-              WarehouseWorld.estate_unload(
-                s,
-                get(s, "ships", id),
-                cat["goods"][batch["good"]],
-                cat
-              )
+              item = cat["goods"][batch["good"]]
+              hull = get(s, "ships", id)
+
+              # A hold the port cannot lease at all would otherwise strand the estate,
+              # since the hull is only offered once its cargo is gone.
+              if WarehouseWorld.spare_blocks(s, hull["port"], item["hold"]) *
+                   WarehouseWorld.block_litres() < item["volume_l"],
+                 do: scrap_cargo(s, hull, item),
+                 else: WarehouseWorld.estate_unload(s, hull, item, cat)
           end
         else
           s
@@ -68,14 +71,16 @@ defmodule TijaraTides.Domain.Services.Estates do
         end
       end)
 
-    Enum.reduce(entities(s, "companies"), s, fn {id, c}, s ->
-      assets =
-        Enum.any?(entities(s, "ships"), fn {_, r} -> r["company_id"] == id end) or
-          Enum.any?(entities(s, "warehouses"), fn {_, r} -> r["company_id"] == id end)
+    owners =
+      for kind <- ["ships", "warehouses"],
+          {_, row} <- entities(s, kind),
+          into: MapSet.new(),
+          do: row["company_id"]
 
+    Enum.reduce(entities(s, "companies"), s, fn {id, c}, s ->
       free = c["cash"] - c["reserved"]
 
-      if c["bankruptcy_ms"] != nil and not assets and free > 0,
+      if c["bankruptcy_ms"] != nil and not MapSet.member?(owners, id) and free > 0,
         do:
           CompanyFinanceWorld.post(s, id, "estate_closed", [
             {"cash_available", -free},
@@ -88,7 +93,7 @@ defmodule TijaraTides.Domain.Services.Estates do
   defp list_ship(s, ship, cat) do
     id = "estate-ship:" <> ship["company_id"] <> ":" <> ship["id"]
 
-    if AuctionWorld.fetch(s, id) do
+    if AuctionWorld.fetch(s, id) != nil or not listable?(s, ship["company_id"]) do
       s
     else
       {opens, closes} = AuctionWorld.schedule(s.clock_ms, ship["port"], cat)
@@ -124,7 +129,7 @@ defmodule TijaraTides.Domain.Services.Estates do
     quantity =
       Enum.sum(Enum.map(fresh, & &1.quantity)) - Warehouse.reserved_quantity(w, "stock", good)
 
-    if quantity <= 0 do
+    if quantity <= 0 or not listable?(s, w.company_id) do
       s
     else
       {normal_open, normal_close} = AuctionWorld.schedule(s.clock_ms, w.port, cat)
@@ -159,6 +164,28 @@ defmodule TijaraTides.Domain.Services.Estates do
       else
         AuctionWorld.list(s, a)
       end
+    end
+  end
+
+  # Estate listings are created directly, so they carry the same ceiling consign/6 applies.
+  defp listable?(s, company),
+    do:
+      Enum.count(AuctionWorld.company_auctions(s, company), &AuctionWorld.open?/1) <
+        Auctions.open_limit()
+
+  defp scrap_cargo(s, ship, item) do
+    quantity = ShipWorld.cargo_available(s, ship["id"], item["id"])
+
+    if quantity > 0 do
+      {s, cargo} = ShipWorld.unload_cargo(s, ship["id"], item["id"], quantity)
+      cost = Enum.sum(Enum.map(cargo, &(&1["quantity"] * &1["unit_cost"])))
+
+      CompanyFinanceWorld.post(s, ship["company_id"], "estate_cargo_disposal", [
+        {"inventory", -cost},
+        {"receivership", cost}
+      ])
+    else
+      s
     end
   end
 
