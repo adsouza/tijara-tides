@@ -136,6 +136,60 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              restored.entities["markets"]
   end
 
+  test "economic participation persists and receipt replay does not refresh its wall clock", c do
+    alias TijaraTides.Domain.{State, Warehouse, WarehouseWorld}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    :sys.replace_state(c.server, &%{&1 | wall_clock: fn -> 0 end})
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "activity-company",
+        %{
+          "action" => "company",
+          "name" => "Activity",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    :sys.replace_state(c.server, &%{&1 | wall_clock: fn -> 1000 end})
+    before = :sys.get_state(c.server).game
+    price = Warehouse.quote(WarehouseWorld.used(before, "Jakarta", "dry"), "dry", 100, 1)
+
+    cmd = %{
+      "action" => "warehouse_lease",
+      "port" => "Jakarta",
+      "storage" => "dry",
+      "blocks" => 100,
+      "days" => 1,
+      "price" => price
+    }
+
+    assert {:ok, _} = GameServer.command(token, "meaningful-lease", cmd, c.server)
+    accepted = :sys.get_state(c.server).game
+    [company] = Map.keys(State.entities(accepted, "companies"))
+    assert State.get(accepted, "company_activity", company)["last_action_ms"] == 1000
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, accepted)
+    assert restored.entities["company_activity"] == accepted.entities["company_activity"]
+    :sys.replace_state(c.server, &%{&1 | game: restored, wall_clock: fn -> 2000 end})
+    assert {:ok, _} = GameServer.command(token, "meaningful-lease", cmd, c.server)
+    replayed = :sys.get_state(c.server).game
+    assert State.get(replayed, "company_activity", company)["last_action_ms"] == 1000
+    # A fractional production credit survives durable storage as well.
+    market = State.get(replayed, "markets", "Jakarta|lumber")
+
+    changed =
+      State.put(replayed, "markets", "Jakarta|lumber", Map.put(market, "production_credit", 5000))
+
+    changed = %{changed | revision: replayed.revision + 1}
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, replayed.epoch, replayed, changed)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, changed)
+    assert State.get(restored, "markets", "Jakarta|lumber")["production_credit"] == 5000
+  end
+
   test "maintenance expense persists, reports as operating cost and resumes without rebilling",
        c do
     alias TijaraTides.Infrastructure.Persistence.FinancialLedger

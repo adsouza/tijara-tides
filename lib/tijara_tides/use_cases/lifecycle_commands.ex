@@ -47,8 +47,20 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
   defp execute(game, {:sign_out, session}, _),
     do: {:ok, AccountWorld.sign_out(game, session), %{}}
 
-  defp execute(game, {:advance, elapsed}, context),
-    do: {:ok, Game.advance(game, elapsed, context.catalogue), %{}}
+  defp execute(game, {:advance, elapsed}, context) do
+    wall = Map.get(context, :wall_ms)
+
+    scale =
+      if is_integer(wall),
+        do: TijaraTides.Domain.ParticipationWorld.index(game, wall, context.catalogue),
+        else: 10_000
+
+    changed =
+      game |> Map.put(:participation_bps, scale) |> Game.advance(elapsed, context.catalogue)
+
+    {:ok, TijaraTides.Domain.ParticipationWorld.observe(game, changed, wall, context.catalogue),
+     %{}}
+  end
 
   defp execute(game, {:email_request, session, purpose, address}, context) do
     if ReadState.get(game, "email_requests", context.id) do

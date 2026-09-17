@@ -235,8 +235,7 @@ Regional catchment pricing and age-based maintenance have now been implemented,
 with launch tuning described in this document. Remaining work includes:
 
 - **Simulated economy:** warehouse-backed
-  re-export merchants, differentiated production rates, and participation-scaled
-  producer output and buyer budgets. Add economic activity weights, money-stock
+  re-export merchants, differentiated production rates, and money-stock
   and source/sink monitoring, and price-level monitoring (§5).
 - **Dormancy and estates:** durable owner-absence tracking and closure warnings,
   dormant liquidation without a bankruptcy count,
@@ -698,3 +697,22 @@ departure marks completed/cancelled prior instructions historical, without
 deleting their records. Active instructions remain visible. Legacy records lack
 journey identity; migration retains their newest contiguous destination group
 and active orders. Subsequent departures distinguish repeated visits exactly.
+
+### Participation-scaled economic depth
+
+Each live company has one economic weight, capped at 1, decaying exponentially
+since its last qualifying action over seven real days. The index sums these
+weights globally; fleet size, port selection and authentication do not increase
+it. Settled trades, funded auction bids, ship purchases, dispatches and paid
+warehouse terms qualify at $100 or more. Automated economic actions count;
+owner absence and dormant closure remain separate, unimplemented behavior.
+Failed commands, receipt replays, bid withdrawals and operating expenses do not
+refresh participation. Timestamps commit atomically with the economic action.
+
+The global index scales producer and factory cycles, consumer demand recovery,
+and buyer-budget replenishment. Fractional production credits persist across
+ticks/reloads, while physical 500-lot storage bounds remain in force. Budget caps
+are one game quarter of the current scaled replenishment rate. Zero participation
+stops replenishment; existing inventories remain available to restart trading.
+The `participation` catalogue settings configure decay, minimum action value and
+budget quarters. Existing companies start without fabricated activity history.

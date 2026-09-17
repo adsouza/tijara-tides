@@ -7,8 +7,21 @@ defmodule TijaraTides.UseCases.GameCommands do
   alias TijaraTides.Domain.Commands
   alias TijaraTides.UseCases.{Authentication, CommandRequest, CommitExecutor}
 
-  def execute(state, account, command, context),
-    do: Commands.execute(state, account, command, context)
+  def execute(state, account, command, context) do
+    case Commands.execute(state, account, command, context) do
+      {:ok, changed, reply} ->
+        {:ok,
+         TijaraTides.Domain.ParticipationWorld.observe(
+           state,
+           changed,
+           Map.get(context, :wall_ms),
+           context.catalogue
+         ), reply}
+
+      other ->
+        other
+    end
+  end
 
   # Compatibility for callers that still supply catalogue separately.
   def execute(state, account, command, context, catalogue),

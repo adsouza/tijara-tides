@@ -4,6 +4,7 @@ defmodule TijaraTides.Domain do
     type: :strict,
     deps: [],
     exports: [
+      ParticipationWorld,
       Warehouse,
       WarehouseWorld,
       OrderBook,

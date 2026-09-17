@@ -143,15 +143,29 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
   end
 
   def advance(state, catalogue) do
+    scale = Map.get(state, :participation_bps, 10_000)
+    quarters = TijaraTides.Domain.Participation.settings(catalogue)["budget_quarters"]
+
     cycles =
       Map.new(entities(state, "markets"), fn {id, row} ->
-        {id, div(state.clock_ms - row["last_production"], 150_000)}
+        {id,
+         elem(
+           TijaraTides.Domain.Participation.cycles(
+             div(state.clock_ms - row["last_production"], 150_000),
+             scale,
+             row["production_credit"] || 0
+           ),
+           0
+         )}
       end)
 
     state =
       Enum.reduce(entities(state, "markets"), state, fn {_, row}, state ->
         market = Rows.decode(row)
-        {lots, market} = Market.replenish(lots(state), market, catalogue["goods"][market.good])
+
+        {lots, market} =
+          Market.replenish(lots(state), market, catalogue["goods"][market.good], scale, quarters)
+
         state |> record_lots(lots) |> store(market)
       end)
 

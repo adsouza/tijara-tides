@@ -1,6 +1,7 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "company_activity" => Enum.map(~w(company_id last_action_ms), &{&1, &1}),
     "auctions" =>
       Enum.map(
         ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed ship_id),
@@ -207,6 +208,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
         ],
     "markets" => [
       {"feedstock", "feedstock"},
+      {"production_credit", "production_credit"},
       {"port", "port_id"},
       {"good", "good_id"},
       {"merchant", "merchant"},
@@ -233,7 +235,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(accounts companies warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
+  @kinds ~w(accounts companies company_activity warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
 
   @children %{
     "warehouses" =>
@@ -336,6 +338,11 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     data =
       if kind == "markets" and data["feedstock"] == false,
         do: Map.delete(data, "feedstock"),
+        else: data
+
+    data =
+      if kind == "markets" and data["production_credit"] == 0,
+        do: Map.delete(data, "production_credit"),
         else: data
 
     data = if kind == "notices", do: normalize_notice(data), else: data
@@ -545,6 +552,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     :ok
   end
 
+  defp column_value("production_credit", nil), do: 0
   defp column_value("feedstock", nil), do: false
   defp column_value("locale", nil), do: "en"
   defp column_value("arguments", nil), do: %{}

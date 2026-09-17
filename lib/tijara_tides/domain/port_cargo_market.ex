@@ -5,7 +5,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   @market_replenishment_ms 150_000
 
   @fields ~w(port good merchant seller buyer stock demand budget batches last_production)a
-  defstruct @fields ++ [feedstock: false]
+  defstruct @fields ++ [feedstock: false, production_credit: 0]
 
   def quote(%__MODULE__{} = market, catalogue) do
     item = catalogue["goods"][market.good]
@@ -167,13 +167,17 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     }
   end
 
-  def replenish(%Lots{} = lots, %__MODULE__{} = market, item) do
+  def replenish(%Lots{} = lots, %__MODULE__{} = market, item, scale \\ 10_000, quarters \\ 1) do
     now = lots.clock_ms
 
     if item["id"] != market.good or now < market.last_production,
       do: raise(ArgumentError, "Market replenishment requires matching cargo and monotonic time")
 
-    replenished = div(now - market.last_production, @market_replenishment_ms)
+    intervals = div(now - market.last_production, @market_replenishment_ms)
+
+    {replenished, credit} =
+      TijaraTides.Domain.Participation.cycles(intervals, scale, market.production_credit)
+
     batches = Enum.reject(market.batches, &(&1.expires_ms <= now))
 
     stock =
@@ -183,7 +187,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
 
     market = %{market | batches: batches, stock: stock}
 
-    if replenished > 0 do
+    if intervals > 0 do
       # Manufactured goods remain finite until recipes are implemented.
       produced =
         if market.good in raw_goods() and market.seller and not market.merchant,
@@ -205,7 +209,11 @@ defmodule TijaraTides.Domain.PortCargoMarket do
            batches: batches,
            budget:
              min(
-               item["reference_cents"] * 1000,
+               div(
+                 item["reference_cents"] * div(604_800_000 * quarters, @market_replenishment_ms) *
+                   scale,
+                 10_000
+               ),
                market.budget +
                  if(market.buyer, do: replenished * item["reference_cents"], else: 0)
              ),
@@ -214,7 +222,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
                if(market.feedstock, do: max(0, 500 - stock - produced), else: 500),
                market.demand + if(market.buyer, do: replenished, else: 0)
              ),
-           last_production: market.last_production + replenished * @market_replenishment_ms
+           production_credit: credit,
+           last_production: market.last_production + intervals * @market_replenishment_ms
        }}
     else
       {lots, market}
