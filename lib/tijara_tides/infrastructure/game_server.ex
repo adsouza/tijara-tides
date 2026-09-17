@@ -140,7 +140,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
       catalogue: GameCatalogue.all(),
       active: false,
       last_mono: System.monotonic_time(:millisecond),
-      tick_ms: Keyword.get(opts, :tick_ms, 5000),
+      tick_ms: Keyword.get(opts, :tick_ms, 3000),
+      tick_schedule: TijaraTides.Infrastructure.TickSchedule.new(opts),
       timer: nil,
       tick_due_mono: nil
     }
@@ -456,12 +457,12 @@ defmodule TijaraTides.Infrastructure.GameServer do
             next = accept_outcome(state, outcome)
             if state.timer, do: Process.cancel_timer(state.timer)
 
-            {:noreply, %{schedule_tick(next) | last_mono: now}}
+            {:noreply, %{schedule_tick(next, now) | last_mono: now}}
 
           {:error, :market_busy, fresh} ->
             next = refresh_game(state, fresh)
             if state.timer, do: Process.cancel_timer(state.timer)
-            {:noreply, schedule_tick(next)}
+            {:noreply, schedule_tick(next, now)}
 
           {:halt, reason} ->
             Logger.error("World progression paused: #{reason}")
@@ -474,11 +475,19 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   def handle_info(_message, state), do: {:noreply, state}
 
-  defp schedule_tick(state) do
+  defp schedule_tick(state, started) do
+    finished = System.monotonic_time(:millisecond)
+    lag = if state.tick_due_mono, do: max(0, started - state.tick_due_mono), else: 0
+
+    schedule =
+      TijaraTides.Infrastructure.TickSchedule.sample(state.tick_schedule, finished - started, lag)
+
     %{
       state
-      | tick_due_mono: System.monotonic_time(:millisecond) + state.tick_ms,
-        timer: :erlang.start_timer(state.tick_ms, self(), :tick)
+      | tick_schedule: schedule,
+        tick_ms: schedule.interval,
+        tick_due_mono: finished + schedule.interval,
+        timer: :erlang.start_timer(schedule.interval, self(), :tick)
     }
   end
 

@@ -40,6 +40,33 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "adaptive ticks schedule the new interval while retaining elapsed world time", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    :ok = GameServer.connect(token, c.server)
+    before = :sys.get_state(c.server)
+
+    :sys.replace_state(c.server, fn s ->
+      %{s | tick_ms: 3000, tick_schedule: TijaraTides.Infrastructure.TickSchedule.new([])}
+    end)
+
+    for _ <- 1..3 do
+      :sys.replace_state(c.server, fn s ->
+        now = System.monotonic_time(:millisecond)
+        %{s | last_mono: now - 1000, tick_due_mono: now - 600}
+      end)
+
+      send(c.server, :tick)
+      assert :sys.get_state(c.server).status == :ready
+    end
+
+    after_ticks = :sys.get_state(c.server)
+    assert after_ticks.tick_ms == 4000
+    assert after_ticks.game.clock_ms >= before.game.clock_ms + 3000
+    assert Process.read_timer(after_ticks.timer) in 1..4000
+    send(c.server, {:timeout, make_ref(), :tick})
+    assert :sys.get_state(c.server).timer == after_ticks.timer
+  end
+
   test "estate ship auction survives reload, transfers acquisition basis and reconciles", c do
     alias TijaraTides.Domain.{State, CompanyFinanceWorld, AuctionWorld}
     alias TijaraTides.Domain.Services.{Estates, Auctions}
