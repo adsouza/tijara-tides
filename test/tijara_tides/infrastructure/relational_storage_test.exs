@@ -151,7 +151,8 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
   end
 
   defp legacy_state do
-    catalogue = GameCatalogue.all()
+    # Reproduce the pre-manufacturing catalogue for the legacy JSON schema.
+    catalogue = GameCatalogue.all() |> Map.delete("manufacturing")
     state = Game.initialize(%{entities: %{}, clock_ms: 0, epoch: 2, revision: 10}, catalogue)
     {:ok, state, _} = Game.seed_invite(state, "seed-hash")
 

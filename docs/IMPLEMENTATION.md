@@ -165,8 +165,18 @@ update while underway. Public ship inspection shows company, class, and status
 without exposing cargo. Selecting a port updates its market view. World suspension
 pauses simulation timers; wall-clock session and magic-link expiry still apply.
 
-Raw-resource producers replenish finite stock; manufactured goods have a finite
-initial allocation until input-consuming production is implemented. Re-export
+Raw-resource producers replenish finite stock, including locally grown spices.
+Manufacturers use the explicit `manufacturing` recipes in the catalogue. Each
+production cycle consumes the listed inputs from finite port inventories and pays
+local production costs plus the current input asks from the producer's budget.
+Input sellers receive the input payment. Both input and output stores are good-specific
+and capped at 500 lots. A producer stops when any input, output space, or funding
+is missing. Industrial buyers retain deliveries as feedstock rather than consuming
+them as final demand. New worlds allocate 50 lots to otherwise empty industrial
+input stores and retain the existing 500-lot producer output allocation; existing
+worlds activate input demand without minting replacement starting stock on reload.
+Recipes and the 10%-of-reference local costs are provisional tuning, including
+catalogue substitutes such as recovered plastics for synthetic fibres. Re-export
 merchants remain unavailable until their warehouse-backed inventory exists.
 Regional catchments use the catalogue's three clusters. Each good's shared
 operating price responds to average eligible supplier stock and buyer demand,
@@ -224,7 +234,7 @@ repeating routes are already playable.
 Regional catchment pricing and age-based maintenance have now been implemented,
 with launch tuning described in this document. Remaining work includes:
 
-- **Simulated economy:** input-consuming NPC manufacturing, warehouse-backed
+- **Simulated economy:** warehouse-backed
   re-export merchants, differentiated production rates, and participation-scaled
   producer output and buyer budgets. Add economic activity weights, money-stock
   and source/sink monitoring, and price-level monitoring (§5).

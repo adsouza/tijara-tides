@@ -5,7 +5,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   @market_replenishment_ms 150_000
 
   @fields ~w(port good merchant seller buyer stock demand budget batches last_production)a
-  defstruct @fields
+  defstruct @fields ++ [feedstock: false]
 
   def quote(%__MODULE__{} = market, catalogue) do
     item = catalogue["goods"][market.good]
@@ -67,14 +67,15 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   @doc "Consume finite buyer demand and funds; only merchants retain purchased stock."
   def receive_cargo(%__MODULE__{} = market, quantity, price) do
     unless market.buyer and is_integer(quantity) and quantity > 0 and quantity <= market.demand and
-             is_integer(price) and price >= 0 and quantity * price <= market.budget,
+             is_integer(price) and price >= 0 and quantity * price <= market.budget and
+             (not market.feedstock or market.stock + quantity <= 500),
            do: raise(ArgumentError, "Market cannot fund the requested cargo purchase")
 
     %{
       market
       | demand: market.demand - quantity,
         budget: market.budget - quantity * price,
-        stock: market.stock + if(market.merchant, do: quantity, else: 0)
+        stock: market.stock + if(market.merchant or market.feedstock, do: quantity, else: 0)
     }
   end
 
@@ -90,6 +91,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
         do: raise(ArgumentError, "unknown raw production good: #{good}")
     end)
 
+    TijaraTides.Domain.Manufacturing.validate!(catalogue)
+
     Enum.each(catalogue["ports"], fn {port, definition} ->
       Enum.each(definition["roles"], fn {good, role} ->
         unless Map.has_key?(catalogue["goods"], good),
@@ -103,6 +106,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
 
   def raw_goods,
     do: [
+      "spices",
       "iron_ore",
       "grain",
       "lumber",
@@ -159,7 +163,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
       market
       | demand: market.demand - quantity,
         budget: market.budget - amount,
-        stock: market.stock + if(market.merchant, do: quantity, else: 0)
+        stock: market.stock + if(market.merchant or market.feedstock, do: quantity, else: 0)
     }
   end
 
@@ -205,7 +209,11 @@ defmodule TijaraTides.Domain.PortCargoMarket do
                market.budget +
                  if(market.buyer, do: replenished * item["reference_cents"], else: 0)
              ),
-           demand: min(500, market.demand + if(market.buyer, do: replenished, else: 0)),
+           demand:
+             min(
+               if(market.feedstock, do: max(0, 500 - stock - produced), else: 500),
+               market.demand + if(market.buyer, do: replenished, else: 0)
+             ),
            last_production: market.last_production + replenished * @market_replenishment_ms
        }}
     else

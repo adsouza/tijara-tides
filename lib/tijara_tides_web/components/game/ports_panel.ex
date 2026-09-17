@@ -74,6 +74,24 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               {l10n(@definitions.catalogue["ports"][@selected_port]["identity"])}
             </p>
           </details>
+          <details
+            id="port-manufacturing"
+            phx-mounted={JS.ignore_attributes("open")}
+            class="my-2 text-sm text-slate-400"
+          >
+            <summary>{gettext("Local manufacturing")}</summary>
+            <p>{gettext("Production requires inputs, funds and free output storage.")}</p>
+            <ul>
+              <li :for={
+                {good, recipe} <- GameQueries.production_recipes(@definitions, @selected_port)
+              }>
+                {cargo_name(good)} ← {Enum.map_join(Enum.sort(recipe["inputs"]), ", ", fn {input,
+                                                                                           quantity} ->
+                  display_number(quantity) <> " " <> cargo_name(input)
+                end)}
+              </li>
+            </ul>
+          </details>
           <TijaraTidesWeb.GameUI.WarehousePanel.panel
             definitions={@definitions}
             view={@view}

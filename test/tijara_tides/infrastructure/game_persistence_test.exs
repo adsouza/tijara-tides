@@ -106,6 +106,36 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok == FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "manufacturing inventories and budgets persist without replenishing on reload", c do
+    alias TijaraTides.Domain.{State, PortCargoMarketWorld}
+    before = :sys.get_state(c.server).game
+    cat = :sys.get_state(c.server).catalogue
+    output = State.get(before, "markets", "Singapore|refined_fuel")
+    input = State.get(before, "markets", "Singapore|crude_oil")
+
+    changed =
+      before
+      |> State.put("markets", "Singapore|refined_fuel", %{output | "stock" => 0})
+      |> State.put("markets", "Singapore|crude_oil", %{input | "stock" => 3})
+
+    changed =
+      PortCargoMarketWorld.advance(
+        %{changed | clock_ms: before.clock_ms + 450_000, revision: before.revision + 1},
+        cat
+      )
+
+    assert State.get(changed, "markets", "Singapore|refined_fuel")["stock"] == 3
+    assert State.get(changed, "markets", "Singapore|crude_oil")["stock"] == 0
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, changed)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, changed)
+    assert restored.entities["markets"] == changed.entities["markets"]
+    initialized = PortCargoMarketWorld.initialize(restored, cat)
+    assert initialized.entities["markets"] == restored.entities["markets"]
+
+    assert PortCargoMarketWorld.advance(initialized, cat).entities["markets"] ==
+             restored.entities["markets"]
+  end
+
   test "maintenance expense persists, reports as operating cost and resumes without rebilling",
        c do
     alias TijaraTides.Infrastructure.Persistence.FinancialLedger

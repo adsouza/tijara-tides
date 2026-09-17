@@ -2435,3 +2435,9 @@ msgstr "انتهى المزاد في %{port}. راجع مزادات البضائ
 
 msgid "Ship"
 msgstr "سفينة"
+
+msgid "Local manufacturing"
+msgstr "التصنيع المحلي"
+
+msgid "Production requires inputs, funds and free output storage."
+msgstr "يتطلب الإنتاج مواد أولية وأموالاً ومساحة تخزين متاحة للمنتجات."

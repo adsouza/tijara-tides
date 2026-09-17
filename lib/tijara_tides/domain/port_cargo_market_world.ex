@@ -4,6 +4,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
   import TijaraTides.Domain.State, only: [get: 3, entities: 2, put: 4]
   alias TijaraTides.Domain.PortCargoMarket, as: Market
   alias TijaraTides.Domain.PortCargoMarket.{Lots, Rows}
+  alias TijaraTides.Domain.Manufacturing
   alias TijaraTides.Domain.RegionalPricing
 
   def fetch(state, port, good) do
@@ -103,19 +104,86 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
           {lots, market} =
             Market.initialize(lots(state), port, good, role, catalogue["goods"][good])
 
+          feedstock =
+            MapSet.member?(Manufacturing.inputs_at(catalogue, port), good) and not market.merchant
+
+          market =
+            if feedstock,
+              do: %{
+                market
+                | feedstock: true,
+                  buyer: true,
+                  stock: max(market.stock, 50),
+                  demand: min(market.demand + 450, 500 - max(market.stock, 50))
+              },
+              else: market
+
           state |> record_lots(lots) |> store(market)
         end)
       end)
     else
-      state
+      Enum.reduce(entities(state, "markets"), state, fn {_, row}, s ->
+        market = Rows.decode(row)
+
+        feedstock =
+          MapSet.member?(Manufacturing.inputs_at(catalogue, market.port), market.good) and
+            not market.merchant
+
+        if feedstock and not market.feedstock,
+          do:
+            store(s, %{
+              market
+              | feedstock: true,
+                buyer: true,
+                demand: min(500 - market.stock, max(50, market.demand))
+            }),
+          else: s
+      end)
     end
   end
 
   def advance(state, catalogue) do
-    Enum.reduce(entities(state, "markets"), state, fn {_, row}, state ->
-      market = Rows.decode(row)
-      {lots, market} = Market.replenish(lots(state), market, catalogue["goods"][market.good])
-      state |> record_lots(lots) |> store(market)
+    cycles =
+      Map.new(entities(state, "markets"), fn {id, row} ->
+        {id, div(state.clock_ms - row["last_production"], 150_000)}
+      end)
+
+    state =
+      Enum.reduce(entities(state, "markets"), state, fn {_, row}, state ->
+        market = Rows.decode(row)
+        {lots, market} = Market.replenish(lots(state), market, catalogue["goods"][market.good])
+        state |> record_lots(lots) |> store(market)
+      end)
+
+    Enum.reduce(Enum.sort(entities(state, "markets")), state, fn {id, row}, s ->
+      recipe = Manufacturing.recipes(catalogue)[row["good"]]
+
+      if recipe != nil and row["seller"] and not row["merchant"] and cycles[id] > 0 do
+        inputs =
+          Map.new(recipe["inputs"], fn {good, _} -> {good, fetch(s, row["port"], good)} end)
+
+        if Enum.all?(inputs, fn {_, market} -> market != nil and market.feedstock end) do
+          prices =
+            Map.new(inputs, fn {good, _} ->
+              {good, quote(s, catalogue, row["port"], good)["ask"]}
+            end)
+
+          {output, consumed} =
+            Manufacturing.produce(
+              fetch(s, row["port"], row["good"]),
+              inputs,
+              recipe,
+              prices,
+              cycles[id]
+            )
+
+          Enum.reduce(consumed, store(s, output), fn {_, input}, s -> store(s, input) end)
+        else
+          s
+        end
+      else
+        s
+      end
     end)
   end
 end

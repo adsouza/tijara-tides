@@ -206,6 +206,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
           {"voyage_speedup", "voyage_speedup"}
         ],
     "markets" => [
+      {"feedstock", "feedstock"},
       {"port", "port_id"},
       {"good", "good_id"},
       {"merchant", "merchant"},
@@ -331,6 +332,11 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       Enum.reduce(Map.get(@optional, kind, []), data, fn key, data ->
         if is_nil(data[key]), do: Map.delete(data, key), else: data
       end)
+
+    data =
+      if kind == "markets" and data["feedstock"] == false,
+        do: Map.delete(data, "feedstock"),
+        else: data
 
     data = if kind == "notices", do: normalize_notice(data), else: data
     {id, data}
@@ -539,6 +545,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     :ok
   end
 
+  defp column_value("feedstock", nil), do: false
   defp column_value("locale", nil), do: "en"
   defp column_value("arguments", nil), do: %{}
   defp column_value("capital_ms", value), do: Decimal.new(value)

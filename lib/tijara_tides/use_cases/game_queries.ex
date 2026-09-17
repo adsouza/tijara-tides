@@ -1,4 +1,15 @@
 defmodule TijaraTides.UseCases.GameQueries do
+  def production_recipes(definitions, port) do
+    roles = definitions.catalogue["ports"][port]["roles"]
+
+    (definitions.catalogue["manufacturing"] || %{})
+    |> Enum.filter(fn {good, _} ->
+      role = roles[good] || ""
+      String.contains?(role, "exp") and not String.contains?(role, "/")
+    end)
+    |> Enum.sort()
+  end
+
   @moduledoc "Authenticated snapshots and compatibility entry point for focused read-side queries."
   alias TijaraTides.Domain.{Fleet, CargoRules, Visibility}
   defdelegate compatible_cargo?(ship, item), to: CargoRules
