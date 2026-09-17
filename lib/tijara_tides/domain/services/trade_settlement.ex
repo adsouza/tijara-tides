@@ -50,7 +50,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
          %{"company_id" => owner, "status" => "docked"} = ship <- get(state, "ships", ship_id),
          true <- owner == company["id"] and is_nil(company["bankruptcy_ms"]),
          %{"manual" => true} = item <- catalogue["goods"][good],
-         %{"merchant" => false} <- get(state, "markets", ship["port"] <> "|" <> good),
+         %{} <- get(state, "markets", ship["port"] <> "|" <> good),
          true <-
            is_integer(quantity) and quantity > 0 and quantity <= max_lots() and
              is_integer(limit) and
@@ -171,7 +171,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       quote["ask"] > limit ->
         {:error, :price_changed}
 
-      market["stock"] < quantity ->
+      quote["stock"] < quantity ->
         {:error, :insufficient_supply}
 
       company["cash"] - company["reserved"] < cost + handling + cleaning or company["unpaid"] > 0 ->
@@ -198,6 +198,14 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
         state =
           TijaraTides.Domain.ShipWorld.load_cargo(state, ship["id"], cargo, cleaning, catalogue)
+
+        state =
+          PortCargoMarketWorld.protect_storage(
+            state,
+            market["port"],
+            item["id"],
+            get(state, "ships", ship["id"])["arrive_ms"]
+          )
 
         state =
           CompanyFinanceWorld.post(
@@ -227,7 +235,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       quote["bid"] < limit ->
         {:error, :price_changed}
 
-      market["demand"] < quantity or market["budget"] < quote["bid"] * quantity ->
+      quote["demand"] < quantity or quote["buyer_budget"] < quote["bid"] * quantity ->
         {:error, :insufficient_demand}
 
       true ->
@@ -240,7 +248,12 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
         state =
           state
-          |> PortCargoMarketWorld.accept_cargo(market["port"], good, quantity, quote["bid"])
+          |> PortCargoMarketWorld.accept_cargo(market["port"], good, quantity, quote["bid"], sold)
+          |> PortCargoMarketWorld.protect_storage(
+            market["port"],
+            good,
+            get(state, "ships", ship["id"])["arrive_ms"]
+          )
 
         state =
           CompanyFinanceWorld.post(

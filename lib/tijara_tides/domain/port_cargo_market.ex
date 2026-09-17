@@ -1,11 +1,12 @@
 defmodule TijaraTides.Domain.PortCargoMarket do
   @moduledoc "Finite market quotes, catalogue rules, producer output, demand and buyer-budget recovery."
+  alias TijaraTides.Domain.PortCargoMarket.Batch
   alias TijaraTides.Domain.PortCargoMarket.Lots
   alias TijaraTides.Domain.Ship.CargoBatch
   @market_replenishment_ms 150_000
 
   @fields ~w(port good merchant seller buyer stock demand budget batches last_production)a
-  defstruct @fields ++ [feedstock: false, production_credit: 0]
+  defstruct @fields ++ [feedstock: false, production_credit: 0, warehouse_active: false]
 
   def quote(%__MODULE__{} = market, catalogue) do
     item = catalogue["goods"][market.good]
@@ -21,7 +22,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
       "stock" => market.stock,
       "demand" => market.demand,
       "buyer_budget" => market.budget,
-      "manual" => item["manual"] and not market.merchant
+      "manual" => item["manual"] and (not market.merchant or market.warehouse_active)
     }
   end
 
@@ -32,8 +33,11 @@ defmodule TijaraTides.Domain.PortCargoMarket do
            do: raise(ArgumentError, "Market cannot supply the requested cargo quantity or price")
 
     {lots, taken, remaining} =
-      if item["shelf_ms"] > 0 do
-        unless Enum.all?(market.batches, &(&1.expires_ms > lots.clock_ms)) and
+      if item["shelf_ms"] > 0 or market.merchant do
+        unless Enum.all?(
+                 market.batches,
+                 &(is_nil(&1.expires_ms) or &1.expires_ms > lots.clock_ms)
+               ) and
                  Enum.sum(Enum.map(market.batches, & &1.quantity)) == market.stock,
                do: raise(ArgumentError, "Market freshness batches must match its unexpired stock")
 
@@ -65,16 +69,36 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   end
 
   @doc "Consume finite buyer demand and funds; only merchants retain purchased stock."
-  def receive_cargo(%__MODULE__{} = market, quantity, price) do
+  def receive_cargo(%__MODULE__{} = market, quantity, price, cargo \\ nil) do
     unless market.buyer and is_integer(quantity) and quantity > 0 and quantity <= market.demand and
              is_integer(price) and price >= 0 and quantity * price <= market.budget and
              (not market.feedstock or market.stock + quantity <= 500),
            do: raise(ArgumentError, "Market cannot fund the requested cargo purchase")
 
+    batches =
+      if market.merchant do
+        unless is_list(cargo) and Enum.sum(Enum.map(cargo, & &1.quantity)) == quantity and
+                 Enum.all?(cargo, &(&1.good == market.good)),
+               do: raise(ArgumentError, "Merchant purchases require the delivered cargo batches")
+
+        market.batches ++
+          Enum.map(
+            cargo,
+            &%Batch{
+              lot_id: &1.lot_id,
+              quantity: &1.quantity,
+              expires_ms: &1.expires_ms
+            }
+          )
+      else
+        market.batches
+      end
+
     %{
       market
       | demand: market.demand - quantity,
         budget: market.budget - quantity * price,
+        batches: batches,
         stock: market.stock + if(market.merchant or market.feedstock, do: quantity, else: 0)
     }
   end
@@ -94,12 +118,9 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     TijaraTides.Domain.Manufacturing.validate!(catalogue)
 
     Enum.each(catalogue["ports"], fn {port, definition} ->
-      Enum.each(definition["roles"], fn {good, role} ->
+      Enum.each(definition["roles"], fn {good, _role} ->
         unless Map.has_key?(catalogue["goods"], good),
           do: raise(ArgumentError, "unknown role good at #{port}: #{good}")
-
-        if catalogue["goods"][good]["shelf_ms"] > 0 and String.contains?(role, "/"),
-          do: raise(ArgumentError, "perishable merchant markets are not supported")
       end)
     end)
   end
@@ -156,16 +177,18 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     {lots, %{next | budget: next.budget + amount}, cargo}
   end
 
-  def auction_consume(%__MODULE__{} = market, quantity, amount) do
+  def auction_consume(%__MODULE__{} = market, quantity, amount, cargo \\ nil) do
     true = market.buyer and market.demand >= quantity and market.budget >= amount
-
-    %{
-      market
-      | demand: market.demand - quantity,
-        budget: market.budget - amount,
-        stock: market.stock + if(market.merchant or market.feedstock, do: quantity, else: 0)
-    }
+    next = receive_cargo(market, quantity, 0, cargo)
+    %{next | budget: next.budget - amount}
   end
+
+  def pay_storage(%__MODULE__{} = market, price) do
+    true = market.merchant and is_integer(price) and price > 0 and market.budget >= price
+    %{market | budget: market.budget - price}
+  end
+
+  def clear_merchant(%__MODULE__{merchant: true} = market), do: %{market | stock: 0, batches: []}
 
   def replenish(%Lots{} = lots, %__MODULE__{} = market, item, scale \\ 10_000, quarters \\ 1) do
     now = lots.clock_ms
@@ -178,7 +201,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     {replenished, credit} =
       TijaraTides.Domain.Participation.cycles(intervals, scale, market.production_credit)
 
-    batches = Enum.reject(market.batches, &(&1.expires_ms <= now))
+    batches = Enum.reject(market.batches, &(not is_nil(&1.expires_ms) and &1.expires_ms <= now))
 
     stock =
       if item["shelf_ms"] > 0,

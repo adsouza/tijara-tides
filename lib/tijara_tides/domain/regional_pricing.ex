@@ -14,9 +14,7 @@ defmodule TijaraTides.Domain.RegionalPricing do
   def prices(markets, catalogue) do
     item = catalogue["goods"][hd(markets).good]
     reference = item["reference_cents"]
-    # Ordinary merchant trading is deferred, but luxury merchants already buy
-    # player consignments and relist acquired stock through scheduled auctions.
-    active = Enum.filter(markets, &(not &1.merchant or item["category"] == "Luxury items"))
+    active = Enum.filter(markets, &(not &1.merchant or &1.warehouse_active))
     sellers = Enum.filter(active, & &1.seller)
     buyers = Enum.filter(active, & &1.buyer)
     supply = average(sellers, :stock)

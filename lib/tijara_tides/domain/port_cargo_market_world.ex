@@ -4,6 +4,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
   import TijaraTides.Domain.State, only: [get: 3, entities: 2, put: 4]
   alias TijaraTides.Domain.PortCargoMarket, as: Market
   alias TijaraTides.Domain.PortCargoMarket.{Lots, Rows}
+  alias TijaraTides.Domain.MerchantWarehouseWorld
   alias TijaraTides.Domain.Manufacturing
   alias TijaraTides.Domain.RegionalPricing
 
@@ -35,24 +36,71 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
   end
 
   def release_stock(state, port, good, quantity, price, item) do
+    market = fetch(state, port, good)
+
+    if market.merchant and
+         (not MerchantWarehouseWorld.active?(state, port <> "|" <> good) or
+            quantity > unreserved(state, market)),
+       do: raise(ArgumentError, "Merchant stock is not available in paid storage")
+
     {lots, market, cargo} =
       Market.supply(lots(state), fetch(state, port, good), quantity, price, item)
 
     {state |> record_lots(lots) |> store(market), Enum.map(cargo, &CargoRows.encode/1)}
   end
 
-  def accept_cargo(state, port, good, quantity, price),
-    do: store(state, Market.receive_cargo(fetch(state, port, good), quantity, price))
+  def accept_cargo(state, port, good, quantity, price, cargo \\ nil) do
+    market = fetch(state, port, good)
+    receiving!(state, market, quantity)
+    cargo = cargo && Enum.map(cargo, &CargoRows.coerce/1)
+    store(state, Market.receive_cargo(market, quantity, price, cargo))
+  end
 
-  def auction_supply(state, port, good, quantity, amount, item) do
+  defp receiving!(state, market, quantity) do
+    if market.merchant and
+         quantity >
+           MerchantWarehouseWorld.free(state, market.port <> "|" <> market.good, market.stock),
+       do: raise(ArgumentError, "Merchant receiving space is not available")
+  end
+
+  def protect_storage(state, port, good, until_ms) do
+    if fetch(state, port, good).merchant,
+      do: MerchantWarehouseWorld.protect(state, port <> "|" <> good, until_ms),
+      else: state
+  end
+
+  def pay_storage(state, port, good, price),
+    do: store(state, Market.pay_storage(fetch(state, port, good), price))
+
+  def clear_merchant(state, port, good),
+    do: store(state, Market.clear_merchant(fetch(state, port, good)))
+
+  def auction_supply(state, port, good, quantity, amount, item, at_ms \\ nil) do
+    market = fetch(state, port, good)
+
+    if market.merchant and not MerchantWarehouseWorld.active?(state, port <> "|" <> good, at_ms),
+      do: raise(ArgumentError, "Merchant auction requires paid storage")
+
     {lots, market, cargo} =
       Market.auction_supply(lots(state), fetch(state, port, good), quantity, amount, item)
 
     {state |> record_lots(lots) |> store(market), Enum.map(cargo, &CargoRows.encode/1)}
   end
 
-  def auction_consume(state, port, good, quantity, amount),
-    do: store(state, Market.auction_consume(fetch(state, port, good), quantity, amount))
+  def auction_consume(state, port, good, quantity, amount, cargo \\ nil, at_ms \\ nil) do
+    market = fetch(state, port, good)
+    receiving!(%{state | clock_ms: at_ms || state.clock_ms}, market, quantity)
+
+    store(
+      state,
+      Market.auction_consume(
+        market,
+        quantity,
+        amount,
+        cargo && Enum.map(cargo, &CargoRows.coerce/1)
+      )
+    )
+  end
 
   def quote(state, catalogue, port, good) do
     market = fetch(state, port, good)
@@ -60,7 +108,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     if market && catalogue["goods"][good] do
       ports = cluster(catalogue, port)
       prices = ports && RegionalPricing.prices(cluster_markets(state, ports, good), catalogue)
-      build_quote(market, catalogue, prices && prices[port])
+      build_quote(available(state, market), catalogue, prices && prices[port])
     end
   end
 
@@ -76,7 +124,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
           do: {port <> "|" <> good, prices}
 
     Map.new(entities(state, "markets"), fn {id, row} ->
-      {id, build_quote(Rows.decode(row), catalogue, regional[id])}
+      {id, build_quote(available(state, Rows.decode(row)), catalogue, regional[id])}
     end)
   end
 
@@ -87,7 +135,37 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
       end)
 
   defp cluster_markets(state, ports, good),
-    do: ports |> Enum.map(&fetch(state, &1, good)) |> Enum.reject(&is_nil/1)
+    do:
+      ports
+      |> Enum.map(&fetch(state, &1, good))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&available(state, &1))
+
+  defp unreserved(state, market) do
+    reserved =
+      Enum.sum(
+        for {_, a} <- entities(state, "auctions"),
+            is_nil(a["company_id"]) and a["status"] == "scheduled" and a["port"] == market.port and
+              a["good"] == market.good,
+            do: a["quantity"]
+      )
+
+    max(0, market.stock - reserved)
+  end
+
+  defp available(state, %Market{merchant: true} = market) do
+    id = market.port <> "|" <> market.good
+    active = MerchantWarehouseWorld.active?(state, id)
+
+    %{
+      market
+      | warehouse_active: active,
+        stock: if(active, do: unreserved(state, market), else: 0),
+        demand: min(market.demand, MerchantWarehouseWorld.free(state, id, market.stock))
+    }
+  end
+
+  defp available(_state, market), do: market
 
   defp build_quote(market, catalogue, prices) do
     Market.quote(market, catalogue)
@@ -96,6 +174,8 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
   end
 
   def initialize(state, catalogue) do
+    state = hydrate_merchants(state)
+
     Market.validate_catalogue!(catalogue)
 
     if map_size(entities(state, "markets")) == 0 do
@@ -140,6 +220,19 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
           else: s
       end)
     end
+  end
+
+  defp hydrate_merchants(state) do
+    Enum.reduce(entities(state, "markets"), state, fn {_, row}, s ->
+      m = Rows.decode(row)
+
+      if m.merchant and m.stock > 0 and m.batches == [] do
+        {lots, batch} = Lots.create(lots(s), m.good, m.stock, nil)
+        s |> record_lots(lots) |> store(%{m | batches: [batch]})
+      else
+        s
+      end
+    end)
   end
 
   def advance(state, catalogue) do

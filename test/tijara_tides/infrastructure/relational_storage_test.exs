@@ -188,7 +188,10 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     ]
 
     TijaraTides.Domain.State.put(state, "ships", ship["id"], %{ship | "cargo" => cargo})
-    |> Map.update!(:entities, &Map.drop(&1, ["reporting_accounts", "financial_reports"]))
+    |> Map.update!(
+      :entities,
+      &Map.drop(&1, ["reporting_accounts", "financial_reports", "merchant_warehouses"])
+    )
   end
 
   # Build pre-migration fixtures from modern domain data without changing expected state.

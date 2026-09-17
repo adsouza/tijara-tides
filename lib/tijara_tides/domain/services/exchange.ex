@@ -305,7 +305,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
         cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
 
         s
-        |> PortCargoMarketWorld.accept_cargo(o.port, o.good, n, price)
+        |> PortCargoMarketWorld.accept_cargo(o.port, o.good, n, price, cargo)
         |> seller_cash(o, n, price, cost)
       end
 

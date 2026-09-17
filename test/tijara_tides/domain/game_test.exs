@@ -285,12 +285,12 @@ defmodule TijaraTides.Domain.GameTest do
     end
   end
 
-  test "perishable merchant roles are rejected before world creation" do
+  test "perishable merchants start empty in paid refrigerated storage" do
     catalogue = put_in(GameCatalogue.all(), ["ports", "Jakarta", "roles", "fruit"], "exp/imp")
 
-    assert_raise ArgumentError, ~r/perishable merchant/, fn ->
-      Game.initialize(%{entities: %{}, clock_ms: 0}, catalogue)
-    end
+    state = Game.initialize(%{entities: %{}, clock_ms: 0}, catalogue)
+    assert Game.get(state, "markets", "Jakarta|fruit")["stock"] == 0
+    assert Game.get(state, "merchant_warehouses", "Jakarta|fruit")["storage"] == "reefer"
   end
 
   test "orphan ships fail explicitly instead of silently dropping operating costs" do

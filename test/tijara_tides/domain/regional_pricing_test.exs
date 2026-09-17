@@ -77,7 +77,7 @@ defmodule TijaraTides.Domain.RegionalPricingTest do
   test "luxury merchant demand and acquired stock both affect neighboring quotes" do
     cat = put_in(catalogue(), ["goods", "lumber", "category"], "Luxury items")
     supplier = %{market("a", 250, 0) | buyer: false}
-    merchant = market("b", 0, 500, true)
+    merchant = %{market("b", 0, 500, true) | warehouse_active: true}
     prices = RegionalPricing.prices([supplier, merchant], cat)
     demand_used = RegionalPricing.prices([supplier, %{merchant | demand: 0}], cat)
     stocked = RegionalPricing.prices([supplier, %{merchant | stock: 500}], cat)
@@ -88,8 +88,12 @@ defmodule TijaraTides.Domain.RegionalPricingTest do
   test "Hong Kong luxury auction consumption reprices its catchment in individual and batch queries" do
     cat = TijaraTides.Infrastructure.GameCatalogue.all()
     state = PortCargoMarketWorld.initialize(%{entities: %{}, clock_ms: 0}, cat)
+    state = TijaraTides.Domain.MerchantWarehouseWorld.advance(state, cat)
+
+    {state, lot} = TijaraTides.Domain.CargoLots.create(state, "whisky", 10, nil)
+    cargo = [Map.merge(lot, %{"good" => "whisky", "unit_cost" => 10_000})]
     before = PortCargoMarketWorld.quote(state, cat, "Shenzhen", "whisky")
-    next = PortCargoMarketWorld.auction_consume(state, "Hong Kong", "whisky", 500, 100_000)
+    next = PortCargoMarketWorld.auction_consume(state, "Hong Kong", "whisky", 10, 100_000, cargo)
     after_quote = PortCargoMarketWorld.quote(next, cat, "Shenzhen", "whisky")
     assert after_quote["ask"] < before["ask"]
     assert after_quote["bid"] < before["bid"]
@@ -98,8 +102,8 @@ defmodule TijaraTides.Domain.RegionalPricingTest do
     assert next.entities["markets"]["Shenzhen|whisky"] ==
              state.entities["markets"]["Shenzhen|whisky"]
 
-    assert next.entities["markets"]["Hong Kong|whisky"]["stock"] == 500
-    assert next.entities["markets"]["Hong Kong|whisky"]["demand"] == 0
+    assert next.entities["markets"]["Hong Kong|whisky"]["stock"] == 10
+    assert next.entities["markets"]["Hong Kong|whisky"]["demand"] == 490
   end
 
   test "a neighbor's stock changes the shared quote without moving local inventory" do

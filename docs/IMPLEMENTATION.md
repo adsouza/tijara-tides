@@ -177,7 +177,7 @@ input stores and retain the existing 500-lot producer output allocation; existin
 worlds activate input demand without minting replacement starting stock on reload.
 Recipes and the 10%-of-reference local costs are provisional tuning, including
 catalogue substitutes such as recovered plastics for synthetic fibres. Re-export
-merchants remain unavailable until their warehouse-backed inventory exists.
+merchants now use paid warehouse-backed inventory (described below).
 Regional catchments use the catalogue's three clusters. Each good's shared
 operating price responds to average eligible supplier stock and buyer demand,
 within 80–120% of its fixed reference value. Local adjustments are capped at
@@ -234,9 +234,8 @@ repeating routes are already playable.
 Regional catchment pricing and age-based maintenance have now been implemented,
 with launch tuning described in this document. Remaining work includes:
 
-- **Simulated economy:** warehouse-backed
-  re-export merchants, differentiated production rates, and money-stock
-  and source/sink monitoring, and price-level monitoring (§5).
+- **Simulated economy:** differentiated production rates, money-stock and
+  source/sink monitoring, and price-level monitoring (§5).
 - **Dormancy and estates:** durable owner-absence tracking and closure warnings,
   dormant liquidation without a bankruptcy count,
   full warehouse liquidation stages, won-cargo storage grace and replacement
@@ -716,3 +715,26 @@ are one game quarter of the current scaled replenishment rate. Zero participatio
 stops replenishment; existing inventories remain available to restart trading.
 The `participation` catalogue settings configure decay, minimum action value and
 budget quarters. Existing companies start without fabricated activity history.
+
+### Warehouse-backed re-export merchants
+
+Merchants lease good-specific compatible space from the same finite port pools
+as player warehouses. Three-day rent is paid from their finite market budgets;
+they seek renewal with one day remaining. Insufficient funds or space suppresses
+new purchases and offers. Unrenewed storage is locked at expiry and cleared after
+12 active hours. The provisional target is ten lots per merchant, rounded up to
+whole warehouse blocks (`merchants.storage_lots` in the catalogue).
+
+Merchant purchases retain the actual delivered batches, including lot identities
+and expiry, and resale transfers or splits those same lots. Ship loading and
+unloading protect merchant storage until handling finishes. They never replenish
+stock through production. New merchants start empty; legacy acquired stock is
+materialized once into durable batches rather than copied from a producer.
+Quotes cap demand by paid free space and budget, and supply by uncommitted owned
+stock. Merchant leases contribute to player-facing pool occupancy and rent quotes.
+
+Luxury merchants buy through the existing finite simulated auction bids; those
+bids are admitted at settlement only when funds and paid receiving space cover
+the lot. Newly acquired stock can be offered only in a later unopened auction.
+Listed quantities are excluded from other offers, and a merchant cannot bid on
+its own listings. Consumer purchases remain the final consumption sink.

@@ -35,7 +35,18 @@ defmodule TijaraTides.Domain.PortCargoMarketAggregateTest do
     assert {bought.demand, bought.budget, bought.stock} == {7, 0, 0}
     assert_raise ArgumentError, fn -> Market.receive_cargo(bought, 1, 20) end
     assert_raise ArgumentError, fn -> Market.receive_cargo(%{buyer | budget: 1000}, 11, 20) end
-    assert Market.receive_cargo(%{buyer | merchant: true}, 3, 20).stock == 3
+
+    cargo = [
+      %TijaraTides.Domain.Ship.CargoBatch{
+        good: buyer.good,
+        quantity: 3,
+        unit_cost: 20,
+        lot_id: "existing",
+        expires_ms: nil
+      }
+    ]
+
+    assert Market.receive_cargo(%{buyer | merchant: true}, 3, 20, cargo).stock == 3
   end
 
   test "expiry removes supplier stock before replenishment; partial lots preserve lineage" do

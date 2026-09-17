@@ -1,6 +1,8 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "merchant_warehouses" =>
+      Enum.map(~w(id port good storage blocks capacity expires_ms protected_ms), &{&1, &1}),
     "company_activity" => Enum.map(~w(company_id last_action_ms), &{&1, &1}),
     "auctions" =>
       Enum.map(
@@ -235,7 +237,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(accounts companies company_activity warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
+  @kinds ~w(accounts companies company_activity merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
 
   @children %{
     "warehouses" =>
@@ -560,6 +562,10 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   defp column_value(_key, value), do: value
 
   defp validate_entity!(kind, id, _old, data) do
+    if kind == "markets" and data["merchant"] and
+         Enum.sum(Enum.map(data["batches"], & &1["quantity"])) != data["stock"],
+       do: raise(ArgumentError, "Merchant inventory must be backed by cargo holdings")
+
     keys = Enum.map(@specs[kind], &elem(&1, 0))
     keys = if kind == "ships", do: ["voyage_path" | keys], else: keys
 

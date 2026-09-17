@@ -294,6 +294,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
           if market, do: market["stock"] - Enum.sum(Enum.map(active, & &1.quantity)), else: 0
 
         if market && market["seller"] && available > 0 &&
+             (not market["merchant"] or
+                TijaraTides.Domain.MerchantWarehouseWorld.active?(s, port <> "|" <> good, closes)) &&
              length(active) < 4 && AuctionWorld.fetch(s, id) == nil do
           n = min(available, supplier_lots)
           q = PortCargoMarketWorld.quote(s, cat, port, good)
@@ -327,12 +329,13 @@ defmodule TijaraTides.Domain.Services.Auctions do
     # A supplier cannot compete for its own lot. Buyers consume finite demand and
     # budget at close; deterministic private valuations keep replanning reproducible.
     if a.company_id && m && m["buyer"] && m["demand"] >= a.quantity do
-      q = PortCargoMarketWorld.quote(s, cat, a.port, a.good)
+      q = PortCargoMarketWorld.quote(%{s | clock_ms: a.closes_ms}, cat, a.port, a.good)
       count = get_in(cat, ["auctions", "simulated_bidders"]) || 3
       spread = get_in(cat, ["auctions", "valuation_spread_percent"]) || 20
       true = is_integer(count) and count in 1..20 and is_integer(spread) and spread in 0..100
 
       for i <- 1..count,
+          q["demand"] >= a.quantity,
           value =
             div(
               q["bid"] * a.quantity *
@@ -423,7 +426,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
                 a.good,
                 a.quantity,
                 price,
-                cat["goods"][a.good]
+                cat["goods"][a.good],
+                a.closes_ms
               )
 
             {s, Enum.map(rows, &CargoRows.coerce/1)}
@@ -446,7 +450,15 @@ defmodule TijaraTides.Domain.Services.Auctions do
             {if(a.ship_id, do: "fleet", else: "inventory"), price}
           ])
         else
-          PortCargoMarketWorld.auction_consume(s, a.port, a.good, a.quantity, price)
+          PortCargoMarketWorld.auction_consume(
+            s,
+            a.port,
+            a.good,
+            a.quantity,
+            price,
+            cargo,
+            a.closes_ms
+          )
         end
 
       s =
@@ -513,7 +525,14 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
   defp suppliable?(s, a) do
     m = get(s, "markets", a.port <> "|" <> a.good)
-    m != nil and m["seller"] and m["stock"] >= a.quantity
+
+    m != nil and m["seller"] and m["stock"] >= a.quantity and
+      (not m["merchant"] or
+         TijaraTides.Domain.MerchantWarehouseWorld.active?(
+           s,
+           a.port <> "|" <> a.good,
+           a.closes_ms
+         ))
   end
 
   defp reprice(s, batches, a, price) do

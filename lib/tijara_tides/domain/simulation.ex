@@ -9,6 +9,7 @@ defmodule TijaraTides.Domain.Simulation do
       state
       |> Notices.prune_notices()
       |> PortCargoMarketWorld.initialize(catalogue)
+      |> TijaraTides.Domain.MerchantWarehouseWorld.advance(catalogue)
 
   def advance(state, elapsed, catalogue) when is_integer(elapsed) and elapsed >= 0 do
     %{state | clock_ms: state.clock_ms + elapsed}
@@ -17,6 +18,7 @@ defmodule TijaraTides.Domain.Simulation do
     |> TijaraTides.Domain.Services.Exchange.reconcile()
     |> TijaraTides.Domain.Services.Estates.advance(catalogue)
     |> TijaraTides.Domain.Services.Auctions.advance(catalogue)
+    |> TijaraTides.Domain.MerchantWarehouseWorld.advance(catalogue)
     |> TijaraTides.Domain.WarehouseWorld.advance(catalogue)
     |> TijaraTides.Domain.Services.FinancialSettlement.settle()
     |> PortCargoMarketWorld.advance(catalogue)

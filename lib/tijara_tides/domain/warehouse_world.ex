@@ -36,8 +36,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   defdelegate pool(storage), to: Warehouse
 
   def pools(state) do
-    entities(state, "warehouses")
-    |> Map.values()
+    (Map.values(entities(state, "warehouses")) ++
+       Map.values(entities(state, "merchant_warehouses")))
     |> Enum.group_by(&{&1["port"], &1["storage"]})
     |> Map.new(fn {{port, storage}, rows} ->
       {port <> "|" <> storage, Enum.sum(Enum.map(rows, & &1["blocks"]))}
@@ -47,7 +47,9 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   @doc "Blocks leased in one pool, without building the world-wide utilization map."
   def used(state, port, storage) do
     Enum.sum(
-      for {_, row} <- entities(state, "warehouses"),
+      for row <-
+            Map.values(entities(state, "warehouses")) ++
+              Map.values(entities(state, "merchant_warehouses")),
           row["port"] == port and row["storage"] == storage,
           do: row["blocks"]
     )

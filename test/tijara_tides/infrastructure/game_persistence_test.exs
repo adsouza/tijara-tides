@@ -190,6 +190,59 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert State.get(restored, "markets", "Jakarta|lumber")["production_credit"] == 5000
   end
 
+  test "merchant leases and acquired cargo survive reload without duplicating inventory", c do
+    alias TijaraTides.Domain.{State, CargoLots, PortCargoMarketWorld}
+    alias TijaraTides.Infrastructure.Persistence.CommandStore
+    before = :sys.get_state(c.server).game
+    cat = :sys.get_state(c.server).catalogue
+    ids = CommandStore.allocate_lot_ids(%{repo: Repo}, 2)
+
+    {changed, batch} =
+      before |> Map.put(:lot_allocation, ids) |> CargoLots.create("electronics", 3, nil)
+
+    cargo = [Map.merge(batch, %{"good" => "electronics", "unit_cost" => 100})]
+
+    changed =
+      PortCargoMarketWorld.accept_cargo(changed, "Singapore", "electronics", 3, 100, cargo)
+
+    changed = %{changed | revision: before.revision + 1}
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, changed)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, changed)
+    assert restored.entities["merchant_warehouses"] == changed.entities["merchant_warehouses"]
+
+    assert State.get(restored, "markets", "Singapore|electronics")["batches"] ==
+             State.get(changed, "markets", "Singapore|electronics")["batches"]
+
+    assert [[3]] ==
+             Repo.query!(
+               "SELECT sum(quantity_lots)::bigint FROM game_cargo_holdings WHERE world_id=$1 AND market_id='Singapore|electronics'",
+               [c.world_id]
+             ).rows
+
+    assert PortCargoMarketWorld.initialize(restored, cat).entities == restored.entities
+
+    {sold, [delivered]} =
+      PortCargoMarketWorld.release_stock(
+        restored,
+        "Singapore",
+        "electronics",
+        3,
+        200,
+        cat["goods"]["electronics"]
+      )
+
+    assert delivered["lot_id"] == batch["lot_id"]
+    # The test's terminal buyer consumes the complete batch.
+    sold = %{sold | revision: restored.revision + 1}
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, sold)
+
+    assert [[0]] ==
+             Repo.query!(
+               "SELECT count(*) FROM game_cargo_holdings WHERE world_id=$1 AND market_id='Singapore|electronics'",
+               [c.world_id]
+             ).rows
+  end
+
   test "maintenance expense persists, reports as operating cost and resumes without rebilling",
        c do
     alias TijaraTides.Infrastructure.Persistence.FinancialLedger
@@ -2883,7 +2936,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     render_change(view, "market-good", %{"good" => "spices"})
     refute has_element?(view, "#cargo-supply tr[data-port=Dubai]")
     render_change(view, "market-good", %{"good" => "appliances"})
-    refute has_element?(view, "#cargo-demand tr[data-port='Colón']")
+    assert has_element?(view, "#cargo-demand tr[data-port='Colón']")
     refute has_element?(view, "#cargo-supply tr[data-port='Colón']")
     refute has_element?(view, "#cargo-markets", "Trading not available yet")
     assert has_element?(view, "#ports-panel #port-selector")

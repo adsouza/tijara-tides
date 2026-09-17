@@ -528,4 +528,61 @@ defmodule TijaraTides.Domain.AuctionsTest do
     assert WarehouseWorld.used(s, "Jakarta", "dry") >
              WarehouseWorld.used(c.state, "Jakarta", "dry")
   end
+
+  test "a luxury merchant stores an awarded lot and resells its exact batches in a later window",
+       c do
+    s = stock(c, c.state, "a", 3)
+
+    for_owner = fn s, owner ->
+      row = Game.get(s, "warehouses", owner <> "w")
+      State.put(s, "warehouses", row["id"], %{row | "port" => "Hong Kong"})
+    end
+
+    s = for_owner.(for_owner.(s, "a"), "b")
+    original = hd(Game.get(s, "warehouses", "aw")["cargo"])["lot_id"]
+
+    {:ok, s, _} =
+      Auctions.consign(
+        s,
+        c.a,
+        %{"warehouse" => "aw", "good" => "whisky", "quantity" => 3, "price" => 1000},
+        "merchant-sale",
+        c.catalogue,
+        "seed"
+      )
+
+    a = Auction.fetch(s, "merchant-sale")
+    s = Auctions.advance(%{s | clock_ms: a.closes_ms}, c.catalogue)
+    assert Auction.fetch(s, a.id).status == "sold"
+    market = Game.get(s, "markets", "Hong Kong|whisky")
+    assert market["stock"] == 3
+    assert hd(market["batches"])["lot_id"] == original
+
+    resale =
+      Enum.find(
+        Auction.all(s),
+        &(&1.company_id == nil and &1.port == "Hong Kong" and &1.good == "whisky" and
+            &1.status == "scheduled")
+      )
+
+    assert resale.opens_ms > a.closes_ms
+
+    assert TijaraTides.Domain.PortCargoMarketWorld.quote(s, c.catalogue, "Hong Kong", "whisky")[
+             "stock"
+           ] == 0
+
+    {:ok, s, _} =
+      Auctions.bid(
+        %{s | clock_ms: resale.opens_ms},
+        c.b,
+        %{"auction" => resale.id, "warehouse" => "bw", "price" => resale.reserve + 100},
+        "resale-bid",
+        c.catalogue
+      )
+
+    s = Auctions.advance(%{s | clock_ms: resale.closes_ms}, c.catalogue)
+    assert Auction.fetch(s, resale.id).winner_id == "bco"
+    assert Game.get(s, "markets", "Hong Kong|whisky")["stock"] == 0
+    assert hd(Game.get(s, "warehouses", "bw")["cargo"])["lot_id"] == original
+  end
 end

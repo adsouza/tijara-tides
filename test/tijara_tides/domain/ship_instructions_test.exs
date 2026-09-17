@@ -415,7 +415,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
         {:unpaid, "buy", "Waiting for available company funds or unpaid costs to clear"},
         {:voyage_funds, "buy", "Waiting for funds after preserving onward voyage costs"},
         {:route, "buy", "Onward voyage is unavailable"},
-        {:merchant, "buy", "Cargo is currently unavailable for trading at this port"}
+        {:merchant, "buy", "Waiting for market supply"}
       ] do
     @tag instruction_branch: fault
     test "waiting on #{fault} preserves settlement and resumes after the condition clears", c do
