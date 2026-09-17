@@ -36,20 +36,26 @@ defmodule TijaraTides.UseCases.MarketQueries do
                }}
             end)
 
-          best =
-            for direction <- [:outbound, :inbound] do
-              cells
-              |> Map.values()
-              |> Enum.flat_map(fn cell ->
-                if cell[direction] && is_number(cell[direction].roi),
-                  do: [cell[direction].roi],
-                  else: []
-              end)
-              |> Enum.max(fn -> 0 end)
-            end
-            |> Enum.sum()
+          estimator =
+            if ship["class"] == "tanker",
+              do: &TijaraTides.UseCases.VoyageOpportunities.tanker_estimate/4,
+              else: &TijaraTides.UseCases.VoyageOpportunities.estimate/4
 
-          %{port: port, distance: distance, cells: cells, best: best}
+          plan =
+            estimator.(
+              definitions.catalogue,
+              view,
+              ship,
+              port
+            )
+
+          %{
+            port: port,
+            distance: distance,
+            cells: cells,
+            best: plan && Map.get(plan, :combined_profit, plan.profit),
+            plan: plan
+          }
         end
 
       rows = Enum.sort_by(rows, &{is_nil(&1.best), -(&1.best || 0), &1.distance, &1.port})
@@ -305,6 +311,8 @@ defmodule TijaraTides.UseCases.MarketQueries do
           ),
           quote = view.markets[port <> "|" <> good],
           quote["manual"],
+          quote =
+            if(side == "demand", do: Map.put(quote, "demand", buyer_capacity(quote)), else: quote),
           quote[if(side == "supply", do: "stock", else: "demand")] > 0,
           do:
             Map.merge(quote, %{

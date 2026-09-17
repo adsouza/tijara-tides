@@ -180,6 +180,52 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     assert %{quantity: 1} = editor.(ship, %{draft | "quantity" => ""})
   end
 
+  test "cargo comparisons filter and sort demand using affordable lots and exclude unfunded best bids" do
+    query = TijaraTides.UseCases.GameQueries
+
+    definitions = %{
+      catalogue: %{
+        "ports" => Map.new(["A", "B", "C"], &{&1, %{"roles" => %{"g" => "exp imp"}}}),
+        "goods" => %{"g" => %{"name" => "Good"}}
+      }
+    }
+
+    quote = %{
+      "manual" => true,
+      "stock" => 50,
+      "demand" => 100,
+      "bid" => 100,
+      "ask" => 80,
+      "buyer_budget" => 299
+    }
+
+    view = %{
+      markets: %{
+        "A|g" => quote,
+        "B|g" => %{quote | "demand" => 10, "buyer_budget" => 900},
+        "C|g" => %{quote | "bid" => 1000, "buyer_budget" => 999}
+      }
+    }
+
+    for sort <- [{"bid", :desc}, {"demand", :desc}] do
+      rows = query.cargo_markets(definitions, view, "g", "demand", sort, nil)
+      assert Enum.map(rows, &{&1["port"], &1["demand"]}) == [{"B", 9}, {"A", 2}]
+    end
+
+    supply = query.cargo_markets(definitions, view, "g", "supply", {"ask", :asc}, nil)
+    assert length(supply) == 3
+    assert Enum.all?(supply, &(&1["stock"] == 50))
+    assert [{"g", %{bid: 100, ask: 80}}] = query.cargo_options(definitions, view, false)
+
+    empty = %{
+      view
+      | markets: Map.new(view.markets, fn {id, q} -> {id, Map.put(q, "buyer_budget", 0)} end)
+    }
+
+    assert query.cargo_markets(definitions, empty, "g", "demand", {"bid", :desc}, nil) == []
+    assert [{"g", %{bid: nil, roi: nil}}] = query.cargo_options(definitions, empty, false)
+  end
+
   defp fixture do
     catalogue = GameCatalogue.all()
     state = Game.initialize(%{entities: %{}, clock_ms: 0, epoch: 1, revision: 0}, catalogue)

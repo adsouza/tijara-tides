@@ -37,7 +37,7 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
               <summary class="cursor-pointer">{gettext("About cargo markets")}</summary>
               <p class="mt-2">
                 {gettext(
-                  "Supply and demand in lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
+                  "Supply is available stock; demand is capped by current buyer funds, in whole lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
                 )}
               </p>
             </details>

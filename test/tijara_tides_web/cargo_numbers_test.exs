@@ -18,7 +18,14 @@ defmodule TijaraTidesWeb.CargoNumbersTest do
       })
       |> Map.put("routes", %{"Singapore|Colombo" => %{"nautical_miles" => 1609}})
 
-    quote = %{"manual" => true, "stock" => 500, "demand" => 125, "ask" => 100, "bid" => 120}
+    quote = %{
+      "manual" => true,
+      "stock" => 500,
+      "demand" => 500,
+      "buyer_budget" => 15_119,
+      "ask" => 100,
+      "bid" => 120
+    }
 
     html =
       Localization.with_locale("ar", fn ->

@@ -796,8 +796,8 @@ msgstr "التوقف بعد هذه الزيارة"
 msgid "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Removing the current or next stop returns the route to draft; committed voyages and handling finish. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. No cash is earmarked. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
 msgstr "تُنفذ المحطات بالترتيب وتتكرر. تسري تعديلات البضائع عند تشغيل مرحلتها التالية؛ وتحتفظ أوامر الزيارة القائمة بشروطها. تُعيد إزالة المحطة الحالية أو التالية المسار إلى المسودة؛ وتكتمل الرحلات والمناولة الملتزم بها. ابدأ عند المحطة الأولى أو أثناء الإبحار إليها. ينتهي تفريغ المبيعات قبل بدء المشتريات. يشمل هدف التحميل البضاعة الموجودة على المتن؛ ويُعاد ضبط سقف الشراء الاختياري كل زيارة. دون سقف، تُستخدم السيولة المتاحة مع الاحتفاظ باحتياطي الرحلة. الأسعار لكل دفعة دون المناولة؛ وتشمل الحدود المناولة والتنظيف. لا يُحجز نقد مسبقاً. تنتظر الأهداف الثابتة حتى التنفيذ أو الإلغاء. يتوقف الشراء الأقصى عند بلوغ السعة أو المخزون أو النقد أو السقف المتاح. يبيع خيار بيع كل الحمولة ما يسمح به الطلب وأموال المشترين، ثم يتابع مع البضاعة غير المباعة. تبقى حدود الأسعار ملزمة بالانتظار. بعد انتهاء المبيعات، يلغي امتلاء العنبر أي نقص تحميل متبقٍ. يوقف تعليق المسار التجارة الجديدة والإبحار التلقائي؛ وتكتمل الرحلات والمناولة الملتزم بها."
 
-msgid "Supply and demand in lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
-msgstr "العرض والطلب بالدفعات · الأسعار لكل دفعة دون المناولة · تحديث مباشر. تعرض قائمة البضائع أعلى سعر شراء وأدنى سعر بيع متاحين؛ وتعني — غياب السوق في ذلك الجانب. اختر ميناء لعرض سوقه."
+msgid "Supply is available stock; demand is capped by current buyer funds, in whole lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
+msgstr "العرض هو المخزون المتاح؛ والطلب محدود بأموال المشتري الحالية بدفعات كاملة · الأسعار لكل دفعة قبل المناولة · تحديث مباشر. تعرض خيارات البضائع أعلى سعر شراء وأقل سعر بيع متاحين؛ وتعني — عدم وجود سوق في ذلك الجانب. اختر ميناءً لفحص سوقه."
 
 msgid "Target lots"
 msgstr "الدفعات المستهدفة"
@@ -2376,9 +2376,6 @@ msgstr "بيع البضائع على متن السفينة: %{roi} · %{lots} د
 msgid "You won %{quantity} lots of %{cargo} for %{price}. Delivered to %{port} %{storage} %{warehouse}."
 msgstr "فزت بـ %{quantity} دفعات من %{cargo} مقابل %{price}. تم التسليم إلى %{port} %{storage} %{warehouse}."
 
-msgid "Symbol size shows ROI after handling, on a shared scale. Squares represent cargo aboard; circles represent new purchases. Green: sell cargo aboard, or buy here and sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; quantities are capped by current buyer funds and demand, which can change before arrival. Cargo aboard uses recorded cost; new purchases do not check your cash or ship capacity. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
-msgstr "يعرض حجم الرمز العائد بعد المناولة على مقياس موحد. المربعات للبضائع على متن السفينة والدوائر للمشتريات الجديدة. الأخضر: بيع البضائع على متن السفينة، أو الشراء هنا والبيع هناك. الأحمر: الشراء هناك والبيع هنا. الجماجم تعني عائدًا سالبًا، والرموز المجوفة تعني عائدًا صفريًا أو غير متاح. مرر المؤشر أو ركز للاطلاع على التفاصيل. لا تشمل الحسابات الوقود والقنوات والصيانة والتنظيف والتلف؛ تُحدَّد الكميات بأموال المشتري والطلب الحاليين، وقد يتغيران قبل الوصول. تُستخدم التكلفة المسجلة للبضائع على متن السفينة؛ ولا تُفحص أموالك أو سعة السفينة للمشتريات الجديدة. تُرتب الصفوف حسب مجموع أفضل عائد في الاتجاهين ثم المسافة. اختر ميناءً لتخطيط رحلتك."
-
 msgid "Warehouse handling finishes in %{remaining} of active-world time (hours:minutes:seconds). Wait until it is idle before consigning or bidding."
 msgstr "تنتهي مناولة المستودع بعد %{remaining} من وقت العالم النشط (ساعات:دقائق:ثوانٍ). انتظر حتى يصبح غير مشغول قبل الإيداع للمزاد أو المزايدة."
 
@@ -2504,3 +2501,39 @@ msgstr "دفعات كاملة · عرض وطلب محليان محدودان · 
 
 msgid "Divert %{ship} to here"
 msgstr "تحويل مسار %{ship} إلى هنا"
+
+msgid "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound and red return. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
+msgstr "تُرتّب الموانئ حسب ربح الرحلة التالية ثم المسافة. تُرتّب ناقلات السوائل حسب الربح الإجمالي لرحلتين مع أفضل حمولة مربحة للرحلة اللاحقة. تراعي الاقتراحات الحمولة الحالية وسعة السفينة والنقد المتاح، وتخصم تكلفة البضاعة والمناولة والوقود والقنوات والتنظيف والطاقم. تُحجز الصيانة ونفقات الأسطول للتحقق من القدرة على الدفع، لكن الصيانة لا تُخصم من الربح. هذه اقتراحات تقريبية وليست أوامر أو ضماناً لأفضل مزيج. قد تتغير الأسعار والطلب وأموال المشترين. لا تشمل التقديرات انتظار الأرصفة أو تلف المشتريات الجديدة أو الأوامر المنتظرة؛ وعند وجود أمر منتظر تُحسب الحمولة الحالية فقط. لا تؤثر رموز العودة على الترتيب، لكن الرحلة اللاحقة للناقلة قد تكون عودة أو إلى ميناء آخر. تعرض الرموز عائد البضاعة قبل تكاليف الرحلة: مربعات للحمولة الحالية ودوائر للمشتريات، بالأخضر للذهاب والأحمر للعودة. تشير الجماجم إلى عائد سلبي والرموز المجوفة إلى عائد صفري أو غير متاح. مرّر المؤشر أو ركّز لعرض التفاصيل."
+
+msgid "Estimated net profit"
+msgstr "صافي الربح التقديري"
+
+msgid "Suggested cargo mix"
+msgstr "مزيج الحمولة المقترح"
+
+msgid "Voyage costs: %{cost}"
+msgstr "تكاليف الرحلة: %{cost}"
+
+msgid "Purchases: %{cost}"
+msgstr "المشتريات: %{cost}"
+
+msgid "Buy %{lots} lots of %{cargo}"
+msgstr "شراء %{lots} دفعات من %{cargo}"
+
+msgid "Sell %{lots} lots of %{cargo}"
+msgstr "بيع %{lots} دفعات من %{cargo}"
+
+msgid "Insufficient voyage funds"
+msgstr "أموال غير كافية للرحلة"
+
+msgid "Two voyages"
+msgstr "رحلتان"
+
+msgid "No profitable onward load"
+msgstr "لا توجد حمولة مربحة للرحلة اللاحقة"
+
+msgid "Next voyage profit: %{profit}"
+msgstr "ربح الرحلة التالية: %{profit}"
+
+msgid "Then sail to %{port}: %{profit}"
+msgstr "ثم الإبحار إلى %{port}: %{profit}"

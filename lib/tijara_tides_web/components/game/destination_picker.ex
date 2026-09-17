@@ -54,7 +54,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
           </div>
           <p id="destination-picker-help" class="my-3 text-xs text-slate-400">
             {gettext(
-              "Symbol size shows ROI after handling, on a shared scale. Squares represent cargo aboard; circles represent new purchases. Green: sell cargo aboard, or buy here and sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; quantities are capped by current buyer funds and demand, which can change before arrival. Cargo aboard uses recorded cost; new purchases do not check your cash or ship capacity. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
+              "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound and red return. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
             )}
           </p>
           <div class="mb-3 flex flex-wrap gap-4 text-sm">
@@ -67,6 +67,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
               <thead>
                 <tr>
                   <th scope="col" class="destination-port">{gettext("Port")}</th>
+                  <th scope="col">{gettext("Estimated net profit")}</th>
                   <th scope="col">{gettext("Distance (nm)")}</th>
                   <th :for={{_, good} <- @matrix.goods} scope="col">{l10n(good["name"])}</th>
                 </tr>
@@ -84,6 +85,59 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                       {l10n(row.port)}
                     </button>
                   </th>
+                  <td class="tabular-nums text-left">
+                    <%= if row.plan do %>
+                      <strong>{money(row.best)}</strong>
+                      <p :if={@ship["class"] == "tanker"} class="text-xs text-slate-400">
+                        {if row.plan.onward,
+                          do: gettext("Two voyages"),
+                          else: gettext("No profitable onward load")}
+                      </p>
+                      <details
+                        id={"destination-plan-" <> row.port}
+                        phx-mounted={JS.ignore_attributes(["open"])}
+                      >
+                        <summary class="cursor-pointer text-xs">
+                          {gettext("Suggested cargo mix")}
+                        </summary>
+                        <div class="min-w-48 text-xs">
+                          <p>
+                            {gettext("Next voyage profit: %{profit}", profit: money(row.plan.profit))}
+                          </p>
+                          <p>{gettext("Voyage costs: %{cost}", cost: money(row.plan.costs))}</p>
+                          <p>{gettext("Purchases: %{cost}", cost: money(row.plan.spent))}</p>
+                          <p :for={cargo <- row.plan.purchases}>
+                            {gettext("Buy %{lots} lots of %{cargo}",
+                              lots: display_number(cargo.lots),
+                              cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
+                            )}
+                          </p>
+                          <p :for={cargo <- row.plan.sales}>
+                            {gettext("Sell %{lots} lots of %{cargo}",
+                              lots: display_number(cargo.lots),
+                              cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
+                            )}
+                          </p>
+                          <%= if Map.get(row.plan, :onward) do %>
+                            <p class="mt-2 font-semibold">
+                              {gettext("Then sail to %{port}: %{profit}",
+                                port: l10n(row.plan.onward.destination),
+                                profit: money(row.plan.onward.profit)
+                              )}
+                            </p>
+                            <p :for={cargo <- row.plan.onward.purchases}>
+                              {gettext("Buy %{lots} lots of %{cargo}",
+                                lots: display_number(cargo.lots),
+                                cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
+                              )}
+                            </p>
+                          <% end %>
+                        </div>
+                      </details>
+                    <% else %>
+                      <span class="text-xs">{gettext("Insufficient voyage funds")}</span>
+                    <% end %>
+                  </td>
                   <td class="tabular-nums">{display_number(row.distance)}</td>
                   <td :for={{id, _} <- @matrix.goods} class="opportunity-cell">
                     <%= for {direction, opportunity} <- [{:outbound, row.cells[id].outbound}, {:inbound, row.cells[id].inbound}], opportunity do %>

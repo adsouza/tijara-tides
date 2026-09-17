@@ -9,14 +9,32 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     definitions = %{
       catalogue: %{
         "goods" => %{
-          "a" => %{"name" => "Lumber", "hold" => "dry", "manual" => true},
-          "b" => %{"name" => "Grain", "hold" => "dry", "manual" => true},
-          "c" => %{"name" => "Crude oil", "hold" => "liquid", "manual" => true}
+          "a" => %{
+            "name" => "Lumber",
+            "hold" => "dry",
+            "manual" => true,
+            "weight_kg" => 1000,
+            "volume_l" => 1000
+          },
+          "b" => %{
+            "name" => "Grain",
+            "hold" => "dry",
+            "manual" => true,
+            "weight_kg" => 1000,
+            "volume_l" => 1000
+          },
+          "c" => %{
+            "name" => "Crude oil",
+            "hold" => "liquid",
+            "manual" => true,
+            "weight_kg" => 1000,
+            "volume_l" => 1000
+          }
         },
         "ports" => Map.new(["Singapore", "Colombo", "Dubai", "Tokyo"], &{&1, %{}}),
         "routes" => %{
-          "Singapore|Colombo" => %{"nautical_miles" => 500},
-          "Singapore|Dubai" => %{"nautical_miles" => 900}
+          "Singapore|Colombo" => %{"nautical_miles" => 500, "passages" => []},
+          "Singapore|Dubai" => %{"nautical_miles" => 900, "passages" => []}
         }
       }
     }
@@ -34,6 +52,11 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     end
 
     view = %{
+      public: %{"clock_ms" => 0},
+      private: %{
+        "company" => %{"cash" => 1_000_000, "reserved" => 0, "unpaid" => 0},
+        "ships" => %{}
+      },
       markets: %{
         "Singapore|a" => quote.(50, 0, 100, 80),
         "Colombo|a" => quote.(0, 20, 220, 200),
@@ -45,7 +68,13 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     }
 
     {definitions, view,
-     %{"class" => "small_freighter", "status" => "docked", "port" => "Singapore"}}
+     %{
+       "id" => "s1",
+       "cargo" => [],
+       "class" => "small_freighter",
+       "status" => "docked",
+       "port" => "Singapore"
+     }}
   end
 
   test "matrix computes both directions, handling-adjusted ROI, market lots and ranking" do
@@ -138,7 +167,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
 
       assert row.cells["a"].outbound == nil
       assert row.cells["b"].inbound == nil
-      assert row.best == 0
+      assert row.best < 0
     end
   end
 
@@ -191,17 +220,211 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     assert html =~ "ROI unavailable for zero-cost cargo"
   end
 
-  test "ranking includes the best return opportunity, not just outbound" do
+  test "return opportunities do not affect next-voyage ranking" do
     {definitions, view, ship} = fixture()
     view = put_in(view, [:markets, "Dubai|b", "ask"], 50)
+    [colombo, dubai] = GameQueries.destination_matrix(definitions, view, ship).rows
+    assert colombo.port == "Colombo"
+    assert dubai.port == "Dubai"
+    assert dubai.cells["b"].inbound.roi > colombo.cells["b"].inbound.roi
+    assert colombo.best > dubai.best
+  end
+
+  test "total dollars outrank percentage and mixed dry cargo shares the hold" do
+    {definitions, view, ship} = fixture()
+
+    view =
+      view
+      |> put_in([:markets, "Singapore|a", "stock"], 150)
+      |> put_in([:markets, "Singapore|b", "stock"], 150)
+      |> put_in([:markets, "Colombo|a", "demand"], 100)
+      |> put_in([:markets, "Colombo|a", "bid"], 1100)
+      |> put_in([:markets, "Colombo|b", "demand"], 150)
+      |> put_in([:markets, "Colombo|b", "bid"], 1000)
+      |> put_in([:markets, "Dubai|a", "demand"], 1)
+      |> put_in([:markets, "Dubai|a", "bid"], 10_000)
+
+    [colombo, dubai] = GameQueries.destination_matrix(definitions, view, ship).rows
+    assert colombo.port == "Colombo"
+    assert dubai.cells["a"].outbound.roi > colombo.cells["a"].outbound.roi
+    assert colombo.plan.purchases == [%{good: "a", lots: 100}, %{good: "b", lots: 100}]
+    assert colombo.plan.profit > dubai.plan.profit
+    assert colombo.plan.costs > 0
+  end
+
+  test "aboard cargo shares destination buyer funds with extra purchases" do
+    {definitions, view, ship} = fixture()
+    ship = Map.put(ship, "cargo", [%{"good" => "a", "quantity" => 10, "unit_cost" => 100}])
+
+    view =
+      view
+      |> put_in([:markets, "Colombo|a", "bid"], 1000)
+      |> put_in([:markets, "Colombo|a", "buyer_budget"], 15_000)
+
+    row =
+      Enum.find(
+        GameQueries.destination_matrix(definitions, view, ship).rows,
+        &(&1.port == "Colombo")
+      )
+
+    assert row.plan.purchases == [%{good: "a", lots: 5}]
+    assert row.plan.sales == [%{good: "a", lots: 15}]
+  end
+
+  test "purchases reserve voyage funding and queued orders suppress purchase suggestions" do
+    {definitions, view, ship} = fixture()
+
+    view =
+      view
+      |> put_in([:private, "company", "cash"], 6000)
+      |> put_in([:markets, "Colombo|a", "bid"], 1000)
+
+    row =
+      Enum.find(
+        GameQueries.destination_matrix(definitions, view, ship).rows,
+        &(&1.port == "Colombo")
+      )
+
+    assert row.plan.spent + row.plan.costs <= 6000
+    assert hd(row.plan.purchases).lots < 20
+    queued = Map.put(ship, "pending_side", "buy")
+
+    row =
+      Enum.find(
+        GameQueries.destination_matrix(definitions, view, queued).rows,
+        &(&1.port == "Colombo")
+      )
+
+    assert row.plan.purchases == []
+    broke = put_in(view, [:private, "company", "cash"], 0)
+
+    assert Enum.all?(
+             GameQueries.destination_matrix(definitions, broke, ship).rows,
+             &is_nil(&1.plan)
+           )
+  end
+
+  test "volume limits a mix and liquid holds never mix commodities" do
+    {definitions, view, ship} = fixture()
+    definitions = put_in(definitions, [:catalogue, "goods", "a", "volume_l"], 100_000)
+    view = put_in(view, [:markets, "Colombo|a", "bid"], 10_000)
+    row = hd(GameQueries.destination_matrix(definitions, view, ship).rows)
+    assert row.plan.purchases == [%{good: "a", lots: 4}]
+
+    definitions =
+      update_in(definitions, [:catalogue, "goods"], fn goods ->
+        Map.new(goods, fn {id, item} -> {id, Map.put(item, "hold", "liquid")} end)
+      end)
+
+    view =
+      view
+      |> put_in([:markets, "Singapore|b", "stock"], 100)
+      |> put_in([:markets, "Colombo|b", "demand"], 100)
+      |> put_in([:markets, "Colombo|b", "bid"], 1000)
+
+    tanker = %{ship | "class" => "tanker"}
+    row = hd(GameQueries.destination_matrix(definitions, view, tanker).rows)
+    assert length(row.plan.purchases) == 1
+    assert length(row.plan.sales) == 1
+  end
+
+  test "canal fees reduce profit, maintenance only affects funding, and known spoilage is a loss" do
+    {definitions, view, ship} = fixture()
+
+    estimate = fn defs, v, s ->
+      Enum.find(GameQueries.destination_matrix(defs, v, s).rows, &(&1.port == "Colombo")).plan
+    end
+
+    original = estimate.(definitions, view, ship)
+    canal = put_in(definitions, [:catalogue, "routes", "Singapore|Colombo", "passages"], ["suez"])
+    assert estimate.(canal, view, ship).profit == original.profit - 25_000
+    old_view = put_in(view, [:public, "clock_ms"], 60 * 86_400_000)
+
+    assert estimate.(definitions, old_view, Map.put(ship, "built_ms", 0)).profit ==
+             original.profit
+
+    tight = put_in(old_view, [:private, "company", "cash"], 5000)
+    assert estimate.(definitions, tight, Map.put(ship, "built_ms", 0)) == nil
+
+    view = put_in(view, [:markets, "Singapore|a", "stock"], 0)
+    cargo = %{"good" => "a", "quantity" => 10, "unit_cost" => 100, "expires_ms" => 1}
+    expired = estimate.(definitions, view, Map.put(ship, "cargo", [cargo]))
+    assert expired.sales == []
+    assert expired.profit == -1000 - expired.costs
+  end
+
+  test "tankers rank combined profit with a funded onward load and cleaning" do
+    {definitions, view, ship} = fixture()
+
+    definitions =
+      update_in(definitions, [:catalogue, "goods"], fn goods ->
+        Map.new(goods, fn {id, item} -> {id, Map.put(item, "hold", "liquid")} end)
+      end)
+
+    definitions =
+      put_in(definitions, [:catalogue, "routes", "Dubai|Tokyo"], %{
+        "nautical_miles" => 100,
+        "passages" => []
+      })
+
+    ship =
+      Map.merge(ship, %{
+        "class" => "tanker",
+        "last_liquid" => "a",
+        "cargo" => [%{"good" => "a", "quantity" => 10, "unit_cost" => 100}]
+      })
+
+    view =
+      view
+      |> put_in([:markets, "Singapore|a", "stock"], 0)
+      |> put_in([:markets, "Dubai|a", "bid"], 1000)
+      |> put_in([:markets, "Colombo|a", "bid"], 1100)
+      |> put_in([:markets, "Dubai|b", "stock"], 100)
+      |> put_in([:markets, "Dubai|b", "ask"], 100)
+
+    buyer = %{view.markets["Dubai|b"] | "stock" => 0, "demand" => 100, "bid" => 2000}
+    view = put_in(view, [:markets, "Tokyo|b"], buyer)
     [dubai, colombo] = GameQueries.destination_matrix(definitions, view, ship).rows
     assert dubai.port == "Dubai"
-    assert colombo.port == "Colombo"
-    assert dubai.cells["a"].outbound.roi < colombo.cells["a"].outbound.roi
+    assert dubai.plan.profit < colombo.plan.profit
+    assert dubai.plan.onward.destination == "Tokyo"
+    assert dubai.plan.onward.purchases == [%{good: "b", lots: 100}]
+    assert dubai.plan.onward.spent == 16_000
+    assert dubai.best == dubai.plan.profit + dubai.plan.onward.profit
+    assert colombo.plan.onward == nil
 
-    assert_in_delta dubai.best,
-                    dubai.cells["a"].outbound.roi + dubai.cells["b"].inbound.roi,
-                    0.00001
+    html =
+      render_component(&DestinationPicker.panel/1,
+        definitions: definitions,
+        view: view,
+        ship: ship
+      )
+
+    assert html =~ "Two voyages"
+    assert html =~ "Then sail to Tokyo"
+
+    limited = put_in(view, [:private, "company", "cash"], 9000)
+
+    row =
+      Enum.find(
+        GameQueries.destination_matrix(definitions, limited, ship).rows,
+        &(&1.port == "Dubai")
+      )
+
+    assert row.plan.onward != nil
+    assert hd(row.plan.onward.purchases).lots in 1..99
+    assert row.plan.onward.remaining_cash >= 0
+
+    # A partial sale must not pretend the tank is empty and load a different liquid.
+    view = put_in(view, [:markets, "Dubai|a", "demand"], 5)
+
+    row =
+      Enum.find(
+        GameQueries.destination_matrix(definitions, view, ship).rows,
+        &(&1.port == "Dubai")
+      )
+
+    assert row.plan.onward == nil
   end
 
   test "popup localizes names, has colored sized discs, and ports use the destination event" do
