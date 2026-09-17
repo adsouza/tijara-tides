@@ -3187,13 +3187,40 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert_push_event(view, "workspace-panel", %{panel: 1, portrait_only: true})
     assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["status"] == "loading"
+    render_hook(view, "dropdown-active", %{"active" => true})
+    displayed_clock = :sys.get_state(view.pid).socket.assigns.view.public["clock_ms"]
+    advance(server, 1)
+    send(view.pid, {:game_changed, 0})
+    assert :sys.get_state(view.pid).socket.assigns.view.public["clock_ms"] == displayed_clock
+    render_hook(view, "dropdown-active", %{"active" => false})
+    assert :sys.get_state(view.pid).socket.assigns.view.public["clock_ms"] > displayed_clock
+    select_destination(view, "Tokyo")
+
+    assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["planned_destination"] ==
+             "Tokyo"
+
+    render_change(view, "port", %{"id" => "Singapore"})
+    view |> element("#set-port-destination") |> render_click()
+    assert has_element?(view, "#destination-picker-trigger", "Singapore")
+    assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["status"] == "loading"
+    refute has_element?(view, "button[phx-click=sail]")
+    render_change(view, "port", %{"id" => "Jakarta"})
+
+    assert has_element?(
+             view,
+             "details[id^=shipyard-offer-] summary",
+             "Value, maintenance and sale"
+           )
+
+    assert has_element?(view, "details[id^=shipyard-offer-]", "Book value:")
+    assert has_element?(view, "details[id^=shipyard-offer-]", "Maintenance:")
     render_click(view, "ship", %{"id" => other_ship["id"]})
     refute has_element?(view, "#destination-picker-trigger", "Singapore")
     render_change(view, "preview", %{"destination" => "Tokyo"})
     assert has_element?(view, "#destination-picker-trigger", "Tokyo")
     render_click(view, "ship", %{"id" => ship["id"]})
     send(view.pid, {:game_changed, 0})
-    # Loading temporarily hides voyage controls, but must not lose this ship's selection.
+    # Loading keeps destination planning available without losing this ship's selection.
     assert :sys.get_state(view.pid).socket.assigns.destination == "Singapore"
     render_click(view, "ship", %{"id" => other_ship["id"]})
     assert has_element?(view, "#destination-picker-trigger", "Tokyo")
@@ -3391,7 +3418,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     render_change(view, "port", %{"id" => "Singapore"})
     view |> element("button[phx-click=port-market-side][phx-value-side=sell]") |> render_click()
-    assert has_element?(view, "#port-market-table th", "Sell / demand")
+    assert has_element?(view, "#port-market-table th", "Sell / buyer capacity")
     refute has_element?(view, "#port-market-table th", "Buy / supply")
     assert has_element?(view, "#trade-sell-lumber")
     refute has_element?(view, "#trade-buy-lumber")
@@ -3410,6 +3437,18 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert_push_event(view, "workspace-panel", %{panel: 1, portrait_only: true})
     after_sale = GameServer.snapshot(token, server)
     assert after_sale.private["ships"][ship["id"]]["cargo"] == []
+    assert after_sale.private["ships"][ship["id"]]["status"] == "unloading"
+    select_destination(view, "Tokyo")
+    render_change(view, "port", %{"id" => "Jakarta"})
+    view |> element("#set-port-destination") |> render_click()
+
+    assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["planned_destination"] ==
+             "Jakarta"
+
+    assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["status"] ==
+             "unloading"
+
+    refute has_element?(view, "button[phx-click=sail]")
     {:ok, spectator, _} = build_conn() |> live("/play")
     refute has_element?(spectator, "#cargo-ship-filter")
     render_click(spectator, "inspect-ship", %{"id" => ship["id"]})

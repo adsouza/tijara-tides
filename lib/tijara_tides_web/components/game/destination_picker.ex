@@ -54,7 +54,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
           </div>
           <p id="destination-picker-help" class="my-3 text-xs text-slate-400">
             {gettext(
-              "Symbol size shows ROI after handling, on a shared scale. Squares represent cargo aboard; circles represent new purchases. Green: sell cargo aboard, or buy here and sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; cargo aboard uses recorded cost and destination demand; new purchases do not check cash or capacity. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
+              "Symbol size shows ROI after handling, on a shared scale. Squares represent cargo aboard; circles represent new purchases. Green: sell cargo aboard, or buy here and sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; quantities are capped by current buyer funds and demand, which can change before arrival. Cargo aboard uses recorded cost; new purchases do not check your cash or ship capacity. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
             )}
           </p>
           <div class="mb-3 flex flex-wrap gap-4 text-sm">

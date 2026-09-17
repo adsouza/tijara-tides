@@ -13,7 +13,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
     if ship && ship["pending_side"] do
       {:error, :berth_order_pending}
     else
-      case TradeSettlement.execute(state, account, trade, catalogue) do
+      case TradeSettlement.execute(state, account, trade, catalogue, :manual) do
         {:error, :berth_busy} ->
           next = ShipWorld.queue_trade(state, trade)
 
@@ -68,7 +68,18 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
 
     state =
       Enum.reduce(State.entities(state, "ships"), state, fn {id, ship}, acc ->
-        if ship["pending_side"] && eligible[id], do: enqueue(acc, id), else: acc
+        if ship["pending_side"] && eligible[id] do
+          # A validated pending manual trade need not wait for an obsolete retry timer.
+          acc =
+            if is_nil(ship["berth_granted_ms"]) and is_nil(ship["berth_queued_ms"]) and
+                 (ship["berth_retry_ms"] || 0) > acc.clock_ms,
+               do: ShipWorld.release_berth(acc, id),
+               else: acc
+
+          enqueue(acc, id)
+        else
+          acc
+        end
       end)
 
     state =
@@ -119,7 +130,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
           destination: ship["pending_destination"]
         }
 
-        case TradeSettlement.execute(acc, account, trade, catalogue) do
+        case TradeSettlement.execute(acc, account, trade, catalogue, :manual) do
           {:ok, next, _} -> ShipWorld.complete_pending_trade(next, id)
           {:error, _} -> acc
         end
@@ -142,6 +153,38 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
 
   defp has_work?(state, ship),
     do: not is_nil(ship["pending_side"]) or port_orders(state, ship) != []
+
+  def pending_status(state, account, ship, catalogue) do
+    trade = %Trade{
+      ship_id: ship["id"],
+      side: ship["pending_side"],
+      good: ship["pending_good"],
+      quantity: ship["pending_quantity"],
+      limit: ship["pending_limit"],
+      destination: ship["pending_destination"]
+    }
+
+    case TradeSettlement.validate(state, account, trade, catalogue) do
+      :ok ->
+        :berth_wait
+
+      {:error, :insufficient_demand} ->
+        q =
+          TijaraTides.Domain.PortCargoMarketWorld.quote(
+            state,
+            catalogue,
+            ship["port"],
+            trade.good
+          )
+
+        if q["demand"] >= trade.quantity and q["buyer_budget"] < q["bid"] * trade.quantity,
+          do: :buyer_budget,
+          else: :insufficient_demand
+
+      {:error, reason} ->
+        reason
+    end
+  end
 
   defp viable?(state, ship, catalogue) do
     company = State.get(state, "companies", ship["company_id"])
@@ -179,7 +222,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
       (trades == [] ||
          Enum.any?(
            trades,
-           &match?({:ok, _, _}, TradeSettlement.check(state, account, &1, catalogue))
+           &(TradeSettlement.validate(state, account, &1, catalogue) == :ok)
          ))
   end
 

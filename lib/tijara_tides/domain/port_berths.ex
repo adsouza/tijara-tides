@@ -63,6 +63,21 @@ defmodule TijaraTides.Domain.PortBerths do
 
   # Admission only asks whether anyone is ahead and whether a berth is free, so it skips
   # the ticket ordering allocate/2 needs — this runs on every trade.
+  @doc "Admit a validated manual trade whenever capacity remains after earlier queue tickets."
+  def ready_available?(fleet, ship, capacity) do
+    held = held(fleet)
+    ticket = {ship["berth_queued_ms"], ship["id"]}
+
+    ahead =
+      Enum.count(fleet, fn other ->
+        other["id"] != ship["id"] and queued?(other) and
+          not MapSet.member?(held, other["id"]) and
+          (is_nil(ship["berth_queued_ms"]) or {other["berth_queued_ms"], other["id"]} < ticket)
+      end)
+
+    MapSet.member?(held, ship["id"]) or MapSet.size(held) + ahead < capacity
+  end
+
   def available?(fleet, ship, clock_ms, capacity) do
     held = held(fleet)
 

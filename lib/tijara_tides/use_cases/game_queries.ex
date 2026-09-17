@@ -14,7 +14,7 @@ defmodule TijaraTides.UseCases.GameQueries do
   alias TijaraTides.Domain.{Fleet, CargoRules, Visibility}
   defdelegate compatible_cargo?(ship, item), to: CargoRules
 
-  defdelegate auction_discovery(view, grouping \\ "status"),
+  defdelegate auction_discovery(view, grouping \\ "status", show_all_settled \\ false),
     to: TijaraTides.UseCases.AuctionQueries
 
   defdelegate auction_options(definitions, view, port), to: TijaraTides.UseCases.AuctionQueries
@@ -161,7 +161,17 @@ defmodule TijaraTides.UseCases.GameQueries do
               {id, estimates}
             end)
 
+          pending =
+            Map.new(
+              for {id, ship} <- private["ships"],
+                  ship["pending_side"],
+                  do:
+                    {id,
+                     TijaraTides.Domain.Trading.pending_status(game, account, ship, catalogue)}
+            )
+
           private
+          |> Map.put("queued_trade_status", pending)
           |> Map.put("compatible_cargo", compatible)
           |> Map.put("voyage_freshness", underway)
 

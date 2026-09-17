@@ -4,6 +4,47 @@ defmodule TijaraTidesWeb.PortLocalizationTest do
   alias TijaraTides.Localization
   alias TijaraTidesWeb.GameUI.PortsPanel
 
+  test "sell market distinguishes affordable lots from nominal demand" do
+    definitions = TijaraTides.UseCases.Game.definitions()
+
+    markets =
+      Map.new(definitions.catalogue["goods"], fn {good, _} ->
+        {"Antwerp|" <> good, %{"manual" => false}}
+      end)
+
+    markets =
+      Map.put(markets, "Antwerp|iron_ore", %{
+        "manual" => true,
+        "stock" => 0,
+        "demand" => 489,
+        "bid" => 14000,
+        "buyer_budget" => 30000,
+        "handling_fee" => 100
+      })
+
+    html =
+      render_component(&PortsPanel.panel/1,
+        definitions: definitions,
+        destination: nil,
+        port_market_side: "sell",
+        preview: nil,
+        purchase_good: nil,
+        request_id: "request",
+        selected_port: "Antwerp",
+        ship: nil,
+        trade_limits: %{},
+        trade_quantities: %{},
+        traffic_grouping: "status",
+        view: %{private: nil, public: %{"ships" => %{}}, markets: markets}
+      )
+
+    text =
+      html |> LazyHTML.from_fragment() |> LazyHTML.query("#port-market-table") |> LazyHTML.text()
+
+    assert text =~ "Sell / buyer capacity"
+    assert text =~ "Can buy now: 2 lots · demand: 489 · buyer funds: $300.00"
+  end
+
   test "all port descriptions and selector labels translate without changing port IDs" do
     definitions = TijaraTides.UseCases.Game.definitions()
     ports = definitions.catalogue["ports"]
@@ -56,7 +97,7 @@ defmodule TijaraTidesWeb.PortLocalizationTest do
         refute text =~ "buy"
         refute text =~ "sell"
 
-        assert LazyHTML.query(tree, "#about-port p") |> LazyHTML.text() |> String.trim() ==
+        assert LazyHTML.query(tree, "#about-port > p") |> LazyHTML.text() |> String.trim() ==
                  Localization.l10n(entry["identity"])
 
         assert html =~ ~s(value="#{port}")

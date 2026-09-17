@@ -80,16 +80,17 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
       }
     }
 
-    for grouping <- ["status", "cargo"] do
-      ids =
-        GameQueries.auction_discovery(view, grouping)
-        |> Enum.flat_map(&elem(&1, 1))
-        |> Enum.map(& &1["id"])
+    ids =
+      GameQueries.auction_discovery(view, "status", true)
+      |> Enum.flat_map(&elem(&1, 1))
+      |> Enum.map(& &1["id"])
 
-      assert length(ids) == 23
-      assert Enum.all?(["1", "2", "3"], &(&1 in ids))
-      refute "4" in ids
-    end
+    own = GameQueries.auction_discovery(view, "status") |> Enum.flat_map(&elem(&1, 1))
+    assert Enum.map(own, & &1["id"]) == ["3", "2", "1"]
+    assert length(ids) == 23
+    assert Enum.all?(["1", "2", "3"], &(&1 in ids))
+    refute "4" in ids
+    assert GameQueries.auction_discovery(view, "cargo", true) == []
   end
 
   test "reserve revisions use whole dollars while preserving unchanged legacy cents" do
@@ -157,12 +158,11 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
     view =
       Map.put(view, :private, %{"auction_bids" => [%{"auction_id" => "sold", "won" => true}]})
 
-    assert [{"jewelry", [first, second, settled]}] = GameQueries.auction_discovery(view, "cargo")
+    assert [{"jewelry", [first, second]}] = GameQueries.auction_discovery(view, "cargo")
 
     assert [{"open", [_]}, {"upcoming", [_]}, {"settled", [_]}] =
              GameQueries.auction_discovery(view)
 
-    assert settled["id"] == "sold"
     assert first["id"] == "open"
     assert second["id"] == "upcoming"
     html = render_component(&AuctionPanel.discovery/1, view: view, definitions: definitions())
@@ -185,7 +185,11 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
 
     assert cargo_html =~ "discover-auctions-cargo-jewelry"
     refute cargo_html =~ "Open auctions"
-    assert html =~ "Bidding open"
+    refute cargo_html =~ "auction-settled-filter"
+    refute cargo_html =~ "data-auction=\"sold\""
+    refute html =~ "Bidding open"
+    assert html =~ "Closes in"
+    assert cargo_html =~ "Bidding open"
     assert html =~ "Opens in"
     assert html =~ "auction-port"
     assert html =~ "data-auction=\"sold\""
@@ -196,6 +200,74 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
     refute settled_row =~ "Closes in"
     refute html =~ "data-auction=\"expired\""
     assert html =~ "ignore_attrs"
+  end
+
+  test "settled discovery expires after three active-world days, including own auctions" do
+    day = 86_400_000
+    clock = 5 * day
+
+    lot = %{
+      "good" => "jewelry",
+      "port" => "Dubai",
+      "quantity" => 1,
+      "reserve" => 100,
+      "status" => "sold",
+      "opens_ms" => 0
+    }
+
+    auction = fn id, closes -> Map.merge(lot, %{"id" => id, "closes_ms" => closes}) end
+
+    view = %{
+      public: %{
+        "clock_ms" => clock,
+        "auctions" => [
+          auction.("recent", clock - day),
+          auction.("boundary", clock - 3 * day),
+          auction.("old-win", clock - 3 * day - 1),
+          auction.("old-consignment", clock - 4 * day),
+          Map.merge(auction.("upcoming", clock + day), %{
+            "status" => "scheduled",
+            "opens_ms" => clock + 1000
+          })
+        ]
+      },
+      private: %{
+        "auction_bids" => [%{"auction_id" => "old-win", "won" => true}],
+        "consignments" => [%{"id" => "old-consignment"}]
+      }
+    }
+
+    assert [{"upcoming", [_]}, {"settled", settled}] =
+             GameQueries.auction_discovery(view, "status", true)
+
+    assert Enum.map(settled, & &1["id"]) == ["recent", "boundary"]
+    assert [{"jewelry", listings}] = GameQueries.auction_discovery(view, "cargo", true)
+    assert Enum.map(listings, & &1["id"]) == ["upcoming"]
+    assert [{"upcoming", [_]}] = GameQueries.auction_discovery(view)
+
+    participating =
+      put_in(view, [:private, "auction_bids"], [%{"auction_id" => "recent", "won" => false}])
+
+    participating = put_in(participating, [:private, "consignments"], [%{"id" => "boundary"}])
+    assert [{"upcoming", [_]}, {"settled", own}] = GameQueries.auction_discovery(participating)
+    assert Enum.map(own, & &1["id"]) == ["recent", "boundary"]
+    later = put_in(view, [:public, "clock_ms"], clock + 1)
+
+    assert [{"upcoming", [_]}, {"settled", [remaining]}] =
+             GameQueries.auction_discovery(later, "status", true)
+
+    assert remaining["id"] == "recent"
+  end
+
+  test "settled filter stays inside its section even without participating auctions" do
+    html = render_component(&AuctionPanel.discovery/1, view: %{}, definitions: definitions())
+    tree = LazyHTML.from_fragment(html)
+
+    assert LazyHTML.query(tree, "#discover-auctions-status-settled #auction-settled-filter")
+           |> LazyHTML.to_html() != ""
+
+    assert LazyHTML.query(tree, "#auction-discovery > #auction-settled-filter")
+           |> LazyHTML.to_html() == ""
   end
 
   test "empty discovery works without a public snapshot" do

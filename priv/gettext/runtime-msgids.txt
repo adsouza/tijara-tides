@@ -14,6 +14,7 @@
 # out of default.pot. One msgid per line.
 
 All ships
+Sell / demand
 Buy price
 Sell price
 nm

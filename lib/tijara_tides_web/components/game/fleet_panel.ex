@@ -219,59 +219,54 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               </p>
             </button>
           </div>
-          <div :if={@ship} class="mt-4 rounded-xl bg-slate-900 p-5">
+          <div :if={@ship} class="mt-2 rounded-xl bg-slate-900 px-5 pt-2 pb-5">
             <p :if={@view.public["ships"][@ship["id"]]["queue_position"]} class="mb-3 text-amber-300">
               {gettext("Queue position: %{position}",
                 position: display_number(@view.public["ships"][@ship["id"]]["queue_position"])
               )}
             </p>
-            <div :if={@ship["pending_side"]} class="mb-3 text-sm">
-              <p>
-                {gettext("Trade queued. Prices, stock and funds are checked again before handling.")}
-              </p>
-              <button
-                type="button"
-                phx-click="cancel-berth-trade"
-                phx-value-id={@ship["id"]}
-                class="mt-2 rounded border px-3 py-1"
-              >{gettext("Cancel order")}</button>
-            </div>
+            <TijaraTidesWeb.GameUI.QueuedTrade.notice
+              :if={@ship["pending_side"]}
+              id="fleet-queued-trade"
+              ship={@ship}
+              public={@view.public}
+              reason={get_in(@view.private, ["queued_trade_status", @ship["id"]])}
+            />
             <% ship_value =
               GameQueries.ship_sale_value(
                 @ship,
                 @view.public["clock_ms"]
               ) %>
-            <p class="text-sm">
-              {gettext("Book value: %{value1}", value1: finance_money(ship_value.book))}
-              <span class="ml-2 text-xs text-slate-400">{gettext(
-                "Depreciates over %{days} active-world days to %{residual}% of build value.",
-                days: display_number(GameQueries.maintenance_curve().life_days),
-                residual: display_number(GameQueries.maintenance_curve().residual_percent)
-              )}</span>
-            </p>
-            <% maintenance = GameQueries.ship_maintenance(@ship, @view.public["clock_ms"]) %>
-            <p class="text-sm">
-              {gettext(
-                "Maintenance: next day %{day}; next 7 days %{week}. New hull: %{replacement} per day.",
-                day: finance_money(maintenance.next_day),
-                week: finance_money(maintenance.next_week),
-                replacement: finance_money(maintenance.replacement_day)
-              )}
-            </p>
-            <p class="text-xs text-slate-400">
-              {gettext(
-                "Maintenance is flat for %{days} active-world days, then rises linearly. At age %{crossover} days its rate equals a new hull's maintenance plus depreciation. Crew costs are separate.",
-                days: display_number(GameQueries.maintenance_curve().life_days),
-                crossover: display_number(GameQueries.maintenance_curve().crossover_days)
-              )}
-            </p>
             <details
-              :if={@ship["status"] != "sailing"}
               id={"shipyard-offer-" <> @ship["id"]}
               phx-mounted={JS.ignore_attributes("open")}
-              class="my-2"
+              class="mb-2"
             >
-              <summary class="cursor-pointer">{gettext("Shipyard offer")}</summary>
+              <summary class="cursor-pointer">{gettext("Value, maintenance and sale")}</summary>
+              <p class="text-sm">
+                {gettext("Book value: %{value1}", value1: finance_money(ship_value.book))}
+                <span class="ml-2 text-xs text-slate-400">{gettext(
+                  "Depreciates over %{days} active-world days to %{residual}% of build value.",
+                  days: display_number(GameQueries.maintenance_curve().life_days),
+                  residual: display_number(GameQueries.maintenance_curve().residual_percent)
+                )}</span>
+              </p>
+              <% maintenance = GameQueries.ship_maintenance(@ship, @view.public["clock_ms"]) %>
+              <p class="text-sm">
+                {gettext(
+                  "Maintenance: next day %{day}; next 7 days %{week}. New hull: %{replacement} per day.",
+                  day: money(maintenance.next_day),
+                  week: money(maintenance.next_week),
+                  replacement: money(maintenance.replacement_day)
+                )}
+              </p>
+              <p class="text-xs text-slate-400">
+                {gettext(
+                  "Maintenance is flat for %{days} active-world days, then rises linearly. At age %{crossover} days its rate equals a new hull's maintenance plus depreciation. Crew costs are separate.",
+                  days: display_number(GameQueries.maintenance_curve().life_days),
+                  crossover: display_number(GameQueries.maintenance_curve().crossover_days)
+                )}
+              </p>
               <.form
                 :if={@ship["status"] == "docked" && @ship["cargo"] == []}
                 for={%{}}
@@ -448,7 +443,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               </label>
             </form>
             <button
-              :if={@ship["status"] == "docked"}
+              :if={@ship["status"] in ["docked", "loading", "unloading"]}
               id="destination-picker-trigger"
               type="button"
               phx-click={
@@ -463,7 +458,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 else: gettext("Choose destination")}
             </button>
             <TijaraTidesWeb.GameUI.DestinationPicker.panel
-              :if={@destination_picker_open && @ship["status"] == "docked"}
+              :if={@destination_picker_open && @ship["status"] in ["docked", "loading", "unloading"]}
               definitions={@definitions}
               view={@view}
               ship={@ship}

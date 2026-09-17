@@ -235,22 +235,40 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
   attr :definitions, :any, required: true
 
   attr :grouping, :string, default: "status"
+  attr :show_all_settled, :boolean, default: false
 
   def discovery(assigns) do
     assigns =
       assign(assigns,
         groups:
-          TijaraTides.UseCases.GameQueries.auction_discovery(assigns.view, assigns.grouping),
+          TijaraTides.UseCases.GameQueries.auction_discovery(
+            assigns.view,
+            assigns.grouping,
+            assigns.show_all_settled
+          ),
         clock: get_in(assigns.view, [:public, "clock_ms"]) || 0
       )
 
+    assigns =
+      if assigns.grouping == "status" and not List.keymember?(assigns.groups, "settled", 0),
+        do: assign(assigns, :groups, assigns.groups ++ [{"settled", []}]),
+        else: assigns
+
     ~H"""
-    <section id="auction-discovery" class="mb-3 rounded border border-slate-700 p-3 text-sm">
-      <h3 class="font-semibold">{gettext("Cargo and ship auctions")}</h3>
+    <details
+      id="auction-discovery"
+      phx-mounted={JS.ignore_attributes("open")}
+      phx-hook="AuctionDisclosures"
+      class="mb-3 rounded border border-slate-700 p-3 text-sm"
+    >
+      <summary class="cursor-pointer font-semibold">{gettext("Cargo and ship auctions")}</summary>
       <p class="my-2 text-xs text-slate-400">
         {gettext(
           "Browse open, upcoming and recently settled auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
         )}
+        <span :if={@grouping == "status"}>
+          {gettext("Settled auctions are shown for the past three active-world days.")}
+        </span>
       </p>
       <form id="auction-grouping" phx-change="auction-grouping" class="my-2">
         <label>
@@ -261,9 +279,12 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
           </select>
         </label>
       </form>
-      <p :if={@groups == []}>{gettext("No luxury auctions available.")}</p>
+      <p :if={Enum.all?(@groups, fn {_, listings} -> listings == [] end)}>
+        {gettext("No luxury auctions available.")}
+      </p>
       <details
         :for={{group, listings} <- @groups}
+        :key={@grouping <> "-" <> group}
         id={"discover-auctions-" <> @grouping <> "-" <> group}
         open={@grouping == "status" and group == "open"}
         phx-mounted={JS.ignore_attributes("open")}
@@ -272,7 +293,11 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         <summary class="cursor-pointer text-teal-300">
           {discovery_heading(@grouping, group)} · {display_number(length(listings))}
         </summary>
-        <div class="max-h-64 overflow-auto">
+        <.settled_filter
+          :if={group == "settled" && @grouping == "status"}
+          show_all_settled={@show_all_settled}
+        />
+        <div :if={listings != []} class="max-h-64 overflow-auto">
           <table class="w-full text-sm">
             <thead>
               <tr>
@@ -301,21 +326,35 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
                 <td class="px-2 text-end">{display_number(a["quantity"])}</td>
                 <td class="px-2 text-end">{money(a["reserve"])}</td>
                 <td class="py-2 text-end">
-                  {status(a, @clock)}
+                  <span :if={@grouping != "status" || group != "open"}>{status(a, @clock)}</span>
                   <p :if={a["status"] != "scheduled" && a["bid"]}>
                     {if a["bid"]["won"], do: gettext("You won"), else: gettext("No purchase")}
                   </p>
                   <p :if={a["price"]}>{gettext("Sale price")}: {money(a["price"])}</p>
-                  <br :if={a["status"] == "scheduled" && a["opens_ms"] <= @clock} /><span :if={
-                    a["status"] == "scheduled" && a["opens_ms"] <= @clock
-                  }>{gettext("Closes in %{time}", time: active_countdown(a["closes_ms"] - @clock))}</span>
+                  <p :if={a["status"] == "scheduled" && a["opens_ms"] <= @clock}>
+                    {gettext("Closes in %{time}", time: active_countdown(a["closes_ms"] - @clock))}
+                  </p>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
       </details>
-    </section>
+    </details>
+    """
+  end
+
+  attr :show_all_settled, :boolean, required: true
+
+  defp settled_filter(assigns) do
+    ~H"""
+    <form id="auction-settled-filter" phx-change="auction-settled-filter" class="my-2">
+      <input type="hidden" name="all" value="false" />
+      <label class="text-xs text-slate-400">
+        <input type="checkbox" name="all" value="true" checked={@show_all_settled} />
+        {gettext("Include settled auctions I did not participate in")}
+      </label>
+    </form>
     """
   end
 

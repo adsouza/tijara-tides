@@ -757,9 +757,6 @@ msgstr "تتابع السفن الإبحار تلقائياً بعد انتها�
 msgid "Ships currently at %{value1}; vessels at sea are excluded."
 msgstr "السفن الموجودة حالياً في %{value1}؛ لا تشمل السفن في البحر."
 
-msgid "Shipyard offer"
-msgstr "عرض حوض السفن"
-
 msgid "Show only cargo carried by %{value1}"
 msgstr "إظهار البضائع التي تحملها %{value1} فقط"
 
@@ -2382,8 +2379,8 @@ msgstr "بيع البضائع على متن السفينة: %{roi} · %{lots} د
 msgid "You won %{quantity} lots of %{cargo} for %{price}. Delivered to %{port} %{storage} %{warehouse}."
 msgstr "فزت بـ %{quantity} دفعات من %{cargo} مقابل %{price}. تم التسليم إلى %{port} %{storage} %{warehouse}."
 
-msgid "Symbol size shows ROI after handling, on a shared scale. Squares represent cargo aboard; circles represent new purchases. Green: sell cargo aboard, or buy here and sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; cargo aboard uses recorded cost and destination demand; new purchases do not check cash or capacity. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
-msgstr "يعرض حجم الرمز العائد بعد المناولة على مقياس موحد. المربعات للبضائع على متن السفينة والدوائر للمشتريات الجديدة. الأخضر: بيع البضائع على متن السفينة، أو الشراء هنا والبيع هناك. الأحمر: الشراء هناك والبيع هنا. الجماجم تعني عائدًا سالبًا، والرموز المجوفة تعني عائدًا صفريًا أو غير متاح. مرر المؤشر أو ركز للاطلاع على التفاصيل. لا تشمل الحسابات الوقود والقنوات والصيانة والتنظيف والتلف؛ تُستخدم التكلفة المسجلة وطلب الوجهة للبضائع على متن السفينة، ولا تُفحص السيولة أو السعة للمشتريات الجديدة. تُرتب الصفوف حسب مجموع أفضل عائد في الاتجاهين ثم المسافة. اختر ميناءً لتخطيط رحلتك."
+msgid "Symbol size shows ROI after handling, on a shared scale. Squares represent cargo aboard; circles represent new purchases. Green: sell cargo aboard, or buy here and sell there. Red: buy there, sell here. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details. Fuel, canals, upkeep, cleaning and spoilage are excluded; quantities are capped by current buyer funds and demand, which can change before arrival. Cargo aboard uses recorded cost; new purchases do not check your cash or ship capacity. Rows rank by the sum of the best ROI in each direction, then distance. Select a port to plan your voyage."
+msgstr "يعرض حجم الرمز العائد بعد المناولة على مقياس موحد. المربعات للبضائع على متن السفينة والدوائر للمشتريات الجديدة. الأخضر: بيع البضائع على متن السفينة، أو الشراء هنا والبيع هناك. الأحمر: الشراء هناك والبيع هنا. الجماجم تعني عائدًا سالبًا، والرموز المجوفة تعني عائدًا صفريًا أو غير متاح. مرر المؤشر أو ركز للاطلاع على التفاصيل. لا تشمل الحسابات الوقود والقنوات والصيانة والتنظيف والتلف؛ تُحدَّد الكميات بأموال المشتري والطلب الحاليين، وقد يتغيران قبل الوصول. تُستخدم التكلفة المسجلة للبضائع على متن السفينة؛ ولا تُفحص أموالك أو سعة السفينة للمشتريات الجديدة. تُرتب الصفوف حسب مجموع أفضل عائد في الاتجاهين ثم المسافة. اختر ميناءً لتخطيط رحلتك."
 
 msgid "Warehouse handling finishes in %{remaining} of active-world time (hours:minutes:seconds). Wait until it is idle before consigning or bidding."
 msgstr "تنتهي مناولة المستودع بعد %{remaining} من وقت العالم النشط (ساعات:دقائق:ثوانٍ). انتظر حتى يصبح غير مشغول قبل الإيداع للمزاد أو المزايدة."
@@ -2435,3 +2432,51 @@ msgstr "التصنيع المحلي"
 
 msgid "Production requires inputs, funds and free output storage."
 msgstr "يتطلب الإنتاج مواد أولية وأموالاً ومساحة تخزين متاحة للمنتجات."
+
+msgid "Value, maintenance and sale"
+msgstr "القيمة والصيانة والبيع"
+
+msgid "Settled auctions are shown for the past three active-world days."
+msgstr "تُعرض المزادات التي تمت تسويتها خلال الأيام الثلاثة الماضية من وقت العالم النشط."
+
+msgid "Include settled auctions I did not participate in"
+msgstr "إظهار المزادات التي تمت تسويتها ولم أشارك فيها"
+
+msgid "Queued trade · %{ship} · %{port}"
+msgstr "أمر تداول في الانتظار · %{ship} · %{port}"
+
+msgid "Sell %{quantity} lots of %{cargo} at no less than %{price} per lot."
+msgstr "بيع %{quantity} دفعات من %{cargo} بسعر لا يقل عن %{price} للدفعة."
+
+msgid "Buy %{quantity} lots of %{cargo} at no more than %{price} per lot."
+msgstr "شراء %{quantity} دفعات من %{cargo} بسعر لا يزيد على %{price} للدفعة."
+
+msgid "Berths in use: %{used} / %{total}."
+msgstr "الأرصفة المستخدمة: %{used} / %{total}."
+
+msgid "This order retries automatically. Price, cargo, demand and funds must still allow the full quantity. Cancel it before placing another trade or departing."
+msgstr "تُعاد محاولة تنفيذ هذا الأمر تلقائياً. يجب أن يسمح السعر والبضائع والطلب والأموال بتنفيذ الكمية كاملة. ألغِ الأمر قبل تقديم أمر تداول آخر أو المغادرة."
+
+msgid "Cancel queued trade"
+msgstr "إلغاء أمر التداول المنتظر"
+
+msgid "Sell / buyer capacity"
+msgstr "بيع / قدرة المشتري"
+
+msgid "Can buy now: %{lots} lots · demand: %{demand} · buyer funds: %{funds}"
+msgstr "يمكنه الشراء الآن: %{lots} دفعات · الطلب: %{demand} · أموال المشتري: %{funds}"
+
+msgid "Cancel the queued trade before placing another order."
+msgstr "ألغِ أمر التداول المنتظر قبل تقديم أمر آخر."
+
+msgid "Waiting for the buyer to afford the full order; free berths cannot resolve this."
+msgstr "بانتظار توفر أموال كافية لدى المشتري لتنفيذ الأمر كاملاً؛ توفر الأرصفة لا يحل هذه المشكلة."
+
+msgid "Waiting for berth admission. A ready order starts as soon as capacity and queue priority allow."
+msgstr "بانتظار دخول الرصيف. يبدأ تنفيذ الأمر الجاهز بمجرد أن تسمح سعة الأرصفة وأولوية الطابور بذلك."
+
+msgid "Waiting for trade conditions: %{reason}"
+msgstr "بانتظار استيفاء شروط التداول: %{reason}"
+
+msgid "Map"
+msgstr "الخريطة"

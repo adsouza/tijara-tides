@@ -29,6 +29,7 @@ defmodule TijaraTidesWeb.GameLive do
         exchange_good: nil,
         route_drafts: %{},
         destination_picker_open: false,
+        dropdown_active: false,
         report_open: false,
         report_data: nil,
         report_error: nil,
@@ -54,6 +55,7 @@ defmodule TijaraTidesWeb.GameLive do
         cargo_menu_open: false,
         cargo_sort_roi: false,
         auction_grouping: "status",
+        show_all_settled: false,
         cargo_filter_ship: false,
         market_sort: %{"supply" => {"ask", :asc}, "demand" => {"bid", :desc}},
         company_draft: %{"name" => "", "port" => "Singapore"},
@@ -67,17 +69,25 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   @impl true
-  def handle_info({:game_changed, _revision}, socket), do: {:noreply, refresh(socket)}
+  def handle_info({:game_changed, _revision}, socket), do: {:noreply, background_refresh(socket)}
 
   def handle_info(:world_heartbeat, socket) do
     Game.connect(socket.assigns.token)
     Process.send_after(self(), :world_heartbeat, 15_000)
-    {:noreply, refresh(socket)}
+    {:noreply, background_refresh(socket)}
   end
 
   def handle_info(_message, socket), do: {:noreply, socket}
 
+  defp background_refresh(%{assigns: %{dropdown_active: true}} = socket), do: socket
+  defp background_refresh(socket), do: refresh(socket)
+
   @impl true
+  def handle_event("dropdown-active", %{"active" => active}, socket) when is_boolean(active) do
+    socket = assign(socket, :dropdown_active, active)
+    {:noreply, if(active, do: socket, else: refresh(socket))}
+  end
+
   def handle_event("report-toggle", _, socket) do
     if socket.assigns.report_open,
       do: {:noreply, assign(socket, report_open: false, report_data: nil, report_error: nil)},
@@ -209,6 +219,10 @@ defmodule TijaraTidesWeb.GameLive do
       |> Map.update("price", nil, &report_number/1)
 
     run(socket, Map.reject(command, fn {_, v} -> is_nil(v) end))
+  end
+
+  def handle_event("auction-settled-filter", %{"all" => value}, socket) do
+    {:noreply, assign(socket, :show_all_settled, value == "true")}
   end
 
   def handle_event("auction-grouping", %{"grouping" => grouping}, socket)
@@ -641,7 +655,9 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   def handle_event("destination-picker-open", _, socket) do
-    open = socket.assigns.ship && socket.assigns.ship["status"] == "docked"
+    open =
+      socket.assigns.ship && socket.assigns.ship["status"] in ["docked", "loading", "unloading"]
+
     {:noreply, assign(socket, destination_picker_open: !!open, report_open: false)}
   end
 
@@ -683,6 +699,16 @@ defmodule TijaraTidesWeb.GameLive do
     ship = socket.assigns.ship
     destination = socket.assigns.selected_port
 
+    if ship && ship["status"] in ["loading", "unloading"] && ship["port"] != destination do
+      {:noreply, socket |> remember_destination(destination) |> refresh()}
+    else
+      set_port_destination(socket, ship, destination)
+    end
+  end
+
+  def handle_event(_event, _params, socket), do: {:noreply, socket}
+
+  defp set_port_destination(socket, ship, destination) do
     if ship && ship["status"] == "docked" && ship["port"] != destination do
       case Game.preview(socket.assigns.token, ship["id"], destination) do
         nil ->
@@ -697,8 +723,6 @@ defmodule TijaraTidesWeb.GameLive do
       {:noreply, socket}
     end
   end
-
-  def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   defp remember_destination(socket, destination) do
     case Game.command(socket.assigns.token, Game.request_id(), %{
@@ -895,7 +919,8 @@ defmodule TijaraTidesWeb.GameLive do
       assign(
         socket,
         :destination_picker_open,
-        socket.assigns.destination_picker_open && not is_nil(ship) && ship["status"] == "docked"
+        socket.assigns.destination_picker_open && not is_nil(ship) &&
+          ship["status"] in ["docked", "loading", "unloading"]
       )
 
     planned =
@@ -1275,6 +1300,7 @@ defmodule TijaraTidesWeb.GameLive do
               />
               <TijaraTidesWeb.GameUI.CargoPanel.panel
                 auction_grouping={@auction_grouping}
+                show_all_settled={@show_all_settled}
                 cargo_filter_ship={@cargo_filter_ship}
                 cargo_menu_open={@cargo_menu_open}
                 cargo_options={@cargo_options}

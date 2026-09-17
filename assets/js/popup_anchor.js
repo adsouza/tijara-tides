@@ -1,6 +1,8 @@
+import {watchDropdowns} from "./dropdowns"
 // Both menus start below the summary, even when its contents or the header wrap.
 export const PopupAnchor = {
   mounted() {
+    this.stopWatchingDropdowns = watchDropdowns(this.el, active => this.pushEvent("dropdown-active", {active}))
     this.positionPopups = () => {
       const anchor = this.el.querySelector(".company-summary") || this.el.querySelector(".game-header")
       if (anchor) this.el.style.setProperty("--popup-top", `${anchor.getBoundingClientRect().bottom}px`)
@@ -17,6 +19,7 @@ export const PopupAnchor = {
   },
   updated() { this.observeAnchor() },
   destroyed() {
+    this.stopWatchingDropdowns()
     this.observer.disconnect()
     window.removeEventListener("resize", this.positionPopups)
     window.removeEventListener("scroll", this.positionPopups, true)

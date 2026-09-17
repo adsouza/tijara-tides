@@ -3,10 +3,12 @@ defmodule TijaraTides.UseCases.AuctionQueries do
   alias TijaraTides.Domain.{Warehouse, WarehouseWorld}
 
   # AuctionWorld.prune/1 keeps closed auctions per port, so the world-wide tail is
-  # long; discovery shows the newest few plus the player’s own bids and consignments.
+  # long; discovery shows the newest few plus the player's own activity, all
+  # limited to the last three active-world days.
   @settled_shown 20
+  @settled_window_ms 3 * 86_400_000
 
-  def auction_discovery(view, grouping \\ "status") do
+  def auction_discovery(view, grouping \\ "status", show_all_settled \\ false) do
     public = Map.get(view, :public, %{})
     clock = public["clock_ms"] || 0
 
@@ -18,7 +20,13 @@ defmodule TijaraTides.UseCases.AuctionQueries do
       Enum.split_with(public["auctions"] || [], &(&1["status"] == "scheduled"))
 
     {recent, older} =
-      settled |> Enum.sort_by(& &1["closes_ms"], :desc) |> Enum.split(@settled_shown)
+      settled
+      |> Enum.filter(&(grouping != "cargo" and &1["closes_ms"] >= clock - @settled_window_ms))
+      |> Enum.filter(
+        &(show_all_settled or bids[&1["id"]] != nil or MapSet.member?(consignments, &1["id"]))
+      )
+      |> Enum.sort_by(& &1["closes_ms"], :desc)
+      |> Enum.split(@settled_shown)
 
     (Enum.filter(scheduled, &(&1["closes_ms"] > clock)) ++
        recent ++ Enum.filter(older, &(bids[&1["id"]] || MapSet.member?(consignments, &1["id"]))))

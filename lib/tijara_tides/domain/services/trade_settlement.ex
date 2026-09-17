@@ -9,14 +9,25 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   import TijaraTides.Domain.PortCargoMarketWorld, only: [quote: 4]
   import TijaraTides.Domain.PortCargoMarket, only: [handling_rate: 1]
 
-  def execute(state, account, %TijaraTides.Domain.Trade{} = trade, catalogue) do
+  def execute(
+        state,
+        account,
+        %TijaraTides.Domain.Trade{} = trade,
+        catalogue,
+        admission \\ :normal
+      ) do
     result = check(state, account, trade, catalogue)
 
     case result do
       {:ok, changed, reply} ->
         ship = get(state, "ships", trade.ship_id)
 
-        if TijaraTides.Domain.PortBerthsWorld.available?(state, ship, catalogue) do
+        available =
+          if admission == :manual,
+            do: TijaraTides.Domain.PortBerthsWorld.ready_available?(state, ship, catalogue),
+            else: TijaraTides.Domain.PortBerthsWorld.available?(state, ship, catalogue)
+
+        if available do
           changed = TijaraTides.Domain.ShipWorld.admit_handling(changed, trade.ship_id)
 
           {:ok, changed, reply}
@@ -26,6 +37,14 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
       _ ->
         result
+    end
+  end
+
+  @doc "Validate speculatively with local lot IDs; no simulated changes may escape this check."
+  def validate(state, account, trade, catalogue) do
+    case check(Map.put(state, :lot_allocation, {:local, 1}), account, trade, catalogue) do
+      {:ok, _, _} -> :ok
+      {:error, reason} -> {:error, reason}
     end
   end
 

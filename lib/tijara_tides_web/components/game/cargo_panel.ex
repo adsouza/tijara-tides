@@ -3,6 +3,7 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
   use TijaraTidesWeb, :html
   import TijaraTidesWeb.GameUI.Presentation
 
+  attr :show_all_settled, :boolean, default: false
   attr :auction_grouping, :string, default: "status"
   attr :cargo_filter_ship, :any, required: true
   attr :cargo_menu_open, :any, required: true
@@ -25,6 +26,7 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
             view={@view}
             definitions={@definitions}
             grouping={@auction_grouping}
+            show_all_settled={@show_all_settled}
           />
           <div class="space-y-3">
             <details

@@ -5,7 +5,7 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
   @doc "Read-only market spreads for choosing a destination; quantities are market availability, not executable orders."
   def destination_matrix(definitions, view, ship) do
-    if ship && ship["status"] == "docked" do
+    if ship && ship["status"] in ["docked", "loading", "unloading"] do
       aboard = Enum.group_by(ship["cargo"] || [], & &1["good"])
 
       goods =
@@ -67,15 +67,17 @@ defmodule TijaraTides.UseCases.MarketQueries do
   end
 
   defp aboard_opportunity(batches, buyer) do
-    if buyer && buyer["manual"] && buyer["demand"] > 0 do
+    capacity = buyer_capacity(buyer)
+
+    if capacity > 0 do
       # Match the cargo order used by sales, including partial fills of a batch.
       {remaining, cost} =
-        Enum.reduce(batches, {buyer["demand"], 0}, fn batch, {need, cost} ->
+        Enum.reduce(batches, {capacity, 0}, fn batch, {need, cost} ->
           n = min(need, batch["quantity"])
           {need - n, cost + n * batch["unit_cost"]}
         end)
 
-      lots = buyer["demand"] - remaining
+      lots = capacity - remaining
       proceeds = lots * (buyer["bid"] - buyer["handling_fee"])
 
       if lots > 0 do
@@ -90,17 +92,24 @@ defmodule TijaraTides.UseCases.MarketQueries do
   end
 
   defp market_opportunity(supplier, buyer) do
+    capacity = buyer_capacity(buyer)
+
     if supplier && buyer && supplier["manual"] && buyer["manual"] &&
-         supplier["stock"] > 0 && buyer["demand"] > 0 &&
+         supplier["stock"] > 0 && capacity > 0 &&
          supplier["ask"] + supplier["handling_fee"] > 0 do
       %{
         roi:
           (buyer["bid"] - buyer["handling_fee"] - supplier["ask"] - supplier["handling_fee"]) /
             (supplier["ask"] + supplier["handling_fee"]),
-        lots: min(supplier["stock"], buyer["demand"])
+        lots: min(supplier["stock"], capacity)
       }
     end
   end
+
+  defp buyer_capacity(%{"manual" => true} = buyer),
+    do: min(buyer["demand"], div(buyer["buyer_budget"], max(1, buyer["bid"])))
+
+  defp buyer_capacity(_), do: 0
 
   def destination_options(definitions, view, ship, destination) do
     if ship && ship["status"] == "docked" && ship["port"] != destination do
@@ -273,7 +282,7 @@ defmodule TijaraTides.UseCases.MarketQueries do
   end
 
   def route_distance(definitions, ship, destination) do
-    if ship && ship["status"] == "docked" do
+    if ship && ship["status"] in ["docked", "loading", "unloading"] do
       if ship["port"] == destination,
         do: 0,
         else:

@@ -23,6 +23,14 @@ defmodule TijaraTides.Domain.PortBerthsWorld do
       |> Map.values()
       |> Enum.filter(&(&1["port"] == port and &1["status"] != "sailing"))
 
+  def ready_available?(state, ship, catalogue),
+    do:
+      PortBerths.ready_available?(
+        ships(state, ship["port"]),
+        ship,
+        PortBerths.capacity(catalogue, ship["port"])
+      )
+
   def available?(state, ship, catalogue),
     do:
       PortBerths.available?(

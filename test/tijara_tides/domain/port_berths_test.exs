@@ -38,6 +38,119 @@ defmodule TijaraTides.Domain.PortBerthsTest do
       destination: "Singapore"
     }
 
+  test "a ready manual trade uses a free berth despite its own ticket or old cooldown", c do
+    for fields <- [%{berth_queued_ms: 0}, %{berth_retry_ms: 300_000}] do
+      s = TijaraTides.Domain.BerthFixture.update(c.state, "company:1", fields)
+      {:ok, next, reply} = BerthAllocation.submit(s, c.account, trade("company:1"), c.catalogue)
+      refute reply["queued"]
+      assert Game.get(next, "ships", "company:1")["status"] == "loading"
+      refute Game.get(next, "ships", "company:1")["berth_queued_ms"]
+      refute Game.get(next, "ships", "company:1")["berth_retry_ms"]
+    end
+  end
+
+  test "a recovered pending trade retries immediately without bypassing queue priority", c do
+    s = ShipWorld.queue_trade(c.state, trade("company:1"))
+
+    s =
+      TijaraTides.Domain.BerthFixture.update(s, "company:1", %{
+        berth_queued_ms: nil,
+        berth_retry_ms: 300_000
+      })
+
+    assert BerthAllocation.pending_status(
+             s,
+             c.account,
+             Game.get(s, "ships", "company:1"),
+             c.catalogue
+           ) == :berth_wait
+
+    next = BerthAllocation.advance(s, c.catalogue)
+    assert Game.get(next, "ships", "company:1")["status"] == "loading"
+    refute Game.get(next, "ships", "company:1")["pending_side"]
+
+    s = BerthAllocation.enqueue(c.state, "company:2")
+
+    {:ok, next, %{"queued" => true}} =
+      BerthAllocation.submit(s, c.account, trade("company:1"), c.catalogue)
+
+    assert Game.get(next, "ships", "company:1")["cargo"] == []
+    roomy = put_in(c.catalogue, ["ports", "Jakarta", "berth_count"], 4)
+    {:ok, next, reply} = BerthAllocation.submit(s, c.account, trade("company:1"), roomy)
+    refute reply["queued"]
+    assert Game.get(next, "ships", "company:1")["status"] == "loading"
+  end
+
+  test "pending trade conditions are distinguished from berth congestion", c do
+    order = %{trade("company:1") | limit: 0}
+    s = ShipWorld.queue_trade(c.state, order)
+
+    assert BerthAllocation.pending_status(
+             s,
+             c.account,
+             Game.get(s, "ships", "company:1"),
+             c.catalogue
+           ) == :price_changed
+
+    next = BerthAllocation.advance(s, c.catalogue)
+    assert Game.get(next, "ships", "company:1")["status"] == "docked"
+    refute Game.get(next, "ships", "company:1")["berth_granted_ms"]
+  end
+
+  test "a sale blocked by buyer funds resumes on recovery despite its retry timer", c do
+    {:ok, s, _} =
+      BerthAllocation.submit(c.state, c.account, %{trade("company:1") | quantity: 3}, c.catalogue)
+
+    s = TijaraTides.Domain.Fleet.advance(%{s | clock_ms: 60_000}, 60_000)
+    s = BerthAllocation.release_idle(s, c.catalogue)
+    market = Game.get(s, "markets", "Jakarta|lumber")
+    market = %{market | "buyer" => true, "demand" => 500, "budget" => 0}
+    s = State.put(s, "markets", "Jakarta|lumber", market)
+    order = %{trade("company:1") | side: "sell", limit: 0}
+    s = ShipWorld.queue_trade(s, order)
+
+    assert BerthAllocation.pending_status(
+             s,
+             c.account,
+             Game.get(s, "ships", "company:1"),
+             c.catalogue
+           ) == :buyer_budget
+
+    blocked = BerthAllocation.advance(s, c.catalogue)
+    ship = Game.get(blocked, "ships", "company:1")
+    assert ship["status"] == "docked"
+    assert ship["berth_retry_ms"] > blocked.clock_ms
+    assert ship["pending_quantity"] == 1
+
+    recovered = State.put(blocked, "markets", "Jakarta|lumber", %{market | "budget" => 1_000_000})
+    # Partial sales split lots, but read-only snapshots must not need database IDs.
+    read_state = Map.put(recovered, :lot_allocation, [])
+    projection = TijaraTides.UseCases.WorldProjection.build(read_state, c.catalogue)
+
+    for _ <- 1..2 do
+      view =
+        TijaraTides.UseCases.GameQueries.snapshot(
+          read_state,
+          c.catalogue,
+          projection,
+          {:ok, c.account}
+        )
+
+      assert view.private["queued_trade_status"]["company:1"] == :berth_wait
+      assert view.private["ships"]["company:1"]["pending_quantity"] == 1
+
+      assert Enum.sum(Enum.map(view.private["ships"]["company:1"]["cargo"], & &1["quantity"])) ==
+               3
+    end
+
+    assert read_state.lot_allocation == []
+    filled = BerthAllocation.advance(recovered, c.catalogue)
+    ship = Game.get(filled, "ships", "company:1")
+    assert ship["status"] == "unloading"
+    assert Enum.sum(Enum.map(ship["cargo"], & &1["quantity"])) == 2
+    refute ship["pending_side"]
+  end
+
   test "berth transitions reject releasing committed handling and duplicate pending trades", c do
     {:ok, handling, _} =
       BerthAllocation.submit(c.state, c.account, trade("company:1"), c.catalogue)

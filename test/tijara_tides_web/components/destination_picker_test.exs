@@ -28,6 +28,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
         "demand" => demand,
         "ask" => ask,
         "bid" => bid,
+        "buyer_budget" => 1_000_000,
         "handling_fee" => 10
       }
     end
@@ -103,6 +104,73 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     matrix = GameQueries.destination_matrix(definitions, view, ship)
     assert {"a", definitions.catalogue["goods"]["a"]} in matrix.goods
     assert Enum.all?(matrix.rows, &is_nil(&1.cells["a"].outbound))
+  end
+
+  test "both directions cap lots by buyer cash and omit unaffordable opportunities" do
+    {definitions, view, ship} = fixture()
+
+    view =
+      view
+      |> put_in([:markets, "Colombo|a", "buyer_budget"], 599)
+      |> put_in([:markets, "Singapore|b", "buyer_budget"], 539)
+
+    row =
+      Enum.find(
+        GameQueries.destination_matrix(definitions, view, ship).rows,
+        &(&1.port == "Colombo")
+      )
+
+    assert row.cells["a"].outbound.lots == 2
+    assert row.cells["b"].inbound.lots == 2
+    assert_in_delta row.cells["a"].outbound.roi, 80 / 110, 0.00001
+
+    for budget <- [0, 179] do
+      blocked =
+        view
+        |> put_in([:markets, "Colombo|a", "buyer_budget"], budget)
+        |> put_in([:markets, "Singapore|b", "buyer_budget"], budget)
+
+      row =
+        Enum.find(
+          GameQueries.destination_matrix(definitions, blocked, ship).rows,
+          &(&1.port == "Colombo")
+        )
+
+      assert row.cells["a"].outbound == nil
+      assert row.cells["b"].inbound == nil
+      assert row.best == 0
+    end
+  end
+
+  test "cash cap on aboard cargo uses only the saleable batches for proceeds and ROI" do
+    {definitions, view, ship} = fixture()
+    view = put_in(view, [:markets, "Colombo|a", "buyer_budget"], 2599)
+
+    ship =
+      Map.put(ship, "cargo", [
+        %{"good" => "a", "quantity" => 10, "unit_cost" => 100},
+        %{"good" => "a", "quantity" => 30, "unit_cost" => 200}
+      ])
+
+    row =
+      Enum.find(
+        GameQueries.destination_matrix(definitions, view, ship).rows,
+        &(&1.port == "Colombo")
+      )
+
+    assert row.cells["a"].outbound.lots == 12
+    assert row.cells["a"].outbound.proceeds == 2280
+    assert_in_delta row.cells["a"].outbound.roi, 880 / 1400, 0.00001
+
+    blocked = put_in(view, [:markets, "Colombo|a", "buyer_budget"], 199)
+
+    row =
+      Enum.find(
+        GameQueries.destination_matrix(definitions, blocked, ship).rows,
+        &(&1.port == "Colombo")
+      )
+
+    assert row.cells["a"].outbound == nil
   end
 
   test "zero-cost cargo shows sale proceeds without inventing an ROI" do
