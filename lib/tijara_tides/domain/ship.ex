@@ -49,6 +49,13 @@ defmodule TijaraTides.Domain.Ship do
     }
   end
 
+  @doc "Discard all cargo of one good without starting port handling or changing berth admission."
+  def discard_cargo(%__MODULE__{} = ship, good) do
+    docked!(ship)
+    {discarded, remaining} = Enum.split_with(ship.cargo, &(&1.good == good))
+    {%{ship | cargo: remaining}, discarded}
+  end
+
   def record_sale(%Lots{} = lots, %__MODULE__{} = ship, good, quantity) do
     docked!(ship)
 

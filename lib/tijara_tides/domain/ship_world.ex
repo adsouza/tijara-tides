@@ -118,6 +118,11 @@ defmodule TijaraTides.Domain.ShipWorld do
     store(state, next)
   end
 
+  def discard_cargo(state, id, good) do
+    {ship, discarded} = Ship.discard_cargo(hull(state, id), good)
+    {store(state, ship), Enum.map(discarded, &CargoRows.encode/1)}
+  end
+
   def unload_cargo(state, id, good, quantity) do
     lots = %Lots{
       clock_ms: state.clock_ms,

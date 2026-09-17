@@ -493,6 +493,53 @@ defmodule TijaraTides.Domain.AuctionsTest do
     assert Game.get(s, "warehouses", "aw") == nil
   end
 
+  test "receiver disposal at full storage leaves an arriving ship safe for berth allocation", c do
+    alias TijaraTides.Domain.Services.{Estates, BerthAllocation}
+
+    ship = Game.get(c.state, "ships", "aco:1")
+    {s, lot} = CargoLots.create(c.state, "whisky", 3, nil)
+
+    s =
+      State.put(s, "ships", ship["id"], %{
+        ship
+        | "cargo" => [Map.merge(lot, %{"good" => "whisky", "unit_cost" => 100})]
+      })
+
+    s =
+      CompanyFinanceWorld.post(s, "aco", "purchase", [
+        {"inventory", 300},
+        {"cash_available", -300}
+      ])
+
+    s = CompanyFinanceWorld.close_in_receivership(s, "aco")
+    # Voyage completion creates this ticket even for a bankrupt owner.
+    ship = Game.get(s, "ships", ship["id"])
+    s = State.put(s, "ships", ship["id"], Map.put(ship, "berth_queued_ms", s.clock_ms))
+    warehouse = Game.get(s, "warehouses", "bw")
+
+    s =
+      State.put(s, "warehouses", "bw", %{
+        warehouse
+        | "blocks" => warehouse["blocks"] + WarehouseWorld.spare_blocks(s, "Jakarta", "dry")
+      })
+
+    s = Estates.advance(s, c.catalogue)
+    hull = Game.get(s, "ships", ship["id"])
+    assert hull["cargo"] == []
+    assert hull["status"] == "docked"
+    assert hull["arrive_ms"] == nil
+    assert hull["berth_queued_ms"] == s.clock_ms
+
+    assert [%{entries: [{"inventory", -300}, {"receivership", 300}]}] =
+             Enum.filter(s.journal, &(&1.kind == "estate_cargo_disposal"))
+
+    s = BerthAllocation.advance(s, c.catalogue)
+    assert Game.get(s, "ships", ship["id"])["berth_queued_ms"] == nil
+    s = Estates.advance(s, c.catalogue)
+    assert Enum.count(Auction.all(s), &(&1.ship_id == ship["id"])) == 1
+    assert Estates.advance(s, c.catalogue) == s
+  end
+
   test "receiver unloads through paid finite storage and protects cargo until handling finishes",
        c do
     alias TijaraTides.Domain.Services.Estates

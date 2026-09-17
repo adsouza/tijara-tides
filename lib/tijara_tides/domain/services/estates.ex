@@ -177,7 +177,7 @@ defmodule TijaraTides.Domain.Services.Estates do
     quantity = ShipWorld.cargo_available(s, ship["id"], item["id"])
 
     if quantity > 0 do
-      {s, cargo} = ShipWorld.unload_cargo(s, ship["id"], item["id"], quantity)
+      {s, cargo} = ShipWorld.discard_cargo(s, ship["id"], item["id"])
       cost = Enum.sum(Enum.map(cargo, &(&1["quantity"] * &1["unit_cost"])))
 
       CompanyFinanceWorld.post(s, ship["company_id"], "estate_cargo_disposal", [
