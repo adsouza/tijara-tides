@@ -90,7 +90,21 @@ for origin in ports:
     'coordinates':coords,'passages':route['properties'].get('traversed_passages',[])}
 from searoute.data.marnet_dict import edge_list
 canal_edges=[{'from':list(a),'to':list(b),'passage':v['passage']} for a,adj in edge_list.items() for b,v in adj.items() if v.get('passage') in ('panama','suez')]
-result={'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
+# NPC factory recipes are authoritative here, alongside the cargo tuning above.
+manufacturing = {
+ 'agricultural_machinery': {'inputs': {'iron_ore': 10, 'refined_fuel': 2}, 'local_cost_cents': 80000},
+ 'appliances': {'inputs': {'iron_ore': 2, 'recovered_plastics': 2}, 'local_cost_cents': 8000},
+ 'construction_equipment': {'inputs': {'iron_ore': 15, 'refined_fuel': 3}, 'local_cost_cents': 120000},
+ 'designer_clothing': {'inputs': {'everyday_clothing': 1}, 'local_cost_cents': 20000},
+ 'electronics': {'inputs': {'aluminium_scrap': 1, 'recovered_plastics': 2}, 'local_cost_cents': 20000},
+ 'everyday_clothing': {'inputs': {'recovered_plastics': 2}, 'local_cost_cents': 6000},
+ 'jewelry': {'inputs': {'copper_scrap': 1}, 'local_cost_cents': 50000},
+ 'refined_fuel': {'inputs': {'crude_oil': 1}, 'local_cost_cents': 6500},
+ 'turbines': {'inputs': {'copper_scrap': 1, 'iron_ore': 20}, 'local_cost_cents': 200000},
+ 'vegetable_oil': {'inputs': {'grain': 2}, 'local_cost_cents': 9000},
+ 'whisky': {'inputs': {'grain': 3}, 'local_cost_cents': 15000},
+}
+result={'manufacturing':manufacturing,'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
 (ROOT/'priv/game').mkdir(parents=True,exist_ok=True)
 (ROOT/'priv/game/catalogue.json').write_text(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n')
 print(f'Generated {len(goods)} goods, {len(ports)} ports, {len(routes)} directed sea routes')
