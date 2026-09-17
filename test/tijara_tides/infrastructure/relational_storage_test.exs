@@ -303,6 +303,12 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
       )
     end
 
+    # A migration error must not replay the schema callback and fence writers again.
+    assert [[failed_epoch]] =
+             MigrationRepo.query!("SELECT epoch FROM game_worlds WHERE id='ocean'").rows
+
+    assert failed_epoch == loaded.epoch + 1
+
     assert {:error, :ownership_lost} =
              GameStore.commit(MigrationRepo, "ocean", loaded.epoch, loaded, loaded)
 

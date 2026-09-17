@@ -86,6 +86,13 @@ leave Render's **Docker Command** override empty to use the versioned startup
 command. A failed migration prevents application startup. No migration or seed
 runs during image build, and startup never creates invitations.
 
+Before taking the migration lock, startup waits up to 60 seconds for database
+connectivity using `SELECT 1`. Connection failures are retried with queries capped
+at five seconds and one-second pauses, within that overall deadline. This gives
+Neon time to wake up without replaying schema changes. SQL errors and migration
+failures are not retried; if connectivity never becomes ready, startup exits
+without attempting migrations.
+
 Render Free has no pre-deploy commands, so migrations run in the container start
 phase. The migration lock serializes upgrades with world claims, and pending
 migrations fence the previous writer before changing the schema. A current

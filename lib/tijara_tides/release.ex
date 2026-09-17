@@ -18,6 +18,8 @@ defmodule TijaraTides.Release do
 
   @doc false
   def migrate_repo(repo, source \\ Application.app_dir(:tijara_tides, "priv/repo/migrations")) do
+    :ok = TijaraTides.Release.DatabaseWait.await(repo)
+
     SchemaMaintenance.with_lock(repo, fn ->
       migrations = Ecto.Migrator.migrations(repo, source)
 
