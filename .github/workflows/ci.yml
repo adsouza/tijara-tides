@@ -51,6 +51,7 @@ jobs:
         run: |
           python3 -m venv /tmp/tijara-catalogue
           /tmp/tijara-catalogue/bin/pip install -r scripts/game-data-requirements.txt
+          /tmp/tijara-catalogue/bin/python scripts/test-catalogue-routes.py
           /tmp/tijara-catalogue/bin/python scripts/gen-game-data.py
           git diff --exit-code priv/game/catalogue.json
       - run: mix assets.setup

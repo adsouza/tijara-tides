@@ -13,6 +13,8 @@ import math
 import json
 from pathlib import Path
 import searoute
+from searoute.data.marnet_dict import node_list, edge_list
+from catalogue_routes import canonical_network, canonical_passages, canonical_canal_edges
 
 ROOT = Path(__file__).resolve().parent.parent
 source = (ROOT / 'scripts/gen-ports-roster.py').read_text()
@@ -71,6 +73,7 @@ def distance(a,b):
  x1,y1,x2,y2=map(math.radians,[*a,*b])
  h=math.sin((y2-y1)/2)**2+math.cos(y1)*math.cos(y2)*math.sin((x2-x1)/2)**2
  return 3440.065*2*math.asin(math.sqrt(min(1,h)))
+network = canonical_network(node_list, edge_list)
 routes={}
 for origin in ports:
  for dest in ports:
@@ -81,15 +84,14 @@ for origin in ports:
    previous=routes[reverse]
    routes[key]={**previous,'coordinates':list(reversed(previous['coordinates']))}
   else:
-   route=searoute.searoute(locations[origin],locations[dest],units='naut',return_passages=True)
+   route=searoute.searoute(locations[origin],locations[dest],units='naut',return_passages=True,M=network)
    coords=route['geometry']['coordinates']
    # Close local port connections to the network with explicitly displayed harbor legs.
    approach=distance(locations[origin],coords[0])+distance(coords[-1],locations[dest])
    coords=[locations[origin]]+coords+[locations[dest]]
    routes[key]={'nautical_miles':max(1,round(route['properties']['length']+approach)),
-    'coordinates':coords,'passages':route['properties'].get('traversed_passages',[])}
-from searoute.data.marnet_dict import edge_list
-canal_edges=[{'from':list(a),'to':list(b),'passage':v['passage']} for a,adj in edge_list.items() for b,v in adj.items() if v.get('passage') in ('panama','suez')]
+    'coordinates':coords,'passages':canonical_passages(route['properties'].get('traversed_passages',[]))}
+canal_edges = canonical_canal_edges(edge_list)
 # NPC factory recipes are authoritative here, alongside the cargo tuning above.
 manufacturing = {
  'agricultural_machinery': {'inputs': {'iron_ore': 10, 'refined_fuel': 2}, 'local_cost_cents': 80000},
