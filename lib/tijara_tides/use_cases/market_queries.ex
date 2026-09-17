@@ -187,7 +187,7 @@ defmodule TijaraTides.UseCases.MarketQueries do
     do: Trading.purchase_total(quote, ship, item, quantity)
 
   def trade_limits(view, ship, destination, catalogue) do
-    if ship && ship["status"] == "docked" && view.private do
+    if ship && ship["status"] in ["docked", "loading", "unloading"] && view.private do
       space = Fleet.capacity(ship, catalogue)
       class = Fleet.classes()[ship["class"]]
       company = view.private["company"]

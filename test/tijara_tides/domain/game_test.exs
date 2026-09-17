@@ -535,7 +535,14 @@ defmodule TijaraTides.Domain.GameTest do
     {:ok, after_buy, _} = Game.execute(state, account, buy, %{}, catalogue)
     assert Game.get(after_buy, "ships", "company:1")["status"] == "loading"
     assert Game.get(after_buy, "markets", "Jakarta|lumber")["stock"] == 490
-    assert {:error, :invalid_trade} = Game.execute(after_buy, account, buy, %{}, catalogue)
+
+    assert {:ok, queued, %{"queued" => true}} =
+             Game.execute(after_buy, account, buy, %{}, catalogue)
+
+    assert Game.get(queued, "markets", "Jakarta|lumber")["stock"] == 490
+
+    assert Game.get(queued, "ships", "company:1")["arrive_ms"] ==
+             Game.get(after_buy, "ships", "company:1")["arrive_ms"]
 
     assert {:error, :invalid_trade} =
              Game.execute(state, %{account | "company_id" => "other"}, buy, %{}, catalogue)

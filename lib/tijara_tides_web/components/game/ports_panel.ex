@@ -66,6 +66,15 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                 do: gettext("Selected destination"),
                 else: gettext("Set as destination")}
             </button>
+            <button
+              :if={@ship && @ship["status"] == "sailing" && @ship["destination"] != @selected_port}
+              id="divert-ship-here"
+              type="button"
+              phx-click="port-destination"
+              class="rounded border border-teal-700 px-3 py-2 text-sm text-teal-200"
+            >
+              {gettext("Divert %{ship} to here", ship: @ship["name"])}
+            </button>
           </div>
           <details
             id="about-port"
@@ -203,7 +212,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
           />
           <p class="mb-3 text-sm text-slate-400">
             {gettext(
-              "Whole lots · finite local supply and demand · trades require your selected ship to be docked here. Handling takes time."
+              "Whole lots · finite local supply and demand · trade here or queue one next trade while handling. Prices and availability are checked again when it starts."
             )}
           </p>
           <TijaraTidesWeb.GameUI.QueuedTrade.notice
@@ -263,7 +272,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
           </p>
           <% purchase =
             if @port_market_side == "buy" && selected_ship_here &&
-                 @ship["status"] == "docked" do
+                 @ship["status"] in ["docked", "loading", "unloading"] do
               options =
                 Enum.filter(market_rows, fn {good, item} ->
                   item["manual"] && Map.get(@trade_quantities, {"buy", good}, 0) > 0
@@ -306,7 +315,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
           <p
             :if={
               @port_market_side == "buy" && selected_ship_here &&
-                @ship["status"] == "docked" && !@preview
+                @ship["status"] in ["docked", "loading", "unloading"] && @destination in [nil, ""]
             }
             id="purchase-destination-reminder"
             class="mb-3 text-sm text-amber-200"
@@ -449,7 +458,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                       :for={side <- [@port_market_side]}
                       :if={
                         q["manual"] && @ship && @ship["port"] == @selected_port &&
-                          @ship["status"] == "docked"
+                          @ship["status"] in ["docked", "loading", "unloading"]
                       }
                       for={%{}}
                       id={"trade-#{side}-#{String.replace(good, " ", "-")}"}
@@ -532,7 +541,13 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                               )
                         }
                         class="rounded bg-teal-700 px-3 py-1 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:opacity-60"
-                      >{l10n(String.capitalize(side))}</button>
+                      >{if @ship["status"] in ["loading", "unloading"],
+                        do:
+                          if(side == "buy",
+                            do: gettext("Queue purchase"),
+                            else: gettext("Queue sale")
+                          ),
+                        else: l10n(String.capitalize(side))}</button>
                       <%= if side == "buy" and available > 0 and quantity > 0 do %>
                         <% total = GameQueries.purchase_total(q, @ship, item, quantity) %>
                         <% voyage =

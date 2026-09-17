@@ -38,6 +38,8 @@ defmodule TijaraTidesWeb.GameUI.QueuedTrade do
       </p>
       <p>
         <%= case @reason do %>
+          <% :handling -> %>
+            {gettext("Waiting for the current loading or unloading to finish.")}
           <% :buyer_budget -> %>
             {gettext(
               "Waiting for the buyer to afford the full order; free berths cannot resolve this."

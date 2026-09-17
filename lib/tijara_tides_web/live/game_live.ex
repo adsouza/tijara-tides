@@ -709,15 +709,24 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   defp set_port_destination(socket, ship, destination) do
-    if ship && ship["status"] == "docked" && ship["port"] != destination do
+    if ship &&
+         ((ship["status"] == "docked" && ship["port"] != destination) ||
+            (ship["status"] == "sailing" && ship["destination"] != destination)) do
       case Game.preview(socket.assigns.token, ship["id"], destination) do
         nil ->
           {:noreply,
            put_flash(socket, :error, gettext("No voyage is available to this port right now."))}
 
         preview ->
-          {:noreply,
-           socket |> remember_destination(destination) |> assign(preview: preview) |> refresh()}
+          socket =
+            socket |> remember_destination(destination) |> assign(preview: preview) |> refresh()
+
+          socket =
+            if ship["status"] == "sailing",
+              do: push_event(socket, "workspace-panel", %{panel: 1, scroll_to: "voyage-preview"}),
+              else: socket
+
+          {:noreply, socket}
       end
     else
       {:noreply, socket}

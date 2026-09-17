@@ -40,6 +40,74 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "next trade and automatic departure persist while loading; cancellation preserves handling",
+       c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "company",
+        %{"action" => "company", "name" => "Queued", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    ship_id =
+      GameServer.snapshot(token, c.server).private["ships"] |> Map.keys() |> Enum.sort() |> hd()
+
+    buy = %{
+      "action" => "buy",
+      "ship" => ship_id,
+      "good" => "lumber",
+      "quantity" => 1,
+      "limit" => 1_000_000,
+      "destination" => "Singapore"
+    }
+
+    assert {:ok, _} = GameServer.command(token, "load", buy, c.server)
+    initial = GameServer.snapshot(token, c.server).private["ships"][ship_id]
+    assert {:ok, %{"queued" => true}} = GameServer.command(token, "queue", buy, c.server)
+
+    plan = %{
+      "action" => "instruction_onward",
+      "ship" => ship_id,
+      "port" => "Jakarta",
+      "onward" => "Singapore",
+      "auto_depart" => true
+    }
+
+    assert {:ok, _} = GameServer.command(token, "sail-later", plan, c.server)
+    state = :sys.get_state(c.server).game
+    assert {:ok, reloaded} = GameStore.reload(Repo, c.world_id, state)
+    assert Game.get(reloaded, "ships", ship_id)["pending_side"] == "buy"
+    assert Game.get(reloaded, "ships", ship_id)["status"] == "loading"
+    assert Game.get(reloaded, "visit_plans", ship_id <> "|Jakarta")["auto_depart"]
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "cancel-trade",
+               %{"action" => "cancel_berth_trade", "ship" => ship_id},
+               c.server
+             )
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "cancel-departure",
+               %{plan | "auto_depart" => false},
+               c.server
+             )
+
+    final = GameServer.snapshot(token, c.server).private
+
+    for key <- ["status", "arrive_ms", "berth_granted_ms", "cargo"],
+        do: assert(final["ships"][ship_id][key] == initial[key])
+
+    refute final["ships"][ship_id]["pending_side"]
+    refute final["visit_plans"][ship_id <> "|Jakarta"]["auto_depart"]
+  end
+
   test "adaptive ticks schedule the new interval while retaining elapsed world time", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
     :ok = GameServer.connect(token, c.server)
@@ -762,13 +830,23 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => token})
     {:ok, view, _} = live(conn, "/play")
     render_click(view, "ship", %{"id" => ship})
-    render_change(view, "preview", %{"destination" => "Jakarta"})
+    render_change(view, "port", %{"id" => "Singapore"})
+    refute has_element?(view, "#divert-ship-here")
+    render_change(view, "port", %{"id" => "Jakarta"})
+    assert has_element?(view, "#divert-ship-here", "Divert Diversions 1 to here")
+    view |> element("#divert-ship-here") |> render_click()
+    assert_push_event(view, "workspace-panel", %{panel: 1, scroll_to: "voyage-preview"})
+
+    assert GameServer.snapshot(token, c.server).private["ships"][ship]["destination"] ==
+             "Singapore"
+
     assert has_element?(view, "#reroute-selector option[value=Jakarta][selected]")
     assert has_element?(view, "button[phx-click=sail]", "Confirm reroute")
     send(view.pid, {:game_changed, 0})
     assert has_element?(view, "#reroute-selector option[value=Jakarta][selected]")
     render_click(view, "sail", %{"request_id" => "divert"})
     assert GameServer.snapshot(token, c.server).private["ships"][ship]["destination"] == "Jakarta"
+    refute has_element?(view, "#divert-ship-here")
     assert {:ok, result} = GameServer.command(token, "divert", cmd, c.server)
     assert {:ok, ^result} = GameServer.command(token, "divert", cmd, c.server)
     render_click(view, "ship", %{"id" => ship})

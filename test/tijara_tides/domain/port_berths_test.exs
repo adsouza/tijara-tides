@@ -151,6 +151,91 @@ defmodule TijaraTides.Domain.PortBerthsTest do
     refute ship["pending_side"]
   end
 
+  for status <- ["loading", "unloading"], side <- ["buy", "sell"] do
+    test "queue #{side} while #{status}, safely cancel, then finish both operations before sailing",
+         c do
+      {:ok, initial, _} =
+        BerthAllocation.submit(
+          c.state,
+          c.account,
+          %{trade("company:1") | quantity: 3},
+          c.catalogue
+        )
+
+      market = Game.get(initial, "markets", "Jakarta|lumber")
+
+      initial =
+        State.put(initial, "markets", "Jakarta|lumber", %{
+          market
+          | "buyer" => true,
+            "demand" => 500,
+            "budget" => 1_000_000
+        })
+
+      sale = %{trade("company:1") | side: "sell", limit: 0}
+
+      initial =
+        if unquote(status) == "unloading" do
+          ship = Game.get(initial, "ships", "company:1")
+          ready = TijaraTides.Domain.Fleet.advance(%{initial | clock_ms: ship["arrive_ms"]}, 0)
+          {:ok, unloading, _} = BerthAllocation.submit(ready, c.account, sale, c.catalogue)
+          unloading
+        else
+          initial
+        end
+
+      order = if unquote(side) == "buy", do: trade("company:1"), else: sale
+      ship = Game.get(initial, "ships", "company:1")
+
+      {:ok, queued, %{"queued" => true}} =
+        BerthAllocation.submit(initial, c.account, order, c.catalogue)
+
+      waiting = Game.get(queued, "ships", "company:1")
+
+      for key <- ["status", "arrive_ms", "berth_granted_ms", "cargo"],
+          do: assert(waiting[key] == ship[key])
+
+      assert Game.get(queued, "companies", "company") == Game.get(initial, "companies", "company")
+      assert BerthAllocation.pending_status(queued, c.account, waiting, c.catalogue) == :handling
+
+      assert {:error, :berth_order_pending} =
+               BerthAllocation.submit(queued, c.account, order, c.catalogue)
+
+      {:ok, cancelled, _} = BerthAllocation.cancel(queued, c.account, "company:1")
+      assert Game.get(cancelled, "ships", "company:1") == ship
+
+      {:ok, planned, _} =
+        ShipWorld.change_onward(
+          queued,
+          c.account,
+          "company:1",
+          "Jakarta",
+          "Singapore",
+          c.catalogue,
+          true
+        )
+
+      still_handling = TijaraTides.Domain.ShipInstructions.advance(planned, c.catalogue)
+      assert Game.get(still_handling, "ships", "company:1")["status"] == unquote(status)
+
+      next =
+        TijaraTides.Domain.Fleet.advance(%{still_handling | clock_ms: ship["arrive_ms"]}, 0)
+        |> BerthAllocation.advance(c.catalogue)
+        |> TijaraTides.Domain.ShipInstructions.advance(c.catalogue)
+
+      handling = Game.get(next, "ships", "company:1")
+      assert handling["status"] == if(unquote(side) == "buy", do: "loading", else: "unloading")
+      refute handling["pending_side"]
+
+      sailed =
+        TijaraTides.Domain.Fleet.advance(%{next | clock_ms: handling["arrive_ms"]}, 0)
+        |> TijaraTides.Domain.ShipInstructions.advance(c.catalogue)
+
+      assert Game.get(sailed, "ships", "company:1")["status"] == "sailing"
+      assert Game.get(sailed, "ships", "company:1")["destination"] == "Singapore"
+    end
+  end
+
   test "berth transitions reject releasing committed handling and duplicate pending trades", c do
     {:ok, handling, _} =
       BerthAllocation.submit(c.state, c.account, trade("company:1"), c.catalogue)

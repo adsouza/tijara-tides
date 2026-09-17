@@ -284,6 +284,10 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
       )
 
     assert GameServer.trade_limits(limited, ship, nil)[{"sell", "lumber"}] == 2
-    assert GameServer.trade_limits(limited, %{ship | "status" => "loading"}, nil) == %{}
+
+    for status <- ["loading", "unloading"] do
+      assert GameServer.trade_limits(limited, %{ship | "status" => status}, nil) ==
+               GameServer.trade_limits(limited, ship, nil)
+    end
   end
 end

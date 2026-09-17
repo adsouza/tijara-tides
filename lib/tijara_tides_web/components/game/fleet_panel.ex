@@ -464,6 +464,12 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               ship={@ship}
               destination={@destination}
             />
+            <TijaraTidesWeb.GameUI.QueuedDeparture.panel
+              ship={@ship}
+              private={@view.private}
+              destination={@destination}
+              request_id={@request_id}
+            />
             <p :if={@preview && @ship["status"] == "sailing"} class="mt-2 text-sm text-teal-200">
               {gettext(
                 "Additional fuel: %{extra} · released fuel: %{released}. Dashed teal shows the revised course. Port instructions stay at their original ports; repeating routes pause.",
@@ -471,7 +477,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 released: money(@preview["released_fuel"])
               )}
             </p>
-            <div :if={@preview} class="mt-3 flex flex-wrap items-center gap-3">
+            <div :if={@preview} id="voyage-preview" class="mt-3 flex flex-wrap items-center gap-3">
               <span>
                 {gettext(
                   "%{value1} min · fuel %{value2} · estimated crew %{value3} · canals %{value4}",

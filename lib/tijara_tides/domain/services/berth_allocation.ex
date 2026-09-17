@@ -10,18 +10,31 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
   def submit(state, account, trade, catalogue) do
     ship = State.get(state, "ships", trade.ship_id)
 
-    if ship && ship["pending_side"] do
-      {:error, :berth_order_pending}
-    else
-      case TradeSettlement.execute(state, account, trade, catalogue, :manual) do
-        {:error, :berth_busy} ->
-          next = ShipWorld.queue_trade(state, trade)
+    cond do
+      ship && ship["company_id"] != account["company_id"] ->
+        {:error, :invalid_trade}
 
-          {:ok, next, %{"queued" => true}}
+      ship && ship["pending_side"] ->
+        {:error, :berth_order_pending}
 
-        result ->
-          result
-      end
+      ship && ship["status"] in ["loading", "unloading"] ->
+        # Cargo and cash already reflect the committed handling operation. Validate
+        # the next trade against those balances without changing that operation.
+        with :ok <-
+               ShipWorld.validate_after_handling(state, trade.ship_id, fn projected ->
+                 TradeSettlement.validate(projected, account, trade, catalogue)
+               end) do
+          {:ok, ShipWorld.queue_trade(state, trade), %{"queued" => true}}
+        end
+
+      true ->
+        case TradeSettlement.execute(state, account, trade, catalogue, :manual) do
+          {:error, :berth_busy} ->
+            {:ok, ShipWorld.queue_trade(state, trade), %{"queued" => true}}
+
+          result ->
+            result
+        end
     end
   end
 
@@ -153,6 +166,9 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
 
   defp has_work?(state, ship),
     do: not is_nil(ship["pending_side"]) or port_orders(state, ship) != []
+
+  def pending_status(_state, _account, %{"status" => status}, _catalogue)
+      when status in ["loading", "unloading"], do: :handling
 
   def pending_status(state, account, ship, catalogue) do
     trade = %Trade{

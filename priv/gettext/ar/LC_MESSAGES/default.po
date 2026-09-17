@@ -859,9 +859,6 @@ msgstr "تحقق من بريدك باستخدام الرابط الذي نرسل
 msgid "Waits for every order to be filled or cancelled and for sufficient sailing funds. Save to apply."
 msgstr "ينتظر تنفيذ كل الأوامر أو إلغاءها وتوفر أموال الإبحار. احفظ للتطبيق."
 
-msgid "Whole lots · finite local supply and demand · trades require your selected ship to be docked here. Handling takes time."
-msgstr "دفعات كاملة · عرض وطلب محليان محدودان · تتطلب التجارة رسو سفينتك المحددة هنا. تستغرق المناولة وقتاً."
-
 msgid "Will stop after this visit finishes."
 msgstr "سيتوقف بعد انتهاء هذه الزيارة."
 
@@ -2480,3 +2477,30 @@ msgstr "بانتظار استيفاء شروط التداول: %{reason}"
 
 msgid "Map"
 msgstr "الخريطة"
+
+msgid "Queue purchase"
+msgstr "إضافة شراء إلى قائمة الانتظار"
+
+msgid "Queue sale"
+msgstr "إضافة بيع إلى قائمة الانتظار"
+
+msgid "Waiting for the current loading or unloading to finish."
+msgstr "بانتظار اكتمال التحميل أو التفريغ الجاري."
+
+msgid "Queued departure to %{port}"
+msgstr "إبحار منتظر إلى %{port}"
+
+msgid "Cancel queued departure"
+msgstr "إلغاء الإبحار المنتظر"
+
+msgid "Sail to %{port} after handling"
+msgstr "الإبحار إلى %{port} بعد المناولة"
+
+msgid "Waits for all orders and handling to finish. Fuel and canal fees are checked and charged at departure."
+msgstr "ينتظر اكتمال جميع الأوامر والمناولة. تُراجع تكاليف الوقود والقنوات وتُخصم عند الإبحار."
+
+msgid "Whole lots · finite local supply and demand · trade here or queue one next trade while handling. Prices and availability are checked again when it starts."
+msgstr "دفعات كاملة · عرض وطلب محليان محدودان · تداول هنا أو أضف أمراً تالياً واحداً أثناء المناولة. تُراجع الأسعار والتوفر عند بدء تنفيذه."
+
+msgid "Divert %{ship} to here"
+msgstr "تحويل مسار %{ship} إلى هنا"

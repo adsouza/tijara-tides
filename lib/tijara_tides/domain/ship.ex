@@ -327,6 +327,10 @@ defmodule TijaraTides.Domain.Ship do
     }
   end
 
+  @doc "Projected completion for validating a next order; never settles the current operation."
+  def after_handling(%__MODULE__{status: status} = ship) when status in ["loading", "unloading"],
+    do: finish_operation(ship, ship.arrive_ms)
+
   def request_berth(%__MODULE__{} = ship, now) do
     if ship.status == "docked" and is_nil(ship.berth_queued_ms) and
          is_nil(ship.berth_granted_ms) and (ship.berth_retry_ms || 0) <= now,
@@ -367,7 +371,8 @@ defmodule TijaraTides.Domain.Ship do
   end
 
   def queue_trade(%__MODULE__{} = ship, %TijaraTides.Domain.Trade{} = trade, now) do
-    docked!(ship)
+    unless ship.status in ["docked", "loading", "unloading"],
+      do: raise(ArgumentError, "Ship must be at port to queue a trade")
 
     unless is_nil(ship.pending_side) and trade.side in ["buy", "sell"] and
              is_integer(trade.quantity) and trade.quantity > 0 and is_integer(trade.limit) and
@@ -393,12 +398,16 @@ defmodule TijaraTides.Domain.Ship do
   end
 
   def cancel_pending_trade(%__MODULE__{} = ship) do
-    docked!(ship)
+    unless ship.status in ["docked", "loading", "unloading"],
+      do: raise(ArgumentError, "Ship must be at port to cancel a trade")
+
     unless ship.pending_side, do: raise(ArgumentError, "No pending trade to cancel")
 
     # Give up the ticket and any berth, but keep berth_retry_ms: cancelling must not
     # clear a cooldown a failed admission imposed, or resubmitting would evade it.
-    %{clear_pending(ship) | berth_queued_ms: nil, berth_granted_ms: nil}
+    if ship.status in ["loading", "unloading"],
+      do: clear_pending(ship),
+      else: %{clear_pending(ship) | berth_queued_ms: nil, berth_granted_ms: nil}
   end
 
   defp clear_pending(ship),

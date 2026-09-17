@@ -176,6 +176,16 @@ defmodule TijaraTides.Domain.ShipWorld do
   def release_berth(state, id, retry_at \\ nil),
     do: store(state, Ship.release_berth(hull(state, id), state.clock_ms, retry_at))
 
+  @doc "Run validation against projected handling completion without returning simulated state."
+  def validate_after_handling(state, id, validate) do
+    projected = store(state, Ship.after_handling(hull(state, id)))
+
+    case validate.(projected) do
+      :ok -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   def queue_trade(state, trade),
     do: store(state, Ship.queue_trade(hull(state, trade.ship_id), trade, state.clock_ms))
 
