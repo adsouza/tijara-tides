@@ -57,6 +57,36 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     %{migrations: migrations}
   end
 
+  test "ship name migration repairs duplicates without colliding with existing suffixes", %{
+    migrations: migrations
+  } do
+    store_legacy(legacy_state())
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_260_927_000_001, log: false)
+    MigrationRepo.query!("UPDATE game_ships SET name='Same' WHERE id='company:1'")
+
+    for {id, name} <- [{"duplicate", "Same"}, {"suffix", "Same (2)"}] do
+      MigrationRepo.query!(
+        "INSERT INTO game_ships SELECT (jsonb_populate_record(NULL::game_ships, to_jsonb(s) || jsonb_build_object('id',$1::text,'name',$2::text))).* FROM game_ships s WHERE id='company:1'",
+        [id, name]
+      )
+    end
+
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+
+    assert [
+             ["company:1", "Same"],
+             ["company:2", "Migration company 2"],
+             ["company:3", "Migration company 3"],
+             ["duplicate", "Same (3)"],
+             ["suffix", "Same (2)"]
+           ] ==
+             MigrationRepo.query!("SELECT id,name FROM game_ships ORDER BY id").rows
+
+    assert_raise Postgrex.Error, fn ->
+      MigrationRepo.query!("UPDATE game_ships SET name='Same' WHERE id='duplicate'")
+    end
+  end
+
   test "sequence migration preserves identities and exceeds counters and existing lots", %{
     migrations: migrations
   } do

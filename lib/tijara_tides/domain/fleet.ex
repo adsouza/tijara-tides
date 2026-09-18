@@ -111,15 +111,10 @@ defmodule TijaraTides.Domain.Fleet do
         {:error, :ship_id_conflict}
 
       true ->
-        count =
-          Enum.count(entities(state, "ships"), fn {_, ship} ->
-            ship["company_id"] == company["id"]
-          end)
-
         ship = %{
           "id" => context.id,
           "company_id" => company["id"],
-          "name" => "#{company["name"]} #{count + 1}",
+          "name" => next_ship_name(state, company["name"]),
           "class" => class_id,
           "book_value" => class["price"],
           "build_value" => class["price"],
@@ -149,6 +144,14 @@ defmodule TijaraTides.Domain.Fleet do
 
         {:ok, state, %{"ship_id" => ship["id"], "spent" => class["price"]}}
     end
+  end
+
+  defp next_ship_name(state, company_name) do
+    names = MapSet.new(entities(state, "ships"), fn {_, ship} -> ship["name"] end)
+
+    Stream.iterate(1, &(&1 + 1))
+    |> Stream.map(&"#{company_name} #{&1}")
+    |> Enum.find(&(not MapSet.member?(names, &1)))
   end
 
   def capacity(ship, catalogue) do

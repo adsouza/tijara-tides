@@ -68,6 +68,44 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
              Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
   end
 
+  test "selling an earlier ship does not duplicate a surviving ship name", c do
+    {:ok, state, _} = Credit.borrow(c.state, c.account, 20_000_000, "loan")
+
+    state =
+      Enum.reduce(["first", "second", "third"], state, fn id, state ->
+        {:ok, state, _} =
+          Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, %{
+            c.context
+            | id: id
+          })
+
+        state
+      end)
+
+    {:ok, state, _} = Fleet.sell(state, c.account, "first", 0)
+
+    {:ok, state, _} =
+      Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
+
+    names = Enum.map(Game.entities(state, "ships"), fn {_, ship} -> ship["name"] end)
+    assert length(Enum.uniq(names)) == 3
+    assert Game.get(state, "ships", "third")["name"] == "New Shipping 3"
+  end
+
+  test "purchases avoid names retained by ships transferred to another company", c do
+    {:ok, state, _} = Credit.borrow(c.state, c.account, 10_000_000, "loan")
+
+    state =
+      put_in(state, [:entities, "ships"], %{
+        "transferred" => %{"name" => "New Shipping 1", "company_id" => "other"}
+      })
+
+    {:ok, state, _} =
+      Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
+
+    assert Game.get(state, "ships", "ship")["name"] == "New Shipping 2"
+  end
+
   test "depreciation is linear, bottoms at residual, and selling records the loss", c do
     {:ok, state, _} =
       Credit.borrow(c.state, c.account, 10_000_000, "loan")
