@@ -2427,8 +2427,8 @@ msgstr "التصنيع المحلي"
 msgid "Production requires inputs, funds and free output storage."
 msgstr "يتطلب الإنتاج مواد أولية وأموالاً ومساحة تخزين متاحة للمنتجات."
 
-msgid "Value, maintenance and sale"
-msgstr "القيمة والصيانة والبيع"
+msgid "Ship details"
+msgstr "تفاصيل السفينة"
 
 msgid "Settled auctions are shown for the past three active-world days."
 msgstr "تُعرض المزادات التي تمت تسويتها خلال الأيام الثلاثة الماضية من وقت العالم النشط."

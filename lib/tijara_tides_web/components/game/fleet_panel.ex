@@ -231,31 +231,6 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             </button>
           </div>
           <div :if={@ship} class="mt-2 rounded-xl bg-slate-900 px-5 pt-2 pb-5">
-            <.form
-              for={%{}}
-              id={"rename-ship-" <> @ship["id"] <> "-" <> Base.url_encode64(@ship["name"], padding: false)}
-              phx-submit="rename-ship"
-              phx-hook="ExchangeDraft"
-              class="mb-3 flex flex-wrap items-end gap-2"
-            >
-              <input type="hidden" name="request_id" value={@request_id} />
-              <input type="hidden" name="ship" value={@ship["id"]} />
-              <label class="flex items-center gap-2 text-sm">
-                {gettext("Ship name:")}
-                <input
-                  type="text"
-                  name="name"
-                  value={@ship["name"]}
-                  required
-                  maxlength="80"
-                  class="block rounded bg-slate-800 px-2 py-1"
-                />
-              </label>
-              <button
-                phx-disable-with={gettext("Renaming…")}
-                class="rounded bg-teal-700 px-3 py-1"
-              >{gettext("Rename ship")}</button>
-            </.form>
             <p :if={@view.public["ships"][@ship["id"]]["queue_position"]} class="mb-3 text-amber-300">
               {gettext("Queue position: %{position}",
                 position: display_number(@view.public["ships"][@ship["id"]]["queue_position"])
@@ -278,7 +253,33 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               phx-mounted={JS.ignore_attributes("open")}
               class="mb-2"
             >
-              <summary class="cursor-pointer">{gettext("Value, maintenance and sale")}</summary>
+              <summary class="cursor-pointer">{gettext("Ship details")}</summary>
+              <.form
+                for={%{}}
+                id={"rename-ship-" <> @ship["id"] <> "-" <> Base.url_encode64(@ship["name"], padding: false)}
+                phx-submit="rename-ship"
+                phx-hook="ExchangeDraft"
+                class="my-3 flex flex-wrap items-end gap-2"
+              >
+                <input type="hidden" name="request_id" value={@request_id} />
+                <input type="hidden" name="ship" value={@ship["id"]} />
+                <label class="flex items-center gap-2 text-sm">
+                  {gettext("Ship name:")}
+                  <input
+                    type="text"
+                    name="name"
+                    value={@ship["name"]}
+                    required
+                    maxlength="80"
+                    class="block rounded bg-slate-800 px-2 py-1"
+                  />
+                </label>
+                <button
+                  phx-disable-with={gettext("Renaming…")}
+                  class="rounded bg-teal-700 px-3 py-1"
+                >{gettext("Rename ship")}</button>
+              </.form>
+
               <p class="text-sm">
                 {gettext("Book value: %{value1}", value1: finance_money(ship_value.book))}
                 <span class="ml-2 text-xs text-slate-400">{gettext(

@@ -3382,7 +3382,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(
              view,
              "details[id^=shipyard-offer-] summary",
-             "Value, maintenance and sale"
+             "Ship details"
            )
 
     assert has_element?(view, "details[id^=shipyard-offer-]", "Book value:")
