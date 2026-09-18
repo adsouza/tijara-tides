@@ -40,6 +40,18 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "a busy initialized owner remains ready without servicing its mailbox", %{server: server} do
+    assert GameServer.readiness(server) == :ready
+    :ok = :sys.suspend(server)
+
+    try do
+      task = Task.async(fn -> GameServer.readiness(server) end)
+      assert Task.await(task, 500) == :ready
+    after
+      :sys.resume(server)
+    end
+  end
+
   test "background heartbeats do not block UI events and coalesce while owner is busy", c do
     Application.put_env(:tijara_tides, :game_server, c.server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)

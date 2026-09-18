@@ -3,7 +3,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   use GenServer
   require Logger
   alias TijaraTides.Domain.Game
-  alias TijaraTides.Infrastructure.{GameCatalogue, OperationBoundary}
+  alias TijaraTides.Infrastructure.{GameCatalogue, GameReadiness, OperationBoundary}
   alias TijaraTides.Infrastructure.Persistence.{GameStore, Repo, ReportStore}
   @topic "game:ocean"
   @call_timeout 30_000
@@ -91,7 +91,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def connect(token, server \\ default_server()),
     do: GenServer.call(server, {:connect, token}, @call_timeout)
 
-  def readiness(server \\ default_server()), do: GenServer.call(server, :readiness, @call_timeout)
+  def readiness(server \\ default_server()), do: GameReadiness.status(server)
   def subscribe, do: Phoenix.PubSub.subscribe(TijaraTides.PubSub, @topic)
 
   def definitions,
@@ -127,6 +127,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   @impl true
   def init(opts) do
+    GameReadiness.register(:starting)
     repo = Keyword.get(opts, :repo, Repo)
     enabled = Keyword.get(opts, :enabled, Application.get_env(:tijara_tides, :start_repo, false))
 
@@ -146,51 +147,56 @@ defmodule TijaraTides.Infrastructure.GameServer do
       tick_due_mono: nil
     }
 
-    if enabled do
-      OperationBoundary.run(
-        :initialization,
-        fn ->
-          {:ok, game} =
-            GameStore.claim(repo, state.world_id, wall_ms: state.wall_clock.())
+    {:ok, state} =
+      if enabled do
+        OperationBoundary.run(
+          :initialization,
+          fn ->
+            {:ok, game} =
+              GameStore.claim(repo, state.world_id, wall_ms: state.wall_clock.())
 
-          result =
-            TijaraTides.UseCases.CommitExecutor.replan(game, store(state), fn fresh ->
-              initialized =
-                TijaraTides.UseCases.CommitPreparation.prepare(
-                  fresh,
-                  TijaraTides.UseCases.LotAllocation.run(
+            result =
+              TijaraTides.UseCases.CommitExecutor.replan(game, store(state), fn fresh ->
+                initialized =
+                  TijaraTides.UseCases.CommitPreparation.prepare(
                     fresh,
-                    store(state),
-                    &Game.initialize(&1, state.catalogue)
-                  )
-                )
-
-              # Initial market creation may take longer than an ordinary gameplay call.
-              case GameStore.commit(repo, state.world_id, fresh.epoch, fresh, initialized, nil,
-                     timeout: 120_000
-                   ) do
-                {:ok, :ok} ->
-                  TijaraTides.UseCases.CommitExecutor.outcome(
-                    TijaraTides.UseCases.CommitPreparation.accepted(initialized),
-                    %{},
-                    true
+                    TijaraTides.UseCases.LotAllocation.run(
+                      fresh,
+                      store(state),
+                      &Game.initialize(&1, state.catalogue)
+                    )
                   )
 
-                {:error, reason} ->
-                  {:halt, reason}
-              end
-            end)
+                # Initial market creation may take longer than an ordinary gameplay call.
+                case GameStore.commit(repo, state.world_id, fresh.epoch, fresh, initialized, nil,
+                       timeout: 120_000
+                     ) do
+                  {:ok, :ok} ->
+                    TijaraTides.UseCases.CommitExecutor.outcome(
+                      TijaraTides.UseCases.CommitPreparation.accepted(initialized),
+                      %{},
+                      true
+                    )
 
-          case result do
-            {:ok, outcome} -> {:ok, accept_game(%{state | status: :ready}, outcome.game)}
-            _ -> {:ok, %{state | status: :unavailable}}
-          end
-        end,
-        fn _ -> {:ok, OperationBoundary.pause(state)} end
-      )
-    else
-      {:ok, state}
-    end
+                  {:error, reason} ->
+                    {:halt, reason}
+                end
+              end)
+
+            case result do
+              {:ok, outcome} -> {:ok, accept_game(%{state | status: :ready}, outcome.game)}
+              _ -> {:ok, %{state | status: :unavailable}}
+            end
+          end,
+          fn _ -> {:ok, OperationBoundary.pause(state)} end
+        )
+      else
+        {:ok, state}
+      end
+
+    GameReadiness.publish(state.status)
+    Process.send_after(self(), :readiness_heartbeat, 1000)
+    {:ok, state}
   end
 
   @impl true
@@ -436,6 +442,12 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def handle_call(_request, _from, state), do: {:reply, {:error, state.status}, state}
 
   @impl true
+  def handle_info(:readiness_heartbeat, state) do
+    GameReadiness.publish(state.status)
+    Process.send_after(self(), :readiness_heartbeat, 1000)
+    {:noreply, state}
+  end
+
   def handle_info({:timeout, timer, :tick}, %{timer: timer} = state),
     do: handle_info(:tick, state)
 

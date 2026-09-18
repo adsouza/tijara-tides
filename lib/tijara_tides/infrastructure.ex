@@ -17,6 +17,7 @@ defmodule TijaraTides.Infrastructure do
       Measurements,
       OperationLogger,
       GameServer,
+      GameReadiness,
       Mailer,
       EmailDelivery,
       GameQueries,

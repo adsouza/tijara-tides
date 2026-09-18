@@ -16,7 +16,10 @@ defmodule TijaraTides.Infrastructure.OperationBoundary do
   def classify(%DBConnection.ConnectionError{}), do: :storage_unavailable
   def classify(_), do: :internal_error
 
-  def pause(state), do: %{state | status: :unavailable, active: false}
+  def pause(state) do
+    TijaraTides.Infrastructure.GameReadiness.publish(:unavailable)
+    %{state | status: :unavailable, active: false}
+  end
 
   def call(operation, state, execute, accept, refresh, decorate \\ &{:ok, &1}) do
     run(

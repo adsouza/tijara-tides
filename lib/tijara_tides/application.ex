@@ -18,6 +18,7 @@ defmodule TijaraTides.Application do
            measurements: [{TijaraTides.Infrastructure.Measurements, :poll_owner, []}]},
           {Phoenix.PubSub, name: TijaraTides.PubSub},
           {TijaraTides.Infrastructure.WorldServer, name: TijaraTides.Infrastructure.WorldServer},
+          TijaraTides.Infrastructure.GameReadiness,
           TijaraTides.Infrastructure.GameServer,
           TijaraTidesWeb.Endpoint,
           TijaraTides.Infrastructure.EmailDelivery
