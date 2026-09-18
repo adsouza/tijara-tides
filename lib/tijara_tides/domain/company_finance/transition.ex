@@ -7,21 +7,24 @@ defmodule TijaraTides.Domain.CompanyFinance.Transition do
     notices: %{},
     changes: %{},
     children: %{},
-    order: %{}
+    order: %{},
+    sequence: 0
   ]
 
   @children [:loans, :installments, :bills, :pledges]
 
   def new(finance, now) do
+    rows = Map.new(@children, fn kind -> {kind, Map.fetch!(finance, kind)} end)
+
     %__MODULE__{
       finance: finance,
       clock_ms: now,
-      children:
-        Map.new(@children, fn kind -> {kind, Map.new(Map.fetch!(finance, kind), &{&1.id, &1})} end),
+      children: Map.new(rows, fn {kind, list} -> {kind, Map.new(list, &{&1.id, &1})} end),
       order:
-        Map.new(@children, fn kind ->
-          {kind, Enum.reverse(Enum.map(Map.fetch!(finance, kind), & &1.id))}
-        end)
+        Map.new(rows, fn {kind, list} ->
+          {kind, Map.new(Enum.with_index(list), fn {child, index} -> {child.id, index} end)}
+        end),
+      sequence: Enum.sum(Enum.map(Map.values(rows), &length/1))
     }
   end
 
@@ -32,9 +35,9 @@ defmodule TijaraTides.Domain.CompanyFinance.Transition do
         children = Map.fetch!(t.children, kind)
 
         rows =
-          for id <- Enum.reverse(Enum.uniq(Map.fetch!(t.order, kind))),
-              child = children[id],
-              do: child
+          Map.fetch!(t.order, kind)
+          |> Enum.sort_by(fn {_id, position} -> position end)
+          |> Enum.map(fn {id, _position} -> Map.fetch!(children, id) end)
 
         Map.put(finance, kind, rows)
       end)
@@ -74,15 +77,19 @@ defmodule TijaraTides.Domain.CompanyFinance.Transition do
     if get(t, kind, id) == child do
       t
     else
-      order =
-        if Map.has_key?(Map.fetch!(t.children, kind), id),
-          do: t.order,
-          else: Map.update!(t.order, kind, &[id | &1])
+      # A row holds the position it was first given. One deleted and added again
+      # takes a fresh position at the end, as rebuilding the list used to do.
+      fresh = not Map.has_key?(Map.fetch!(t.children, kind), id)
 
       %{
         t
         | children: Map.update!(t.children, kind, &Map.put(&1, id, child)),
-          order: order,
+          order:
+            if(fresh,
+              do: Map.update!(t.order, kind, &Map.put(&1, id, t.sequence)),
+              else: t.order
+            ),
+          sequence: if(fresh, do: t.sequence + 1, else: t.sequence),
           changes: Map.put(t.changes, {kind, id}, {:put, child})
       }
     end
@@ -93,6 +100,7 @@ defmodule TijaraTides.Domain.CompanyFinance.Transition do
       %{
         t
         | children: Map.update!(t.children, kind, &Map.delete(&1, id)),
+          order: Map.update!(t.order, kind, &Map.delete(&1, id)),
           changes: Map.put(t.changes, {kind, id}, {:delete, nil})
       }
     else

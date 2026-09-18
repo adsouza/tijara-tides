@@ -44,6 +44,10 @@ defmodule TijaraTides.Infrastructure.GameReadinessTest do
     on_exit(fn -> Process.exit(owner, :kill) end)
     assert_receive {:started, ^owner}, 1000
     assert GameReadiness.status(owner) == :starting
+
+    # An owner inside init/1 cannot beat, so age never unseats :starting.
+    assert GameReadiness.status(owner, System.monotonic_time(:millisecond) + 60_001) == :starting
+
     send(owner, :ready)
     assert_receive :ready, 1000
     assert GameReadiness.status(owner) == :ready
@@ -59,6 +63,15 @@ defmodule TijaraTides.Infrastructure.GameReadinessTest do
     assert_receive {:DOWN, ^ref, :process, ^owner, :normal}, 1000
     assert GameReadiness.status(owner) == :unavailable
     assert GameReadiness.status(:missing_game_owner) == :unavailable
+  end
+
+  test "publishing without a registration reports the drop instead of reporting success" do
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        assert GameReadiness.publish(:ready) == :error
+      end)
+
+    assert log =~ "owns no entry"
   end
 
   test "inactive owners keep publishing heartbeats" do

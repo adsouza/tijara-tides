@@ -226,8 +226,6 @@ defmodule TijaraTides.Infrastructure.GameServer do
   end
 
   @impl true
-  def handle_call(:readiness, _from, state), do: {:reply, state.status, state}
-
   def handle_call({:snapshot, token}, from, state) do
     # Reads are the owner's highest-frequency work, so they are measured with one bare
     # event: no correlation identifier, no start event and no log line, each of which
