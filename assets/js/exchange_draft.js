@@ -3,6 +3,11 @@
 export const ExchangeDraft = {
   mounted() {
     this.draft = new Map()
+    if (this.handleEvent) this.handleEvent("draft-reset", ({id}) => {
+      if (id !== this.el.id) return
+      this.draft.clear()
+      this.el.reset()
+    })
     this.syncExpiry = () => {
       const checkbox = this.el.querySelector('[name="clear_expiry"]')
       const minutes = this.el.querySelector('[name="minutes"]')

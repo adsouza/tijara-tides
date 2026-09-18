@@ -431,9 +431,19 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event("company-preview", params, socket),
     do: {:noreply, assign(socket, company_draft: Map.take(params, ["name"]))}
 
+  def handle_event("rename-ship", params, socket) do
+    run(socket, %{
+      "action" => "rename_ship",
+      "ship" => params["ship"],
+      "name" => params["name"],
+      "request_id" => params["request_id"]
+    })
+  end
+
   def handle_event("purchase-ship", params, socket) do
     run(socket, %{
       "action" => "purchase_ship",
+      "name" => params["name"],
       "class" => params["class"],
       "port" => socket.assigns.selected_port,
       "price_limit" => integer(params["price_limit"]),
@@ -818,6 +828,11 @@ defmodule TijaraTidesWeb.GameLive do
 
     case Game.command(socket.assigns.token, request, command) do
       {:ok, result} ->
+        socket =
+          if command["action"] == "purchase_ship",
+            do: push_event(socket, "draft-reset", %{id: "shipyard-" <> command["class"]}),
+            else: socket
+
         socket =
           if command["action"] == "route" && command["operation"] in ["add_rule", "update_rule"],
             do:

@@ -3067,7 +3067,29 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#shipyard-freighter button[disabled]")
     view |> form("#loan-form", %{"amount" => "200000"}) |> render_submit()
     render_change(view, "port", %{"id" => "Jakarta"})
-    for _ <- 1..3, do: view |> form("#shipyard-freighter") |> render_submit()
+    view |> form("#shipyard-freighter", %{"name" => "Aurora"}) |> render_submit()
+    for _ <- 1..2, do: view |> form("#shipyard-freighter") |> render_submit()
+
+    custom =
+      GameServer.snapshot(token, server).private["ships"]
+      |> Map.values()
+      |> Enum.find(&(&1["name"] == "Aurora"))
+
+    render_click(view, "ship", %{"id" => custom["id"]})
+    view |> form("form[phx-submit=rename-ship]", %{"name" => "Northern Light"}) |> render_submit()
+
+    assert GameServer.snapshot(token, server).private["ships"][custom["id"]]["name"] ==
+             "Northern Light"
+
+    view
+    |> form("form[phx-submit=rename-ship]", %{"name" => "Browser Shipping 1"})
+    |> render_submit()
+
+    assert render(view) =~ "A ship already has that name"
+
+    assert GameServer.snapshot(token, server).private["ships"][custom["id"]]["name"] ==
+             "Northern Light"
+
     assert map_size(GameServer.snapshot(token, server).private["ships"]) == 3
 
     assert render(view) =~ "Browser Shipping"

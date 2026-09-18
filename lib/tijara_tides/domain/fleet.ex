@@ -86,10 +86,13 @@ defmodule TijaraTides.Domain.Fleet do
 
   defdelegate classes(), to: TijaraTides.Domain.ShipClass, as: :all
 
-  def purchase(state, account, class_id, port, price_limit, context) do
+  def purchase(state, account, class_id, port, price_limit, context, name \\ nil) do
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
     company = get(state, "companies", account["company_id"])
     class = classes()[class_id]
+    name = if is_binary(name), do: String.trim(name), else: name
+    name = if name in [nil, ""], do: next_ship_name(state, (company || %{})["name"]), else: name
+    checked_name = validate_ship_name(state, name)
 
     cond do
       is_nil(company) or company["account_id"] != account["id"] or company["bankruptcy_ms"] != nil ->
@@ -110,11 +113,16 @@ defmodule TijaraTides.Domain.Fleet do
       get(state, "ships", context.id) != nil ->
         {:error, :ship_id_conflict}
 
+      match?({:error, _}, checked_name) ->
+        checked_name
+
       true ->
+        {:ok, name} = checked_name
+
         ship = %{
           "id" => context.id,
           "company_id" => company["id"],
-          "name" => next_ship_name(state, company["name"]),
+          "name" => name,
           "class" => class_id,
           "book_value" => class["price"],
           "build_value" => class["price"],
@@ -143,6 +151,23 @@ defmodule TijaraTides.Domain.Fleet do
           )
 
         {:ok, state, %{"ship_id" => ship["id"], "spent" => class["price"]}}
+    end
+  end
+
+  def validate_ship_name(state, name, except_id \\ nil) do
+    name = if is_binary(name), do: String.trim(name), else: ""
+
+    cond do
+      name == "" or String.length(name) > 80 or String.match?(name, ~r/[\p{Cc}\p{Cf}]/u) ->
+        {:error, :ship_name_invalid}
+
+      Enum.any?(entities(state, "ships"), fn {id, ship} ->
+        id != except_id and ship["name"] == name
+      end) ->
+        {:error, :ship_name_taken}
+
+      true ->
+        {:ok, name}
     end
   end
 

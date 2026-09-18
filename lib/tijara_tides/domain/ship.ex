@@ -16,6 +16,8 @@ defmodule TijaraTides.Domain.Ship do
   def plan_destination(%__MODULE__{} = ship, destination),
     do: %{ship | planned_destination: destination}
 
+  def rename(%__MODULE__{} = ship, name), do: %{ship | name: name}
+
   def commission(%__MODULE__{} = ship) do
     unless ship.status == "docked" and ship.cargo == [] and ShipClass.all()[ship.class],
       do: raise(ArgumentError, "A new ship must be an empty docked hull of a known class")

@@ -2537,3 +2537,24 @@ msgstr "ربح الرحلة التالية: %{profit}"
 
 msgid "Then sail to %{port}: %{profit}"
 msgstr "ثم الإبحار إلى %{port}: %{profit}"
+
+msgid "A ship already has that name. Choose another name."
+msgstr "توجد سفينة بهذا الاسم بالفعل. اختر اسماً آخر."
+
+msgid "Leave blank for an automatic name"
+msgstr "اتركه فارغاً لاختيار اسم تلقائياً"
+
+msgid "Rename ship"
+msgstr "تغيير اسم السفينة"
+
+msgid "Renaming…"
+msgstr "جارٍ تغيير الاسم…"
+
+msgid "Ship name:"
+msgstr "اسم السفينة:"
+
+msgid "Ship name (optional):"
+msgstr "اسم السفينة (اختياري):"
+
+msgid "Use a ship name between 1 and 80 characters, without control characters."
+msgstr "استخدم اسماً للسفينة يتراوح بين حرف واحد و80 حرفاً، دون محارف تحكم."

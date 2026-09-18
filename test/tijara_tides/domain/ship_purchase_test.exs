@@ -106,6 +106,69 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
     assert Game.get(state, "ships", "ship")["name"] == "New Shipping 2"
   end
 
+  test "custom purchase names and renames validate names and ownership", c do
+    {:ok, state, _} = Credit.borrow(c.state, c.account, 20_000_000, "loan")
+
+    {:ok, state, _} =
+      Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context, "  Aurora  ")
+
+    assert Game.get(state, "ships", "ship")["name"] == "Aurora"
+
+    for name <- [123, String.duplicate("x", 81), "bad\nname"] do
+      assert {:error, :ship_name_invalid} =
+               Fleet.purchase(
+                 state,
+                 c.account,
+                 "freighter",
+                 "Jakarta",
+                 4_000_000,
+                 %{c.context | id: "second"},
+                 name
+               )
+    end
+
+    assert {:error, :ship_name_taken} =
+             Fleet.purchase(
+               state,
+               c.account,
+               "freighter",
+               "Jakarta",
+               4_000_000,
+               %{c.context | id: "second"},
+               " Aurora "
+             )
+
+    {:ok, state, _} =
+      Fleet.purchase(
+        state,
+        c.account,
+        "freighter",
+        "Jakarta",
+        4_000_000,
+        %{c.context | id: "second"},
+        "  "
+      )
+
+    assert Game.get(state, "ships", "second")["name"] == "New Shipping 1"
+    alias TijaraTides.Domain.ShipWorld
+
+    for name <- ["", "  ", nil, String.duplicate("x", 81)] do
+      assert {:error, :ship_name_invalid} = ShipWorld.rename(state, c.account, "ship", name)
+    end
+
+    assert {:error, :ship_name_taken} =
+             ShipWorld.rename(state, c.account, "ship", "New Shipping 1")
+
+    assert {:error, :ship_not_owned} =
+             ShipWorld.rename(state, %{c.account | "id" => "other"}, "ship", "Hijacked")
+
+    assert {:error, :ship_not_owned} = ShipWorld.rename(state, c.account, "missing", "Missing")
+    {:ok, state, _} = ShipWorld.rename(state, c.account, "ship", "Aurora")
+    before = Game.get(state, "ships", "ship")
+    {:ok, state, _} = ShipWorld.rename(state, c.account, "ship", "  Northern Light  ")
+    assert Game.get(state, "ships", "ship") == %{before | "name" => "Northern Light"}
+  end
+
   test "depreciation is linear, bottoms at residual, and selling records the loss", c do
     {:ok, state, _} =
       Credit.borrow(c.state, c.account, 10_000_000, "loan")

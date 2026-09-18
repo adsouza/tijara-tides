@@ -155,7 +155,18 @@ defmodule TijaraTides.Domain.Commands do
         "port" => port,
         "price_limit" => price_limit
       } ->
-        TijaraTides.Domain.Fleet.purchase(state, account, class, port, price_limit, context)
+        TijaraTides.Domain.Fleet.purchase(
+          state,
+          account,
+          class,
+          port,
+          price_limit,
+          context,
+          command["name"]
+        )
+
+      %{"action" => "rename_ship", "ship" => id, "name" => name} ->
+        ShipWorld.rename(state, account, id, name)
 
       %{"action" => "invite"} ->
         issue_invite(state, account, context)

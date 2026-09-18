@@ -5,6 +5,20 @@ defmodule TijaraTides.Domain.ShipWorld do
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
   alias __MODULE__.{RoutePlans, VisitOrders}
 
+  def rename(state, account, id, name) do
+    ship = State.get(state, "ships", id)
+    company = State.get(state, "companies", account["company_id"])
+
+    if is_nil(ship) or is_nil(company) or ship["company_id"] != company["id"] or
+         company["account_id"] != account["id"] or company["bankruptcy_ms"] != nil do
+      {:error, :ship_not_owned}
+    else
+      with {:ok, name} <- TijaraTides.Domain.Fleet.validate_ship_name(state, name, id) do
+        {:ok, store(state, Ship.rename(Rows.decode(ship), name)), %{}}
+      end
+    end
+  end
+
   def plan_destination(state, account, id, destination, catalogue) do
     ship = State.get(state, "ships", id)
     company = State.get(state, "companies", account["company_id"])

@@ -65,3 +65,19 @@ test('untouched defaults refresh, vanished warehouses are discarded, new forms h
   assert.equal(hook.draft.has('warehouse'), false)
   assert.equal(setup().hook.draft.size, 0)
 })
+
+ test('successful named purchases clear only their own draft', () => {
+  let resetHandler
+  let resets = 0
+  const hook = {el: {
+    id: 'shipyard-freighter', reset: () => { resets++ },
+    querySelector: () => null, addEventListener: () => {},
+  }, handleEvent: (event, handler) => { resetHandler = handler }}
+  ExchangeDraft.mounted.call(hook)
+  hook.draft.set('name', 'Aurora')
+  resetHandler({id: 'shipyard-tanker'})
+  assert.equal(hook.draft.get('name'), 'Aurora')
+  resetHandler({id: 'shipyard-freighter'})
+  assert.equal(hook.draft.size, 0)
+  assert.equal(resets, 1)
+})

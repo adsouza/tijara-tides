@@ -353,6 +353,9 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         gettext(
           "Not enough unreserved cash to buy this ship. Borrow first and retain funds for cargo and voyages."
         ),
+      ship_name_invalid:
+        gettext("Use a ship name between 1 and 80 characters, without control characters."),
+      ship_name_taken: gettext("A ship already has that name. Choose another name."),
       ship_id_conflict: gettext("This ship purchase has already been processed."),
       bankruptcy_cash_covers_debts:
         gettext(
