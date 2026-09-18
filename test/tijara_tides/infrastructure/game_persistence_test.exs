@@ -40,6 +40,35 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "background heartbeats do not block UI events and coalesce while owner is busy", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    {:ok, view, _} = live(recycle(conn), "/play")
+    render_async(view)
+    :ok = :sys.suspend(c.server)
+
+    try do
+      send(view.pid, :world_heartbeat)
+      for _ <- 1..20, do: send(view.pid, {:game_changed, 0})
+      task = Task.async(fn -> render_click(view, "port-market-side", %{"side" => "sell"}) end)
+      assert {:ok, _html} = Task.yield(task, 1000) || Task.shutdown(task)
+      state = :sys.get_state(view.pid)
+      assert state.socket.assigns.refresh_running
+      assert state.socket.assigns.refresh_pending
+      assert state.socket.assigns.port_market_side == "sell"
+      assert length(Map.keys(state.socket.private.live_async)) <= 1
+    after
+      :sys.resume(c.server)
+    end
+
+    render_async(view)
+    assert :sys.get_state(view.pid).socket.assigns.port_market_side == "sell"
+  end
+
   test "next trade and automatic departure persist while loading; cancellation preserves handling",
        c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
@@ -843,6 +872,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#reroute-selector option[value=Jakarta][selected]")
     assert has_element?(view, "button[phx-click=sail]", "Confirm reroute")
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert has_element?(view, "#reroute-selector option[value=Jakarta][selected]")
     render_click(view, "sail", %{"request_id" => "divert"})
     assert GameServer.snapshot(token, c.server).private["ships"][ship]["destination"] == "Jakarta"
@@ -1762,6 +1792,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       )
 
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     refute has_element?(view, "form[phx-submit=repay]")
     assert has_element?(view, "form[phx-submit=recast][phx-hook=LoanAmount][data-max='60000']")
     assert has_element?(view, "form[phx-submit=recast] input[type=range][max='6']")
@@ -2348,6 +2379,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     |> render_change()
 
     send(view.pid, {:game_changed, 0})
+    render_async(view)
 
     assert has_element?(
              view,
@@ -2629,6 +2661,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       quote = GameServer.preview(token, company <> ":1", "Jakarta", replacement)
       view |> element("button[phx-click=sail]") |> render_click()
       advance(replacement, quote["duration_ms"] + 1)
+      render_async(view)
 
       unless unquote(auto_depart),
         do: assert(has_element?(view, "#destination-picker-trigger", "Singapore"))
@@ -3050,6 +3083,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     view |> element("#market-good") |> render_click()
     assert has_element?(view, "#market-good[aria-expanded=true]")
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert has_element?(view, "#cargo-options .cargo-spread")
 
     option_goods = fn ->
@@ -3068,6 +3102,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute "crude_oil" in option_goods.()
     refute "fruit" in option_goods.()
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     refute "crude_oil" in option_goods.()
     view |> form("#cargo-ship-filter", %{"compatible" => "false"}) |> render_change()
     assert option_goods.() == alphabetical
@@ -3097,6 +3132,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     render_change(view, "cargo-sort-roi", %{"roi" => "true"})
     assert option_goods.() == expected
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert option_goods.() == expected
     render_change(view, "cargo-sort-roi", %{"roi" => "false"})
     assert option_goods.() == alphabetical
@@ -3113,6 +3149,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#cargo-demand th[aria-sort=descending]", "Sell price")
     view |> element("#cargo-markets button[phx-value-column=stock]") |> render_click()
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert has_element?(view, "#market-good", "Aluminium scrap")
     assert has_element?(view, "#cargo-supply th[aria-sort=ascending]", "Supply")
     view |> element("#cargo-markets button[phx-value-id='Singapore']") |> render_click()
@@ -3192,6 +3229,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#port-selector[data-selected='Hong Kong']")
     assert has_element?(view, "#region-ports button[aria-pressed=true]", "Hong Kong")
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert has_element?(view, "#region-ports", "Pearl River Delta")
     render_click(view, "map-world")
     refute has_element?(view, "#region-ports")
@@ -3207,23 +3245,30 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(view, "td", "Appliances")
     refute has_element?(view, "td", "Fruit")
     assert has_element?(view, "td", "Lumber")
-    assert has_element?(view, "#aboard-lumber", "0")
+    assert has_element?(view, "#aboard-buy-lumber", "0")
     refute has_element?(view, "#set-port-destination")
     render_change(view, "market-good", %{"good" => "grain"})
 
     view
-    |> element("#port-market-table button[phx-click=market-good][phx-value-good=lumber]")
+    |> element(
+      "[data-market-panel]:not([hidden]) table button[phx-click=market-good][phx-value-good=lumber]"
+    )
     |> render_click()
 
     assert has_element?(view, "#market-good", "Lumber")
     assert has_element?(view, "#cargo-supply tr[data-port=Jakarta]")
     assert has_element?(view, "#cargo-demand tr[data-port=Singapore]")
-    assert has_element?(view, "#port-market-table th", "Buy / supply")
-    refute has_element?(view, "#port-market-table th", "Sell / demand")
-    refute has_element?(view, "#port-market-table form[phx-submit=trade] input[value=sell]")
+    assert has_element?(view, "[data-market-panel]:not([hidden]) table th", "Buy / supply")
+    refute has_element?(view, "[data-market-panel]:not([hidden]) table th", "Sell / demand")
+
+    refute has_element?(
+             view,
+             "[data-market-panel]:not([hidden]) table form[phx-submit=trade] input[value=sell]"
+           )
+
     assert has_element?(view, "#trade-buy-lumber button[disabled]")
     assert has_element?(view, "#quantity-buy-lumber[value='0'][max='0'][disabled]")
-    assert has_element?(view, "#aboard-lumber", "0")
+    assert has_element?(view, "#aboard-buy-lumber", "0")
     render_change(view, "preview", %{"destination" => "Singapore"})
     assert has_element?(view, "#port-selector[data-selected='Jakarta']")
     assert has_element?(view, "#destination-picker-trigger", "Singapore")
@@ -3275,7 +3320,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert has_element?(view, "#trade-buy-lumber .purchase-total", "$2,270 total")
     assert has_element?(view, "#purchase-voyage-summary", "For 10 lots of Lumber")
-    refute has_element?(view, "#port-market-table .purchase-voyage")
+    refute has_element?(view, "[data-market-panel]:not([hidden]) table .purchase-voyage")
     refute has_element?(view, "#trade-buy-lumber .purchase-total.text-red-400")
 
     assert render(view) =~ "900 m³"
@@ -3296,6 +3341,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     displayed_clock = :sys.get_state(view.pid).socket.assigns.view.public["clock_ms"]
     advance(server, 1)
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert :sys.get_state(view.pid).socket.assigns.view.public["clock_ms"] == displayed_clock
     render_hook(view, "dropdown-active", %{"active" => false})
     assert :sys.get_state(view.pid).socket.assigns.view.public["clock_ms"] > displayed_clock
@@ -3325,6 +3371,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#destination-picker-trigger", "Tokyo")
     render_click(view, "ship", %{"id" => ship["id"]})
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     # Loading keeps destination planning available without losing this ship's selection.
     assert :sys.get_state(view.pid).socket.assigns.destination == "Singapore"
     render_click(view, "ship", %{"id" => other_ship["id"]})
@@ -3334,6 +3381,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(view, ".fleet-list button[phx-value-id='#{ship["id"]}']")
     assert has_element?(view, ".fleet-list button[phx-value-id='#{other_ship["id"]}']")
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert has_element?(view, "#fleet-status option[selected]", "Docked")
     {:ok, fresh_view, _} = conn |> recycle() |> live("/play")
 
@@ -3347,7 +3395,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     GenServer.stop(fresh_view.pid)
     render_change(view, "fleet-status", %{"status" => "all"})
     refute has_element?(view, "#set-port-destination")
-    assert has_element?(view, "#aboard-lumber", "10")
+    assert has_element?(view, "#aboard-buy-lumber", "10")
     assert render(view) =~ "16 m³"
     refute has_element?(view, "td", "Appliances")
     advance(server, 6000)
@@ -3446,6 +3494,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     |> render_click()
 
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert has_element?(view, "th[aria-sort=descending]", "Lots")
 
     assert length(GameServer.snapshot(token, server).private["ships"][ship["id"]]["cargo"]) == 2
@@ -3476,6 +3525,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     render_change(view, "map-filters", %{"classes" => [ship["class"]], "show_others" => "false"})
     assert has_element?(view, "#world-map [data-map-ship='#{ship["id"]}']")
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert has_element?(view, "#map-filter-toggle[aria-expanded=true]")
     refute has_element?(view, "#map-filters input[name=show_others][checked]")
     render_click(view, "map-region", %{"id" => "Pearl River Delta"})
@@ -3523,11 +3573,18 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     render_change(view, "port", %{"id" => "Singapore"})
     view |> element("button[phx-click=port-market-side][phx-value-side=sell]") |> render_click()
-    assert has_element?(view, "#port-market-table th", "Sell / buyer capacity")
-    refute has_element?(view, "#port-market-table th", "Buy / supply")
+
+    assert has_element?(
+             view,
+             "[data-market-panel]:not([hidden]) table th",
+             "Sell / buyer capacity"
+           )
+
+    refute has_element?(view, "[data-market-panel]:not([hidden]) table th", "Buy / supply")
     assert has_element?(view, "#trade-sell-lumber")
-    refute has_element?(view, "#trade-buy-lumber")
+    assert has_element?(view, "#port-market-buy[hidden]")
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert has_element?(view, "button[phx-value-side=sell][aria-pressed=true]")
 
     render_submit(view, "trade", %{
@@ -4098,6 +4155,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     view |> element("#destination-picker-trigger") |> render_click()
     assert has_element?(view, "#destination-picker[role=dialog]")
     send(view.pid, {:game_changed, 0})
+    render_async(view)
     assert has_element?(view, "#destination-picker")
 
     view

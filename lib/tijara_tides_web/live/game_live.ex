@@ -20,6 +20,10 @@ defmodule TijaraTidesWeb.GameLive do
     socket =
       assign(socket,
         token: token,
+        refresh_generation: 0,
+        refresh_running: false,
+        refresh_pending: false,
+        heartbeat_pending: false,
         preferred_locale: if(session["locale_explicit"], do: session["locale"]),
         browser_id: session["player_id"],
         page_title: gettext("Your shipping company"),
@@ -72,20 +76,84 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_info({:game_changed, _revision}, socket), do: {:noreply, background_refresh(socket)}
 
   def handle_info(:world_heartbeat, socket) do
-    Game.connect(socket.assigns.token)
     Process.send_after(self(), :world_heartbeat, 15_000)
-    {:noreply, background_refresh(socket)}
+    {:noreply, socket |> assign(heartbeat_pending: true) |> background_refresh()}
   end
 
   def handle_info(_message, socket), do: {:noreply, socket}
 
-  defp background_refresh(%{assigns: %{dropdown_active: true}} = socket), do: socket
-  defp background_refresh(socket), do: refresh(socket)
+  defp background_refresh(%{assigns: %{refresh_running: true}} = socket),
+    do: assign(socket, refresh_pending: true)
+
+  defp background_refresh(
+         %{assigns: %{dropdown_active: true, heartbeat_pending: false}} = socket
+       ),
+       do: assign(socket, refresh_pending: true)
+
+  defp background_refresh(socket) do
+    token = socket.assigns.token
+    selected = socket.assigns.selected_ship
+    heartbeat = socket.assigns.heartbeat_pending
+    generation = socket.assigns.refresh_generation + 1
+
+    socket
+    |> assign(
+      refresh_generation: generation,
+      refresh_running: true,
+      refresh_pending: false,
+      heartbeat_pending: false
+    )
+    |> start_async({:world_refresh, generation}, fn ->
+      if heartbeat, do: Game.connect(token)
+      fetch_view(token, selected)
+    end)
+  end
+
+  @impl true
+  def handle_async({:world_refresh, generation}, result, socket) do
+    if generation != socket.assigns.refresh_generation do
+      {:noreply, socket}
+    else
+      socket = assign(socket, refresh_running: false)
+
+      socket =
+        case result do
+          {:ok, {view, preview}} ->
+            if socket.assigns.dropdown_active,
+              do: assign(socket, refresh_pending: true),
+              else: apply_view(socket, view, preview)
+
+          {:exit, _reason} ->
+            socket
+        end
+
+      socket =
+        if socket.assigns.refresh_pending && !socket.assigns.dropdown_active,
+          do: background_refresh(socket),
+          else: socket
+
+      {:noreply, socket}
+    end
+  end
+
+  defp cancel_refresh(socket) do
+    if socket.assigns.refresh_running do
+      socket
+      |> cancel_async({:world_refresh, socket.assigns.refresh_generation})
+      |> assign(
+        refresh_generation: socket.assigns.refresh_generation + 1,
+        refresh_running: false,
+        refresh_pending: false
+      )
+    else
+      socket
+    end
+  end
 
   @impl true
   def handle_event("dropdown-active", %{"active" => active}, socket) when is_boolean(active) do
     socket = assign(socket, :dropdown_active, active)
-    {:noreply, if(active, do: socket, else: refresh(socket))}
+    {:noreply, if(active, do: socket, else: background_refresh(socket))}
   end
 
   def handle_event("report-toggle", _, socket) do
@@ -677,6 +745,7 @@ defmodule TijaraTidesWeb.GameLive do
            socket.assigns.ship do
         socket
         |> assign(selected_port: socket.assigns.ship["port"], port_market_side: "buy")
+        |> push_event("port-market-select", %{side: "buy"})
         |> push_event("workspace-panel", %{panel: 0, scroll_to: "port-market-controls"})
       else
         socket
@@ -844,8 +913,47 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   defp refresh(socket) do
-    view = Game.snapshot(socket.assigns.token)
+    socket = cancel_refresh(socket)
+    {view, preview} = fetch_view(socket.assigns.token, socket.assigns.selected_ship)
+    apply_view(socket, view, preview)
+  end
 
+  defp selected_ship(view, selected) do
+    if view.private do
+      view.private["ships"][selected] ||
+        view.private["ships"]
+        |> Map.values()
+        |> Enum.sort_by(
+          &{if(&1["status"] == "docked" && &1["cargo"] == [], do: 0, else: 1), &1["id"]}
+        )
+        |> List.first()
+    end
+  end
+
+  defp planned_destination(ship, view) do
+    if ship do
+      planned = get_in(view.private, ["visit_plans", ship["id"] <> "|" <> ship["port"], "onward"])
+      saved = ship["planned_destination"]
+
+      if saved in [nil, ""] or (ship["status"] != "sailing" and saved == ship["port"]),
+        do: planned || ship["destination"],
+        else: saved
+    end
+  end
+
+  defp fetch_view(token, selected) do
+    view = Game.snapshot(token)
+    ship = selected_ship(view, selected)
+    destination = planned_destination(ship, view)
+
+    preview =
+      if destination not in [nil, ""] && ship && ship["status"] in ["docked", "sailing"],
+        do: Game.preview(token, ship["id"], destination)
+
+    {view, preview}
+  end
+
+  defp apply_view(socket, view, preview) do
     TijaraTides.Localization.put_locale(
       socket.assigns.preferred_locale || (view.private && view.private["account"]["locale"]) ||
         TijaraTides.Localization.locale()
@@ -913,16 +1021,7 @@ defmodule TijaraTidesWeb.GameLive do
         else: Game.presence_detach()
     end
 
-    ship =
-      if view.private do
-        view.private["ships"][socket.assigns.selected_ship] ||
-          view.private["ships"]
-          |> Map.values()
-          |> Enum.sort_by(
-            &{if(&1["status"] == "docked" && &1["cargo"] == [], do: 0, else: 1), &1["id"]}
-          )
-          |> List.first()
-      end
+    ship = selected_ship(view, socket.assigns.selected_ship)
 
     socket =
       assign(
@@ -932,25 +1031,7 @@ defmodule TijaraTidesWeb.GameLive do
           ship["status"] in ["docked", "loading", "unloading"]
       )
 
-    planned =
-      if ship && view.private,
-        do: get_in(view.private, ["visit_plans", ship["id"] <> "|" <> ship["port"], "onward"])
-
-    destination =
-      if ship do
-        saved = ship["planned_destination"]
-
-        if saved in [nil, ""] or (ship["status"] != "sailing" and saved == ship["port"]),
-          do: planned || ship["destination"],
-          else: saved
-      end
-
-    socket = assign(socket, destination: destination)
-
-    preview =
-      if socket.assigns.destination not in [nil, ""] && ship &&
-           ship["status"] in ["docked", "sailing"],
-         do: Game.preview(socket.assigns.token, ship["id"], socket.assigns.destination)
+    socket = assign(socket, destination: planned_destination(ship, view))
 
     socket =
       if ship && is_nil(socket.assigns.selected_ship),

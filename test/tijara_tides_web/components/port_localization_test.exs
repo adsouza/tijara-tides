@@ -39,7 +39,10 @@ defmodule TijaraTidesWeb.PortLocalizationTest do
       )
 
     text =
-      html |> LazyHTML.from_fragment() |> LazyHTML.query("#port-market-table") |> LazyHTML.text()
+      html
+      |> LazyHTML.from_fragment()
+      |> LazyHTML.query("#port-market-table-sell")
+      |> LazyHTML.text()
 
     assert text =~ "Sell / buyer capacity"
     assert text =~ "Can buy now: 2 lots · demand: 489 · buyer funds: $300.00"

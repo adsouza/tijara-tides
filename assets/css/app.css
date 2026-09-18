@@ -31,10 +31,10 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 .panel-content h3 { font-size: 16px; }
 .panel-content table { font-size: 12px; }
 .panel-content th, .panel-content td { padding: 6px; }
-#port-market-table .aboard-column { width: 1%; white-space: nowrap; padding-inline: 4px; text-align: right; }
-#port-market-table .cargo-description-column { width: 25%; max-width: 7rem; overflow-wrap: anywhere; }
-#port-market-table .market-price-column { width: 32%; }
-#port-market-table .destination-bid > span { white-space: nowrap; }
+.port-market-table .aboard-column { width: 1%; white-space: nowrap; padding-inline: 4px; text-align: right; }
+.port-market-table .cargo-description-column { width: 25%; max-width: 7rem; overflow-wrap: anywhere; }
+.port-market-table .market-price-column { width: 32%; }
+.port-market-table .destination-bid > span { white-space: nowrap; }
 .panel-content select { max-width: 100%; min-width: 0; }
 .fleet-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 8px; }
 .panel-content .purchase-voyage { font-size: 11px; }
