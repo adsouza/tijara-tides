@@ -1,6 +1,6 @@
 defmodule TijaraTides.UseCases.CommitExecutor do
   @moduledoc "One atomic acceptance path for player commands, lifecycle operations and world ticks."
-  alias TijaraTides.UseCases.{CommitPreparation, CommandResult}
+  alias TijaraTides.UseCases.{CommitPreparation, CommandResult, Observation}
 
   @doc "Retry market conflicts twice from a fresh, fenced snapshot; never retry a stale plan."
   def replan(game, store, operation), do: replan(game, store, operation, 2, false)
@@ -37,12 +37,25 @@ defmodule TijaraTides.UseCases.CommitExecutor do
   end
 
   def commit(before, changed, result, receipt, {store, storage}, decorate \\ & &1, wall_ms \\ nil) do
-    changed = CommitPreparation.prepare(before, %{changed | revision: before.revision + 1})
+    changed =
+      Observation.measure(:prepare_commit, fn ->
+        CommitPreparation.prepare(before, %{changed | revision: before.revision + 1})
+      end)
 
-    case store.commit(storage, before, changed, receipt) do
-      {:ok, :ok} -> outcome(CommitPreparation.accepted(changed, wall_ms), decorate.(result), true)
-      {:error, {:replay, result}} -> outcome(before, decorate.(result), false)
-      {:error, reason} -> {:halt, reason}
+    case Observation.measure(:persist, fn -> store.commit(storage, before, changed, receipt) end) do
+      {:ok, :ok} ->
+        accepted =
+          Observation.measure(:accept_commit, fn ->
+            CommitPreparation.accepted(changed, wall_ms)
+          end)
+
+        outcome(accepted, decorate.(result), true)
+
+      {:error, {:replay, result}} ->
+        outcome(before, decorate.(result), false)
+
+      {:error, reason} ->
+        {:halt, reason}
     end
   end
 

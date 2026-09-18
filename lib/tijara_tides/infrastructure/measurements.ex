@@ -2,6 +2,31 @@ defmodule TijaraTides.Infrastructure.Measurements do
   @moduledoc "Low-cardinality operational measurements without world reads or database probes."
   @behaviour TijaraTides.UseCases.Observation
 
+  require Logger
+
+  @impl true
+  def measure(phase, fun) do
+    started = System.monotonic_time()
+
+    try do
+      fun.()
+    after
+      duration = System.monotonic_time() - started
+      operation = Keyword.get(Logger.metadata(), :operation, :unknown)
+
+      :telemetry.execute([:tijara_tides, :phase, :stop], %{duration: duration}, %{
+        phase: phase,
+        operation: operation
+      })
+
+      milliseconds = System.convert_time_unit(duration, :native, :microsecond) / 1000
+
+      if milliseconds >= 250 do
+        Logger.info("operation=#{operation} phase=#{phase} duration_ms=#{milliseconds}")
+      end
+    end
+  end
+
   @impl true
   def record(event) do
     outcome =

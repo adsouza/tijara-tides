@@ -41,6 +41,9 @@ defmodule TijaraTidesWeb.Telemetry do
         event_name: [:tijara_tides, :operation, :exception],
         tags: [:operation, :kind]
       ),
+      duration("tijara.phase.duration.seconds", [:tijara_tides, :phase, :stop], :duration,
+        tags: [:operation, :phase]
+      ),
       duration("tijara.snapshot.build.seconds", [:tijara_tides, :snapshot], :duration),
       duration("tijara.snapshot.reply.seconds", [:tijara_tides, :snapshot], :reply),
       last_value("tijara.owner.mailbox.depth",

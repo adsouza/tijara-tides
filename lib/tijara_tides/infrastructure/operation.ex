@@ -16,7 +16,7 @@ defmodule TijaraTides.Infrastructure.Operation do
     }
 
     previous = Logger.metadata()
-    Logger.metadata(correlation_id: metadata.correlation_id)
+    Logger.metadata(correlation_id: metadata.correlation_id, operation: operation)
     started = System.monotonic_time()
 
     try do

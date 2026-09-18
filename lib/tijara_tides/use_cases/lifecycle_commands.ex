@@ -27,7 +27,12 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
 
     game = CommitExecutor.restore(game, restore, store)
 
-    case TijaraTides.UseCases.LotAllocation.run(game, store, &execute(&1, operation, context)) do
+    planned =
+      TijaraTides.UseCases.Observation.measure(:planning, fn ->
+        TijaraTides.UseCases.LotAllocation.run(game, store, &execute(&1, operation, context))
+      end)
+
+    case planned do
       {:ok, changed, result} ->
         CommitExecutor.commit(game, changed, result, nil, store, & &1, Map.get(context, :wall_ms))
 
@@ -56,7 +61,9 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
         else: 10_000
 
     changed =
-      game |> Map.put(:participation_bps, scale) |> Game.advance(elapsed, context.catalogue)
+      game
+      |> Map.put(:participation_bps, scale)
+      |> Game.advance(elapsed, context.catalogue, &TijaraTides.UseCases.Observation.measure/2)
 
     {:ok, TijaraTides.Domain.ParticipationWorld.observe(game, changed, wall, context.catalogue),
      %{}}

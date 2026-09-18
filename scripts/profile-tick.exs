@@ -7,8 +7,7 @@
 # the same starting state so the costs are comparable.
 #
 # Run with scripts/profile-tick.py, which supplies a disposable PostgreSQL.
-alias TijaraTides.Domain.{Account, Fleet, PortCargoMarket, Simulation}
-alias TijaraTides.Domain.Services.{AutomatedVisits, FinancialSettlement}
+alias TijaraTides.Domain.Simulation
 alias TijaraTides.Infrastructure.GameServer
 alias TijaraTides.Infrastructure.Persistence.{GameStore, Repo}
 alias TijaraTides.UseCases.{CommitPreparation, LotAllocation, WorldProjection}
@@ -89,14 +88,11 @@ measure = fn label, fun ->
   result
 end
 
-IO.puts("-- Simulation.advance/3, phase by phase (pure, no allocation retries)")
-base = %{game | clock_ms: game.clock_ms + elapsed}
-a = measure.("settle finances", fn -> FinancialSettlement.settle(base) end)
-b = measure.("Fleet.advance", fn -> Fleet.advance(a, elapsed) end)
-c = measure.("settle finances (again)", fn -> FinancialSettlement.settle(b) end)
-d = measure.("PortCargoMarket.advance", fn -> PortCargoMarket.advance(c, catalogue) end)
-e = measure.("AutomatedVisits.advance", fn -> AutomatedVisits.advance(d, catalogue) end)
-_advanced = measure.("Account.expire_invitations", fn -> Account.expire_invitations(e) end)
+IO.puts("-- Simulation.advance/4, every phase (pure, no allocation retries)")
+
+Simulation.advance(game, elapsed, catalogue, fn phase, fun ->
+  measure.(Atom.to_string(phase), fun)
+end)
 
 IO.puts("\n-- whole tick, as the owner runs it")
 attempts = :counters.new(1, [])

@@ -21,6 +21,7 @@ defmodule TijaraTides.Domain.Game do
   defdelegate voyage_freshness(arg0, arg1, arg2), to: TijaraTides.Domain.CargoRules
   defdelegate voyage_quote(arg0, arg1, arg2), to: TijaraTides.Domain.Fleet
   defdelegate raw_goods(), to: TijaraTides.Domain.Markets
+  defdelegate advance(arg0, arg1, arg2, measure), to: TijaraTides.Domain.Simulation
   defdelegate advance(arg0, arg1, arg2), to: TijaraTides.Domain.Simulation
   defdelegate public(arg0, arg1), to: TijaraTides.Domain.Visibility
   defdelegate private(arg0, arg1), to: TijaraTides.Domain.Visibility

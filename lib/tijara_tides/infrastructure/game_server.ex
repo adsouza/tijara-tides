@@ -569,7 +569,11 @@ defmodule TijaraTides.Infrastructure.GameServer do
   end
 
   defp accept_game(state, game) do
-    projection = TijaraTides.UseCases.WorldProjection.build(game, state.catalogue)
+    projection =
+      TijaraTides.Infrastructure.Measurements.measure(:projection, fn ->
+        TijaraTides.UseCases.WorldProjection.build(game, state.catalogue)
+      end)
+
     %{state | game: game, projection: projection}
   end
 end
