@@ -208,3 +208,31 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 .opportunity-tooltip { display: none; position: absolute; inset-inline-end: 0; top: 100%; z-index: 5; background: #020617; color: #e2e8f0; padding: 6px 8px; border: 1px solid #475569; border-radius: 6px; font-size: 12px; white-space: normal; width: 180px; }
 .opportunity-disc:hover .opportunity-tooltip, .opportunity-disc:focus .opportunity-tooltip { display: block; }
 .opportunity-skull { display: inline-flex; width: 48px; height: 48px; align-items: center; justify-content: center; font-size: 30px; color: #000; text-shadow: -1px 0 #e2e8f0, 1px 0 #e2e8f0, 0 -1px #e2e8f0, 0 1px #e2e8f0; }
+
+/* Non-modal feedback: pending requests must not disable unrelated local controls. */
+.interaction-busy[hidden] { display: none; }
+.interaction-busy {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: rgb(2 6 23 / 18%);
+}
+.interaction-busy-card {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  background: rgb(15 23 42 / 85%);
+  color: #99f6e4;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 25%);
+}
+.interaction-busy-image { width: 3.5rem; height: 3.5rem; opacity: .8; }
+.interaction-busy-ring { transform-origin: center; animation: thinking-spin 1.5s linear infinite; }
+@keyframes thinking-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .interaction-busy-ring { animation: none; }
+}

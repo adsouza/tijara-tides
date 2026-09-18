@@ -2561,3 +2561,6 @@ msgstr "استخدم اسماً للسفينة يتراوح بين حرف واح
 
 msgid "Wait until the tanker finishes loading or unloading before buying liquid cargo."
 msgstr "انتظر حتى تنتهي الناقلة من التحميل أو التفريغ قبل شراء حمولة سائلة."
+
+msgid "Thinking…"
+msgstr "جارٍ التفكير…"

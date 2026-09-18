@@ -4292,3 +4292,8 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Wait until the tanker finishes loading or unloading before buying liquid cargo."
 msgstr ""
+
+#: lib/tijara_tides_web/components/layouts/root.html.heex:37
+#, elixir-autogen, elixir-format
+msgid "Thinking…"
+msgstr ""

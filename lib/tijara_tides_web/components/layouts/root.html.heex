@@ -15,5 +15,27 @@
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased">{@inner_content}</body>
+  <body class="bg-slate-950 text-slate-100 antialiased">
+    {@inner_content}
+    <div id="interaction-busy" class="interaction-busy" role="status" aria-live="polite" hidden>
+      <div class="interaction-busy-card">
+        <svg class="interaction-busy-image" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <circle
+            class="interaction-busy-ring"
+            cx="32"
+            cy="32"
+            r="28"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-dasharray="100 76"
+          />
+          <path
+            d="M18 37h28l-5 10H24l-6-10ZM31 17v17H20l11-17Zm4 4 9 13h-9V21Z"
+            fill="currentColor"
+          />
+        </svg>
+        <span>{gettext("Thinking…")}</span>
+      </div>
+    </div>
+  </body>
 </html>
