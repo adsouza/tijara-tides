@@ -256,6 +256,42 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     }
   end
 
+  test "buy defaults respect destination cash and demand without restricting manual purchases" do
+    {state, account, catalogue} = fixture()
+    ship = Game.get(state, "ships", "company:1")
+    snapshot = view(state, account, catalogue)
+    limits = %{{"buy", "lumber"} => 100, {"sell", "lumber"} => 20}
+    query = TijaraTides.UseCases.GameQueries
+    buyer = snapshot.markets["Singapore|lumber"]
+
+    snapshot =
+      put_in(snapshot.markets["Singapore|lumber"], %{
+        buyer
+        | "manual" => true,
+          "demand" => 50,
+          "buyer_budget" => buyer["bid"] * 7 + buyer["bid"] - 1
+      })
+
+    assert query.trade_defaults(snapshot, ship, "Singapore", limits) == %{
+             {"buy", "lumber"} => 7,
+             {"sell", "lumber"} => 20
+           }
+
+    loaded = %{ship | "cargo" => [%{"good" => "lumber", "quantity" => 5}]}
+    assert query.trade_defaults(snapshot, loaded, "Singapore", limits)[{"buy", "lumber"}] == 2
+    empty = put_in(snapshot.markets["Singapore|lumber"]["buyer_budget"], 0)
+    assert query.trade_defaults(empty, ship, "Singapore", limits)[{"buy", "lumber"}] == 0
+    demand = put_in(snapshot.markets["Singapore|lumber"]["demand"], 3)
+    assert query.trade_defaults(demand, ship, "Singapore", limits)[{"buy", "lumber"}] == 3
+    assert query.trade_defaults(snapshot, ship, nil, limits) == limits
+
+    assert query.trade_defaults(snapshot, %{ship | "status" => "loading"}, "Singapore", limits) ==
+             limits
+
+    assert GameServer.trade_limits(snapshot, ship, "Singapore") ==
+             GameServer.trade_limits(empty, ship, "Singapore")
+  end
+
   test "largest purchase settles, while one extra lot cannot meet voyage funding" do
     {state, account, catalogue} = fixture()
     ship = Game.get(state, "ships", "company:1")

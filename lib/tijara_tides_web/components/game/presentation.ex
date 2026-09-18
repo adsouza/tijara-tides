@@ -277,6 +277,8 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
 
   def error_message(reason) do
     %{
+      tanker_purchase_handling:
+        gettext("Wait until the tanker finishes loading or unloading before buying liquid cargo."),
       berth_order_pending:
         gettext("Cancel the queued trade before submitting another order or departing."),
       auction_invalid:

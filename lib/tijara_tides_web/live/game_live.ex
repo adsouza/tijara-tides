@@ -1071,13 +1071,17 @@ defmodule TijaraTidesWeb.GameLive do
         do: socket.assigns.trade_edited,
         else: MapSet.new()
 
+    defaults = GameQueries.trade_defaults(view, ship, socket.assigns.destination, limits)
+
     quantities =
       Map.new(
         for {key, maximum} <- limits, maximum > 0 do
           quantity =
-            if MapSet.member?(edited, key), do: Map.get(previous, key, maximum), else: maximum
+            if MapSet.member?(edited, key),
+              do: bounded_quantity(Map.get(previous, key, maximum), maximum),
+              else: Map.fetch!(defaults, key)
 
-          {key, bounded_quantity(quantity, maximum)}
+          {key, quantity}
         end
       )
 

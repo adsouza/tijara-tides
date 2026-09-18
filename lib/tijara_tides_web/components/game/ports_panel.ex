@@ -279,6 +279,13 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
     <% show_ship_columns = owns_ship_at_port?(@view.private, @selected_port) %>
     <% selected_ship_here =
       @ship && @ship["port"] == @selected_port && @ship["status"] != "sailing" %>
+    <% tanker_purchase_blocked =
+      @port_market_side == "buy" && selected_ship_here &&
+        @ship["status"] in ["loading", "unloading"] &&
+        @definitions.classes[@ship["class"]]["hold"] == "liquid" %>
+    <p :if={tanker_purchase_blocked} id="tanker-purchase-handling" class="mb-2 text-sm text-amber-300">
+      {gettext("Wait until the tanker finishes loading or unloading before buying liquid cargo.")}
+    </p>
     <% comparison_port =
       if @ship && @ship["status"] == "sailing",
         do: @ship["destination"],
@@ -522,11 +529,11 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                 <input
                   type="range"
                   name="quantity_slider"
-                  min={if available > 0, do: 1, else: 0}
+                  min={if side == "buy" or available <= 0, do: 0, else: 1}
                   max={available}
                   step="1"
                   value={quantity}
-                  disabled={available < 1}
+                  disabled={available < 1 || tanker_purchase_blocked}
                   aria-label={
                     gettext("%{side} %{cargo} quantity slider",
                       side: l10n(String.capitalize(side)),
@@ -539,15 +546,18 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                   type="number"
                   id={"quantity-#{side}-#{String.replace(good, " ", "-")}"}
                   name="quantity"
-                  min={if available > 0, do: 1, else: 0}
+                  min={if side == "buy" or available <= 0, do: 0, else: 1}
                   max={max(0, min(10_000, available))}
-                  disabled={available <= 0}
+                  disabled={available <= 0 || tanker_purchase_blocked}
                   value={quantity}
                   aria-label={gettext("%{cargo} quantity", cargo: cargo_name(good))}
                   class="w-16 rounded bg-slate-800 px-2"
                 />
                 <button
-                  disabled={available <= 0 || not is_nil(@ship["pending_side"])}
+                  disabled={
+                    tanker_purchase_blocked || quantity <= 0 || available <= 0 ||
+                      not is_nil(@ship["pending_side"])
+                  }
                   title={
                     if @ship["pending_side"],
                       do: gettext("Cancel the queued trade before placing another order."),

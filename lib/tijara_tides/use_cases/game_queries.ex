@@ -49,6 +49,9 @@ defmodule TijaraTides.UseCases.GameQueries do
 
   defdelegate purchase_total(quote, ship, item, quantity), to: TijaraTides.UseCases.MarketQueries
 
+  defdelegate trade_defaults(view, ship, destination, limits),
+    to: TijaraTides.UseCases.MarketQueries
+
   defdelegate trade_limits(view, ship, destination, catalogue),
     to: TijaraTides.UseCases.MarketQueries
 

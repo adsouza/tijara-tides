@@ -17,6 +17,10 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
       ship && ship["pending_side"] ->
         {:error, :berth_order_pending}
 
+      ship && ship["status"] in ["loading", "unloading"] && trade.side == "buy" &&
+          TijaraTides.Domain.Fleet.classes()[ship["class"]]["hold"] == "liquid" ->
+        {:error, :tanker_purchase_handling}
+
       ship && ship["status"] in ["loading", "unloading"] ->
         # Cargo and cash already reflect the committed handling operation. Validate
         # the next trade against those balances without changing that operation.

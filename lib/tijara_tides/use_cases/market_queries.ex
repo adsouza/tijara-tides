@@ -192,6 +192,25 @@ defmodule TijaraTides.UseCases.MarketQueries do
   def purchase_total(quote, ship, item, quantity),
     do: Trading.purchase_total(quote, ship, item, quantity)
 
+  def trade_defaults(view, ship, destination, limits) do
+    if ship && ship["status"] == "docked" && is_binary(destination) && destination != ship["port"] do
+      Map.new(limits, fn
+        {{"buy", good} = key, maximum} ->
+          buyer = view.markets[destination <> "|" <> good]
+
+          aboard =
+            Enum.sum(for batch <- ship["cargo"], batch["good"] == good, do: batch["quantity"])
+
+          {key, min(maximum, max(0, buyer_capacity(buyer) - aboard))}
+
+        entry ->
+          entry
+      end)
+    else
+      limits
+    end
+  end
+
   def trade_limits(view, ship, destination, catalogue) do
     if ship && ship["status"] in ["docked", "loading", "unloading"] && view.private do
       space = Fleet.capacity(ship, catalogue)

@@ -2558,3 +2558,6 @@ msgstr "اسم السفينة (اختياري):"
 
 msgid "Use a ship name between 1 and 80 characters, without control characters."
 msgstr "استخدم اسماً للسفينة يتراوح بين حرف واحد و80 حرفاً، دون محارف تحكم."
+
+msgid "Wait until the tanker finishes loading or unloading before buying liquid cargo."
+msgstr "انتظر حتى تنتهي الناقلة من التحميل أو التفريغ قبل شراء حمولة سائلة."

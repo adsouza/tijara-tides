@@ -151,6 +151,61 @@ defmodule TijaraTides.Domain.PortBerthsTest do
     refute ship["pending_side"]
   end
 
+  test "tankers must finish handling before placing another purchase", c do
+    for status <- ["loading", "unloading"], good <- ["crude_oil", "refined_fuel"] do
+      state =
+        TijaraTides.Domain.BerthFixture.update(c.state, "company:1", %{
+          class: "tanker",
+          status: status,
+          arrive_ms: 60_000
+        })
+
+      assert {:error, :tanker_purchase_handling} =
+               BerthAllocation.submit(
+                 state,
+                 c.account,
+                 %{trade("company:1") | good: good},
+                 c.catalogue
+               )
+
+      refute Game.get(state, "ships", "company:1")["pending_side"]
+    end
+
+    state = TijaraTides.Domain.BerthFixture.update(c.state, "company:1", %{class: "tanker"})
+    market = Game.get(state, "markets", "Jakarta|crude_oil")
+
+    state =
+      State.put(state, "markets", "Jakarta|crude_oil", %{market | "seller" => true, "stock" => 50})
+
+    assert {:ok, next, result} =
+             BerthAllocation.submit(
+               state,
+               c.account,
+               %{trade("company:1") | good: "crude_oil"},
+               c.catalogue
+             )
+
+    refute result["queued"]
+    assert Game.get(next, "ships", "company:1")["status"] == "loading"
+    market = Game.get(next, "markets", "Jakarta|crude_oil")
+
+    next =
+      State.put(next, "markets", "Jakarta|crude_oil", %{
+        market
+        | "buyer" => true,
+          "demand" => 50,
+          "budget" => 1_000_000
+      })
+
+    assert {:ok, _, %{"queued" => true}} =
+             BerthAllocation.submit(
+               next,
+               c.account,
+               %{trade("company:1") | good: "crude_oil", side: "sell", limit: 0},
+               c.catalogue
+             )
+  end
+
   for status <- ["loading", "unloading"], side <- ["buy", "sell"] do
     test "queue #{side} while #{status}, safely cancel, then finish both operations before sailing",
          c do
