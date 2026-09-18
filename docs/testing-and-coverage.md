@@ -6,6 +6,11 @@ check also reports desktop JavaScript helper line, branch and function coverage.
 CI runs the same commands and uploads reports as artifacts for each runtime or
 platform, including when a test or coverage threshold fails.
 
+The [mutation-testing pilot](mutation-testing-pilot.md) records the bounded Muex
+experiment and its expansion across finance, trading instructions, commit/replay,
+conflict recovery, and persistence failures. It records test improvements and the baseline and test-selection safeguards
+required before any mutation-score gate. Mutation testing remains opt-in.
+
 For a focused coverage run:
 
 ```sh

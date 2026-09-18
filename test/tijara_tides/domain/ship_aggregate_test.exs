@@ -109,6 +109,58 @@ defmodule TijaraTides.Domain.ShipAggregateTest do
     assert_raise ArgumentError, fn -> VisitOrder.record_fill(complete, 1, 0) end
   end
 
+  test "visit history defaults to visible while explicit archive state survives decoding" do
+    order = %VisitOrder{}
+    refute order.history_archived
+    legacy = order |> VisitOrder.to_row() |> Map.delete("history_archived")
+    refute VisitOrder.from_row(legacy).history_archived
+    assert VisitOrder.from_row(Map.put(legacy, "history_archived", true)).history_archived
+    refute VisitOrder.from_row(Map.put(legacy, "history_archived", false)).history_archived
+  end
+
+  test "fill status and positive quantity are independent admission requirements" do
+    order = %VisitOrder{
+      status: "planned",
+      quantity_mode: "fixed",
+      quantity: 5,
+      filled: 2,
+      spent: 60,
+      budget: 100
+    }
+
+    for status <- ["cancelled", "filled"],
+        do:
+          assert_raise(ArgumentError, fn ->
+            VisitOrder.record_fill(%{order | status: status}, 1, 0)
+          end)
+
+    for quantity <- [0, -1],
+        do: assert_raise(ArgumentError, fn -> VisitOrder.record_fill(order, quantity, 0) end)
+  end
+
+  test "maximum fills finish below a full batch and remain open at the batch limit" do
+    order = %VisitOrder{
+      status: "waiting",
+      quantity_mode: "maximum",
+      quantity: 30_000,
+      filled: 100,
+      spent: 50,
+      budget: nil
+    }
+
+    partial_batch = VisitOrder.record_fill(order, 9999, 20)
+    assert partial_batch.filled == 10_099
+    assert partial_batch.quantity == 10_099
+    assert partial_batch.spent == 70
+    assert partial_batch.status == "filled"
+
+    full_batch = VisitOrder.record_fill(order, 10_000, 20)
+    assert full_batch.filled == 10_100
+    assert full_batch.quantity == 30_000
+    assert full_batch.spent == 70
+    assert full_batch.status == "waiting"
+  end
+
   test "cargo decoding preserves every persisted field and rejects unrecognized fields" do
     row = %{
       "lot_id" => "lot:1",

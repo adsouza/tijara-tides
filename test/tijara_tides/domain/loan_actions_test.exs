@@ -35,6 +35,20 @@ defmodule TijaraTides.Domain.LoanActionsTest do
            ]
   end
 
+  test "repayment includes overdue and accrued interest at the available-cash boundary" do
+    overdue = %{loan() | interest_due: 277, principal_due: 500}
+
+    for {available, enabled?} <- [{10_399, false}, {10_400, true}, {10_401, true}] do
+      actions = CompanyFinance.loan_actions(%{company() | cash: available + 1000}, overdue)
+
+      # The overdue principal is already part of the remaining balance.
+      assert actions["payoff"] == 10_400
+      assert actions["repay_enabled"] == enabled?
+      refute actions["recast_allowed"]
+      refute actions["recast_enabled"]
+    end
+  end
+
   test "cash reservations and arrears consistently bound eligibility" do
     for free <- [222, 223, 224] do
       actions = CompanyFinance.loan_actions(%{company() | cash: free + 1000}, loan())

@@ -1,6 +1,6 @@
 defmodule TijaraTides.UseCases.ReplanTest do
   use ExUnit.Case, async: true
-  alias TijaraTides.UseCases.CommitExecutor
+  alias TijaraTides.UseCases.{CommandResult, CommitExecutor}
 
   defmodule Store do
     def reload(fun, game) when is_function(fun), do: fun.(game)
@@ -10,7 +10,11 @@ defmodule TijaraTides.UseCases.ReplanTest do
   end
 
   test "retries twice, then returns the latest snapshot without halting" do
-    reload = fn game -> {:ok, %{game | revision: game.revision + 1}} end
+    reload = fn game ->
+      # Fail on excess I/O immediately, even if a regression never ends the retry loop.
+      assert game.revision < 3
+      {:ok, %{game | revision: game.revision + 1}}
+    end
 
     assert {:error, :market_busy, %{revision: 3}} =
              CommitExecutor.replan(%{revision: 0, entities: %{}}, {Store, reload}, fn game ->
@@ -20,6 +24,16 @@ defmodule TijaraTides.UseCases.ReplanTest do
 
     for revision <- 0..2, do: assert_received({:attempt, ^revision})
     refute_received {:attempt, _}
+  end
+
+  test "an operation without a conflict keeps its original result and does not reload" do
+    game = %{revision: 7, entities: %{}}
+    result = %CommandResult{game: game, reply: %{"accepted" => true}, committed?: true}
+    store = {Store, fn _ -> flunk("an uncontested operation must not reload") end}
+
+    for reply <- [{:ok, result}, {:error, :insufficient_cash}] do
+      assert CommitExecutor.replan(game, store, fn ^game -> reply end) == reply
+    end
   end
 
   test "reload rebuilds bounded notice visibility on rejection and retry exhaustion without writes" do
@@ -36,7 +50,10 @@ defmodule TijaraTides.UseCases.ReplanTest do
 
       result =
         CommitExecutor.replan(fresh, {Store, reload}, fn state ->
-          if :atomics.add_get(calls, 1, 1) > 1 do
+          attempt = :atomics.add_get(calls, 1, 1)
+          assert attempt <= 3
+
+          if attempt > 1 do
             assert length(state.notices_by_account["owner"]) == 100
             assert hd(state.notices_by_account["owner"])["text"] == "Notice 105"
           end
