@@ -378,40 +378,47 @@ defmodule TijaraTides.Domain.CompanyFinance do
 
     state =
       Enum.sort(bills)
-      |> Enum.reduce(state, fn {_, bill}, state ->
+      |> Enum.reduce_while(state, fn {_, bill}, state ->
         c = get(state, :company, id)
         available = c.cash - c.reserved
 
-        if elem(bill, 0) == "operations" do
-          row = get(state, :bills, elem(bill, 1))
-          paid = min(available, row.remaining)
-
-          state =
-            if paid == row.remaining,
-              do: delete(state, :bills, row.id),
-              else:
-                put(
-                  state,
-                  :bills,
-                  row.id,
-                  row
-                  |> OperatingBill.pay(paid)
-                )
-
-          state
-          |> post(id, "operating_repayment", [
-            {"payables", paid},
-            {"cash_available", -paid}
-          ])
+        if available <= 0 do
+          {:halt, state}
         else
-          row = get(state, :installments, elem(bill, 1))
+          next =
+            if elem(bill, 0) == "operations" do
+              row = get(state, :bills, elem(bill, 1))
+              paid = min(available, row.remaining)
 
-          pay_loan(
-            state,
-            get(state, :loans, row.loan_id),
-            available,
-            row
-          )
+              state =
+                if paid == row.remaining,
+                  do: delete(state, :bills, row.id),
+                  else:
+                    put(
+                      state,
+                      :bills,
+                      row.id,
+                      row
+                      |> OperatingBill.pay(paid)
+                    )
+
+              state
+              |> post(id, "operating_repayment", [
+                {"payables", paid},
+                {"cash_available", -paid}
+              ])
+            else
+              row = get(state, :installments, elem(bill, 1))
+
+              pay_loan(
+                state,
+                get(state, :loans, row.loan_id),
+                available,
+                row
+              )
+            end
+
+          {:cont, next}
         end
       end)
 

@@ -8,6 +8,53 @@ defmodule TijaraTides.Domain.CompanyFinanceAggregateTest do
     %{"id" => "c", "cash" => 1000, "reserved" => 0, "unpaid" => 0, "profit" => 0}
   end
 
+  test "large unpaid books do no zero-value repayments and preserve arrears" do
+    bills =
+      for n <- 1..4630,
+          do: %Finance.OperatingBill{id: "b#{n}", company_id: "c", due_ms: n, remaining: 10}
+
+    root = %{
+      Finance.Rows.decode(company())
+      | cash: 100,
+        reserved: 100,
+        unpaid: 46_300,
+        bills: bills
+    }
+
+    {next, effects} = Finance.settle_finances(root, 5000)
+    assert next.bills == bills
+    assert next.unpaid == 46_300
+    assert next.arrears_since == 1
+    assert effects.journal == []
+    assert effects.children == []
+
+    {paid, effects} = Finance.settle_finances(%{root | cash: 125}, 5000)
+    assert paid.cash == 100
+    assert paid.unpaid == 46_275
+    assert Enum.map(Enum.take(paid.bills, 2), &{&1.id, &1.remaining}) == [{"b3", 5}, {"b4", 10}]
+    assert length(effects.journal) == 3
+  end
+
+  test "paying a large book scales below quadratic work" do
+    work = fn count ->
+      bills =
+        for n <- 1..count,
+            do: %Finance.OperatingBill{id: "b#{n}", company_id: "c", due_ms: n, remaining: 1}
+
+      root = %{Finance.Rows.decode(company()) | cash: count, unpaid: count, bills: bills}
+      {:reductions, before} = Process.info(self(), :reductions)
+      {paid, _} = Finance.settle_finances(root, count)
+      {:reductions, after_count} = Process.info(self(), :reductions)
+      assert paid.bills == []
+      assert paid.unpaid == 0
+      after_count - before
+    end
+
+    work.(10)
+    small = work.(1000)
+    assert work.(4000) < small * 8
+  end
+
   test "reserving cash prevents a later purchase from spending it" do
     finance = Finance.Rows.decode(company())
     reserved = Finance.apply_entries(finance, [{"cash_reserved", 800}, {"cash_available", -800}])
