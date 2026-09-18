@@ -37,6 +37,57 @@ for 14 days. These generated files remain ignored by Git.
   `desktop/server-url.mjs`. This is not coverage of the browser hooks or the Rust
   desktop application. Those areas have no coverage instrumentation in this setup.
 
+## Required branch and condition tests
+
+New or changed Elixir decisions must have behavioral tests covering every reachable
+branch and both outcomes of each independently evaluated condition. This is a
+review requirement today; automated branch/condition measurement is not yet
+implemented. Passing the 90% line gate does not satisfy this requirement by itself.
+
+- Cover both decision outcomes, including implicit `else` paths, applicable
+  `case`/`cond` and function clauses, guard acceptance/rejection, and `with`
+  success and failure paths.
+- For compound conditions, exercise each operand as true and false when it is
+  evaluated, plus short-circuit paths. A skipped operand is not a false outcome.
+  For `a and b`, use `(false, skipped)`, `(true, false)`, and `(true, true)`;
+  for `a or b`, use `(true, skipped)`, `(false, true)`, and `(false, false)`.
+  For truthy operators (`&&`/`||`), preserve and test their value-returning
+  semantics, including relevant `nil`/`false` inputs.
+- Assert observable results and state effects, not merely successful execution.
+  For rejected operations, check that protected state remains unchanged. For
+  numeric decisions, include values below, at, and above relevant boundaries.
+- In the PR, map changed decisions to named tests. Explain infeasible outcomes
+  with the invariant that makes them unreachable; do not silently omit them.
+  Changes without Elixir decisions can mark this requirement not applicable.
+
+Branch coverage and condition coverage are separate requirements. Neither implies
+all combinations or paths have been tested, nor does this policy claim MC/DC.
+Mutation testing complements these tests by checking whether deliberately wrong
+behavior is detected; a mutation score is not a branch or condition percentage.
+
+### Automated measurement acceptance criteria
+
+An automated gate remains required follow-up work. Before enabling it:
+
+1. Validate instrumentation on both CI Elixir/OTP combinations using fixtures
+   with known missed branches and conditions, including same-line expressions,
+   guards, pattern clauses, implicit alternatives, and short-circuit evaluation.
+   Verify that instrumented and ordinary execution preserve the same semantics.
+2. Report branch and condition metrics separately, with source locations and an
+   explicit inventory of unsupported constructs. Missing instrumentation or
+   reports must not count as covered; scoped results must identify their scope.
+3. Establish the existing-code baseline and enforce complete coverage of feasible
+   outcomes in new or changed decisions, with reviewed, documented exceptions.
+   Ratchet existing coverage without silently lowering the baseline.
+4. Run the same gate locally and in CI, include the disposable PostgreSQL tests,
+   and upload diagnostic reports even when the gate fails.
+
+The current [Erlang `cover` API](https://www.erlang.org/doc/apps/tools/cover.html)
+counts executable lines. Its clause-level coverage analysis still aggregates
+line counts; it does not establish full branch or condition coverage.
+[ExCoveralls](https://github.com/parroty/excoveralls) uses Erlang `cover`, so
+installing it alone does not implement this gate.
+
 ## Instruction branch scenarios
 
 The named cases in
