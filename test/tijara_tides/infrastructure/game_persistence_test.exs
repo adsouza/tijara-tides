@@ -2590,6 +2590,10 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert {:ok, reply} = GameServer.command(token, "replay-order", command, c.server)
     assert {:ok, ^reply} = GameServer.command(token, "replay-order", command, c.server)
     assert map_size(GameServer.snapshot(token, c.server).private["ship_instructions"]) == 3
+    # Direct server commands notify LiveView asynchronously. Drain both the
+    # in-flight refresh and its coalesced follow-up before clicking the new row.
+    render_async(view, 5_000)
+    render_async(view, 5_000)
     view |> element("#instruction-#{reply["instruction_id"]} button") |> render_click()
 
     quote = GameServer.preview(token, company <> ":1", "Jakarta", c.server)
