@@ -441,10 +441,9 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       end)
       |> Enum.filter(fn {_, old, data} -> data != old end)
 
-    for {id, old, data} <- pending do
-      check_market_version(repo, world, kind, id, old, before)
-      validate_entity!(kind, id, old, data)
-    end
+    check_market_versions(repo, world, kind, before, for({id, old, _} <- pending, old, do: id))
+
+    for {id, old, data} <- pending, do: validate_entity!(kind, id, old, data)
 
     fields = Enum.reject(@specs[kind], fn {_, column} -> column == "id" end)
     columns = ["world_id", "id" | Enum.map(fields, &elem(&1, 1))]
@@ -519,11 +518,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   defp delete_batch(_repo, _world, _kind, _before, []), do: :ok
 
   defp delete_batch(repo, world, kind, before, deletes) do
-    ids =
-      for {{_, id}, _} <- deletes, get_in(before, [:entities, kind, id]) != nil do
-        check_market_version(repo, world, kind, id, get_in(before, [:entities, kind, id]), before)
-        id
-      end
+    ids = for {{_, id}, _} <- deletes, get_in(before, [:entities, kind, id]) != nil, do: id
+    check_market_versions(repo, world, kind, before, ids)
 
     # Cargo holdings are keyed by their owner's column, which @children already names, so a
     # deleted owner takes its holdings with it without restating the column here.
@@ -568,19 +564,29 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     :ok
   end
 
-  defp check_market_version(repo, world, "markets", id, old, before) when not is_nil(old) do
-    expected = Map.get(Map.get(before, :market_versions, %{}), id, 0)
+  # Every market a commit touches is claimed in one statement. A tick that crosses a
+  # replenishment interval changes all of them, so a compare-and-set per row would cost a
+  # round trip per market inside the single transaction the whole tick commits in.
+  defp check_market_versions(repo, world, "markets", before, ids) do
+    versions = Map.get(before, :market_versions, %{})
+    expected = Enum.map(ids, &{&1, Map.get(versions, &1, 0)})
 
-    result =
-      repo.query!(
-        "UPDATE game_markets SET version=version+1 WHERE world_id=$1 AND id=$2 AND version=$3",
-        [world, id, expected]
-      )
+    if expected != [] do
+      result =
+        repo.query!(
+          "UPDATE game_markets m SET version=m.version+1 FROM unnest($2::text[],$3::bigint[]) AS expected(id,version) WHERE m.world_id=$1 AND m.id=expected.id AND m.version=expected.version",
+          [world, Enum.map(expected, &elem(&1, 0)), Enum.map(expected, &elem(&1, 1))]
+        )
 
-    if result.num_rows != 1, do: repo.rollback(:market_conflict)
+      # A market whose version moved under this commit claims no row, so a short count is a
+      # conflict. Which market lost is not something the caller can act on differently.
+      if result.num_rows != length(expected), do: repo.rollback(:market_conflict)
+    end
+
+    :ok
   end
 
-  defp check_market_version(_, _, _, _, _, _), do: :ok
+  defp check_market_versions(_, _, _, _, _), do: :ok
 
   # Holdings are written for every changed parent at once, not one parent at a time.
   # Cargo leaves a hold oldest first, which renumbers each surviving batch, so a

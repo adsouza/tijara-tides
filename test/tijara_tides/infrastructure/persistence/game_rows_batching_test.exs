@@ -10,11 +10,19 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
     def query!(sql, params) do
       send(self(), {:sql, sql, params})
 
-      # Cargo lot identity is read back before a holding is written. Answer for whichever
-      # lots the statement names, so these tests measure round trips and not missing data.
-      if String.contains?(sql, "game_cargo_lots"),
-        do: %{rows: Enum.map(lots(List.last(params)), &[&1, "rice", 999]), num_rows: 1},
-        else: %{rows: [], num_rows: 1}
+      # Cargo lot identity is read back before a holding is written, and the market version
+      # check counts the rows it claimed. Answer for whichever rows the statement names, so
+      # these tests measure round trips and not missing data.
+      cond do
+        String.contains?(sql, "game_cargo_lots") ->
+          %{rows: Enum.map(lots(List.last(params)), &[&1, "rice", 999]), num_rows: 1}
+
+        String.contains?(sql, "game_markets") and String.contains?(sql, "version") ->
+          %{rows: [], num_rows: length(lots(Enum.at(params, 1)))}
+
+        true ->
+          %{rows: [], num_rows: 1}
+      end
     end
 
     defp lots(ids) when is_list(ids), do: ids
@@ -175,5 +183,40 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
     # Renumbering every survivor makes those rows genuinely dirty. What must not grow
     # with them is the number of statements it takes to write them.
     assert cost(50, &oldest/0) == cost(50, &newest/0)
+  end
+
+  defp market(stock) do
+    %{
+      "port" => "Jakarta",
+      "good" => "lumber",
+      "merchant" => false,
+      "seller" => true,
+      "buyer" => false,
+      "stock" => stock,
+      "demand" => 0,
+      "budget" => 0,
+      "last_production" => 0
+    }
+  end
+
+  defp market_cost(markets) do
+    before = %{
+      entities: %{"markets" => Map.new(1..markets, &{"m#{&1}", market(10)})},
+      market_versions: Map.new(1..markets, &{"m#{&1}", 3})
+    }
+
+    changed =
+      Enum.reduce(1..markets, before, fn n, acc ->
+        State.put(acc, "markets", "m#{n}", market(11))
+      end)
+
+    GameRows.write(CountingRepo, "world", before, changed)
+    length(sql())
+  end
+
+  # Every market changes on a tick that crosses a replenishment interval, so the version
+  # check is the statement most exposed to a round trip per row.
+  test "market version checks cost the same for ten markets as for a hundred" do
+    assert market_cost(10) == market_cost(100)
   end
 end

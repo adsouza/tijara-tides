@@ -1358,6 +1358,36 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              ]).rows
   end
 
+  test "a stale market rolls back the commit even when the others are current", c do
+    before = :sys.get_state(c.server).game
+    [{first, one}, {second, two}] = Enum.take(before.entities["markets"], 2)
+
+    bump = fn state, id, market, increment ->
+      TijaraTides.Domain.State.put(state, "markets", id, %{
+        market
+        | "stock" => market["stock"] + increment
+      })
+    end
+
+    winner = TijaraTides.UseCases.CommitPreparation.prepare(before, bump.(before, first, one, 1))
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, winner)
+
+    # The first market has moved on; the second is still current. Claiming both versions in
+    # one statement wins one row of the two it asks for, and a short count has to fail the
+    # whole commit rather than let the current half through.
+    stale = bump.(bump.(before, first, one, 2), second, two, 2)
+    stale = TijaraTides.UseCases.CommitPreparation.prepare(before, stale)
+
+    assert {:error, :market_conflict} =
+             GameStore.commit(Repo, c.world_id, before.epoch, before, stale)
+
+    assert [[two["stock"], 0]] ==
+             Repo.query!(
+               "SELECT stock_lots,version FROM game_markets WHERE world_id=$1 AND id=$2",
+               [c.world_id, second]
+             ).rows
+  end
+
   test "a conflicting market insert cannot overwrite stock or bypass its version", c do
     before = :sys.get_state(c.server).game
     {id, market} = Enum.find(before.entities["markets"], fn {_, row} -> row["batches"] == [] end)

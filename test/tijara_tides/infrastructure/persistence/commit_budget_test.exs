@@ -13,7 +13,7 @@ defmodule TijaraTides.Infrastructure.Persistence.CommitBudgetTest do
 
   # Known exceptions, each one statement per row today. Batching them is tracked as its own
   # work; deleting an entry here is what tightens this test once that lands.
-  @unbatched ["UPDATE game_markets SET version=version+1", "SELECT post_game_journal"]
+  @unbatched ["SELECT post_game_journal"]
 
   # Bind parameters are capped per statement, so a batch may legitimately be chunked. No
   # commit in this test comes near that cap.
