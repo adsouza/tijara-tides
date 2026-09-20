@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Run the concurrent-client saturation harness against a disposable PostgreSQL cluster."""
+"""Attribute what a single command spends its time on, against a disposable PostgreSQL cluster."""
 import argparse
 import subprocess
 from pathlib import Path
 
 import disposable_postgres
 
-parser=argparse.ArgumentParser(description='Profile one world tick against a disposable PostgreSQL cluster.')
+parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--commands', type=int, default=100, help='Borrow/repay rounds measured.')
 parser.add_argument('--ships', type=int, default=6, help='Maximum hulls per company.')
 parser.add_argument('--companies', type=int, default=150, help='Companies seeded before profiling.')
