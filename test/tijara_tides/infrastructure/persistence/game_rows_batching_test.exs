@@ -119,49 +119,61 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
       "unit_cost" => 5
     }
 
-  defp laden(count, cargo) do
+  defp laden(count) do
     %{
       entities: %{
-        "ships" => Map.new(1..count, &{"s#{&1}", Map.put(ship("s#{&1}", 0), "cargo", cargo.(&1))})
+        "ships" => Map.new(1..count, &{"s#{&1}", Map.put(ship("s#{&1}", 0), "cargo", full())})
       }
     }
   end
 
-  defp reload(before, count, cargo) do
-    Enum.reduce(1..count, before, fn n, acc ->
-      State.put(acc, "ships", "s#{n}", Map.put(ship("s#{n}", 0), "cargo", cargo.(n)))
-    end)
-  end
-
   defp full, do: Enum.map(1..10, &batch/1)
 
+  # Cargo leaves a hold oldest first, so the head is the case production runs; the tail
+  # is the case a test reaches for. They must cost the same.
+  defp oldest, do: tl(full())
+  defp newest, do: List.update_at(full(), 9, &%{&1 | "quantity" => 7})
+
+  defp cost(ships, cargo) do
+    before = laden(ships)
+
+    changed =
+      Enum.reduce(1..ships, before, fn n, acc ->
+        State.put(acc, "ships", "s#{n}", Map.put(ship("s#{n}", 0), "cargo", cargo.()))
+      end)
+
+    GameRows.write(CountingRepo, "world", before, changed)
+    length(sql())
+  end
+
   test "changing cargo on many ships issues one statement per table" do
-    before = laden(50, fn _ -> full() end)
-    changed = reload(before, 50, fn _ -> List.update_at(full(), 9, &%{&1 | "quantity" => 7}) end)
+    before = laden(50)
+
+    changed =
+      Enum.reduce(1..50, before, fn n, acc ->
+        State.put(acc, "ships", "s#{n}", Map.put(ship("s#{n}", 0), "cargo", newest()))
+      end)
 
     GameRows.write(CountingRepo, "world", before, changed)
     written = sql()
 
-    # The ship rows, the lot identity check, the holdings and their pruning: four
-    # statements, whatever the number of ships. A round trip per row is the regression.
-    assert length(written) <= 4, "expected batched children, got #{length(written)} statements"
+    # The ship rows, the lot identity check, the holdings and their pruning.
+    assert length(written) == 4, "expected batched children, got #{length(written)} statements"
     assert Enum.count(written, &(&1 =~ "INSERT INTO game_cargo_holdings")) == 1
     assert Enum.count(written, &(&1 =~ "FROM game_cargo_lots")) == 1
+    assert Enum.count(written, &(&1 =~ "DELETE FROM game_cargo_holdings")) == 1
+  end
+
+  # Comparing two fleet sizes catches a round trip per row without anyone having to guess
+  # the right ceiling for one size, which is what a hardcoded count really asserts.
+  test "cargo writes cost the same for ten ships as for a hundred" do
+    assert cost(10, &newest/0) == cost(100, &newest/0)
+    assert cost(10, &oldest/0) == cost(100, &oldest/0)
   end
 
   test "consuming the oldest batch costs no more round trips than changing the newest" do
-    before = laden(50, fn _ -> full() end)
-
-    tail = reload(before, 50, fn _ -> List.update_at(full(), 9, &%{&1 | "quantity" => 7}) end)
-    GameRows.write(CountingRepo, "world", before, tail)
-    newest = length(sql())
-
-    # Cargo sells oldest first, which renumbers every surviving batch. Those rows are
-    # genuinely dirty; what must not scale with them is the number of statements.
-    head = reload(before, 50, fn _ -> tl(full()) end)
-    GameRows.write(CountingRepo, "world", before, head)
-    oldest = length(sql())
-
-    assert oldest == newest, "head removal cost #{oldest} statements against #{newest}"
+    # Renumbering every survivor makes those rows genuinely dirty. What must not grow
+    # with them is the number of statements it takes to write them.
+    assert cost(50, &oldest/0) == cost(50, &newest/0)
   end
 end
