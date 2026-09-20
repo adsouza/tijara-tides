@@ -112,49 +112,57 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 "Choose a port in the Ports panel to buy there. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew."
               )}
             </p>
-            <button
-              type="button"
-              phx-click={
-                JS.set_attribute({"open", ""}, to: "#company-menu")
-                |> JS.push("report-close")
-              }
-              class="mb-2 rounded border border-teal-600 px-3 py-1"
-            >{gettext("Arrange a loan")}</button>
             <.form
-              :for={{class, spec} <- Enum.sort(@definitions.classes)}
               for={%{}}
-              id={"shipyard-" <> class}
+              id="shipyard-purchase"
               phx-submit="purchase-ship"
               phx-hook="ExchangeDraft"
-              class="my-2 flex flex-wrap items-center justify-between gap-2"
+              class="my-2"
             >
               <input type="hidden" name="request_id" value={@request_id} />
-              <input type="hidden" name="class" value={class} />
-              <input type="hidden" name="price_limit" value={spec["price"]} />
-              <span>{l10n(spec["name"])} · {money(spec["price"])}<br /><small>
-                {gettext("%{value1} tonnes · %{value2} m³ capacity",
-                  value1: display_number(div(spec["weight"], 1000)),
-                  value2: display_number(div(spec["volume"], 1000))
-                )}
-              </small></span>
-              <label class="flex items-center gap-2 text-sm">
-                {gettext("Ship name (optional):")}
-                <input
-                  type="text"
-                  name="name"
-                  maxlength="80"
-                  placeholder={gettext("Leave blank for an automatic name")}
-                  class="block rounded bg-slate-800 px-2 py-1"
-                />
-              </label>
-              <button
-                disabled={
-                  spec["price"] >
-                    @view.private["company"]["cash"] - @view.private["company"]["reserved"]
-                }
-                phx-disable-with={gettext("Buying…")}
-                class="rounded bg-teal-700 px-3 py-1 disabled:opacity-40"
-              >{gettext("Buy ship")}</button>
+              <div class="mb-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  phx-click={
+                    JS.set_attribute({"open", ""}, to: "#company-menu")
+                    |> JS.push("report-close")
+                  }
+                  class="rounded border border-teal-600 px-3 py-1"
+                >{gettext("Arrange a loan")}</button>
+                <label class="flex max-w-full flex-wrap items-center gap-2 text-sm">
+                  {gettext("Ship name (optional):")}
+                  <input
+                    type="text"
+                    name="name"
+                    maxlength="80"
+                    placeholder={gettext("Leave blank for an automatic name")}
+                    class="block w-[34ch] max-w-full shrink-0 rounded bg-slate-800 px-2 py-1"
+                  />
+                </label>
+              </div>
+              <div
+                :for={{class, spec} <- Enum.sort(@definitions.classes)}
+                class="my-2 flex flex-wrap items-center justify-between gap-2"
+              >
+                <input type="hidden" name={"price_limits[" <> class <> "]"} value={spec["price"]} />
+                <span>{l10n(spec["name"])} · {money(spec["price"])}<br /><small>
+                  {gettext("%{value1} tonnes · %{value2} m³ capacity",
+                    value1: display_number(div(spec["weight"], 1000)),
+                    value2: display_number(div(spec["volume"], 1000))
+                  )}
+                </small></span>
+                <button
+                  type="submit"
+                  name="class"
+                  value={class}
+                  disabled={
+                    spec["price"] >
+                      @view.private["company"]["cash"] - @view.private["company"]["reserved"]
+                  }
+                  phx-disable-with={gettext("Buying…")}
+                  class="rounded bg-teal-700 px-3 py-1 disabled:opacity-40"
+                >{gettext("Buy ship")}</button>
+              </div>
             </.form>
           </details>
 

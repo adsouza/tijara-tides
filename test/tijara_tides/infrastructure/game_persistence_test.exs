@@ -3076,11 +3076,27 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert empty.private["ships"] == %{}
     assert empty.private["company"]["cash"] == 0
     assert empty.private["finance"]["available"] == 25_000_000
-    assert has_element?(view, "#shipyard-freighter button[disabled]")
+    assert has_element?(view, "#shipyard-purchase button[value=freighter][disabled]")
+
+    assert render(view)
+           |> LazyHTML.from_fragment()
+           |> LazyHTML.query("#shipyard input[name=name]")
+           |> Enum.count() == 1
+
     view |> form("#loan-form", %{"amount" => "200000"}) |> render_submit()
     render_change(view, "port", %{"id" => "Jakarta"})
-    view |> form("#shipyard-freighter", %{"name" => "Aurora"}) |> render_submit()
-    for _ <- 1..2, do: view |> form("#shipyard-freighter") |> render_submit()
+
+    view
+    |> form("#shipyard-purchase", %{"name" => "Aurora"})
+    |> put_submitter("#shipyard-purchase button[value=freighter]")
+    |> render_submit()
+
+    for _ <- 1..2,
+        do:
+          view
+          |> form("#shipyard-purchase")
+          |> put_submitter("#shipyard-purchase button[value=freighter]")
+          |> render_submit()
 
     custom =
       GameServer.snapshot(token, server).private["ships"]
@@ -3674,7 +3690,11 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     render_change(view, "port", %{"id" => "Jakarta"})
 
     for class <- ["reefer", "reefer", "freighter"],
-        do: view |> form("#shipyard-" <> class) |> render_submit()
+        do:
+          view
+          |> form("#shipyard-purchase")
+          |> put_submitter("#shipyard-purchase button[value=#{class}]")
+          |> render_submit()
 
     render_change(view, "preview", %{"destination" => "Singapore"})
     assert has_element?(view, "#port-selector[data-selected='Jakarta']")

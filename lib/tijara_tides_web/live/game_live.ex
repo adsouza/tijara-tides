@@ -446,7 +446,7 @@ defmodule TijaraTidesWeb.GameLive do
       "name" => params["name"],
       "class" => params["class"],
       "port" => socket.assigns.selected_port,
-      "price_limit" => integer(params["price_limit"]),
+      "price_limit" => integer(params["price_limits"][params["class"]]),
       "request_id" => params["request_id"]
     })
   end
@@ -830,7 +830,7 @@ defmodule TijaraTidesWeb.GameLive do
       {:ok, result} ->
         socket =
           if command["action"] == "purchase_ship",
-            do: push_event(socket, "draft-reset", %{id: "shipyard-" <> command["class"]}),
+            do: push_event(socket, "draft-reset", %{id: "shipyard-purchase"}),
             else: socket
 
         socket =
