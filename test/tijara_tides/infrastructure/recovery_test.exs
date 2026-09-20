@@ -6,6 +6,11 @@ defmodule TijaraTides.Infrastructure.RecoveryTest do
     owner = Process.whereis(WorldServer)
     endpoint = Process.whereis(TijaraTidesWeb.Endpoint)
     endpoint_ref = Process.monitor(endpoint)
+
+    # Monitor setup is asynchronous. A round trip to the same endpoint PID
+    # ensures it has processed the monitor before the owner triggers shutdown.
+    Supervisor.which_children(endpoint)
+
     pubsub = Process.whereis(TijaraTides.PubSub)
 
     Process.exit(owner, :kill)
@@ -14,8 +19,14 @@ defmodule TijaraTides.Infrastructure.RecoveryTest do
     # This synchronous call waits until the supervisor finishes restarting children.
     children = Supervisor.which_children(TijaraTides.Supervisor)
     assert {WorldServer, new_owner, :worker, _} = List.keyfind(children, WorldServer, 0)
+    assert is_pid(new_owner)
     assert new_owner != owner
-    assert Process.whereis(TijaraTidesWeb.Endpoint) != endpoint
+
+    assert {TijaraTidesWeb.Endpoint, new_endpoint, :supervisor, _} =
+             List.keyfind(children, TijaraTidesWeb.Endpoint, 0)
+
+    assert is_pid(new_endpoint)
+    assert new_endpoint != endpoint
     assert Process.whereis(TijaraTides.PubSub) == pubsub
     assert %{connections: 0, revision: 0} = WorldServer.snapshot()
   end
