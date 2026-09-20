@@ -63,8 +63,11 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      # Verbose, because the bundler runs bundle_dmg.sh with its output swallowed: a disk
+      # image failure otherwise reports only "failed to run bundle_dmg.sh" with no cause,
+      # and the script exits immediately on any hdiutil detach error that is not EBUSY.
       - name: Build native packages
-        run: npm run desktop:build -- --ci --bundles ${{ matrix.bundles }} -- --locked
+        run: npm run desktop:build -- --ci --verbose --bundles ${{ matrix.bundles }} -- --locked
       - name: Verify and package Linux artifacts
         if: runner.os == 'Linux'
         run: |
