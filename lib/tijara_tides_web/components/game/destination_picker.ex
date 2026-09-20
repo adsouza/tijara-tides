@@ -52,11 +52,18 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
               class="rounded border px-3 py-1"
             >{gettext("Close")}</button>
           </div>
-          <p id="destination-picker-help" class="my-3 text-xs text-slate-400">
-            {gettext(
-              "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound and red return. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
-            )}
-          </p>
+          <details
+            id="destination-picker-about"
+            phx-mounted={JS.ignore_attributes(["open"])}
+            class="my-3 text-xs text-slate-400"
+          >
+            <summary class="cursor-pointer">{gettext("About these estimates")}</summary>
+            <p id="destination-picker-help" class="mt-2">
+              {gettext(
+                "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound and red return. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
+              )}
+            </p>
+          </details>
           <div class="mb-3 flex flex-wrap gap-4 text-sm">
             <span class="text-green-400">■ {gettext("Cargo aboard")}</span>
             <span class="text-green-400">● {gettext("Outbound")}</span>

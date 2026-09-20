@@ -106,6 +106,9 @@ msgstr "عن التقارير المالية"
 msgid "About repeating routes"
 msgstr "عن المسارات المتكررة"
 
+msgid "About these estimates"
+msgstr "عن هذه التقديرات"
+
 msgid "About this port"
 msgstr "عن هذا الميناء"
 
