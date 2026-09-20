@@ -40,6 +40,89 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "pure command exceptions preserve readiness, durable state and the next valid command",
+       c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "company",
+        %{
+          "action" => "company",
+          "name" => "Recovery",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    :ok = GameServer.connect(token, c.server)
+    ship_id = GameServer.snapshot(token, c.server).private["ships"] |> Map.keys() |> hd()
+
+    # Inject a different supply invariant violation so this test still exercises
+    # exception containment after the seller eligibility bug has been fixed.
+    :sys.replace_state(c.server, fn state ->
+      put_in(state.catalogue["goods"]["lumber"]["id"], "grain")
+    end)
+
+    before = :sys.get_state(c.server)
+    durable = Repo.query!("SELECT revision FROM game_worlds WHERE id=$1", [c.world_id]).rows
+    GameServer.subscribe()
+
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        assert {:error, :command_failed} =
+                 GameServer.command(
+                   token,
+                   "bad-purchase",
+                   %{
+                     "action" => "buy",
+                     "ship" => ship_id,
+                     "good" => "lumber",
+                     "quantity" => 1,
+                     "limit" => 1_000_000,
+                     "destination" => "Singapore"
+                   },
+                   c.server
+                 )
+      end)
+
+    assert log =~ "Market cannot supply"
+    after_failure = :sys.get_state(c.server)
+    assert after_failure.game == before.game
+    assert after_failure.projection == before.projection
+    assert after_failure.active
+    assert Process.read_timer(after_failure.timer) != false
+    assert GameServer.readiness(c.server) == :ready
+
+    assert Repo.query!("SELECT revision FROM game_worlds WHERE id=$1", [c.world_id]).rows ==
+             durable
+
+    assert Repo.query!(
+             "SELECT request_id FROM game_receipts WHERE world_id=$1 AND request_id=$2",
+             [c.world_id, "bad-purchase"]
+           ).rows == []
+
+    refute_receive {:game_changed, _}, 10
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "valid-after-error",
+               %{"action" => "locale", "locale" => "ar"},
+               c.server
+             )
+
+    assert_receive {:game_changed, _}
+    assert GameServer.readiness(c.server) == :ready
+
+    assert Repo.query!(
+             "SELECT request_id FROM game_receipts WHERE world_id=$1 AND request_id=$2",
+             [c.world_id, "valid-after-error"]
+           ).rows == [["valid-after-error"]]
+  end
+
   test "a busy initialized owner remains ready without servicing its mailbox", %{server: server} do
     assert GameServer.readiness(server) == :ready
     :ok = :sys.suspend(server)
@@ -884,7 +967,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#reroute-selector option[value=Jakarta][selected]")
     assert has_element?(view, "button[phx-click=sail]", "Confirm reroute")
     send(view.pid, {:game_changed, 0})
-    render_async(view)
+    # This waits for database-backed refresh, not a 100ms latency contract.
+    render_async(view, 5_000)
     assert has_element?(view, "#reroute-selector option[value=Jakarta][selected]")
     render_click(view, "sail", %{"request_id" => "divert"})
     assert GameServer.snapshot(token, c.server).private["ships"][ship]["destination"] == "Jakarta"

@@ -2564,3 +2564,6 @@ msgstr "انتظر حتى تنتهي الناقلة من التحميل أو ا�
 
 msgid "Thinking…"
 msgstr "جارٍ التفكير…"
+
+msgid "That command could not be completed. The game is still running. Please contact the operator if this keeps happening."
+msgstr "تعذّر إكمال هذا الأمر. لا تزال اللعبة تعمل. يُرجى التواصل مع المشغّل إذا تكرر ذلك."

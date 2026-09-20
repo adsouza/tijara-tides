@@ -1,5 +1,6 @@
 defmodule TijaraTides.UseCases.GameCommandsTest do
   use ExUnit.Case, async: true
+  import ExUnit.CaptureLog
   alias TijaraTides.Domain.Game
   alias TijaraTides.Infrastructure.GameCatalogue
   alias TijaraTides.UseCases.{CommandRequest, GameCommands, WorldProjection, GameQueries}
@@ -8,6 +9,8 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
     @behaviour TijaraTides.UseCases.CommandStore
     def reload(ops, game), do: ops.reload.(game)
     def receipt(ops, account, id, fingerprint), do: ops.receipt.(account, id, fingerprint)
+
+    def allocate_lot_ids(%{allocate: allocate}, count), do: allocate.(count)
 
     def allocate_lot_ids(_, count),
       do: Enum.map(1..count, fn _ -> "test-lot:#{System.unique_integer([:positive])}" end)
@@ -172,6 +175,107 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
 
     expired = %{c | context: %{c.context | wall_ms: 366 * 86_400_000}, invitation: no_invitation}
     assert {:error, :invalid_session} = run(expired, no_access)
+  end
+
+  test "pure planning exceptions reject without committing and retain diagnostic evidence", c do
+    c = trading(c)
+    broken = put_in(c.context.catalogue["goods"]["lumber"]["id"], "grain")
+
+    ops = %{
+      receipt: fn _, _, _ -> :new end,
+      commit: fn _, _, _ -> flunk("a failed plan must not persist or write a receipt") end
+    }
+
+    log = capture_log(fn -> assert {:error, :command_failed} = run(broken, ops) end)
+    assert log =~ "Market cannot supply"
+    assert log =~ "PortCargoMarket.supply/5"
+    assert length(Regex.scan(~r/Command planning failed/, log)) == 1
+
+    # Allocation exhaustion must still reach its existing pre-commit retry.
+    ops = %{
+      ops
+      | commit: fn before, _, _ ->
+          assert before == c.game
+          {:ok, :ok}
+        end
+    }
+
+    assert {:ok, %{committed?: true}} = run(c, ops)
+  end
+
+  test "planning exceptions after conflict reload retain the refreshed world", c do
+    c = trading(c)
+    market = Game.get(c.game, "markets", "Jakarta|lumber")
+    # An invalid row causes a domain codec exception only on the retry.
+    fresh =
+      TijaraTides.Domain.State.put(
+        c.game,
+        "markets",
+        "Jakarta|lumber",
+        Map.delete(market, "seller")
+      )
+
+    calls = :atomics.new(1, [])
+
+    ops = %{
+      receipt: fn _, _, _ -> :new end,
+      commit: fn _, _, _ ->
+        :atomics.add_get(calls, 1, 1)
+        {:error, :market_conflict}
+      end,
+      reload: fn _ -> {:ok, fresh} end
+    }
+
+    capture_log(fn ->
+      assert {:error, :command_failed, refreshed} = run(c, ops)
+      assert refreshed.entities == fresh.entities
+    end)
+
+    assert :atomics.get(calls, 1) == 1
+  end
+
+  test "exceptions from receipt reads, allocation and commit are never treated as safe rejections",
+       c do
+    c = trading(c)
+
+    for phase <- [:receipt, :allocate, :commit] do
+      ops = %{
+        receipt: fn _, _, _ -> if phase == :receipt, do: raise("receipt failed"), else: :new end,
+        allocate: fn count ->
+          if phase == :allocate, do: raise("allocation failed")
+          Enum.map(1..count, &"allocated:#{&1}")
+        end,
+        commit: fn _, _, _ -> raise "commit failed" end
+      }
+
+      message = if phase == :allocate, do: "allocation failed", else: "#{phase} failed"
+      assert_raise RuntimeError, message, fn -> run(c, ops) end
+    end
+  end
+
+  defp trading(c) do
+    {:ok, game, _} =
+      TijaraTides.CompanyFixture.execute(
+        c.game,
+        Game.get(c.game, "accounts", "account"),
+        c.request.payload,
+        c.context,
+        c.context.catalogue
+      )
+
+    request = %{
+      c.request
+      | payload: %{
+          "action" => "buy",
+          "ship" => "company:1",
+          "good" => "lumber",
+          "quantity" => 1,
+          "limit" => 1_000_000,
+          "destination" => "Singapore"
+        }
+    }
+
+    %{c | game: TijaraTides.Domain.Journal.clear(game), request: request}
   end
 
   defp run(c, ops),

@@ -68,6 +68,23 @@ Domain errors remain tagged results, and `UseCases.CommitExecutor` owns conflict
 reload/replan. Neither logging nor exception translation retries writes or turns
 unexpected exceptions into successful operations.
 
+Player command planning has a narrower recovery boundary inside `GameCommands`:
+an exception from the pure domain calculation discards the immutable candidate,
+logs the redacted exception and stack through `Observation`, and returns
+`:command_failed` while preserving readiness and progression. This has distinct
+player copy and an operation-log reason from `:internal_error`, which still means
+the owner paused after an exception outside pure planning. A rejected plan
+does not commit game effects or a command receipt. After a market-conflict reload,
+the rejection retains the refreshed world. `LotIdsExhausted` still propagates to
+the existing allocation retry. Receipt reads, sequence allocation, commit
+preparation, persistence, projection acceptance and lifecycle/progression failures
+remain outside this rescue; uncertain durable outcomes still pause the owner.
+
+Market quotes expose executable supply and demand, not all physical inventory.
+In particular, a factory input market can hold stock with `seller=false`; those
+inputs remain available for manufacturing but its quoted purchase stock is zero.
+Trade settlement also checks seller/buyer eligibility independently of quotes.
+
 ## Monitoring and profiling
 
 `GET /metrics` exposes process-local Prometheus text metrics through the existing

@@ -15,6 +15,14 @@ defmodule TijaraTides.Infrastructure.OperationBoundaryTest do
     assert {:reply, {:error, :insufficient_funds}, original} = call({:error, :insufficient_funds})
     assert original == state()
 
+    log =
+      capture_log(fn ->
+        assert {:reply, {:error, :command_failed}, original} = call({:error, :command_failed})
+        assert original == state()
+      end)
+
+    assert log =~ "reason=command_failed"
+
     assert {:reply, {:error, :market_busy}, %{game: :fresh, active: true, status: :ready}} =
              call({:error, :market_busy, :fresh})
 
@@ -68,6 +76,20 @@ defmodule TijaraTides.Infrastructure.OperationBoundaryTest do
 
     assert_received {:exception, :report_query}
     refute_received {:exception, :report_query}
+  end
+
+  test "acceptance failure after a successful commit still pauses the owner" do
+    capture_log(fn ->
+      assert {:reply, {:error, :internal_error},
+              %{game: :original, active: false, status: :unavailable}} =
+               Boundary.call(
+                 :command,
+                 state(),
+                 fn -> {:ok, %{reply: :done, game: :committed}} end,
+                 fn _, _ -> raise ArgumentError, "projection failed after commit" end,
+                 &refresh/2
+               )
+    end)
   end
 
   test "exits and throws are not converted into recoverable responses" do

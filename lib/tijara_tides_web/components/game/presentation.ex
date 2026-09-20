@@ -436,6 +436,10 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       command_payload_too_large:
         gettext("The command payload is too large (maximum 4096 bytes)."),
       invalid_session: gettext("Your session is invalid or has expired. Please sign in again."),
+      command_failed:
+        gettext(
+          "That command could not be completed. The game is still running. Please contact the operator if this keeps happening."
+        ),
       internal_error:
         gettext("The world paused after an internal error. Please contact the operator."),
       market_busy: gettext("The market is changing quickly. Please try again."),

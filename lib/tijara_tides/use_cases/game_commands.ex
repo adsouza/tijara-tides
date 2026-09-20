@@ -51,7 +51,7 @@ defmodule TijaraTides.UseCases.GameCommands do
           case TijaraTides.UseCases.LotAllocation.run(
                  game,
                  {store, storage},
-                 &execute(&1, account, request.payload, context)
+                 &plan(&1, account, request.payload, context)
                ) do
             {:ok, changed, result} ->
               receipt = {account["id"], request.id, request.fingerprint, result}
@@ -71,6 +71,21 @@ defmodule TijaraTides.UseCases.GameCommands do
           end
       end
     end
+  end
+
+  # Only pure command planning is recoverable. Receipt reads, lot allocation,
+  # commit preparation, persistence and acceptance remain outside this rescue:
+  # their failures may require stopping or restoring the owner. Discard the
+  # immutable candidate; no command effects or receipt have been committed.
+  defp plan(game, account, payload, context) do
+    execute(game, account, payload, context)
+  rescue
+    error in TijaraTides.Domain.LotIdsExhausted ->
+      reraise error, __STACKTRACE__
+
+    error ->
+      TijaraTides.UseCases.Observation.command_exception(error, __STACKTRACE__)
+      {:error, :command_failed}
   end
 
   defp validate_payload(payload) do

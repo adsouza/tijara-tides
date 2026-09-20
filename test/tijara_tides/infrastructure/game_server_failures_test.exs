@@ -33,7 +33,7 @@ defmodule TijaraTides.Infrastructure.GameServerFailuresTest do
         )
   end
 
-  defmodule DomainException do
+  defmodule ReceiptArgumentException do
     def query!(_sql, _args),
       do: raise(ArgumentError, "Invalid command token=private-domain-marker")
   end
@@ -96,9 +96,9 @@ defmodule TijaraTides.Infrastructure.GameServerFailuresTest do
 
   for {repo, error, marker} <- [
         {StorageException, :storage_unavailable, "private-db-marker"},
-        {DomainException, :internal_error, "private-domain-marker"}
+        {ReceiptArgumentException, :internal_error, "private-domain-marker"}
       ] do
-    test "command exception #{error} pauses the owner without publishing or advancing state", %{
+    test "receipt exception #{error} pauses the owner without publishing or advancing state", %{
       state: state
     } do
       state = %{state | repo: unquote(repo)}

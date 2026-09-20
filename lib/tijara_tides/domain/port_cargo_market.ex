@@ -18,10 +18,11 @@ defmodule TijaraTides.Domain.PortCargoMarket do
       "ask" => div(item["reference_cents"] * (ask_base + div(500 - market.stock, 25)), 100),
       "bid" => div(item["reference_cents"] * (bid_base - div(500 - market.demand, 25)), 100),
       "handling_fee" => handling_rate(catalogue["ports"][market.port]),
-      "freshness_batches" => market.batches,
-      "stock" => market.stock,
-      "demand" => market.demand,
-      "buyer_budget" => market.budget,
+      "freshness_batches" => if(market.seller, do: market.batches, else: []),
+      # Factory feedstock is physical inventory, not an offer to sell it.
+      "stock" => if(market.seller, do: market.stock, else: 0),
+      "demand" => if(market.buyer, do: market.demand, else: 0),
+      "buyer_budget" => if(market.buyer, do: market.budget, else: 0),
       "manual" => item["manual"] and (not market.merchant or market.warehouse_active)
     }
   end

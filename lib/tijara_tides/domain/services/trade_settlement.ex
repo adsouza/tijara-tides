@@ -180,6 +180,9 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
     voyage = purchase_voyage(ship, item, quantity, destination, fleet, state.clock_ms, catalogue)
 
     cond do
+      not market["seller"] ->
+        {:error, :insufficient_supply}
+
       not compatible_cargo?(ship, item) ->
         {:error, :incompatible_cargo}
 
@@ -248,6 +251,9 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
     available = TijaraTides.Domain.ShipWorld.cargo_available(state, ship["id"], good)
 
     cond do
+      not market["buyer"] ->
+        {:error, :insufficient_demand}
+
       available < quantity ->
         {:error, :insufficient_cargo}
 

@@ -5,6 +5,15 @@ defmodule TijaraTides.Infrastructure.Measurements do
   require Logger
 
   @impl true
+  def command_exception(error, stacktrace) do
+    TijaraTides.Infrastructure.ExceptionLog.error(
+      "Command planning failed; uncommitted candidate discarded",
+      error,
+      stacktrace
+    )
+  end
+
+  @impl true
   def measure(phase, fun) do
     started = System.monotonic_time()
 

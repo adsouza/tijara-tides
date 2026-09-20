@@ -3,7 +3,17 @@ defmodule TijaraTides.UseCases.Observation do
   @callback record(:conflict_retry | :conflict_exhausted | :conflict_reload_failed) :: :ok
 
   @callback measure(atom(), (-> term())) :: term()
-  @optional_callbacks measure: 2
+  @callback command_exception(Exception.t(), Exception.stacktrace()) :: :ok
+  @optional_callbacks measure: 2, command_exception: 2
+
+  def command_exception(error, stacktrace) do
+    adapter = Application.get_env(:tijara_tides, :observation_adapter)
+
+    if adapter && Code.ensure_loaded?(adapter) &&
+         function_exported?(adapter, :command_exception, 2),
+       do: adapter.command_exception(error, stacktrace),
+       else: :ok
+  end
 
   def measure(phase, fun) do
     adapter = Application.get_env(:tijara_tides, :observation_adapter)
