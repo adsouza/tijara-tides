@@ -509,19 +509,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       nil ->
         :ok
 
-      {key, table, parent, child} ->
-        for {id, old, data} <- pending do
-          write_children(
-            repo,
-            world,
-            id,
-            table,
-            parent,
-            child,
-            if(old, do: old[key], else: []),
-            data[key]
-          )
-        end
+      {key, _table, parent, child} ->
+        write_children(repo, world, parent, child, key, pending)
     end
 
     :ok
@@ -593,50 +582,115 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
   defp check_market_version(_, _, _, _, _, _), do: :ok
 
-  defp write_children(repo, world, id, _table, parent, fields, old, new) do
-    if old != new do
-      old_rows =
-        old |> Enum.with_index() |> Map.new(fn {row, index} -> {row["lot_id"], {row, index}} end)
+  # Holdings are written for every changed parent at once, not one parent at a time.
+  # Cargo leaves a hold oldest first, which renumbers each surviving batch, so a
+  # statement per row would scale with the cargo aboard rather than with the number of
+  # ships that moved — and the whole tick commits on one connection inside one timeout.
+  defp write_children(repo, world, parent, fields, key, pending) do
+    # Assignments inside a comprehension act as filters, as they do for the parent rows
+    # above, so the previous children are paired up outside one.
+    touched =
+      pending
+      |> Enum.map(fn {id, old, data} ->
+        {id, if(old, do: old[key] || [], else: []), data[key] || []}
+      end)
+      |> Enum.filter(fn {_, previous, current} -> previous != current end)
 
-      for {row, index} <- Enum.with_index(new), old_rows[row["lot_id"]] != {row, index} do
-        if Map.keys(row) -- Enum.map(fields, &elem(&1, 0)) != [],
-          do: raise(ArgumentError, "Unsupported batch fields")
+    rows =
+      Enum.flat_map(touched, fn {id, previous, current} ->
+        indexed =
+          previous
+          |> Enum.with_index()
+          |> Map.new(fn {row, index} -> {row["lot_id"], {row, index}} end)
 
-        case repo.query!(
-               "SELECT good_id,expires_ms FROM game_cargo_lots WHERE world_id=$1 AND id=$2",
-               [world, row["lot_id"]]
-             ).rows do
-          [[good, expiry]] ->
-            unless expiry == row["expires_ms"] and (parent == "market_id" or good == row["good"]),
-              do: raise(ArgumentError, "Lot identity does not match cargo")
+        for {row, index} <- Enum.with_index(current),
+            indexed[row["lot_id"]] != {row, index},
+            do: {id, index, row}
+      end)
 
-          _ ->
-            raise ArgumentError, "Unknown cargo lot"
-        end
+    for {_, _, row} <- rows,
+        Map.keys(row) -- Enum.map(fields, &elem(&1, 0)) != [],
+        do: raise(ArgumentError, "Unsupported batch fields")
 
-        warehouse = if parent == "warehouse_id", do: id
-        ship = if parent == "ship_id", do: id
-        market = if parent == "market_id", do: id
+    verify_lots!(repo, world, parent, rows)
+    insert_holdings(repo, world, parent, rows)
 
-        repo.query!(
-          "INSERT INTO game_cargo_holdings(world_id,lot_id,ship_id,market_id,position,quantity_lots,unit_cost_cents,warehouse_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(world_id,lot_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,ship_id=EXCLUDED.ship_id,market_id=EXCLUDED.market_id,position=EXCLUDED.position,quantity_lots=EXCLUDED.quantity_lots,unit_cost_cents=EXCLUDED.unit_cost_cents",
+    if touched != [] do
+      repo.query!(
+        "DELETE FROM game_cargo_holdings WHERE world_id=$1 AND #{parent}=ANY($2::text[]) AND NOT (lot_id=ANY($3::text[]))",
+        [
+          world,
+          Enum.map(touched, fn {id, _, _} -> id end),
+          Enum.flat_map(touched, fn {_, _, current} -> Enum.map(current, & &1["lot_id"]) end)
+        ]
+      )
+    end
+
+    :ok
+  end
+
+  defp verify_lots!(_repo, _world, _parent, []), do: :ok
+
+  defp verify_lots!(repo, world, parent, rows) do
+    lots =
+      repo.query!(
+        "SELECT id,good_id,expires_ms FROM game_cargo_lots WHERE world_id=$1 AND id=ANY($2::text[])",
+        [world, Enum.map(rows, fn {_, _, row} -> row["lot_id"] end)]
+      ).rows
+      |> Map.new(fn [id, good, expiry] -> {id, {good, expiry}} end)
+
+    for {_, _, row} <- rows do
+      case lots[row["lot_id"]] do
+        {good, expiry} ->
+          unless expiry == row["expires_ms"] and (parent == "market_id" or good == row["good"]),
+            do: raise(ArgumentError, "Lot identity does not match cargo")
+
+        nil ->
+          raise ArgumentError, "Unknown cargo lot"
+      end
+    end
+
+    :ok
+  end
+
+  defp insert_holdings(_repo, _world, _parent, []), do: :ok
+
+  defp insert_holdings(repo, world, parent, rows) do
+    columns =
+      ~w(world_id lot_id ship_id market_id position quantity_lots unit_cost_cents warehouse_id)
+
+    # Bind parameters are capped per statement, as they are for the parent rows above.
+    rows
+    |> Enum.chunk_every(max(1, div(60_000, length(columns))))
+    |> Enum.each(fn chunk ->
+      values =
+        Enum.flat_map(chunk, fn {id, index, row} ->
           [
             world,
             row["lot_id"],
-            ship,
-            market,
+            if(parent == "ship_id", do: id),
+            if(parent == "market_id", do: id),
             index,
             row["quantity"],
             row["unit_cost"],
-            warehouse
+            if(parent == "warehouse_id", do: id)
           ]
-        )
-      end
+        end)
+
+      placeholders =
+        chunk
+        |> Enum.with_index()
+        |> Enum.map_join(",", fn {_, row} ->
+          "(" <>
+            Enum.map_join(1..length(columns), ",", fn n ->
+              "$#{row * length(columns) + n}"
+            end) <> ")"
+        end)
 
       repo.query!(
-        "DELETE FROM game_cargo_holdings WHERE world_id=$1 AND #{parent}=$2 AND NOT (lot_id=ANY($3::text[]))",
-        [world, id, Enum.map(new, & &1["lot_id"])]
+        "INSERT INTO game_cargo_holdings(#{Enum.join(columns, ",")}) VALUES #{placeholders} ON CONFLICT(world_id,lot_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,ship_id=EXCLUDED.ship_id,market_id=EXCLUDED.market_id,position=EXCLUDED.position,quantity_lots=EXCLUDED.quantity_lots,unit_cost_cents=EXCLUDED.unit_cost_cents",
+        values
       )
-    end
+    end)
   end
 end
