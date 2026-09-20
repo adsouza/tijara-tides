@@ -15,21 +15,45 @@ defmodule TijaraTides.Infrastructure.Persistence.FinancialLedger do
     Enum.drop(current, length(previous))
   end
 
+  @lot_columns ~w(world_id id parent_lot_id good_id original_quantity_lots expires_ms created_ms)
+
+  # Cargo splits on every partial sale, so a busy tick creates lots in bulk and a
+  # statement each would cost a round trip each inside the one transaction the tick
+  # commits in. A split child may sit in the same statement as its parent: PostgreSQL
+  # checks the self-referencing key once the statement has finished, not row by row.
   def write_lots(repo, world, before, after_state) do
-    for lot <- pending(before, after_state, :new_lots) do
+    # Bind parameters are capped per statement, so very large batches are chunked.
+    pending(before, after_state, :new_lots)
+    |> Enum.chunk_every(max(1, div(60_000, length(@lot_columns))))
+    |> Enum.each(fn chunk ->
+      values =
+        Enum.flat_map(chunk, fn lot ->
+          [
+            world,
+            lot["id"],
+            lot["parent_lot_id"],
+            lot["good"],
+            lot["quantity"],
+            lot["expires_ms"],
+            lot["created_ms"]
+          ]
+        end)
+
+      placeholders =
+        chunk
+        |> Enum.with_index()
+        |> Enum.map_join(",", fn {_, row} ->
+          "(" <>
+            Enum.map_join(1..length(@lot_columns), ",", fn n ->
+              "$#{row * length(@lot_columns) + n}"
+            end) <> ")"
+        end)
+
       repo.query!(
-        "INSERT INTO game_cargo_lots(world_id,id,parent_lot_id,good_id,original_quantity_lots,expires_ms,created_ms) VALUES($1,$2,$3,$4,$5,$6,$7)",
-        [
-          world,
-          lot["id"],
-          lot["parent_lot_id"],
-          lot["good"],
-          lot["quantity"],
-          lot["expires_ms"],
-          lot["created_ms"]
-        ]
+        "INSERT INTO game_cargo_lots(#{Enum.join(@lot_columns, ",")}) VALUES #{placeholders}",
+        values
       )
-    end
+    end)
   end
 
   def post(repo, world, before, after_state, receipt) do
