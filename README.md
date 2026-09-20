@@ -71,17 +71,21 @@ Install PostgreSQL in addition to the tools above, then run:
 python3 scripts/dev-game.py
 ```
 
-The launcher creates a persistent local database under `tmp/local-game`, applies
-migrations, prints a launch invitation on first use, and opens the server at
-<http://localhost:4000/play>. Paste the invitation into the game, name your company,
-and choose a home port and starter fleet. It ignores inherited Neon credentials.
-Ctrl-C stops both services while retaining your game. If the local database is
-already running, the launcher verifies and reuses it, leaving it running on exit.
-Use `--seed` to issue
-another launch invitation or `--web-port 4001` for another web port.
+Start your system PostgreSQL service first. The launcher connects to
+`127.0.0.1:5432` using your OS username and creates or reuses the `tijara_tides`
+database. It applies migrations, prints a launch invitation on first use, and
+opens the server at <http://localhost:4000/play>. Paste the invitation into the
+game, name your company, and choose a home port and starter fleet. It ignores
+inherited Neon credentials and PostgreSQL environment settings.
+Ctrl-C stops the game server; system PostgreSQL stays running and retains your game.
+Use `--db-port` or `--db-user` to select another local PostgreSQL port or role,
+`--seed` to issue another launch invitation, or `--web-port 4001` for another web port.
 Server output goes to `tmp/local-game/server-4000.log` (using the selected port).
-Each start replaces that server log. The PostgreSQL log is also reset when the
-launcher starts PostgreSQL; reusing a running database leaves its log untouched.
+Each start replaces that server log.
+
+If you previously used the dedicated cluster in `tmp/local-game/data`, transfer
+its `tijara_tides` database with `pg_dump`/`pg_restore` before using the new launcher.
+The launcher refuses to create an empty database when that older cluster exists.
 
 Accounts currently use a durable, revocable device credential. Email magic links,
 Google linking, and cross-device recovery are a following milestone. Losing the

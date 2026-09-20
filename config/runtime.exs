@@ -11,7 +11,7 @@ if config_env() != :test do
       config :tijara_tides, TijaraTides.Infrastructure.Persistence.Repo,
         hostname: "127.0.0.1",
         port: String.to_integer(local_port),
-        username: "postgres",
+        username: System.get_env("TIJARA_LOCAL_DB_USER", "postgres"),
         database: "tijara_tides",
         ssl: false,
         pool_size: 2,
