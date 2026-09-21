@@ -557,6 +557,11 @@ merchants. Buying demand and selling supply have independent relative weights;
 a merchant can do both for the same good. Merchant purchases replenish resale
 inventory, not end-consumer demand. Every good retains an actual producer;
 counting merchant supply toward port coverage does not make it production.
+Outside the backhaul category, every good also has at least as many buying
+ports as producing ones, so its supply has somewhere to go; a good sold by
+more ports than buy it has no prevailing direction and so no origin worth
+sailing to for it. Scrap is exempt because section 6 makes it conditional
+return cargo that has to sell almost anywhere.
 
 Re-export merchants buy existing goods through their port's markets, hold them
 in paid compatible warehouse space, and resell only available owned stock.

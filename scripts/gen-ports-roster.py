@@ -22,7 +22,8 @@ Adding a good
    group 20. If the good needs liquid or refrigerated capacity, say so in
    section 6 and section 11 too.
 5. Regenerate. Coverage minimums are enforced below: bulk commodities need four
-   exporters and five importers, everything else three and four.
+   exporters and five importers, everything else three and four. Outside the
+   Scrap category, importers must also be at least as many as producers.
 
 Adding a port
 -------------
@@ -419,9 +420,20 @@ counts as both a supplier and a buyer, but never as a producer. Every good must
 also retain at least one actual producer so merchant resale cannot masquerade
 as production coverage."""))
 o.append("")
-o.append("| Good | Exporters | Importers |")
-o.append("|------|-----------|-----------|")
+o.append(para("""
+Producers are counted separately from exporters because only they add stock to
+the world. Outside the backhaul category every good needs at least as many
+buyers as producers: a good sold by more ports than buy it has no prevailing
+direction, so no port is worth sailing to for it and the surplus simply sits.
+Scrap is exempt by design. Section 6 makes it conditional return cargo flowing
+from consuming cities back toward industry, which requires it to be sellable
+almost anywhere; that ubiquity is also what leaves the transshipment hubs
+something of their own to sell."""))
+o.append("")
+o.append("| Good | Producers | Exporters | Importers |")
+o.append("|------|-----------|-----------|-----------|")
 bulk = set(CATEGORIES[0][1])
+backhaul = set(dict(CATEGORIES)["Scrap"])
 exp = lambda r: any(c in (E2, E1) for c in r.split("/"))
 imp = lambda r: any(c in (I1, I2) for c in r.split("/"))
 liquids = ["Crude oil", "Refined fuel", "Vegetable oil"]
@@ -448,15 +460,16 @@ def has_liquid_cycle():
     return False
 
 assert has_liquid_cycle(), "no two- or three-port liquid cycle includes vegetable oil and petroleum"
-worst = []
 for i, g in enumerate(GOODS):
     col = [M[p][i] for p in M]
     e = sum(1 for r in col if exp(r)); m = sum(1 for r in col if imp(r))
+    # Merchants resell; they never add stock, so they are not producers here.
+    p = sum(1 for r in col if r in (E1, E2))
     te, ti = (4, 5) if g in bulk else (3, 4)
     assert e >= te and m >= ti, (g, e, m)
-    assert any(r in (E1, E2) for r in col), (g, "no producer")
-    worst.append((g, e, m))
-    o.append("| %s | %d | %d |" % (g, e, m))
+    assert p, (g, "no producer")
+    assert g in backhaul or m >= p, (g, "more producers than buyers", p, m)
+    o.append("| %s | %d | %d | %d |" % (g, p, e, m))
 o.append("")
 o.append(para("""
 Bulk commodities take a lower floor for sellers than for buyers, four against
@@ -481,6 +494,7 @@ for inv in [
  "Every good has at least three exporters and four importers; bulk commodities have at least four exporters and five importers.",
  "No good is exclusive to one port.",
  "Every good has an actual producer; re-export merchants buy and resell stock without producing it.",
+ "Outside the backhaul category, every good has at least as many importers as producers, so its supply has somewhere to go. Scrap is exempt because section 6 makes it return cargo that must sell almost anywhere.",
  "Every port both imports and exports something, so round trips are possible everywhere.",
  "Crude oil and refined fuel have distinct enough sources that tankers have cargo in both directions.",
  "At least one two- or three-port cycle carries vegetable oil and crude oil or refined fuel. Each leg must have a seller at its origin and a buyer of the same good at its destination; ports in the cycle are distinct.",

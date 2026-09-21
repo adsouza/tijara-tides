@@ -448,30 +448,39 @@ four. A merchant counts as both a supplier and a buyer, but never as a producer.
 Every good must also retain at least one actual producer so merchant resale
 cannot masquerade as production coverage.
 
-| Good | Exporters | Importers |
-|------|-----------|-----------|
-| Iron ore | 5 | 11 |
-| Grain | 5 | 20 |
-| Lumber | 4 | 19 |
-| Crude oil | 5 | 17 |
-| Refined fuel | 9 | 16 |
-| Vegetable oil | 8 | 17 |
-| Whisky | 5 | 9 |
-| Jewelry | 5 | 9 |
-| Designer clothing | 5 | 11 |
-| Turbines | 7 | 16 |
-| Construction equipment | 8 | 17 |
-| Agricultural machinery | 7 | 11 |
-| Electronics | 9 | 17 |
-| Appliances | 9 | 17 |
-| Everyday clothing | 11 | 15 |
-| Spices | 7 | 21 |
-| Aluminium scrap | 14 | 11 |
-| Copper scrap | 13 | 12 |
-| Recovered plastics | 10 | 8 |
-| Fruit | 11 | 14 |
-| Seafood | 12 | 13 |
-| Meat | 9 | 16 |
+Producers are counted separately from exporters because only they add stock to
+the world. Outside the backhaul category every good needs at least as many
+buyers as producers: a good sold by more ports than buy it has no prevailing
+direction, so no port is worth sailing to for it and the surplus simply sits.
+Scrap is exempt by design. Section 6 makes it conditional return cargo flowing
+from consuming cities back toward industry, which requires it to be sellable
+almost anywhere; that ubiquity is also what leaves the transshipment hubs
+something of their own to sell.
+
+| Good | Producers | Exporters | Importers |
+|------|-----------|-----------|-----------|
+| Iron ore | 5 | 5 | 11 |
+| Grain | 5 | 5 | 20 |
+| Lumber | 4 | 4 | 19 |
+| Crude oil | 5 | 5 | 17 |
+| Refined fuel | 9 | 9 | 16 |
+| Vegetable oil | 8 | 8 | 17 |
+| Whisky | 3 | 5 | 9 |
+| Jewelry | 3 | 5 | 9 |
+| Designer clothing | 4 | 5 | 11 |
+| Turbines | 7 | 7 | 16 |
+| Construction equipment | 8 | 8 | 17 |
+| Agricultural machinery | 7 | 7 | 11 |
+| Electronics | 8 | 9 | 17 |
+| Appliances | 8 | 9 | 17 |
+| Everyday clothing | 10 | 11 | 15 |
+| Spices | 4 | 7 | 21 |
+| Aluminium scrap | 14 | 14 | 11 |
+| Copper scrap | 13 | 13 | 12 |
+| Recovered plastics | 10 | 10 | 8 |
+| Fruit | 11 | 11 | 14 |
+| Seafood | 12 | 12 | 13 |
+| Meat | 9 | 9 | 16 |
 
 Bulk commodities take a lower floor for sellers than for buyers, four against
 five. Real bulk export is source-concentrated: iron ore is dominated by a
@@ -496,6 +505,9 @@ These properties must keep holding as the roster is balanced:
 - No good is exclusive to one port.
 - Every good has an actual producer; re-export merchants buy and resell stock
   without producing it.
+- Outside the backhaul category, every good has at least as many importers as
+  producers, so its supply has somewhere to go. Scrap is exempt because section
+  6 makes it return cargo that must sell almost anywhere.
 - Every port both imports and exports something, so round trips are possible
   everywhere.
 - Crude oil and refined fuel have distinct enough sources that tankers have

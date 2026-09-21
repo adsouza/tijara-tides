@@ -54,6 +54,18 @@ defmodule Docs.PortsRosterTest do
   | Hotel | `++imp` |
   """
 
+  @oversupplied """
+  ### Mass consumer products
+
+  | Port | Widgets |
+  |------|---------|
+  | Alpha | `++exp` |
+  | Bravo | `+exp` |
+  | Charlie | `++exp` |
+  | Delta | `+imp` |
+  | Echo | `++imp` |
+  """
+
   @dead_ends """
   | Port | Widgets | Gadgets |
   |------|---------|---------|
@@ -97,6 +109,34 @@ defmodule Docs.PortsRosterTest do
   test "holds bulk commodities to a higher minimum than other categories" do
     assert @thin_bulk |> parse() |> check_minimums() ==
              ["Iron ore has 3 exporter(s), needs at least 4"]
+  end
+
+  test "flags a good sold by more ports than buy it" do
+    assert @oversupplied |> parse() |> check_demand_coverage() ==
+             ["Widgets has 3 producer(s) but only 2 importer(s)"]
+  end
+
+  test "exempts backhaul scrap from needing as many buyers as producers" do
+    assert @oversupplied
+           |> String.replace("### Mass consumer products", "### Scrap")
+           |> parse()
+           |> check_demand_coverage() == []
+  end
+
+  test "a merchant counts toward buyers but never toward producers" do
+    parsed =
+      parse("""
+      ### Luxury items
+
+      | Port | Widgets |
+      |------|---------|
+      | Alpha | `++exp` |
+      | Bravo | `++exp/+imp` |
+      """)
+
+    # One producer against one buyer passes; counting Bravo as a second
+    # producer would make it two against one and fail.
+    assert check_demand_coverage(parsed) == []
   end
 
   test "flags ports that cannot make a round trip" do
@@ -376,6 +416,7 @@ defmodule Docs.PortsRosterTest do
       check_producers(parsed) ++
       check_exclusive(parsed) ++
       check_minimums(parsed) ++
+      check_demand_coverage(parsed) ++
       check_round_trips(parsed) ++
       check_tanker_directions(parsed) ++
       check_liquid_backhaul(parsed) ++
@@ -447,6 +488,21 @@ defmodule Docs.PortsRosterTest do
     do: "#{good} has #{length(ports)} #{role}(s), needs at least #{least}"
 
   defp shortfall(_good, _role, _ports, _least), do: nil
+
+  # Merchants resell without adding stock, so only producers count as supply. A
+  # good sold by more ports than buy it has no prevailing direction, leaving no
+  # port worth sailing to for it. Scrap is exempt: section 6 makes it return
+  # cargo that has to sell almost anywhere.
+  defp check_demand_coverage(%{goods: goods, category: category, roles: roles}) do
+    for good <- goods,
+        Map.get(category, good) != "Scrap",
+        producers = ports_where(roles, good, &(&1 in @exports)),
+        buyers = ports_where(roles, good, &imports?/1),
+        length(buyers) < length(producers),
+        do:
+          "#{good} has #{length(producers)} producer(s) but only " <>
+            "#{length(buyers)} importer(s)"
+  end
 
   defp check_round_trips(%{roles: roles}) do
     for {port, by_good} <- Enum.sort(roles),
