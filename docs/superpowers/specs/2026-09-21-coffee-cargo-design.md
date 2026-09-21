@@ -59,6 +59,7 @@ The group stays complete; its count and its finality sentence change.
 | `hold` | dry |
 | `shelf_ms` | 0 |
 | `manual` | true, derived from the category |
+| `raw` | true, derived from having no manufacturing recipe |
 
 Reference value follows the catalogue's existing anchor, where a lot's price in
 cents is about a hundred times the real dollar price of a tonne: grain's 20,000
@@ -134,9 +135,40 @@ expression would hand free inventory to every existing feedstock market on the
 next boot.
 
 `PortCargoMarket.raw_goods/0` is a hardcoded list of goods produced without
-imported inputs, and is the one place the catalogue is not the source of truth.
-Coffee is an agricultural good with no recipe, so it belongs there. Deriving
-the list from the catalogue is out of scope; the list gains one entry.
+imported inputs, and is the one place the catalogue is not the source of
+truth. It is also redundant: the eleven goods it names are exactly the eleven
+with no manufacturing recipe. Both sets were checked against the committed
+catalogue and partition it perfectly, with no overlap and nothing left over.
+
+Derive it. A good with no recipe is by definition produced without imported
+inputs, so the list is the complement of the recipe keys and should never have
+been written twice. Coffee then needs no entry at all: it has no recipe, so it
+is raw by construction, which is the point of deriving.
+
+The consumer that matters is `replenish/5`, which decides whether a seller's
+stock regenerates. It receives the good's catalogue entry but not the
+catalogue, so the fact has to travel on the good. Add a derived `raw` boolean
+to each entry in `gen-game-data.py`, set from whether the id appears in
+`manufacturing`, exactly as `manual` is already derived there from the
+category. `replenish/5` then reads `item["raw"]`. Threading the whole
+catalogue down to `replenish/5` would be a wider change that buys nothing.
+
+Two existing validations become tautologies and must go with the list, not
+survive as reassurance that no longer means anything. `validate_catalogue!/1`
+raises on a raw good missing from the catalogue, and
+`Manufacturing.validate!/1` requires each recipe output to be absent from the
+raw list. Both exist only because the two lists were maintained independently;
+with one list they cannot fail. The remaining check in
+`Manufacturing.validate!/1` that each output is a known good stays.
+
+Removing them leaves the derivation itself unguarded, so a test asserts that
+the committed catalogue's `raw` goods are exactly those without recipes. That
+catches a generator mistake or a hand-edited catalogue, which is the only way
+the partition can now break.
+
+The delegation chain `Game.raw_goods/0` to `Markets.raw_goods/0` to
+`PortCargoMarket.raw_goods/0` exists only for the list. Nothing outside the
+tests calls it, so all three go.
 
 ## Work
 
@@ -146,12 +178,20 @@ Generators, both of which must then be re-run:
   entry in `CATEGORIES`, and insert its role in every row of `M` at the
   matching column position. Extend the "Adding a good" docstring to name the
   two count references it currently omits.
-- `scripts/gen-game-data.py`: add Coffee to `tuning` and to `CARGO_IDS`.
+- `scripts/gen-game-data.py`: add Coffee to `tuning` and to `CARGO_IDS`, and
+  emit a derived `raw` boolean on every good, set from absence at that id in
+  `manufacturing`.
 
 Code:
 
 - `lib/tijara_tides/domain/port_cargo_market_world.ex`: the unified walk.
-- `lib/tijara_tides/domain/port_cargo_market.ex`: `"coffee"` in `raw_goods/0`.
+- `lib/tijara_tides/domain/port_cargo_market.ex`: delete `raw_goods/0` and
+  its tautological check in `validate_catalogue!/1`; `replenish/5` reads
+  `item["raw"]`.
+- `lib/tijara_tides/domain/manufacturing.ex`: drop the `output not in
+  raw_goods()` clause from `validate!/1`.
+- `lib/tijara_tides/domain/markets.ex` and `lib/tijara_tides/domain/game.ex`:
+  drop the `raw_goods` delegates.
 - `lib/tijara_tides/localization/names.ex`: a `translate("Coffee")` clause,
   then `mix gettext.extract` only. Never merge: the extractor cannot see
   runtime lookups and merging prunes the translations it misses.
@@ -189,6 +229,11 @@ Generated artifacts: `docs/ports.md` and `priv/game/catalogue.json`.
   feedstock market gains both.
 - Coffee reaches the order book rather than an auction, which follows from
   `manual` but should be asserted rather than assumed.
+- The committed catalogue's `raw` goods are exactly those with no
+  manufacturing recipe, replacing the existence assertion in
+  `test/tijara_tides/domain/game_test.exs` that derivation makes tautological.
+- A raw good's seller replenishes and a manufactured good's does not, so the
+  flag is shown to drive `replenish/5` rather than merely to exist.
 
 ## Out of scope
 
@@ -202,8 +247,8 @@ market is missing would restore the failure this removes.
 No change to `bulk`, the scrap backhaul exemption, or any role outside the
 coffee column.
 
-No derivation of `raw_goods/0` from the catalogue, though this change is the
-second piece of evidence that it should eventually be derived.
+Deriving `raw` is in scope, but reworking how recipes themselves are declared
+is not. `manufacturing` stays a hand-written map in `gen-game-data.py`.
 
 ## Verification
 
