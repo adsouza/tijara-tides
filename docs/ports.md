@@ -213,8 +213,8 @@ still apply.
 | Valencia | `+imp` | `+imp` | `+imp` | `+imp` | `+imp` | `+exp` |
 | Athens | `+exp` | `++imp` | `+imp` | `++imp` | `++exp` | `+exp` |
 | Tangier | `—` | `++imp` | `+imp` | `+imp` | `++imp` | `+imp` |
-| New York City | `—` | `+exp` | `—` | `—` | `++imp` | `+imp` |
-| Los Angeles | `—` | `+exp` | `+imp` | `+imp` | `+imp` | `+imp` |
+| New York City | `—` | `+imp` | `—` | `—` | `++imp` | `+imp` |
+| Los Angeles | `—` | `+imp` | `+imp` | `+imp` | `+imp` | `+imp` |
 | Houston | `+imp` | `++exp` | `+exp` | `++exp` | `++exp` | `+exp` |
 | Colón | `—` | `+imp` | `+imp` | `+imp` | `++imp` | `+imp` |
 | São Paulo | `++exp` | `++exp` | `++exp` | `++exp` | `++imp` | `++exp` |
@@ -257,8 +257,8 @@ still apply.
 | Busan | `++exp` | `+exp` | `—` |
 | Tokyo | `++exp` | `++exp` | `++exp` |
 | Hong Kong | `—` | `+imp` | `—` |
-| Shenzhen | `—` | `+exp` | `—` |
-| Guangzhou | `+exp` | `++exp` | `++exp` |
+| Shenzhen | `—` | `+imp` | `—` |
+| Guangzhou | `+imp` | `++exp` | `++exp` |
 | Singapore | `+imp` | `+imp` | `—` |
 | Ho Chi Minh City | `+imp` | `+imp` | `+imp` |
 | Jakarta | `+imp` | `++imp` | `+imp` |
@@ -267,14 +267,14 @@ still apply.
 | Mumbai | `+exp` | `+imp` | `++exp` |
 | Dubai | `+imp` | `++imp` | `—` |
 | Abu Dhabi | `++imp` | `++imp` | `—` |
-| Rotterdam | `++exp` | `+exp` | `++exp` |
-| Antwerp | `+exp` | `++exp` | `+exp` |
+| Rotterdam | `++exp` | `+imp` | `+imp` |
+| Antwerp | `+imp` | `++exp` | `++imp` |
 | Hamburg | `++exp` | `++exp` | `++exp` |
 | Valencia | `+imp` | `++exp` | `++exp` |
 | Athens | `+imp` | `+imp` | `+imp` |
 | Tangier | `+imp` | `+imp` | `+imp` |
 | New York City | `+imp` | `+imp` | `—` |
-| Los Angeles | `+imp` | `+imp` | `+exp` |
+| Los Angeles | `+imp` | `+imp` | `+imp` |
 | Houston | `++exp` | `++exp` | `++exp` |
 | Colón | `+imp` | `+imp` | `+imp` |
 | São Paulo | `+imp` | `+imp` | `+imp` |
@@ -451,7 +451,7 @@ cannot masquerade as production coverage.
 | Good | Exporters | Importers |
 |------|-----------|-----------|
 | Iron ore | 5 | 11 |
-| Grain | 7 | 18 |
+| Grain | 5 | 20 |
 | Lumber | 4 | 19 |
 | Crude oil | 5 | 17 |
 | Refined fuel | 9 | 16 |
@@ -459,9 +459,9 @@ cannot masquerade as production coverage.
 | Whisky | 5 | 9 |
 | Jewelry | 5 | 9 |
 | Designer clothing | 5 | 11 |
-| Turbines | 9 | 14 |
-| Construction equipment | 10 | 15 |
-| Agricultural machinery | 10 | 8 |
+| Turbines | 7 | 16 |
+| Construction equipment | 8 | 17 |
+| Agricultural machinery | 7 | 11 |
 | Electronics | 9 | 17 |
 | Appliances | 9 | 17 |
 | Everyday clothing | 11 | 15 |
