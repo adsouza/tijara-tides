@@ -18,6 +18,25 @@ VERSION_FILES = (
 )
 
 
+def version_parts(version):
+    if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+        raise ValueError(f"Expected a release version X.Y.Z, got {version!r}")
+    return tuple(int(part) for part in version.split("."))
+
+
+def next_version(current, target):
+    major, minor, patch = version_parts(current)
+    increments = {
+        "patch": (major, minor, patch + 1),
+        "minor": (major, minor + 1, 0),
+        "major": (major + 1, 0, 0),
+    }
+    parts = increments[target] if target in increments else version_parts(target)
+    if parts <= (major, minor, patch):
+        raise ValueError(f"New version must be greater than {current}")
+    return ".".join(str(part) for part in parts)
+
+
 def read_versions(root: Path, contents=None):
     def read(name):
         return contents[name] if contents is not None else (root / name).read_text()

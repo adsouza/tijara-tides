@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "version:bump": "python3 scripts/bump-desktop-version.py",
+    "desktop:release": "python3 scripts/release-desktop.py",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "desktop:test": "node --test test/desktop/*.test.mjs",

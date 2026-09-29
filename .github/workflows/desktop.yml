@@ -69,6 +69,7 @@ jobs:
       - run: python3 scripts/check-desktop-versions.py
       - run: python3 scripts/test-bump-desktop-version.py
       - run: python3 scripts/test-publish-desktop-release.py
+      - run: python3 scripts/test-release-desktop.py
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked

@@ -176,14 +176,30 @@ version mismatches fail before any files change. The helper preserves dependency
 versions and does not commit, tag, push, or publish; review and commit the diff,
 then push to trigger the desktop build. The consistency check also runs in CI.
 
-After committing the helper/workflow changes and the version bump, push the
-commit and its matching tag to publish a release. For example, after bumping to
-`0.1.1` and committing that diff:
+For a one-command release, first commit your application changes and the release
+helpers. Then, from a clean `main` checkout, run:
+
+```sh
+npm run desktop:release -- patch
+```
+
+The command bumps the version, commits only the seven version files, reads back
+the generated version, creates its annotated `vX.Y.Z` tag, and atomically pushes
+`main` and that tag to `origin`. Both refs must be accepted for either to update.
+It uses the normal commit/push hooks and refuses dirty checkouts, other branches,
+a main branch behind or diverging from `origin/main`, and existing release tags.
+It also accepts `minor`, `major`, or an explicit version, plus `--date YYYY-MM-DD`.
+With no argument, it defaults to a patch bump.
+
+If the push fails, the release commit and tag remain local. The command prints
+the exact `git push --atomic origin main vX.Y.Z` command to retry; do not run the
+bump again for that retry.
+
+To tag an already-committed version manually, use its version, for example:
 
 ```sh
 git tag -a v0.1.1 -m "Tijara Tides 0.1.1"
-git push origin main
-git push origin v0.1.1
+git push --atomic origin main v0.1.1
 ```
 
 The tag must point to the commit containing the workflow and bumped versions.
