@@ -1,6 +1,6 @@
 {
   "name": "tijara-tides-desktop",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "version:bump": "python3 scripts/bump-desktop-version.py",
