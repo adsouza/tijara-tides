@@ -1,13 +1,15 @@
 name: Desktop packages
 on:
   push:
+    branches: ['**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: desktop-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 jobs:
   desktop:
     name: ${{ matrix.name }}
@@ -25,6 +27,11 @@ jobs:
             bundles: app,dmg
     steps:
       - uses: actions/checkout@v7
+      - name: Verify release tag matches package versions
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/check-desktop-versions.py --tag "$RELEASE_TAG"
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -60,6 +67,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
       - run: python3 scripts/check-desktop-versions.py
+      - run: python3 scripts/test-bump-desktop-version.py
+      - run: python3 scripts/test-publish-desktop-release.py
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
@@ -99,3 +108,28 @@ jobs:
             dist/*.zip
           if-no-files-found: error
           retention-days: 14
+  release:
+    name: Publish desktop release
+    needs: desktop
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: tijara-tides-linux-x86_64
+          path: dist/release
+      - uses: actions/download-artifact@v8
+        with:
+          name: tijara-tides-macos-apple-silicon
+          path: dist/release
+      - name: Attach all packages and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: bash scripts/publish-desktop-release.sh "$RELEASE_TAG" dist/release

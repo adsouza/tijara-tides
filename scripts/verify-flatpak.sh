@@ -28,7 +28,7 @@ appstreamcli validate --no-net "$metainfo"
 # shellcheck disable=SC2016
 flatpak run --command=sh "$app_id" -c '
   set -eu
-  for size in 32 128 256 512 1024; do
+  for size in 32 128 256 512; do
     test -s "/app/share/icons/hicolor/${size}x${size}/apps/io.github.adsouza.tijara-tides.png"
   done
   ldd /app/bin/tijara-tides > /tmp/ldd.txt

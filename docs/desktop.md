@@ -60,8 +60,10 @@ Linux ARM packaging is not part of the current CI matrix.
 
 The cargo ship artwork in `src-tauri/icons/cargo-ship-v2/source.png` is the
 master icon. Regenerate the packaged PNG sizes and macOS `.icns` with
-`npm run desktop:icons`. Both `.deb` and Flatpak install PNG icons at 32, 128,
-256, 512, and 1024 pixels, preserving the artwork and its transparent corners.
+`npm run desktop:icons`. The `.deb` installs PNG icons at 32, 128, 256, 512,
+and 1024 pixels. Flatpak installs only the 32, 128, 256, and 512 pixel sizes to
+meet its 512×512 export limit. These sizes preserve the artwork and its
+transparent corners.
 The packaging uses these raster sizes directly; no SVG conversion is needed.
 
 ## Connection handling
@@ -138,14 +140,51 @@ mix assets.build
 ```
 
 `.github/workflows/desktop.yml` builds and uploads downloadable package artifacts
-on pushes, pull requests, and manual runs. It never publishes a GitHub Release,
-deploys the server, or submits to an app store. macOS `.app` artifacts are zipped
-with `ditto` to preserve executable permissions and bundle metadata.
+on branch pushes, pull requests, manual runs, and `v*` tag pushes. A pushed release
+tag such as `v0.1.1` must match the versions in the tagged commit. Once both native
+builds and their package checks pass, the workflow attaches the `.deb`, `.flatpak`,
+`.dmg`, and `.app.zip` to a draft GitHub Release with generated release notes, then
+publishes it after all uploads succeed. It verifies that the remote tag still
+points to the built commit. The release job alone gets repository write access.
+Ordinary branch pushes, pull requests, and manual runs only produce CI artifacts.
+The workflow does not deploy the server or submit to an app store. macOS `.app`
+artifacts are zipped with `ditto` to preserve executable permissions and metadata.
+
+If publishing fails, rerun the failed job to reuse the draft release and retry its
+uploads. Already-published releases are never replaced automatically; publish a
+new version instead.
 
 Current macOS artifacts are development builds without Developer ID signing or
 Apple notarization. Before public distribution, configure the certificate and
 notarization credentials using [Tauri's macOS signing workflow](https://v2.tauri.app/distribute/sign/macos/).
 No signing credentials or public distribution accounts are assumed here.
 
-Keep `mix.exs`, npm manifests, Cargo manifests/lockfile, Tauri configuration, and
-the latest AppStream release version aligned; the version check runs in CI.
+Before a new versioned release, update all version declarations together:
+
+```sh
+npm run version:bump -- patch    # 0.1.0 -> 0.1.1
+npm run version:bump -- minor    # increment minor and reset patch
+npm run version:bump -- major    # increment major and reset minor/patch
+npm run version:bump -- 1.2.3    # set an explicit greater X.Y.Z version
+```
+
+The helper updates `mix.exs`, both npm manifests, Cargo manifests/lockfile, Tauri
+configuration, and AppStream metadata. It adds a new AppStream release dated today
+while preserving prior releases, then verifies that all versions agree. Use
+`--date YYYY-MM-DD` to set the release date explicitly. Invalid versions or existing
+version mismatches fail before any files change. The helper preserves dependency
+versions and does not commit, tag, push, or publish; review and commit the diff,
+then push to trigger the desktop build. The consistency check also runs in CI.
+
+After committing the helper/workflow changes and the version bump, push the
+commit and its matching tag to publish a release. For example, after bumping to
+`0.1.1` and committing that diff:
+
+```sh
+git tag -a v0.1.1 -m "Tijara Tides 0.1.1"
+git push origin main
+git push origin v0.1.1
+```
+
+The tag must point to the commit containing the workflow and bumped versions.
+You can also release the current `0.1.0` as `v0.1.0` without bumping it first.
