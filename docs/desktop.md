@@ -56,6 +56,14 @@ Mac and Linux x86_64 on native runners. The .deb declares a glibc 2.39
 floor and WebKitGTK 4.1; use the Flatpak on distributions with older host libraries.
 Linux ARM packaging is not part of the current CI matrix.
 
+## Desktop icons
+
+The cargo ship artwork in `src-tauri/icons/cargo-ship-v2/source.png` is the
+master icon. Regenerate the packaged PNG sizes and macOS `.icns` with
+`npm run desktop:icons`. Both `.deb` and Flatpak install PNG icons at 32, 128,
+256, 512, and 1024 pixels, preserving the artwork and its transparent corners.
+The packaging uses these raster sizes directly; no SVG conversion is needed.
+
 ## Connection handling
 
 **Tijara Tides → Connection Settings** (`Cmd/Ctrl+Shift+C`) returns to the local

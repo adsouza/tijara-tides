@@ -9,7 +9,9 @@ desktop="$task_stage/usr/share/applications/Tijara Tides.desktop"
 desktop-file-validate "$desktop"
 grep -Eq '^Exec=tijara-tides( |$)' "$desktop"
 grep -qx 'Icon=tijara-tides' "$desktop"
-test -s "$task_stage/usr/share/icons/hicolor/scalable/apps/tijara-tides.svg"
+for size in 32 128 256 512 1024; do
+  test -s "$task_stage/usr/share/icons/hicolor/${size}x${size}/apps/tijara-tides.png"
+done
 appstreamcli validate --no-net "$task_stage/usr/share/metainfo/io.github.adsouza.tijara-tides.metainfo.xml"
 "$(dirname "$0")/check-appstream-launcher.py" \
   "$task_stage/usr/share/metainfo/io.github.adsouza.tijara-tides.metainfo.xml" \

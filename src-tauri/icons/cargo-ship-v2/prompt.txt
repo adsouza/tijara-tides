@@ -1,0 +1,10 @@
+Generated with the built-in image generation tool.
+
+Use case: logo-brand
+Asset type: square Linux desktop launcher icon for the game Tijara Tides, usable in Debian .deb and Flatpak packages.
+Primary request: create one polished, distinctive cargo trading game app icon. It should feature a bold modern container ship sailing over a single sweeping teal ocean wave, communicating maritime trade.
+Style/medium: crisp premium illustrated emblem, vector-like clean edges, restrained dimensional shading, simple large shapes. The ship should be recognizable at 32 pixels.
+Composition: one centered icon only, 1:1 square 1024x1024 canvas, a dark navy rounded-square tile with modest transparent padding around it. Ship shown in a dynamic three-quarter side view, sturdy light hull, a few large stacked teal and sea-green containers and a compact bridge. Wave visually integrated into the lower hull area. Strong readable silhouette, balanced proportions, no fine details.
+Palette: existing app colors dark navy #0f2537, teal #5eead4, sea green #2dd4bf, pale hull #e2e8f0. Subtle highlights may use these tones.
+Background: genuinely transparent outside the rounded-square icon tile.
+Constraints: deliver a finished icon asset, no mockup, no text, no letters, no watermark, no frame, no multiple variants, no shadows outside the tile. Avoid tiny windows, complex ocean scenery, decorative borders, excessive gradients and photorealism.

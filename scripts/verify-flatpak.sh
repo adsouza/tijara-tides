@@ -24,8 +24,13 @@ fi
 appstreamcli validate --no-net "$metainfo"
 "$(dirname "$0")/check-appstream-launcher.py" "$metainfo" "${launchers[0]}"
 
+# Expand the size loop inside the Flatpak sandbox.
+# shellcheck disable=SC2016
 flatpak run --command=sh "$app_id" -c '
   set -eu
+  for size in 32 128 256 512 1024; do
+    test -s "/app/share/icons/hicolor/${size}x${size}/apps/io.github.adsouza.tijara-tides.png"
+  done
   ldd /app/bin/tijara-tides > /tmp/ldd.txt
   cat /tmp/ldd.txt
   ! grep -q "not found" /tmp/ldd.txt

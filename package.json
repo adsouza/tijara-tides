@@ -6,7 +6,7 @@
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "desktop:test": "node --test test/desktop/*.test.mjs",
-    "desktop:icons": "tauri icon src-tauri/icons/icon.svg",
+    "desktop:icons": "bash scripts/generate-desktop-icons.sh",
     "desktop:coverage": "node --experimental-test-coverage --test test/desktop/*.test.mjs"
   },
   "devDependencies": {
