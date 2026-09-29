@@ -22,7 +22,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
   def panel(assigns) do
     ~H"""
     <section id="ports-panel" class="workspace-panel" aria-label={gettext("Ports")}>
-      <h2 class="panel-title">{gettext("Ports")}</h2>
+      <h2 class="panel-title"><.emoji symbol="⚓" />{gettext("Ports")}</h2>
       <div class="panel-content" tabindex="0" aria-label={gettext("Port details and trading")}>
         <section class="my-6 rounded-xl border border-slate-700 p-5">
           <div class="flex flex-wrap items-center gap-3">
@@ -62,7 +62,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               }
               class="rounded border border-teal-700 px-3 py-2 text-sm text-teal-200 disabled:opacity-60"
             >
-              {if @destination == @selected_port,
+              <.emoji symbol="🧭" />{if @destination == @selected_port,
                 do: gettext("Selected destination"),
                 else: gettext("Set as destination")}
             </button>
@@ -81,22 +81,24 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             phx-mounted={JS.ignore_attributes("open")}
             class="my-2 text-sm text-slate-400"
           >
-            <summary class="cursor-pointer">{gettext("About this port")}</summary>
+            <summary class="cursor-pointer">
+              <.emoji symbol="⚓" />{gettext("About this port")}
+            </summary>
             <p class="mt-2">
               {l10n(@definitions.catalogue["ports"][@selected_port]["identity"])}
             </p>
             <section id="port-manufacturing" class="mt-3">
               <h3 class="mb-1 text-base font-semibold text-slate-200">
-                {gettext("Local manufacturing")}
+                <.emoji symbol="🏭" />{gettext("Local manufacturing")}
               </h3>
               <p>{gettext("Production requires inputs, funds and free output storage.")}</p>
               <ul>
                 <li :for={
                   {good, recipe} <- GameQueries.production_recipes(@definitions, @selected_port)
                 }>
-                  {cargo_name(good)} ← {Enum.map_join(Enum.sort(recipe["inputs"]), ", ", fn {input,
-                                                                                             quantity} ->
-                    display_number(quantity) <> " " <> cargo_name(input)
+                  <.cargo_label good={good} />
+                  ← {Enum.map_join(Enum.sort(recipe["inputs"]), ", ", fn {input, quantity} ->
+                    display_number(quantity) <> " " <> cargo_option(input)
                   end)}
                 </li>
               </ul>
@@ -173,7 +175,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                       phx-click="market-good"
                       phx-value-good={option.good}
                       class="text-left text-teal-300 underline"
-                    >{cargo_name(option.good)}</button><p>
+                    ><.cargo_label good={option.good} /></button><p>
                       {gettext("%{value1} lots · %{value2}",
                         value1: display_number(option.source["stock"]),
                         value2:
@@ -244,7 +246,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                     else: "bg-slate-800 text-slate-400"
                   )
                 ]}
-              >{l10n(label)}</button>
+              ><.emoji symbol="💱" />{l10n(label)}</button>
             </div>
             <div
               :for={side <- ["buy", "sell"]}
@@ -334,6 +336,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
         class="mb-3 text-sm text-slate-300"
         role="status"
       >
+        <.emoji symbol={cargo_emoji(good)} />
         {gettext(
           "For %{value1} lots of %{value2}, keep %{value3} for %{value4}: fuel %{value5}, canals %{value6}, estimated fleet upkeep %{value7} through loading and arrival.",
           value1: display_number(quantity),
@@ -401,7 +404,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                 phx-value-good={good}
                 aria-label={gettext("View markets for %{cargo}", cargo: cargo_name(good))}
                 class="rounded text-left text-teal-300 underline decoration-teal-700 underline-offset-2 hover:text-teal-100 focus-visible:outline-2 focus-visible:outline-teal-300"
-              >{cargo_name(good)}</button>
+              ><.cargo_label good={good} /></button>
               <p class="text-xs text-slate-400">
                 {gettext("%{value1} kg · %{value2}",
                   value1: display_number(item["weight_kg"]),
@@ -574,7 +577,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                         )
                   }
                   class="rounded bg-teal-700 px-3 py-1 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:opacity-60"
-                >{if @ship["status"] in ["loading", "unloading"],
+                ><.emoji symbol="💱" />{if @ship["status"] in ["loading", "unloading"],
                   do:
                     if(side == "buy",
                       do: gettext("Queue purchase"),

@@ -159,22 +159,7 @@ Apple notarization. Before public distribution, configure the certificate and
 notarization credentials using [Tauri's macOS signing workflow](https://v2.tauri.app/distribute/sign/macos/).
 No signing credentials or public distribution accounts are assumed here.
 
-Before a new versioned release, update all version declarations together:
-
-```sh
-npm run version:bump -- patch    # 0.1.0 -> 0.1.1
-npm run version:bump -- minor    # increment minor and reset patch
-npm run version:bump -- major    # increment major and reset minor/patch
-npm run version:bump -- 1.2.3    # set an explicit greater X.Y.Z version
-```
-
-The helper updates `mix.exs`, both npm manifests, Cargo manifests/lockfile, Tauri
-configuration, and AppStream metadata. It adds a new AppStream release dated today
-while preserving prior releases, then verifies that all versions agree. Use
-`--date YYYY-MM-DD` to set the release date explicitly. Invalid versions or existing
-version mismatches fail before any files change. The helper preserves dependency
-versions and does not commit, tag, push, or publish; review and commit the diff,
-then push to trigger the desktop build. The consistency check also runs in CI.
+## Release a new version
 
 For a one-command release, first commit your application changes and the release
 helpers. Then, from a clean `main` checkout, run:
@@ -191,9 +176,31 @@ a main branch behind or diverging from `origin/main`, and existing release tags.
 It also accepts `minor`, `major`, or an explicit version, plus `--date YYYY-MM-DD`.
 With no argument, it defaults to a patch bump.
 
+Use `desktop:release` directly for a new release; it performs the version bump
+itself. GitHub Actions then builds and verifies both platforms and publishes the
+`.deb`, `.flatpak`, `.dmg`, and `.app.zip` files with generated release notes.
+
 If the push fails, the release commit and tag remain local. The command prints
 the exact `git push --atomic origin main vX.Y.Z` command to retry; do not run the
 bump again for that retry.
+
+### Update version files only
+
+To update version declarations without committing, tagging, or publishing, use:
+
+```sh
+npm run version:bump -- patch    # 0.1.0 -> 0.1.1
+npm run version:bump -- minor    # increment minor and reset patch
+npm run version:bump -- major    # increment major and reset minor/patch
+npm run version:bump -- 1.2.3    # set an explicit greater X.Y.Z version
+```
+
+The helper updates `mix.exs`, both npm manifests, Cargo manifests/lockfile, Tauri
+configuration, and AppStream metadata. It adds a new AppStream release dated today
+while preserving prior releases, then verifies that all versions agree. Use
+`--date YYYY-MM-DD` to set the release date explicitly. Invalid versions or existing
+version mismatches fail before any files change. The helper preserves dependency
+versions. The consistency check also runs in CI.
 
 To tag an already-committed version manually, use its version, for example:
 

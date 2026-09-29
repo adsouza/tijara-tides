@@ -18,7 +18,9 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
   def panel(assigns) do
     ~H"""
     <details id="map-disclosure" open phx-mounted={JS.ignore_attributes("open")}>
-      <summary class="cursor-pointer px-3 py-2 text-sm font-semibold">{gettext("Map")}</summary>
+      <summary class="cursor-pointer px-3 py-2 text-sm font-semibold">
+        <.emoji symbol="🗺️" />{gettext("Map")}
+      </summary>
       <section
         id="map-panel"
         data-regional={to_string(not is_nil(@map_region))}
@@ -93,7 +95,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
           class="map-region-heading flex items-center justify-between px-4 py-3"
         >
           <h2 class="text-lg">{l10n(@map_region)}</h2>
-          <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2">{gettext(
+          <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2"><.emoji symbol="🌐" />{gettext(
             "World view"
           )}</button>
         </div>
@@ -334,7 +336,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
             )}
           </p>
           <div :if={own} class="mt-2 border-t border-slate-600 pt-2">
-            <p class="font-semibold">{gettext("Cargo aboard")}</p>
+            <p class="font-semibold"><.emoji symbol="📦" />{gettext("Cargo aboard")}</p>
             <p :if={own["cargo"] == []} class="text-slate-400">{gettext("Empty hold")}</p>
             <table :if={own["cargo"] != []} class="w-full" aria-label={gettext("Selected ship cargo")}>
               <thead>
@@ -346,7 +348,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
               </thead>
               <tbody>
                 <tr :for={row <- manifest(own["cargo"])}>
-                  <td>{cargo_name(row["good"])}</td><td class="text-right tabular-nums">
+                  <td><.cargo_label good={row["good"]} /></td><td class="text-right tabular-nums">
                     {row["quantity"]}
                   </td>
                 </tr>

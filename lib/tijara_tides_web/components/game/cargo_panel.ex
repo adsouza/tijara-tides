@@ -19,7 +19,7 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
   def panel(assigns) do
     ~H"""
     <section id="cargo-panel" class="workspace-panel" aria-label={gettext("Cargo")}>
-      <h2 class="panel-title">{gettext("Cargo")}</h2>
+      <h2 class="panel-title"><.emoji symbol="📦" />{gettext("Cargo")}</h2>
       <div class="panel-content" tabindex="0" aria-label={gettext("Cargo markets")}>
         <section id="cargo-markets" class="my-6 rounded-xl border border-slate-700 p-5">
           <TijaraTidesWeb.GameUI.AuctionPanel.discovery
@@ -34,7 +34,9 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
               phx-mounted={JS.ignore_attributes("open")}
               class="mb-3 text-sm text-slate-400"
             >
-              <summary class="cursor-pointer">{gettext("About cargo markets")}</summary>
+              <summary class="cursor-pointer">
+                <.emoji symbol="📦" />{gettext("About cargo markets")}
+              </summary>
               <p class="mt-2">
                 {gettext(
                   "Supply is available stock; demand is capped by current buyer funds, in whole lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
@@ -75,9 +77,10 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                 aria-controls="cargo-options"
                 class="cargo-choice rounded bg-slate-800 px-3 py-2"
               >
-                <span>{if @market_good,
-                  do: cargo_name(@market_good),
-                  else: gettext("No cargo markets available")}</span>
+                <span>
+                  <.cargo_label :if={@market_good} good={@market_good} />
+                  <span :if={!@market_good}>{gettext("No cargo markets available")}</span>
+                </span>
                 <span class="cargo-spread">{if @market_good,
                   do: (List.keyfind(@cargo_options, @market_good, 0) |> elem(1)).label} ▾</span>
               </button>
@@ -89,9 +92,9 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                 aria-label={gettext("Choose cargo")}
               >
                 <div class="cargo-menu-row cargo-menu-heading px-3 py-2" aria-hidden="true">
-                  <span>{gettext("Cargo")}</span><span class="cargo-spread">{gettext("Bid / ask")}</span><span class="cargo-roi">{gettext(
-                    "ROI"
-                  )}</span>
+                  <span><.emoji symbol="📦" />{gettext("Cargo")}</span><span class="cargo-spread">{gettext(
+                    "Bid / ask"
+                  )}</span><span class="cargo-roi">{gettext("ROI")}</span>
                 </div>
                 <button
                   :for={{good, range} <- @cargo_options}
@@ -101,7 +104,7 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
                   aria-pressed={to_string(good == @market_good)}
                   class="cargo-choice cargo-menu-row px-3 py-2"
                 >
-                  <span>{cargo_name(good)}</span>
+                  <span><.cargo_label good={good} /></span>
                   <span class="cargo-spread">{range.label}</span>
                   <span class="cargo-roi" aria-label={gettext("ROI") <> " " <> cargo_roi(range.roi)}>{cargo_roi(
                     range.roi

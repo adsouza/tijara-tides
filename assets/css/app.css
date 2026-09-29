@@ -9,6 +9,19 @@
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 body { background-image: radial-gradient(ellipse at top right, #123a46 0%, transparent 65%); }
 
+/* Keep decorative emoji compact and isolated in both LTR and RTL labels. */
+.ui-emoji {
+  display: inline-block;
+  margin-inline-end: .35em;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 1em;
+  font-weight: normal;
+  line-height: 1;
+  vertical-align: -.05em;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
 .game-screen { padding: 12px; }
 .game-header { min-height: 32px; margin-bottom: 8px; flex-wrap: wrap; flex-shrink: 0; }
 .game-header > .game-header-actions { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; }

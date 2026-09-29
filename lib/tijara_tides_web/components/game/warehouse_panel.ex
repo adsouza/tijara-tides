@@ -31,7 +31,9 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
       phx-mounted={JS.ignore_attributes("open")}
       class="my-3 rounded border border-slate-700 p-2 text-sm"
     >
-      <summary class="cursor-pointer font-semibold">{gettext("Warehouses")}</summary>
+      <summary class="cursor-pointer font-semibold">
+        <.emoji symbol="🏬" />{gettext("Warehouses")}
+      </summary>
       <form
         id="warehouse-lease-form"
         phx-change="warehouse-draft"
@@ -54,7 +56,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
                 do: gettext("non-perishable solid goods"),
                 else:
                   Enum.map_join(@storage.storage_goods[kind] || [], ", ", fn {id, _} ->
-                    cargo_name(id)
+                    cargo_option(id)
                   end)}
             </option>
           </select>
@@ -72,7 +74,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
               value={id}
               selected={id == @storage.good}
             >
-              {cargo_name(id)}
+              {cargo_option(id)}
             </option>
           </select>
         </label>
@@ -93,7 +95,9 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
         <button
           disabled={is_nil(@storage.price) or @storage.price > @storage.cash}
           class="rounded bg-teal-700 px-2 py-1 disabled:opacity-40"
-        >{gettext("Lease")} {if @storage.price, do: money(@storage.price), else: "—"}</button>
+        ><.emoji symbol="🏬" />{gettext("Lease")} {if @storage.price,
+          do: money(@storage.price),
+          else: "—"}</button>
       </form>
       <p :if={@storage.pool} class="my-2 text-xs text-slate-400">
         {gettext("%{free} of %{total} blocks available in this storage pool.",
@@ -136,7 +140,9 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           phx-mounted={JS.ignore_attributes("open")}
           class="my-2"
         >
-          <summary class="cursor-pointer font-semibold">{gettext("Lease renewal")}</summary>
+          <summary class="cursor-pointer font-semibold">
+            <.emoji symbol="🔄" />{gettext("Lease renewal")}
+          </summary>
           <p class="my-1 text-xs text-slate-400">
             {gettext(
               "Renew during the final 6 hours. The daily quote locks when the window opens; the paid term starts at expiry. Auto-renew retries while funds are available and the locked daily rent is within your cap."
@@ -214,20 +220,23 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           phx-mounted={JS.ignore_attributes("open")}
           class="my-2"
         >
-          <summary class="cursor-pointer font-semibold">{gettext("Reservations")}</summary>
+          <summary class="cursor-pointer font-semibold">
+            <.emoji symbol="🔒" />{gettext("Reservations")}
+          </summary>
           <p class="my-1 text-xs text-slate-400">
             {gettext(
               "Earmark owned cargo or receiving space for the selected ship. Matching transfers use its reservation first. Linked reservations release when their route stop is removed. Unlinked reservations remain until used or cancelled."
             )}
           </p>
           <div :for={r <- lease.reservations} class="my-1 flex flex-wrap items-center gap-2">
-            <span>{r.ship ||
-              if(r.auction, do: gettext("Auction commitment"), else: gettext("Exchange order"))} · {cargo_name(
-              r.good
-            )} · {display_number(r.quantity)} · {if r.kind ==
-                                                      "stock",
-                                                    do: gettext("Owned stock"),
-                                                    else: gettext("Receiving space")}</span>
+            <span>
+              {r.ship ||
+                if(r.auction, do: gettext("Auction commitment"), else: gettext("Exchange order"))} ·
+              <.cargo_label good={r.good} />
+              · {display_number(r.quantity)} · {if r.kind == "stock",
+                do: gettext("Owned stock"),
+                else: gettext("Receiving space")}
+            </span>
             <form :if={r.ship != nil} phx-submit="warehouse">
               <input type="hidden" name="action" value="warehouse_cancel_reservation" />
               <input type="hidden" name="reservation" value={r.id} />
@@ -246,7 +255,8 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
             <input type="hidden" name="ship" value={@ship["id"]} />
             <input type="hidden" name="good" value={option.good} />
             <input type="hidden" name="kind" value={option.kind} />
-            <span>{cargo_name(option.good)} · {if option.kind == "stock",
+            <span><.cargo_label good={option.good} />
+            · {if option.kind == "stock",
               do: gettext("Owned stock"),
               else: gettext("Receiving space")}</span>
             <input
@@ -281,7 +291,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           </thead>
           <tbody>
             <tr :for={{good, batches} <- Enum.group_by(lease.row["cargo"], & &1["good"])}>
-              <td>{cargo_name(good)}</td><td class="text-center">
+              <td><.cargo_label good={good} /></td><td class="text-center">
                 {display_number(Enum.sum(for b <- batches, do: b["quantity"]))}
               </td>
               <td class="text-center">{display_number(lease.reserved_stock[good] || 0)}</td>
@@ -289,7 +299,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           </tbody>
         </table>
         <div :for={t <- lease.transfers} class="my-2 flex flex-wrap items-center gap-2">
-          <span>{cargo_name(t.good)}</span>
+          <span><.cargo_label good={t.good} /></span>
           <form
             :for={{side, max} <- [{"store", t.store}, {"collect", t.collect}]}
             :if={max > 0}

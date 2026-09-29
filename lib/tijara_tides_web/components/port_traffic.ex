@@ -39,7 +39,7 @@ defmodule TijaraTidesWeb.PortTraffic do
     <section id="port-traffic" class="my-5 rounded-lg border border-slate-700 p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h3 class="text-lg font-semibold">
-          {gettext("Port traffic · %{value1}", value1: ship_count(@total))}
+          <.emoji symbol="🚢" />{gettext("Port traffic · %{value1}", value1: ship_count(@total))}
         </h3>
         <form id="traffic-grouping" phx-change="traffic-grouping">
           <label class="text-sm text-slate-300">

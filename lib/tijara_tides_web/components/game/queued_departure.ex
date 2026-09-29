@@ -24,7 +24,9 @@ defmodule TijaraTidesWeb.GameUI.QueuedDeparture do
       class="mt-3 text-sm"
     >
       <div :if={@queued} class="mb-2 rounded border border-teal-700 p-3">
-        <p>{gettext("Queued departure to %{port}", port: l10n(@plan["onward"]))}</p>
+        <p>
+          <.emoji symbol="⏳" />{gettext("Queued departure to %{port}", port: l10n(@plan["onward"]))}
+        </p>
         <p class="text-xs text-slate-400">
           {gettext(
             "Waits for all orders and handling to finish. Fuel and canal fees are checked and charged at departure."
@@ -53,7 +55,7 @@ defmodule TijaraTidesWeb.GameUI.QueuedDeparture do
         <input type="hidden" name="auto_depart" value="true" />
         <input type="hidden" name="request_id" value={@request_id} />
         <button class="rounded border border-teal-700 px-3 py-2 text-teal-200">
-          {gettext("Sail to %{port} after handling", port: l10n(@destination))}
+          <.emoji symbol="⛵" />{gettext("Sail to %{port} after handling", port: l10n(@destination))}
         </button>
         <p class="mt-1 text-xs text-slate-400">
           {gettext(

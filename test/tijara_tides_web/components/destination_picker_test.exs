@@ -98,6 +98,61 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
              nil
   end
 
+  test "destination columns share cargo emoji with labels and native selectors in both locales" do
+    {definitions, view, ship} = fixture()
+    ids = %{"a" => "lumber", "b" => "grain", "c" => "crude_oil"}
+
+    definitions =
+      update_in(definitions, [:catalogue, "goods"], fn goods ->
+        Map.new(goods, fn {id, good} -> {ids[id], good} end)
+      end)
+
+    view =
+      update_in(view, [:markets], fn markets ->
+        Map.new(markets, fn {key, quote} ->
+          [port, id] = String.split(key, "|")
+          {port <> "|" <> ids[id], quote}
+        end)
+      end)
+
+    previous_locale = Localization.locale()
+
+    try do
+      for locale <- ["en", "ar"] do
+        Localization.put_locale(locale)
+
+        tree =
+          render_component(&DestinationPicker.panel/1,
+            definitions: definitions,
+            view: view,
+            ship: ship
+          )
+          |> LazyHTML.from_fragment()
+
+        assert LazyHTML.query(tree, "thead .ui-emoji") |> LazyHTML.text() == "⚓💰📏🌾🪵"
+
+        assert LazyHTML.query(tree, "thead .ui-emoji") |> LazyHTML.attribute("aria-hidden") ==
+                 List.duplicate("true", 5)
+
+        for {id, column} <- [{"grain", 4}, {"lumber", 5}] do
+          heading = LazyHTML.query(tree, "thead th:nth-child(#{column})")
+
+          label =
+            render_component(&TijaraTidesWeb.GameUI.Presentation.cargo_label/1, good: id)
+            |> LazyHTML.from_fragment()
+
+          assert LazyHTML.text(heading) |> String.trim() == LazyHTML.text(label)
+
+          assert LazyHTML.text(heading) |> String.replace(~r/\s+/, "") ==
+                   TijaraTidesWeb.GameUI.Presentation.cargo_option(id)
+                   |> String.replace(~r/\s+/, "")
+        end
+      end
+    after
+      Localization.put_locale(previous_locale)
+    end
+  end
+
   test "aboard cargo remains visible without local stock and uses cost of the lots a buyer can take" do
     {definitions, view, ship} = fixture()
     view = put_in(view, [:markets, "Singapore|a", "stock"], 0)

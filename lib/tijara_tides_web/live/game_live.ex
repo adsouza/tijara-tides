@@ -1159,7 +1159,7 @@ defmodule TijaraTidesWeb.GameLive do
       >
         <header class="game-header flex items-center justify-between gap-3">
           <div>
-            <a href="/" class="text-sm text-teal-300">{gettext("Tijara Tides")}</a><h1 class="game-tagline text-sm font-semibold">
+            <a href="/" class="text-sm text-teal-300"><.emoji symbol="🌊" />{gettext("Tijara Tides")}</a><h1 class="game-tagline text-sm font-semibold">
               {gettext("Build a company. Trade the world.")}
             </h1>
           </div>
@@ -1187,7 +1187,9 @@ defmodule TijaraTidesWeb.GameLive do
               "The lobby is open. The operator must configure game storage and apply its migrations before companies can begin trading."
             )}
           </p>
-          <a href="/" class="mt-4 inline-block underline">{gettext("Return to lobby")}</a>
+          <a href="/" class="mt-4 inline-block underline"><.emoji symbol="⚓" />{gettext(
+            "Return to lobby"
+          )}</a>
         </div>
         <div :if={@view.status == :ready} class="game-body">
           <section
@@ -1195,7 +1197,7 @@ defmodule TijaraTidesWeb.GameLive do
             class="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6"
           >
             <h2 :if={Application.get_env(:tijara_tides, :email_enabled, false)} class="text-xl">
-              {gettext("Sign in with email")}
+              <.emoji symbol="✉️" />{gettext("Sign in with email")}
             </h2>
             <.form
               :if={Application.get_env(:tijara_tides, :email_enabled, false)}
@@ -1214,7 +1216,9 @@ defmodule TijaraTidesWeb.GameLive do
                 aria-label={gettext("Sign-in email")}
                 class="rounded bg-slate-800 p-2"
               />
-              <button class="rounded border p-2">{gettext("Email me a sign-in link")}</button>
+              <button class="rounded border p-2"><.emoji symbol="✉️" />{gettext(
+                "Email me a sign-in link"
+              )}</button>
             </.form>
             <details
               :if={Application.get_env(:tijara_tides, :email_enabled, false)}
@@ -1251,7 +1255,7 @@ defmodule TijaraTidesWeb.GameLive do
                 <button class="rounded border p-2">{gettext("Continue on this device")}</button>
               </.form>
             </details>
-            <h2 class="text-xl">{gettext("Start with an invitation")}</h2>
+            <h2 class="text-xl"><.emoji symbol="🎟️" />{gettext("Start with an invitation")}</h2>
             <p class="my-3 text-slate-300">
               {gettext(
                 "You can explore the world without an account. Redeem a shareable invitation to establish your company on this device."
@@ -1268,7 +1272,9 @@ defmodule TijaraTidesWeb.GameLive do
                 size="48"
                 class="min-w-0 w-full max-w-lg rounded bg-slate-800 px-4 py-2"
               />
-              <button class="rounded bg-teal-600 px-4 py-2">{gettext("Redeem invitation")}</button>
+              <button class="rounded bg-teal-600 px-4 py-2"><.emoji symbol="🎟️" />{gettext(
+                "Redeem invitation"
+              )}</button>
             </.form>
           </section>
           <section
@@ -1278,7 +1284,7 @@ defmodule TijaraTidesWeb.GameLive do
             }
             class="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6"
           >
-            <h2 class="text-xl">{gettext("Name your company")}</h2>
+            <h2 class="text-xl"><.emoji symbol="🏢" />{gettext("Name your company")}</h2>
             <p class="my-3 text-slate-300">
               {gettext(
                 "Start with $0 and no ships. Borrow up to %{value1} to buy ships and fund cargo and voyages. Interest accrues while the world runs; prior bankruptcies reduce your credit limit.",
@@ -1305,7 +1311,7 @@ defmodule TijaraTidesWeb.GameLive do
               <button
                 disabled={@view.private["finance"]["restart_ms"] > @view.public["clock_ms"]}
                 class="rounded bg-teal-600 px-4 py-2 disabled:opacity-40"
-              >{gettext("Establish company")}</button>
+              ><.emoji symbol="🏢" />{gettext("Establish company")}</button>
               <p :if={@view.private["finance"]["restart_ms"] > @view.public["clock_ms"]}>
                 {gettext("Replacement company available in %{value1} active-world minutes.",
                   value1: minutes(@view.private["finance"]["restart_ms"] - @view.public["clock_ms"])
@@ -1318,7 +1324,7 @@ defmodule TijaraTidesWeb.GameLive do
             id="account-suspension"
             class="rounded border border-red-500 p-4"
           >
-            <h2>{gettext("Account suspended")}</h2>
+            <h2><.emoji symbol="⚠️" />{gettext("Account suspended")}</h2>
             <p>
               {gettext(
                 "Five bankruptcies within 112 active-world days trigger suspension. Aging out does not lift it. Your original sponsor must pledge at least $50,000 to reinstate you."
@@ -1338,17 +1344,17 @@ defmodule TijaraTidesWeb.GameLive do
               <h2 class="text-2xl">{@view.private["company"]["name"]}</h2>
             </div>
             <div>
-              {gettext("Available cash")}
+              <.emoji symbol="💰" />{gettext("Available cash")}
               <p class="text-2xl">
                 {money(@view.private["company"]["cash"] - @view.private["company"]["reserved"])}
               </p>
             </div>
             <div>
-              {gettext("Reserved funds")}
+              <.emoji symbol="🔒" />{gettext("Reserved funds")}
               <p class="text-2xl">{money(@view.private["company"]["reserved"])}</p>
             </div>
             <div>
-              {gettext("Trading result")}
+              <.emoji symbol="📈" />{gettext("Trading result")}
               <p class="text-2xl">{money(@view.private["company"]["profit"])}</p><p
                 :if={@view.private["company"]["unpaid"] > 0}
                 class="text-amber-300"
@@ -1359,13 +1365,13 @@ defmodule TijaraTidesWeb.GameLive do
           </section>
           <div id="game-workspace" phx-hook="Workspace" class="game-workspace">
             <nav class="workspace-tabs" aria-label={gettext("Game panels")}>
-              <button type="button" data-panel="0" aria-controls="ports-panel" aria-current="false">{gettext(
+              <button type="button" data-panel="0" aria-controls="ports-panel" aria-current="false"><.emoji symbol="⚓" />{gettext(
                 "Ports"
               )}</button>
-              <button type="button" data-panel="1" aria-controls="ships-panel" aria-current="true">{gettext(
+              <button type="button" data-panel="1" aria-controls="ships-panel" aria-current="true"><.emoji symbol="🚢" />{gettext(
                 "Ships"
               )}</button>
-              <button type="button" data-panel="2" aria-controls="cargo-panel" aria-current="false">{gettext(
+              <button type="button" data-panel="2" aria-controls="cargo-panel" aria-current="false"><.emoji symbol="📦" />{gettext(
                 "Cargo"
               )}</button>
             </nav>

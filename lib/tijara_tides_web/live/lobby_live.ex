@@ -28,17 +28,19 @@ defmodule TijaraTidesWeb.LobbyLive do
       <Layouts.language_selector return_to="/" />
       <section class="mx-auto max-w-5xl px-6 py-16 sm:py-24">
         <p class="text-xs font-semibold uppercase tracking-[0.3em] text-teal-300">
-          {gettext("A shared world awaits")}
+          <.emoji symbol="🌐" />{gettext("A shared world awaits")}
         </p>
         <h1 class="mt-5 text-5xl font-semibold tracking-tight sm:text-7xl">
-          {gettext("Tijara Tides")}
+          <.emoji symbol="🌊" />{gettext("Tijara Tides")}
         </h1>
         <p class="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-          {gettext("An ocean of possibilities. A multiplayer marine trading game, beginning here.")}
+          <.emoji symbol="🚢" />{gettext(
+            "An ocean of possibilities. A multiplayer marine trading game, beginning here."
+          )}
         </p>
         <div class="mt-12 rounded-2xl border border-slate-700 bg-slate-900/70 p-8">
           <div class="flex flex-wrap items-center justify-between gap-4">
-            <h2 class="text-xl font-medium">{gettext("Harbor lobby")}</h2>
+            <h2 class="text-xl font-medium"><.emoji symbol="⚓" />{gettext("Harbor lobby")}</h2>
             <span id="connection-status" class="text-sm text-teal-300">
               <span class="phx-connected:hidden">{gettext("Connecting…")}</span>
               <span class="hidden phx-connected:inline">{gettext("Live player count")}</span>
@@ -46,7 +48,9 @@ defmodule TijaraTidesWeb.LobbyLive do
           </div>
           <dl class="mt-8">
             <div>
-              <dt class="text-sm text-slate-400">{gettext("Players online")}</dt><dd
+              <dt class="text-sm text-slate-400">
+                <.emoji symbol="👥" />{gettext("Players online")}
+              </dt><dd
                 id="online-players"
                 class="mt-2 text-4xl"
               >
@@ -55,7 +59,7 @@ defmodule TijaraTidesWeb.LobbyLive do
             </div>
           </dl>
         </div>
-        <a href="/play" class="mt-8 inline-block rounded-lg bg-teal-700 px-6 py-3 text-white">{gettext(
+        <a href="/play" class="mt-8 inline-block rounded-lg bg-teal-700 px-6 py-3 text-white"><.emoji symbol="🧭" />{gettext(
           "Explore the trading world"
         )}</a>
       </section>

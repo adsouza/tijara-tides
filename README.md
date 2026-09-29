@@ -133,3 +133,15 @@ npm run desktop:dev
 Desktop development requires Rust, Node.js, and the platform's Tauri build
 prerequisites. See [desktop setup and packaging](docs/desktop.md) for build,
 installation, CI, and signing details.
+
+To release the next patch version, commit your changes, then run from a clean
+`main` checkout:
+
+```sh
+npm run desktop:release -- patch
+```
+
+This bumps and commits the version files, creates the matching tag, and pushes
+the commit and tag. GitHub Actions builds and publishes all four desktop packages.
+See [releasing a new version](docs/desktop.md#release-a-new-version) for other
+version increments and retry instructions.

@@ -16,7 +16,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
       phx-mounted={JS.ignore_attributes("open")}
     >
       <summary class="company-menu-trigger popup-menu-trigger" phx-click="report-close">
-        <span>{gettext("Account, finance & invitations")}</span>
+        <span><.emoji symbol="🏢" />{gettext("Account, finance & invitations")}</span>
       </summary>
       <div class="company-menu-body">
         <div class="company-menu-dismiss">
@@ -70,7 +70,9 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="email-identity"
             class="my-4 space-y-2"
           >
-            <h3 :if={is_nil(@view.private["account"]["email"])}>{gettext("Email identity")}</h3>
+            <h3 :if={is_nil(@view.private["account"]["email"])}>
+              <.emoji symbol="✉️" />{gettext("Email identity")}
+            </h3>
             <div :if={is_nil(@view.private["account"]["email"])} id="email-verification">
               <.form
                 for={%{}}
@@ -88,7 +90,9 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                   class="rounded bg-slate-800 p-2"
                 />
                 <div class="flex items-center gap-2">
-                  <button class="shrink-0 rounded border p-2">{gettext("Send verification link")}</button>
+                  <button class="shrink-0 rounded border p-2"><.emoji symbol="✉️" />{gettext(
+                    "Send verification link"
+                  )}</button>
                   <p class="text-sm">{gettext("Verify your email using the link we send.")}</p>
                 </div>
               </.form>
@@ -112,7 +116,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="invitations"
             class="my-4 space-y-2"
           >
-            <h2 class="text-xl">{gettext("Invitations")}</h2>
+            <h2 class="text-xl"><.emoji symbol="🎟️" />{gettext("Invitations")}</h2>
             <p :if={@view.private["account"]["invite_quota"] < 1}>
               {gettext("Available invitations: 0")}
             </p>
@@ -149,7 +153,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                         not is_nil(@view.private["account"]["suspended_ms"])
                     }
                     class="rounded border p-2 disabled:opacity-40"
-                  >{gettext("Send invitation")}</button>
+                  ><.emoji symbol="✉️" />{gettext("Send invitation")}</button>
                 </.form>
               </div>
               <span
@@ -160,7 +164,9 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                 phx-click="invite"
                 phx-value-request_id={@request_id}
                 class="rounded border border-teal-700 px-4 py-2"
-              >{gettext("Generate shareable")}<br />{gettext("invitation code")}</button>
+              ><.emoji symbol="🎟️" />{gettext("Generate shareable")}<br />{gettext(
+                "invitation code"
+              )}</button>
             </div>
             <p :if={@invite_code} class="mt-3 break-all font-mono text-teal-200">
               {@invite_code}
@@ -207,7 +213,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="sponsor-guarantees"
             class="my-4 space-y-3"
           >
-            <h3 class="text-lg">{gettext("Sponsor guarantees")}</h3>
+            <h3 class="text-lg"><.emoji symbol="🤝" />{gettext("Sponsor guarantees")}</h3>
             <p :if={not @view.private["guarantees"]["eligible"]}>
               {gettext(
                 "To sponsor a player, clear overdue bills and hold at least as much unreserved cash as your own outstanding loan principal and interest."
@@ -286,7 +292,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="company-finance"
             class="mt-4 space-y-3 border-t border-slate-600 pt-3"
           >
-            <h3 class="text-lg">{gettext("Loans and repayments")}</h3>
+            <h3 class="text-lg"><.emoji symbol="🏦" />{gettext("Loans and repayments")}</h3>
 
             <p :if={@view.private["finance"]["requires_guarantee"]}>
               {gettext(
@@ -360,7 +366,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                 disabled={@view.private["finance"]["available"] < 100}
                 phx-disable-with={gettext("Borrowing…")}
                 class="rounded bg-teal-700 p-2 disabled:opacity-40"
-              >{gettext("Borrow")}</button>
+              ><.emoji symbol="🏦" />{gettext("Borrow")}</button>
             </.form>
             <details
               :for={loan <- @view.private["finance"]["loans"]}
@@ -428,7 +434,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                     name="loan"
                     value={loan["id"]}
                   />
-                  <button phx-disable-with={gettext("Repaying…")} class="rounded border p-2">{gettext(
+                  <button phx-disable-with={gettext("Repaying…")} class="rounded border p-2"><.emoji symbol="💸" />{gettext(
                     "Repay"
                   )}<br />{finance_money(
                     loan["remaining"] + loan["interest_due"] + loan["interest_accrued"]

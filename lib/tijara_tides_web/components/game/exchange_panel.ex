@@ -27,7 +27,9 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
       phx-mounted={JS.ignore_attributes("open")}
       class="my-3 rounded border border-slate-700 p-2 text-sm"
     >
-      <summary class="cursor-pointer font-semibold">{gettext("Cargo exchange")}</summary>
+      <summary class="cursor-pointer font-semibold">
+        <.emoji symbol="💱" />{gettext("Cargo exchange")}
+      </summary>
       <form
         id="exchange-good-selector"
         phx-change="exchange-good"
@@ -42,7 +44,7 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
           class="max-w-full rounded bg-slate-800 p-1"
         >
           <option :for={{id, _} <- @book.goods} value={id} selected={id == @book.good}>
-            {cargo_name(id)}
+            {cargo_option(id)}
           </option>
         </select>
       </form>
@@ -129,10 +131,13 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
         phx-mounted={JS.ignore_attributes("open")}
         class="my-2"
       >
-        <summary class="cursor-pointer font-semibold">{gettext("Your open orders")}</summary>
+        <summary class="cursor-pointer font-semibold">
+          <.emoji symbol="📋" />{gettext("Your open orders")}
+        </summary>
         <div :for={o <- @book.orders} class="my-2 border-t border-slate-700 py-1">
           <p>
-            {cargo_name(o["good"])} · {if o["side"] == "buy",
+            <.cargo_label good={o["good"]} />
+            · {if o["side"] == "buy",
               do: gettext("Buy"),
               else: gettext("Sell")} · {display_number(o["quantity"])} {gettext("Lots")} · {money(
               o["price"]
@@ -196,7 +201,7 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
         </div>
       </details>
       <details id="exchange-trades" phx-mounted={JS.ignore_attributes("open")} class="my-2">
-        <summary class="cursor-pointer">{gettext("Recent trades")}</summary>
+        <summary class="cursor-pointer"><.emoji symbol="🤝" />{gettext("Recent trades")}</summary>
         <p :for={t <- @book.trades}>
           {display_number(t["quantity"])} {gettext("Lots")} · {money(t["price"])}
         </p>

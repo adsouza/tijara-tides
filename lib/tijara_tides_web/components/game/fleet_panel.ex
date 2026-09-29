@@ -27,7 +27,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
   def panel(assigns) do
     ~H"""
     <section id="ships-panel" class="workspace-panel" aria-label={gettext("Ships")}>
-      <h2 class="panel-title">{gettext("Ships")}</h2>
+      <h2 class="panel-title"><.emoji symbol="🚢" />{gettext("Ships")}</h2>
       <TijaraTidesWeb.GameUI.MapPanel.panel
         preview={@preview}
         definitions={@definitions}
@@ -97,7 +97,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
           </div>
         </section>
         <section :if={@view.private && @view.private["company"]} class="my-6">
-          <h2 class="mb-3 text-xl font-semibold">{gettext("Your fleet")}</h2>
+          <h2 class="mb-3 text-xl font-semibold"><.emoji symbol="🚢" />{gettext("Your fleet")}</h2>
           <details
             id="shipyard"
             phx-mounted={JS.ignore_attributes("open")}
@@ -105,7 +105,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             class="mb-3 rounded border border-slate-600 p-3"
           >
             <summary class="cursor-pointer">
-              {gettext("Buy a ship at %{value1}", value1: l10n(@selected_port))}
+              <.emoji symbol="🚢" />{gettext("Buy a ship at %{value1}",
+                value1: l10n(@selected_port)
+              )}
             </summary>
             <p class="my-2 text-sm">
               {gettext(
@@ -161,7 +163,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   }
                   phx-disable-with={gettext("Buying…")}
                   class="rounded bg-teal-700 px-3 py-1 disabled:opacity-40"
-                >{gettext("Buy ship")}</button>
+                ><.emoji symbol="🚢" />{gettext("Buy ship")}</button>
               </div>
             </.form>
           </details>
@@ -261,7 +263,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               phx-mounted={JS.ignore_attributes("open")}
               class="mb-2"
             >
-              <summary class="cursor-pointer">{gettext("Ship details")}</summary>
+              <summary class="cursor-pointer">
+                <.emoji symbol="🔎" />{gettext("Ship details")}
+              </summary>
               <.form
                 for={%{}}
                 id={"rename-ship-" <> @ship["id"] <> "-" <> Base.url_encode64(@ship["name"], padding: false)}
@@ -334,7 +338,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               </.form>
             </details>
             <h3 class="mt-4 mb-2 text-lg font-semibold">
-              {gettext("%{value1} — Manifest", value1: @ship["name"])}
+              <.emoji symbol="📋" />{gettext("%{value1} — Manifest", value1: @ship["name"])}
             </h3>
             <% occupied =
               Enum.reduce(@ship["cargo"], %{weight: 0, volume: 0}, fn batch, used ->
@@ -433,7 +437,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                           gettext("View markets for %{cargo}", cargo: cargo_name(b["good"]))
                         }
                         class="rounded text-left text-teal-300 underline decoration-teal-700 underline-offset-2 hover:text-teal-100 focus-visible:outline-2 focus-visible:outline-teal-300"
-                      >{cargo_name(b["good"])}</button>
+                      ><.cargo_label good={b["good"]} /></button>
                     </th>
                     <td class="px-4 py-3 text-right tabular-nums">{display_number(b["quantity"])}</td>
                     <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">
@@ -473,7 +477,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               class="mt-3"
             >
               <label class="text-sm">
-                {gettext("Reroute ship")}
+                <.emoji symbol="🧭" />{gettext("Reroute ship")}
                 <select name="destination" class="block rounded bg-slate-800 p-2">
                   <option value="">{gettext("Choose a new destination")}</option>
                   <option
@@ -498,7 +502,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               aria-expanded={to_string(@destination_picker_open)}
               class="mt-4 rounded border border-teal-700 px-3 py-2 text-teal-200"
             >
-              {if @destination,
+              <.emoji symbol="🧭" />{if @destination,
                 do: gettext("Destination: %{port}", port: l10n(@destination)),
                 else: gettext("Choose destination")}
             </button>
@@ -538,7 +542,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 phx-click="sail"
                 phx-value-request_id={@request_id}
                 class="rounded bg-teal-600 px-4 py-2"
-              >{if @ship["status"] == "sailing",
+              ><.emoji symbol="⛵" />{if @ship["status"] == "sailing",
                 do: gettext("Confirm reroute"),
                 else: gettext("Reserve fuel and sail")}</button>
               <.voyage_freshness
@@ -565,7 +569,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               class="mt-4 rounded border border-slate-700 p-3"
             >
               <summary class="cursor-pointer font-semibold">
-                {gettext("Next port cargo instructions")}
+                <.emoji symbol="📋" />{gettext("Next port cargo instructions")}
               </summary>
               <p class="my-2 text-sm text-slate-400">
                 {gettext(
@@ -647,7 +651,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                       value={good}
                       selected={good == instruction.good}
                     >
-                      {cargo_name(good)}
+                      {cargo_option(good)}
                     </option>
                   </select>
                 </label>
@@ -719,7 +723,8 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 class="mt-3 border-t border-slate-700 pt-2 text-sm"
               >
                 <p>
-                  <strong>{l10n(String.capitalize(order["side"]))} {cargo_name(order["good"])}</strong>
+                  <strong>{l10n(String.capitalize(order["side"]))}
+                  <.cargo_label good={order["good"]} /></strong>
                   {gettext("at %{value1} · %{value2}/%{value3} lots · %{value4} %{value5}/lot",
                     value1: l10n(order["port"]),
                     value2: display_number(order["filled"]),

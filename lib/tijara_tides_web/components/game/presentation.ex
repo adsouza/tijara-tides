@@ -3,6 +3,47 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
   use TijaraTidesWeb, :html
   alias TijaraTides.UseCases.{Game, GameQueries}
 
+  @cargo_emoji %{
+    "agricultural_machinery" => "🚜",
+    "aluminium_scrap" => "🥫",
+    "appliances" => "🧺",
+    "construction_equipment" => "🏗️",
+    "copper_scrap" => "🔩",
+    "crude_oil" => "🛢️",
+    "designer_clothing" => "👗",
+    "electronics" => "💻",
+    "everyday_clothing" => "👕",
+    "fruit" => "🍎",
+    "grain" => "🌾",
+    "iron_ore" => "🪨",
+    "jewelry" => "💎",
+    "lumber" => "🪵",
+    "meat" => "🥩",
+    "recovered_plastics" => "♻️",
+    "refined_fuel" => "⛽",
+    "seafood" => "🐟",
+    "spices" => "🌶️",
+    "turbines" => "⚙️",
+    "vegetable_oil" => "🫒",
+    "whisky" => "🥃"
+  }
+
+  def cargo_emoji(good), do: Map.get(@cargo_emoji, good, "📦")
+
+  # Native select options support text only, so use the same mapping there.
+  def cargo_option(good, name \\ nil), do: cargo_emoji(good) <> " " <> (name || cargo_name(good))
+
+  attr :good, :string, required: true
+  attr :name, :string, default: nil
+
+  def cargo_label(assigns) do
+    assigns = assign(assigns, :label, assigns.name || cargo_name(assigns.good))
+
+    ~H"""
+    <.emoji symbol={cargo_emoji(@good)} />{@label}
+    """
+  end
+
   def bounded_quantity(_quantity, maximum) when maximum < 1, do: 0
   def bounded_quantity(quantity, maximum), do: max(1, min(quantity, maximum))
 
@@ -106,8 +147,9 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       phx-mounted={JS.ignore_attributes("open")}
       class="voyage-freshness mt-3 w-full text-sm text-amber-200"
     >
-      <summary class="cursor-pointer">{gettext("Cargo freshness")}</summary>
+      <summary class="cursor-pointer"><.emoji symbol="⏳" />{gettext("Cargo freshness")}</summary>
       <p :for={estimate <- @estimates}>
+        <.emoji symbol={cargo_emoji(estimate["good"])} />
         {gettext(
           "%{value1}: estimated time to first expiry — %{value2} min at arrival; %{value3} min after unloading.",
           value1: cargo_name(estimate["good"]),

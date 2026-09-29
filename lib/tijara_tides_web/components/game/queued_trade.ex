@@ -2,7 +2,7 @@ defmodule TijaraTidesWeb.GameUI.QueuedTrade do
   use TijaraTidesWeb, :html
 
   import TijaraTidesWeb.GameUI.Presentation,
-    only: [finance_money: 1, cargo_name: 1, error_message: 1]
+    only: [finance_money: 1, cargo_name: 1, cargo_emoji: 1, error_message: 1]
 
   attr :reason, :any, default: nil
   attr :id, :string, required: true
@@ -19,9 +19,13 @@ defmodule TijaraTidesWeb.GameUI.QueuedTrade do
     ~H"""
     <div id={@id} class="my-3 rounded border border-amber-700 bg-amber-950/20 p-3 text-sm">
       <h3 class="font-semibold text-amber-200">
-        {gettext("Queued trade · %{ship} · %{port}", ship: @ship["name"], port: l10n(@ship["port"]))}
+        <.emoji symbol="⏳" />{gettext("Queued trade · %{ship} · %{port}",
+          ship: @ship["name"],
+          port: l10n(@ship["port"])
+        )}
       </h3>
       <p class="mt-1">
+        <.emoji symbol={cargo_emoji(@ship["pending_good"])} />
         {if @ship["pending_side"] == "sell",
           do:
             gettext("Sell %{quantity} lots of %{cargo} at no less than %{price} per lot.",

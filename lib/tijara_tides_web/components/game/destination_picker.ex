@@ -1,7 +1,10 @@
 defmodule TijaraTidesWeb.GameUI.DestinationPicker do
   use TijaraTidesWeb, :html
   alias TijaraTides.UseCases.GameQueries
-  import TijaraTidesWeb.GameUI.Presentation, only: [cargo_roi: 1, money: 1]
+
+  import TijaraTidesWeb.GameUI.Presentation,
+    only: [cargo_roi: 1, cargo_label: 1, cargo_emoji: 1, money: 1]
+
   attr :definitions, :any, required: true
   attr :view, :any, required: true
   attr :ship, :map, required: true
@@ -44,7 +47,9 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
         >
           <div class="flex items-start justify-between gap-4">
             <h2 id="destination-picker-title" class="text-lg font-semibold">
-              {gettext("Trade opportunities from %{port}", port: l10n(@ship["port"]))}
+              <.emoji symbol="🧭" />{gettext("Trade opportunities from %{port}",
+                port: l10n(@ship["port"])
+              )}
             </h2>
             <button
               type="button"
@@ -73,10 +78,14 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
             <table class="destination-matrix text-sm">
               <thead>
                 <tr>
-                  <th scope="col" class="destination-port">{gettext("Port")}</th>
-                  <th scope="col">{gettext("Estimated net profit")}</th>
-                  <th scope="col">{gettext("Distance (nm)")}</th>
-                  <th :for={{_, good} <- @matrix.goods} scope="col">{l10n(good["name"])}</th>
+                  <th scope="col" class="destination-port">
+                    <.emoji symbol="⚓" />{gettext("Port")}
+                  </th>
+                  <th scope="col"><.emoji symbol="💰" />{gettext("Estimated net profit")}</th>
+                  <th scope="col"><.emoji symbol="📏" />{gettext("Distance (nm)")}</th>
+                  <th :for={{id, good} <- @matrix.goods} scope="col">
+                    <.cargo_label good={id} name={l10n(good["name"])} />
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -114,12 +123,14 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                           <p>{gettext("Voyage costs: %{cost}", cost: money(row.plan.costs))}</p>
                           <p>{gettext("Purchases: %{cost}", cost: money(row.plan.spent))}</p>
                           <p :for={cargo <- row.plan.purchases}>
+                            <.emoji symbol={cargo_emoji(cargo.good)} />
                             {gettext("Buy %{lots} lots of %{cargo}",
                               lots: display_number(cargo.lots),
                               cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
                             )}
                           </p>
                           <p :for={cargo <- row.plan.sales}>
+                            <.emoji symbol={cargo_emoji(cargo.good)} />
                             {gettext("Sell %{lots} lots of %{cargo}",
                               lots: display_number(cargo.lots),
                               cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
@@ -133,6 +144,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                               )}
                             </p>
                             <p :for={cargo <- row.plan.onward.purchases}>
+                              <.emoji symbol={cargo_emoji(cargo.good)} />
                               {gettext("Buy %{lots} lots of %{cargo}",
                                 lots: display_number(cargo.lots),
                                 cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])

@@ -25,7 +25,9 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
       phx-mounted={JS.ignore_attributes("open")}
       class="my-3 rounded border border-slate-700 p-2 text-sm"
     >
-      <summary class="cursor-pointer font-semibold">{gettext("Cargo and ship auctions")}</summary>
+      <summary class="cursor-pointer font-semibold">
+        <.emoji symbol="🔨" />{gettext("Cargo and ship auctions")}
+      </summary>
       <details
         id="auction-rules"
         phx-mounted={JS.ignore_attributes("open")}
@@ -44,7 +46,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         </p>
       </details>
       <details id="auction-consign" phx-mounted={JS.ignore_attributes("open")} class="my-2">
-        <summary>{gettext("Consign luxury cargo")}</summary>
+        <summary><.emoji symbol="💎" />{gettext("Consign luxury cargo")}</summary>
         <p class="text-xs">
           {gettext("Next opening in %{time}", time: active_countdown(@auction.opens - @auction.clock))} · {gettext(
             "Closes in %{time}",
@@ -70,7 +72,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
             :for={{id, _} <- @auction.goods}
             value={id}
           >
-            {cargo_name(id)}{if not String.contains?(@auction.roles[id] || "", "imp"),
+            {cargo_option(id)}{if not String.contains?(@auction.roles[id] || "", "imp"),
               do: " · " <> gettext("No simulated buyers")}
           </option></select></label>
           <label>{gettext("Warehouse")}<select
@@ -107,7 +109,10 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         class="my-2 rounded border border-slate-700 p-2"
       >
         <summary class="cursor-pointer">
-          {auction_name(@definitions, a)} · {display_number(a["quantity"])} {if a["ship_id"],
+          <.emoji symbol={if a["ship_id"], do: "🚢", else: cargo_emoji(a["good"])} />{auction_name(
+            @definitions,
+            a
+          )} · {display_number(a["quantity"])} {if a["ship_id"],
             do: gettext("Ship"),
             else: gettext("lots")} · {status(
             a,
@@ -261,7 +266,9 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
       phx-hook="AuctionDisclosures"
       class="mb-3 rounded border border-slate-700 p-3 text-sm"
     >
-      <summary class="cursor-pointer font-semibold">{gettext("Cargo and ship auctions")}</summary>
+      <summary class="cursor-pointer font-semibold">
+        <.emoji symbol="🔨" />{gettext("Cargo and ship auctions")}
+      </summary>
       <p class="my-2 text-xs text-slate-400">
         {gettext(
           "Browse open, upcoming and recently settled auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
@@ -291,7 +298,10 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         class="my-2"
       >
         <summary class="cursor-pointer text-teal-300">
-          {discovery_heading(@grouping, group)} · {display_number(length(listings))}
+          <.emoji :if={@grouping == "cargo"} symbol={cargo_emoji(group)} />{discovery_heading(
+            @grouping,
+            group
+          )} · {display_number(length(listings))}
         </summary>
         <.settled_filter
           :if={group == "settled" && @grouping == "status"}
@@ -321,7 +331,10 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
                   >{l10n(a["port"])}</button>
                 </td>
                 <td :if={@grouping == "status"} class="px-2">
-                  {auction_name(@definitions, a)}
+                  <.emoji symbol={if a["ship_id"], do: "🚢", else: cargo_emoji(a["good"])} />{auction_name(
+                    @definitions,
+                    a
+                  )}
                 </td>
                 <td class="px-2 text-end">{display_number(a["quantity"])}</td>
                 <td class="px-2 text-end">{money(a["reserve"])}</td>

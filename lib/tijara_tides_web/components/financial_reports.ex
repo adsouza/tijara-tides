@@ -16,7 +16,7 @@ defmodule TijaraTidesWeb.FinancialReports do
         phx-click={JS.remove_attribute("open", to: "#company-menu") |> JS.push("report-toggle")}
         aria-expanded={to_string(@open)}
         class="popup-menu-trigger"
-      >{gettext("Results & leaderboards")}</button>
+      ><.emoji symbol="🏆" />{gettext("Results & leaderboards")}</button>
       <div :if={@open && @error} class="financial-reports-body">
         <p>{gettext("Reports are temporarily unavailable. Please retry.")}</p>
         <button phx-click="report-refresh">{gettext("Retry")}</button>
@@ -24,7 +24,9 @@ defmodule TijaraTidesWeb.FinancialReports do
       </div>
       <div :if={@open && @data && !@error} class="financial-reports-body">
         <div class="mb-3 flex items-center justify-between gap-3">
-          <h2 class="text-lg font-semibold">{gettext("Company results & leaderboards")}</h2>
+          <h2 class="text-lg font-semibold">
+            <.emoji symbol="🏆" />{gettext("Company results & leaderboards")}
+          </h2>
           <button
             type="button"
             phx-click="report-toggle"

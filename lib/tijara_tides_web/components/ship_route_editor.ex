@@ -1,5 +1,6 @@
 defmodule TijaraTidesWeb.ShipRouteEditor do
   use TijaraTidesWeb, :html
+  import TijaraTidesWeb.GameUI.Presentation, only: [cargo_emoji: 1, cargo_option: 2]
   attr :ship, :map, required: true
   attr :model, :map, required: true
   attr :catalogue, :map, required: true
@@ -13,7 +14,9 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
       phx-mounted={JS.ignore_attributes("open")}
       class="mt-4 rounded border border-slate-700 p-3"
     >
-      <summary class="cursor-pointer font-semibold">{gettext("Repeating route")}</summary>
+      <summary class="cursor-pointer font-semibold">
+        <.emoji symbol="🔁" />{gettext("Repeating route")}
+      </summary>
       <details
         id={"route-help-" <> @ship["id"]}
         phx-mounted={JS.ignore_attributes("open")}
@@ -49,6 +52,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
             >{gettext("Remove stop")}</button>
           </div>
           <p :for={rule <- Map.get(@model.rules, stop["id"], [])} class="mt-2">
+            <.emoji symbol={cargo_emoji(rule["good"])} />
             {gettext("%{value1} %{value2} · %{value3} $%{value4} / lot",
               value1:
                 if(rule["quantity_mode"] == "maximum",
@@ -143,7 +147,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
                     value={id}
                     selected={draft["good"] == id}
                   >
-                    {l10n(good["name"])}
+                    {cargo_option(id, l10n(good["name"]))}
                   </option>
                 </select></label>
                 <label>{gettext("Quantity")}
@@ -234,7 +238,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
                  @model.route["cursor"] == length(@model.stops) - 1)
           }
           class="rounded bg-teal-600 px-3 py-2 disabled:opacity-40"
-        >{gettext("Add stop")}</button>
+        ><.emoji symbol="📍" />{gettext("Add stop")}</button>
       </.form>
       <.form
         :if={@model.route && @model.route["status"] != "running" && length(@model.stops) >= 2}
@@ -252,9 +256,12 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
         <span class="text-xs text-slate-400">{gettext(
           "Ships continue automatically after trades and handling finish."
         )}</span>
-        <button class="rounded bg-teal-600 px-3 py-2">{if @model.route["status"] == "draft",
-          do: gettext("Start route"),
-          else: gettext("Resume route")}</button>
+        <button class="rounded bg-teal-600 px-3 py-2">
+          <.emoji symbol="⛵" />
+          {if @model.route["status"] == "draft",
+            do: gettext("Start route"),
+            else: gettext("Resume route")}
+        </button>
       </.form>
       <div :if={@model.route} class="my-2 flex flex-wrap gap-2 text-sm">
         <button
@@ -287,6 +294,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
         {l10n(@model.plan["departure_wait"])}
       </p>
       <div :for={order <- @model.orders} class="mt-2 text-sm">
+        <.emoji symbol={cargo_emoji(order["good"])} />
         {gettext("%{value1} %{value2}: %{value3}/%{value4} lots · %{value5}",
           value1: l10n(order["side"]),
           value2: l10n(@catalogue["goods"][order["good"]]["name"]),
