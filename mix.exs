@@ -4,7 +4,7 @@ defmodule TijaraTides.MixProject do
   def project do
     [
       app: :tijara_tides,
-      version: "0.1.0",
+      version: "0.1.1",
       elixir: "~> 1.19 and >= 1.19.3",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
