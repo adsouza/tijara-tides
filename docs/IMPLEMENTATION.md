@@ -14,7 +14,16 @@ Luxury cargo auctions and standing warehouse-backed exchange orders are implemen
 Procurement auctions and player industry remain deferred.
 Age-based maintenance is implemented alongside depreciation. Next-port instructions are implemented;
 they execute ship-specific buy/sell actions on arrival rather than placing
-standing orders on a shared exchange.
+standing orders on a shared exchange. Each instruction optionally expires after
+1–43,200 active-world minutes from acceptance. Blank means unlimited. The Ships
+panel preserves the expiry draft across ticks and shows its remaining time.
+At the inclusive deadline, expiry runs before berth admission or new fills,
+cancelling only the unfilled remainder with an owner-only notice. Cargo, spending,
+settled trades, committed handling and the onward plan are preserved. Automatic
+departure still waits for handling and other active instructions. Migration
+`20260930000002_add_instruction_expiry.exs` adds the nullable typed deadline;
+legacy instructions remain unlimited. Deadlines pause offline, survive reloads
+and remain fixed when a creation request is replayed.
 
 See [architecture and domain boundaries](architecture.md) for command workflows,
 query projections, consistency and module responsibilities.
@@ -265,7 +274,7 @@ with launch tuning described in this document. Remaining work includes:
   freshness-aware reservation replacement, and direct ship trades against
   player order books (§§6–8).
 - **Automation:** linked remote orders and their atomic handover at berth,
-  earmarked advance purchase budgets, optional instruction expiry,
+  earmarked advance purchase budgets,
   and departure-funding allocation and accumulation policies (§8).
 - **Ports and physical handling:** full ship-size, terminal and waterway limits,
   predictive queue estimates, automatic warehouse-transfer queuing, transfers

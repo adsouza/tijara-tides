@@ -2652,3 +2652,21 @@ msgstr "· %{minutes} دقيقة"
 
 msgid "· Unlimited"
 msgstr "· غير محدود"
+
+msgid "Expires after (active minutes; optional)"
+msgstr "تنتهي الصلاحية بعد (دقائق نشطة؛ اختياري)"
+
+msgid "Instruction expiry minutes"
+msgstr "مدة صلاحية التعليمات بالدقائق"
+
+msgid "Blank means no expiry. Starts when added; pauses while the world is offline."
+msgstr "ترك الحقل فارغاً يعني عدم انتهاء الصلاحية. تبدأ المدة عند الإضافة وتتوقف أثناء توقف العالم."
+
+msgid "Expiry remaining: %{time} of active-world time (hours:minutes:seconds)."
+msgstr "المتبقي من الصلاحية: %{time} من وقت العالم النشط (ساعات:دقائق:ثوانٍ)."
+
+msgid "Choose an expiry from 1 minute to 30 days, or leave it blank for no expiry."
+msgstr "اختر مدة صلاحية من دقيقة واحدة إلى 30 يوماً، أو اترك الحقل فارغاً لعدم انتهاء الصلاحية."
+
+msgid "Instruction expired"
+msgstr "انتهت صلاحية التعليمات"

@@ -1506,8 +1506,8 @@ assignment. Repeating routes now extend this execution path with private ordered
 per-visit cargo targets, pause/resume and stop-after-visit controls. The editor
 sits in a collapsed Repeating route disclosure in the Ships panel and preserves
 its open state across live updates. Automatic departure remains off by default.
-Warehouse collection and repeating-stop maximum waits are implemented. Remote
-exchange orders and optional instruction expiry remain later extensions.
+Warehouse collection, repeating-stop maximum waits and optional individual
+instruction expiry are implemented. Remote exchange orders remain a later extension.
 See IMPLEMENTATION.md for the bounded
 playtest route editor and its lifecycle.
 
@@ -1547,7 +1547,7 @@ On arrival, suggest the saved onward destination in the voyage controls when no
 other destination is selected. Provide a per-visit automatic-departure checkbox,
 off by default, saved together with the onward destination. When enabled, depart
 only after every cargo order for that visit is filled or explicitly cancelled
-and all committed loading and unloading finish. Unfilled orders wait indefinitely;
+and all committed loading and unloading finish. Unfilled orders wait indefinitely unless expired;
 a full hold leaves the order waiting rather than automatically cancelling it.
 An empty visit can depart automatically as soon as the ship is docked.
 
@@ -1571,6 +1571,18 @@ Departing cancels waiting remainders and plans for a different destination, with
 a shortfall notification. Display active instructions before recent completed
 or cancelled ones. Instructions and their prices are visible only to the owning
 company. Their progress persists atomically with the trade and financial ledger.
+
+Each next-port instruction may have an optional expiry duration, entered as
+1–43,200 active-world minutes. Blank means no expiry, including for legacy
+instructions. The deadline starts when the instruction is accepted and persists
+through voyages, berth queues, handling and restarts. Offline time does not
+consume it. At the inclusive deadline, cancel only the unfilled remainder before
+berth admission or new fills. Keep completed trades, cargo, spending and committed
+handling intact, retain the cancelled instruction in the current journey's
+history, and coalesce its expiry notice. Expiry preserves the saved onward plan;
+configured automatic departure still waits for all other active orders and
+committed handling. Replaying the creation request never extends the deadline.
+Repeating-route targets use their stop's maximum wait instead.
 
 Players can give each destination instructions to sell up to a quantity above a
 minimum price, buy up to a quantity below a maximum price with a spending cap,

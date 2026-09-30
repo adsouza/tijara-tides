@@ -68,7 +68,11 @@ defmodule TijaraTides.Domain.ShipWorld do
     do: RoutePlans.stops(state, ship) |> Enum.map(&Ship.RouteStop.to_row/1)
 
   defdelegate automation_enabled?(state, ship), to: RoutePlans, as: :executable?
-  defdelegate prepare_visits(state, catalogue), to: RoutePlans, as: :advance
+
+  def prepare_visits(state, catalogue),
+    do: state |> VisitOrders.expire(catalogue) |> RoutePlans.advance(catalogue)
+
+  defdelegate expire_instructions(state, catalogue), to: VisitOrders, as: :expire
   defdelegate expire_route_waits(state, catalogue), to: RoutePlans, as: :expire_waits
   defdelegate route_departed(state, ship, destination), to: RoutePlans, as: :departed
 

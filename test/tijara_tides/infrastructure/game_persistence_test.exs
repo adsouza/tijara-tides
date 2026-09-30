@@ -2744,6 +2744,180 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     Enum.each([lobby, spectator, second], &GenServer.stop(&1.pid, :normal))
   end
 
+  test "instruction expiry UI preserves drafts, receipts and deadlines across offline restart",
+       c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Timed instructions",
+          "port" => "Singapore",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    select_destination(view, "Jakarta")
+
+    view
+    |> form("form[phx-submit=instruction-onward]", %{"onward" => "Singapore"})
+    |> render_submit()
+
+    selector = "[id='instruction-form-#{ship}']"
+    assert has_element?(view, selector <> " input[name=expiry_minutes][value='']")
+    view |> form(selector, %{"side" => "buy"}) |> render_change()
+
+    params = %{
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => "1",
+      "limit" => "0",
+      "budget" => "10000",
+      "expiry_minutes" => "2"
+    }
+
+    view |> form(selector, params) |> render_change()
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
+    assert has_element?(view, selector <> " input[name=expiry_minutes][value='2']")
+
+    for invalid <- ["0", "43201", "1.5", "invalid"] do
+      view |> form(selector, Map.put(params, "expiry_minutes", invalid)) |> render_submit()
+      assert render(view) =~ "Choose an expiry"
+      assert GameServer.snapshot(token, c.server).private["ship_instructions"] == %{}
+    end
+
+    [_, request] =
+      Regex.run(
+        ~r/value="([^"]+)"/,
+        view |> element(selector <> " input[name=request_id]") |> render()
+      )
+
+    view |> form(selector, params) |> render_submit()
+    snapshot = GameServer.snapshot(token, c.server)
+    assert [order] = Map.values(snapshot.private["ship_instructions"])
+    assert order["expires_ms"] == snapshot.public["clock_ms"] + 120_000
+    assert has_element?(view, "[id='instruction-#{order["id"]}']", "Expiry remaining: 00:02:00")
+
+    command = %{
+      "action" => "instruction",
+      "ship" => ship,
+      "port" => "Jakarta",
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 1,
+      "limit" => 0,
+      "budget" => 1_000_000,
+      "onward" => "Singapore",
+      "expiry_minutes" => "2",
+      "expires_in_ms" => 120_000
+    }
+
+    revision = snapshot.public["revision"]
+
+    assert {:ok, %{"instruction_id" => id}} =
+             GameServer.command(token, request, command, c.server)
+
+    assert id == order["id"]
+    assert GameServer.snapshot(token, c.server).public["revision"] == revision
+
+    view |> form(selector, Map.put(params, "expiry_minutes", "")) |> render_submit()
+
+    assert Enum.count(GameServer.snapshot(token, c.server).private["ship_instructions"], fn {_,
+                                                                                             row} ->
+             is_nil(row["expires_ms"])
+           end) == 1
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 60_000)
+    before = GameServer.snapshot(token, c.server)
+    assert before.private["ship_instructions"][id]["status"] == "planned"
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :expiry_replacement
+      )
+
+    restored = GameServer.snapshot(token, replacement)
+    assert restored.public["clock_ms"] == before.public["clock_ms"]
+    assert restored.private["ship_instructions"] == before.private["ship_instructions"]
+
+    assert {:ok, %{"instruction_id" => ^id}} =
+             GameServer.command(token, request, command, replacement)
+
+    assert GameServer.snapshot(token, replacement).private["ship_instructions"][id]["expires_ms"] ==
+             order["expires_ms"]
+
+    assert GameServer.snapshot(nil, replacement).private == nil
+    refute Map.has_key?(GameServer.snapshot(nil, replacement).public, "ship_instructions")
+
+    assert [[120_000]] ==
+             Repo.query!(
+               "SELECT expires_ms FROM game_ship_instructions WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows
+
+    Application.put_env(:tijara_tides, :game_server, replacement)
+    {:ok, resumed, _} = conn |> recycle() |> live("/play")
+    render_click(resumed, "ship", %{"id" => ship})
+    assert has_element?(resumed, "[id='instruction-#{id}']", "Expiry remaining: 00:01:00")
+    GameServer.connect(token, replacement)
+    advance(replacement, 60_000)
+    expired = GameServer.snapshot(token, replacement)
+    assert expired.private["ship_instructions"][id]["status"] == "cancelled"
+    assert expired.private["ship_instructions"][id]["reason"] == "Instruction expired"
+    assert expired.private["ship_instructions"][id]["filled"] == 0
+    assert expired.private["ships"][ship]["cargo"] == []
+
+    assert [["cancelled", "Instruction expired", 120_000]] ==
+             Repo.query!(
+               "SELECT status,reason,expires_ms FROM game_ship_instructions WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows
+
+    assert [[0]] ==
+             Repo.query!(
+               "SELECT count(*) FROM game_journal_transactions WHERE world_id=$1 AND kind='purchase'",
+               [c.world_id]
+             ).rows
+
+    render_click(resumed, "ship", %{"id" => ship})
+    assert has_element?(resumed, "[id='instruction-#{id}']", "Instruction expired")
+    refute has_element?(resumed, "[id='instruction-#{id}'] button")
+    refute has_element?(resumed, "[id='instruction-#{id}']", "Expiry remaining:")
+    notices = expired.private["notices"]
+    advance(replacement, 1)
+    assert GameServer.snapshot(token, replacement).private["notices"] == notices
+
+    assert {:ok, %{"instruction_id" => ^id}} =
+             GameServer.command(token, request, command, replacement)
+
+    assert GameServer.snapshot(token, replacement).private["ship_instructions"][id]["status"] ==
+             "cancelled"
+
+    after_restart =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :expired_replacement
+      )
+
+    assert GameServer.snapshot(token, after_restart).private["ship_instructions"] ==
+             expired.private["ship_instructions"]
+  end
+
   test "ship instructions submit through the UI, replay, settle on arrival and survive reload",
        c do
     Application.put_env(:tijara_tides, :game_server, c.server)

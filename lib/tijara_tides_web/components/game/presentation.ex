@@ -493,6 +493,8 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         gettext("Choose compatible cargo with a market at the visit port."),
       instruction_quantity_invalid:
         gettext("Use 1–10,000 lots and a valid nonnegative limit price."),
+      instruction_expiry_invalid:
+        gettext("Choose an expiry from 1 minute to 30 days, or leave it blank for no expiry."),
       instruction_sell_exceeds_cargo:
         gettext(
           "The sell target exceeds the selected cargo currently aboard. Reduce the target and try again."

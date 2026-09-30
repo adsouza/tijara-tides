@@ -535,9 +535,9 @@ defmodule TijaraTidesWeb.GameLive do
     target = List.last(params["_target"] || [])
 
     fields =
-      if target in ~w(side good quantity limit budget onward),
+      if target in ~w(side good quantity limit budget onward expiry_minutes),
         do: [target],
-        else: ~w(side good quantity limit budget onward)
+        else: ~w(side good quantity limit budget onward expiry_minutes)
 
     draft = Map.merge(previous, Map.take(params, fields))
     draft = if target in ["side", "good"], do: Map.drop(draft, ["quantity", "limit"]), else: draft
@@ -665,6 +665,13 @@ defmodule TijaraTidesWeb.GameLive do
       |> Map.update("quantity", 0, &integer/1)
       |> Map.update("limit", 0, &instruction_cents/1)
       |> Map.update("budget", 0, &(integer(&1) * 100))
+      |> Map.put(
+        "expires_in_ms",
+        if(params["expiry_minutes"] in [nil, ""],
+          do: nil,
+          else: (report_number(params["expiry_minutes"]) || -1) * 60_000
+        )
+      )
     )
   end
 

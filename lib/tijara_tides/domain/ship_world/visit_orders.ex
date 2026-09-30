@@ -27,6 +27,7 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
     limit = params["limit"]
     budget = params["budget"]
     onward = params["onward"]
+    expires_in = params["expires_in_ms"]
 
     cond do
       is_nil(ship) or is_nil(account["company_id"]) or ship["company_id"] != account["company_id"] ->
@@ -49,6 +50,10 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
       not is_integer(quantity) or quantity < 1 or quantity > 10_000 or
         not is_integer(limit) or limit < 0 or limit > 1_000_000_000_000 ->
         {:error, :instruction_quantity_invalid}
+
+      expires_in != nil and
+          (not is_integer(expires_in) or expires_in < 1 or expires_in > 2_592_000_000) ->
+        {:error, :instruction_expiry_invalid}
 
       side == "sell" and
           quantity >
@@ -95,6 +100,7 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
           "status" => "planned",
           "reason" => "Awaiting arrival and a berth",
           "history_archived" => false,
+          "expires_ms" => if(expires_in, do: state.clock_ms + expires_in),
           "created_ms" => state.clock_ms
         }
 
@@ -103,6 +109,19 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
         {:ok, put(state, "ship_instructions", order["id"], order),
          %{"instruction_id" => order["id"]}}
     end
+  end
+
+  # Inclusive active-world deadlines apply while sailing, queuing or handling.
+  # Only future fills are cancelled; committed cargo and handling are untouched.
+  def expire(state, catalogue) do
+    entities(state, "ship_instructions")
+    |> Enum.sort_by(fn {id, _} -> id end)
+    |> Enum.reduce(state, fn {_, order}, state ->
+      if order["status"] in @open and is_integer(order["expires_ms"]) and
+           order["expires_ms"] <= state.clock_ms,
+         do: finish(state, order, "Instruction expired", catalogue),
+         else: state
+    end)
   end
 
   def change_onward(state, account, ship_id, port, onward, catalogue, auto_depart \\ nil) do

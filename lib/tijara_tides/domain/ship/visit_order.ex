@@ -1,6 +1,6 @@
 defmodule TijaraTides.Domain.Ship.VisitOrder do
   @moduledoc "Snapshot of a visit's committed instruction terms and monotonic settlement progress."
-  @fields ~w(id ship_id company_id port good side quantity_mode quantity filled limit budget spent onward status reason created_ms history_archived)a
+  @fields ~w(id ship_id company_id port good side quantity_mode quantity filled limit budget spent onward status reason created_ms expires_ms history_archived)a
   defstruct (@fields -- [:history_archived]) ++ [history_archived: false]
 
   def from_row(row),

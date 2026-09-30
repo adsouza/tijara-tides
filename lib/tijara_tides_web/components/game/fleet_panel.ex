@@ -692,6 +692,21 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   value={instruction.budget}
                   class="block w-full rounded bg-slate-800 p-2 disabled:cursor-not-allowed disabled:opacity-50"
                 /></label>
+                <label>{gettext("Expires after (active minutes; optional)")}<input
+                  name="expiry_minutes"
+                  aria-label={gettext("Instruction expiry minutes")}
+                  type="number"
+                  min="1"
+                  max="43200"
+                  step="1"
+                  value={instruction_value(@instruction_drafts, @ship, "expiry_minutes", "")}
+                  class="block w-full rounded bg-slate-800 p-2"
+                /></label>
+                <p class="self-center text-xs text-slate-400">
+                  {gettext(
+                    "Blank means no expiry. Starts when added; pauses while the world is offline."
+                  )}
+                </p>
                 <input
                   type="hidden"
                   name="onward"
@@ -748,6 +763,11 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   )}
                 </p>
                 <p>{l10n(order["status"])} · {l10n(order["reason"] || "")}</p>
+                <p :if={order["expires_ms"] && order["status"] in ["planned", "waiting"]}>
+                  {gettext("Expiry remaining: %{time} of active-world time (hours:minutes:seconds).",
+                    time: active_countdown(order["expires_ms"] - @view.public["clock_ms"])
+                  )}
+                </p>
                 <button
                   :if={order["status"] in ["planned", "waiting"]}
                   phx-click="cancel-instruction"

@@ -141,6 +141,7 @@ defmodule TijaraTides.Localization.Names do
 
   def translate("Awaiting arrival and a berth"), do: gettext("Awaiting arrival and a berth")
   def translate("Cancelled by player"), do: gettext("Cancelled by player")
+  def translate("Instruction expired"), do: gettext("Instruction expired")
 
   def translate("Cancelled remainder on departure"),
     do: gettext("Cancelled remainder on departure")

@@ -114,11 +114,16 @@ fill after its blocking condition clears.
 | Ownership and configuration | Missing/foreign ship, invalid/current visit port, incorrect sailing destination, incompatible/unknown/non-manual cargo, missing market |
 | Numeric validation | Non-integer and out-of-range quantities/prices/budgets, invalid onward port |
 | Lifecycle limits | Twenty active instructions accepted, twenty-first rejected, cancellation frees a slot, repeated/missing cancellation rejected |
+| Instruction expiry | Unlimited and legacy rows, duration types/bounds, ownership fencing, before/at deadline, newly viable fills, at-sea expiry, queued berth admission, partial fills and committed handling, automatic departure after handling, unchanged terminal records and retry notices |
 | Departure and privacy | Cancel waiting remainders and incompatible plans; owner-only visibility |
 
 The database/browser integration test additionally exercises UI submission and
 preserved drafts, command replay, cancellation, automatic arrival settlement,
 SQL reload and a single financial posting after restart.
+The instruction-expiry integration case covers optional/invalid form input,
+tick-preserved drafts, private countdowns, SQL deadlines, replay without extending
+the deadline, restart without offline catch-up, terminal history and no duplicate
+expiry notice or financial posting.
 
 ## Server failure scenarios
 

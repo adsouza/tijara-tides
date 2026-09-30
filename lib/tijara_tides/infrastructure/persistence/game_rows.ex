@@ -142,6 +142,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"departure_wait", "departure_wait"}
     ],
     "ship_instructions" => [
+      {"expires_ms", "expires_ms"},
       {"history_archived", "history_archived"},
       {"id", "id"},
       {"company_id", "company_id"},
