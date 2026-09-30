@@ -122,6 +122,16 @@ SQL reload and a single financial posting after restart.
 
 ## Server failure scenarios
 
+Repeating-route maximum waits are covered by named cases in
+`test/tijara_tides/domain/ship_routes_test.exs`: limit ownership and bounds;
+the inclusive deadline versus newly fillable targets; partial loading and
+unstarted purchases during unloading; actual arrival on coarse ticks; berth
+retries and pause/resume; completed targets awaiting departure; and
+stop-after-visit with a fresh next-circuit deadline. Codec tests cover legacy
+unlimited rows and invalid timer shapes. The database integration case covers
+the wait form, private countdown/shortfalls, receipts and restart before and
+after timeout. The early simulation phase is checked by phase telemetry tests.
+
 `test/tijara_tides/infrastructure/game_server_failures_test.exs` uses narrow
 persistence doubles at existing callback boundaries. It verifies rejected startup
 commits, startup connection exceptions, command storage versus domain exceptions,

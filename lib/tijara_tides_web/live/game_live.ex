@@ -631,6 +631,16 @@ defmodule TijaraTidesWeb.GameLive do
         op when op in ["start", "resume"] ->
           Map.put(command, "auto_depart", true)
 
+        "set_wait" ->
+          Map.put(
+            command,
+            "max_wait_ms",
+            if(params["minutes"] in [nil, ""],
+              do: nil,
+              else: (report_number(params["minutes"]) || -1) * 60_000
+            )
+          )
+
         _ ->
           command
       end
@@ -828,6 +838,11 @@ defmodule TijaraTidesWeb.GameLive do
 
     case Game.command(socket.assigns.token, request, command) do
       {:ok, result} ->
+        socket =
+          if command["action"] == "route" && command["operation"] == "set_wait",
+            do: push_event(socket, "draft-reset", %{id: "route-wait-" <> command["stop"]}),
+            else: socket
+
         socket =
           if command["action"] == "purchase_ship",
             do: push_event(socket, "draft-reset", %{id: "shipyard-purchase"}),

@@ -6,6 +6,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
   attr :catalogue, :map, required: true
   attr :drafts, :map, default: %{}
   attr :request_id, :string, required: true
+  attr :clock, :integer, default: 0
 
   def panel(assigns) do
     ~H"""
@@ -35,6 +36,23 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
       <p :if={@model.route && @model.route["stop_after"]} class="my-2 text-sm text-amber-200">
         {gettext("Will stop after this visit finishes.")}
       </p>
+      <p
+        :if={
+          @model.route && @model.route["wait_deadline_ms"] &&
+            !@model.route["wait_timed_out"] &&
+            (@model.route["phase"] != "buying" ||
+               Enum.any?(@model.orders, &(&1["status"] in ["planned", "waiting"])))
+        }
+        id={"route-wait-countdown-" <> @ship["id"]}
+        class="my-2 text-sm text-amber-200"
+      >
+        {gettext("Maximum wait remaining: %{time} of active-world time (hours:minutes:seconds).",
+          time:
+            TijaraTidesWeb.GameUI.Presentation.active_countdown(
+              @model.route["wait_deadline_ms"] - @clock
+            )
+        )}
+      </p>
       <ol class="space-y-2">
         <li :for={stop <- @model.stops} class="rounded border border-slate-700 p-2 text-sm">
           <div class="flex items-center justify-between gap-2">
@@ -51,6 +69,53 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
               class="rounded border px-2 py-1"
             >{gettext("Remove stop")}</button>
           </div>
+          <details
+            id={"route-wait-settings-" <> stop["id"]}
+            phx-mounted={JS.ignore_attributes("open")}
+            class="mt-2"
+          >
+            <summary class="cursor-pointer">
+              {gettext("Wait limit")}
+              <span class="text-slate-400">
+                {if stop["max_wait_ms"],
+                  do:
+                    gettext("· %{minutes} min",
+                      minutes: display_number(div(stop["max_wait_ms"], 60_000))
+                    ),
+                  else: gettext("· Unlimited")}
+              </span>
+            </summary>
+            <.form
+              for={%{}}
+              id={"route-wait-" <> stop["id"]}
+              phx-hook="ExchangeDraft"
+              phx-submit="route"
+              class="mt-2 flex flex-wrap items-end gap-2"
+            >
+              <input type="hidden" name="operation" value="set_wait" />
+              <input type="hidden" name="stop" value={stop["id"]} />
+              <input type="hidden" name="request_id" value={@request_id} />
+              <label>
+                {gettext("Maximum wait (minutes, optional)")}
+                <input
+                  type="number"
+                  name="minutes"
+                  min="1"
+                  max="43200"
+                  step="1"
+                  placeholder={gettext("Unlimited")}
+                  value={if stop["max_wait_ms"], do: div(stop["max_wait_ms"], 60_000), else: ""}
+                  class="block w-full rounded bg-slate-800 p-2"
+                />
+              </label>
+              <button class="rounded bg-teal-600 px-3 py-2">{gettext("Save wait limit")}</button>
+            </.form>
+            <p class="mt-2 text-xs text-slate-400">
+              {gettext(
+                "Blank means unlimited waiting. The limit runs from arrival, including queues and handling, and pauses only with the world. At timeout, unfilled targets are cancelled; committed handling finishes before departure. Changes apply to visits that have not arrived yet; the current visit keeps its saved deadline."
+              )}
+            </p>
+          </details>
           <p :for={rule <- Map.get(@model.rules, stop["id"], [])} class="mt-2">
             <.emoji symbol={cargo_emoji(rule["good"])} />
             {gettext("%{value1} %{value2} · %{value3} $%{value4} / lot",
@@ -293,6 +358,26 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
       <p :if={@model.plan && @model.plan["departure_wait"]} class="my-2 text-sm text-amber-200">
         {l10n(@model.plan["departure_wait"])}
       </p>
+      <details
+        :if={@model[:last_timeout]}
+        id={"route-last-timeout-" <> @ship["id"]}
+        phx-mounted={JS.ignore_attributes("open")}
+        class="my-2 text-sm text-amber-200"
+      >
+        <summary class="cursor-pointer">
+          {gettext("Last timed-out visit: %{port}",
+            port: l10n(@model.last_timeout["arguments"]["port"])
+          )}
+        </summary>
+        <p :for={shortfall <- @model.last_timeout["arguments"]["shortfalls"]}>
+          {gettext("%{side} %{cargo}: %{filled}/%{quantity} lots filled; remainder cancelled.",
+            side: l10n(shortfall["side"]),
+            cargo: l10n(@catalogue["goods"][shortfall["good"]]["name"]),
+            filled: display_number(shortfall["filled"]),
+            quantity: display_number(shortfall["quantity"])
+          )}
+        </p>
+      </details>
       <div :for={order <- @model.orders} class="mt-2 text-sm">
         <.emoji symbol={cargo_emoji(order["good"])} />
         {gettext("%{value1} %{value2}: %{value3}/%{value4} lots · %{value5}",

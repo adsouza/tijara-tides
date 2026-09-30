@@ -2613,3 +2613,42 @@ msgstr "أكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار ع
 #, elixir-autogen, elixir-format
 msgid "An unused invitation returns in %{time} of active-world time (hours:minutes:seconds), unless accepted first."
 msgstr "تعود دعوة غير مستخدمة بعد %{time} من وقت العالم النشط (ساعات:دقائق:ثوانٍ)، ما لم تُقبل قبل ذلك."
+
+msgid "%{ship} at %{port}: maximum wait elapsed. Unfilled route targets were cancelled; committed handling will finish before departure."
+msgstr "%{ship} في %{port}: انتهى الحد الأقصى للانتظار. أُلغيت أهداف المسار غير المكتملة؛ ستكتمل المناولة الملتزم بها قبل الإبحار."
+
+msgid "%{side} %{cargo}: %{filled}/%{quantity} lots filled; remainder cancelled."
+msgstr "%{side} %{cargo}: تم تنفيذ %{filled}/%{quantity} من الدفعات؛ أُلغي الباقي."
+
+msgid "Blank means unlimited waiting. The limit runs from arrival, including queues and handling, and pauses only with the world. At timeout, unfilled targets are cancelled; committed handling finishes before departure. Changes apply to visits that have not arrived yet; the current visit keeps its saved deadline."
+msgstr "ترك الحقل فارغاً يعني انتظاراً غير محدود. يبدأ الحد عند الوصول ويشمل الطوابير والمناولة، ولا يتوقف إلا بتوقف العالم. عند انتهاء المدة تُلغى الأهداف غير المكتملة وتكتمل المناولة الملتزم بها قبل الإبحار. تسري التغييرات على الزيارات التي لم تصل بعد؛ تحتفظ الزيارة الحالية بموعدها النهائي المحفوظ."
+
+msgid "Choose a maximum wait from 1 minute to 30 days, or leave it blank for unlimited waiting."
+msgstr "اختر حداً أقصى للانتظار من دقيقة واحدة إلى 30 يوماً، أو اترك الحقل فارغاً لانتظار غير محدود."
+
+msgid "Last timed-out visit: %{port}"
+msgstr "آخر زيارة انتهت مدة انتظارها: %{port}"
+
+msgid "Maximum wait (minutes, optional)"
+msgstr "الحد الأقصى للانتظار (بالدقائق، اختياري)"
+
+msgid "Maximum wait elapsed"
+msgstr "انتهى الحد الأقصى للانتظار"
+
+msgid "Maximum wait remaining: %{time} of active-world time (hours:minutes:seconds)."
+msgstr "المتبقي من الحد الأقصى للانتظار: %{time} من وقت العالم النشط (ساعات:دقائق:ثوانٍ)."
+
+msgid "Save wait limit"
+msgstr "حفظ حد الانتظار"
+
+msgid "Unlimited"
+msgstr "غير محدود"
+
+msgid "Wait limit"
+msgstr "حد الانتظار"
+
+msgid "· %{minutes} min"
+msgstr "· %{minutes} دقيقة"
+
+msgid "· Unlimited"
+msgstr "· غير محدود"

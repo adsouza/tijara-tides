@@ -481,6 +481,10 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
           "The ship must be at, or sailing toward, the route's selected stop to start or resume."
         ),
       route_missing: gettext("This ship has no saved repeating route."),
+      route_wait_invalid:
+        gettext(
+          "Choose a maximum wait from 1 minute to 30 days, or leave it blank for unlimited waiting."
+        ),
       instruction_duplicate_sell:
         gettext(
           "An active sell instruction already exists for this ship and cargo. Cancel it before adding another."

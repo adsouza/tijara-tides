@@ -51,6 +51,7 @@ defmodule TijaraTides.Infrastructure.PhaseTelemetryTest do
     for phase <- [
           :finance_before,
           :fleet,
+          :route_waits,
           :exchange_reconcile,
           :estates,
           :auctions,

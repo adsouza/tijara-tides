@@ -69,6 +69,7 @@ defmodule TijaraTides.Domain.ShipWorld do
 
   defdelegate automation_enabled?(state, ship), to: RoutePlans, as: :executable?
   defdelegate prepare_visits(state, catalogue), to: RoutePlans, as: :advance
+  defdelegate expire_route_waits(state, catalogue), to: RoutePlans, as: :expire_waits
   defdelegate route_departed(state, ship, destination), to: RoutePlans, as: :departed
 
   defdelegate add_instruction(state, account, params, context),
@@ -170,10 +171,19 @@ defmodule TijaraTides.Domain.ShipWorld do
     do: store(state, Ship.reroute(hull(state, id), destination, quote, paid, state.clock_ms))
 
   def advance_hull(state, id, elapsed, bankrupt, speedup, book_value) do
-    {ship, effects} =
-      Ship.advance(hull(state, id), state.clock_ms, elapsed, bankrupt, speedup, book_value)
+    before = hull(state, id)
 
-    {store(state, ship), effects}
+    {ship, effects} =
+      Ship.advance(before, state.clock_ms, elapsed, bankrupt, speedup, book_value)
+
+    state = store(state, ship)
+
+    state =
+      if before.status == "sailing" and ship.status == "docked",
+        do: RoutePlans.arrived(state, id, ship.berth_queued_ms),
+        else: state
+
+    {state, effects}
   end
 
   def request_berth(state, id) do

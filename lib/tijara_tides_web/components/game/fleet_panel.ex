@@ -854,6 +854,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               catalogue={@definitions.catalogue}
               drafts={@route_drafts}
               request_id={@request_id}
+              clock={@view.public["clock_ms"]}
             />
           </div>
         </section>

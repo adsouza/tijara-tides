@@ -109,7 +109,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "ship_routes" =>
       Enum.map(
-        ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason),
+        ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason visit_arrived_ms wait_deadline_ms wait_timed_out),
         &{&1, &1}
       ),
     "route_stops" => [
@@ -117,7 +117,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"ship_id", "ship_id"},
       {"company_id", "company_id"},
       {"position", "position"},
-      {"port", "port_id"}
+      {"port", "port_id"},
+      {"max_wait_ms", "max_wait_ms"}
     ],
     "route_rules" => [
       {"id", "id"},

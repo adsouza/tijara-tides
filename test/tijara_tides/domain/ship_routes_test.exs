@@ -39,8 +39,16 @@ defmodule TijaraTides.Domain.ShipRoutesTest do
     })
   end
 
-  defp route(c, auto \\ true) do
+  defp route(c, auto \\ true, max_wait \\ nil) do
     {:ok, s, _} = command(c, c.state, "s1", %{"operation" => "add_stop", "port" => "Jakarta"})
+
+    {:ok, s, _} =
+      command(c, s, "wait", %{
+        "operation" => "set_wait",
+        "stop" => "s1",
+        "max_wait_ms" => max_wait
+      })
+
     {:ok, s, _} = command(c, s, "s2", %{"operation" => "add_stop", "port" => "Singapore"})
 
     {:ok, s, _} =
@@ -66,6 +74,270 @@ defmodule TijaraTides.Domain.ShipRoutesTest do
 
     {:ok, s, _} = command(c, s, "start", %{"operation" => "start", "auto_depart" => auto})
     s
+  end
+
+  test "wait limits validate ownership and bounds; edits preserve the current deadline", c do
+    s = route(c, false, 60_000)
+    assert plan(s)["visit_arrived_ms"] == 0
+    assert plan(s)["wait_deadline_ms"] == 60_000
+
+    for value <- [0, -1, 2_592_000_001, "60000", 1.5] do
+      assert {:error, :route_wait_invalid} =
+               command(c, s, "bad", %{
+                 "operation" => "set_wait",
+                 "stop" => "s1",
+                 "max_wait_ms" => value
+               })
+    end
+
+    for stop <- ["missing", "foreign"] do
+      foreign =
+        State.put(s, "route_stops", "foreign", %{
+          "id" => "foreign",
+          "ship_id" => "other",
+          "company_id" => "other",
+          "position" => 0,
+          "port" => "Jakarta"
+        })
+
+      assert {:error, :route_port_invalid} =
+               command(c, foreign, "bad", %{
+                 "operation" => "set_wait",
+                 "stop" => stop,
+                 "max_wait_ms" => nil
+               })
+    end
+
+    {:ok, changed, _} =
+      command(c, s, "clear", %{"operation" => "set_wait", "stop" => "s1", "max_wait_ms" => nil})
+
+    assert Game.get(changed, "route_stops", "s1")["max_wait_ms"] == nil
+    assert plan(changed)["wait_deadline_ms"] == 60_000
+
+    {:ok, changed, _} =
+      command(c, changed, "max", %{
+        "operation" => "set_wait",
+        "stop" => "s1",
+        "max_wait_ms" => 2_592_000_000
+      })
+
+    assert Game.get(changed, "route_stops", "s1")["max_wait_ms"] == 2_592_000_000
+    assert plan(changed)["wait_deadline_ms"] == 60_000
+    assert plan(route(c))["wait_deadline_ms"] == nil
+  end
+
+  test "deadline wins against newly fillable targets, does not repeat notices, and preserves funding blocks",
+       c do
+    s = route(c, true, 60_000)
+    market = Game.get(s, "markets", "Jakarta|lumber")
+
+    s =
+      State.put(s, "markets", "Jakarta|lumber", %{market | "stock" => 0})
+      |> ShipInstructions.advance(c.catalogue)
+
+    assert Game.get(s, "ship_instructions", "route:buy1")["status"] == "waiting"
+    before = %{s | clock_ms: 59_999} |> ShipInstructions.advance(c.catalogue)
+    assert lots(before) == 0
+    refute plan(before)["wait_timed_out"]
+    company = Game.get(before, "companies", "company")
+    s = State.put(before, "companies", "company", %{company | "cash" => 0})
+    s = State.put(s, "markets", "Jakarta|lumber", market)
+    s = %{s | clock_ms: 60_000} |> ShipInstructions.advance(c.catalogue)
+    assert lots(s) == 0
+    assert plan(s)["wait_timed_out"]
+    assert Game.get(s, "ship_instructions", "route:buy1")["status"] == "cancelled"
+    assert Game.get(s, "visit_plans", "company:1|Jakarta")["departure_wait"] =~ "funds"
+    again = ShipInstructions.advance(s, c.catalogue)
+    assert again.entities["notices"] == s.entities["notices"]
+    assert again.journal == s.journal
+    s = State.put(s, "companies", "company", company) |> ShipInstructions.advance(c.catalogue)
+    assert ship(s)["status"] == "sailing"
+    assert plan(s)["visit_arrived_ms"] == nil
+    assert plan(s)["wait_deadline_ms"] == nil
+    assert plan(s)["visit"] == 1
+    assert lots(s) == 0
+    notice = Game.get(s, "notices", "route-timeout:company:1")
+    assert [%{"filled" => 0, "quantity" => 3}] = notice["arguments"]["shortfalls"]
+    view = TijaraTides.Domain.Visibility.private(s, c.account)
+    model = TijaraTides.UseCases.GameQueries.route_editor(view, ship(s), c.catalogue)
+    assert model.last_timeout == notice
+  end
+
+  test "timeout during a partial load drains handling without another fill", c do
+    s = route(c, true, 500)
+    market = Game.get(s, "markets", "Jakarta|lumber")
+
+    s =
+      State.put(s, "markets", "Jakarta|lumber", %{market | "stock" => 1})
+      |> ShipInstructions.advance(c.catalogue)
+
+    assert lots(s) == 1
+    assert ship(s)["status"] == "loading"
+    s = State.put(s, "markets", "Jakarta|lumber", market) |> Game.advance(500, c.catalogue)
+    assert ship(s)["status"] == "loading"
+    assert lots(s) == 1
+    assert plan(s)["wait_timed_out"]
+    assert Game.get(s, "ship_instructions", "route:buy1")["filled"] == 1
+    assert Game.get(s, "ship_instructions", "route:buy1")["status"] == "cancelled"
+    s = Game.advance(s, 500, c.catalogue)
+    assert ship(s)["status"] == "sailing"
+    assert lots(s) == 1
+
+    assert [%{"filled" => 1, "quantity" => 3}] =
+             Game.get(s, "notices", "route-timeout:company:1")["arguments"]["shortfalls"]
+  end
+
+  test "timeout during unloading records unstarted buys and never starts loading", c do
+    s = route(c, true, 500)
+    vessel = ship(s)
+
+    s =
+      State.put(
+        s,
+        "ships",
+        vessel["id"],
+        Map.put(vessel, "cargo", [
+          %{
+            "lot_id" => "retained",
+            "good" => "lumber",
+            "quantity" => 1,
+            "unit_cost" => 100,
+            "expires_ms" => nil
+          }
+        ])
+      )
+
+    {:ok, s, _} =
+      command(c, s, "sell-first", %{
+        "operation" => "add_rule",
+        "stop" => "s1",
+        "side" => "sell",
+        "good" => "lumber",
+        "quantity" => 1,
+        "limit" => 0
+      })
+
+    market = Game.get(s, "markets", "Jakarta|lumber")
+
+    s =
+      State.put(s, "markets", "Jakarta|lumber", %{
+        market
+        | "buyer" => true,
+          "demand" => 500,
+          "budget" => 100_000_000
+      })
+
+    s = ShipInstructions.advance(s, c.catalogue)
+    assert ship(s)["status"] == "unloading"
+    refute Game.get(s, "ship_instructions", "route:buy1")
+    s = Game.advance(s, 500, c.catalogue)
+    assert ship(s)["status"] == "unloading"
+    assert Game.get(s, "ship_instructions", "route:buy1")["status"] == "cancelled"
+    assert Game.get(s, "ship_instructions", "route:buy1")["filled"] == 0
+    s = Game.advance(s, 500, c.catalogue)
+    assert ship(s)["status"] == "sailing"
+    assert lots(s) == 0
+    refute Enum.any?(s.journal, &(&1.kind == "purchase"))
+  end
+
+  test "arrival captures the real port arrival and expiry precedes berth admission on a coarse tick",
+       c do
+    s = route(c)
+
+    {:ok, s, _} =
+      command(c, s, "wait2", %{"operation" => "set_wait", "stop" => "s2", "max_wait_ms" => 1000})
+
+    s = until(s, c, &(ship(&1)["status"] == "sailing"), 100)
+    arrival = ship(s)["arrive_ms"]
+    assert plan(s)["visit_arrived_ms"] == nil
+    s = Game.advance(s, arrival - s.clock_ms + 1000, c.catalogue)
+    # No unloading starts at the inclusive deadline, despite an available berth.
+    assert ship(s)["status"] == "sailing"
+    assert ship(s)["destination"] == "Jakarta"
+    assert lots(s) == 3
+    notice = Game.get(s, "notices", "route-timeout:company:1")
+    assert notice["arguments"]["port"] == "Singapore"
+
+    assert [%{"side" => "sell", "quantity" => 3, "filled" => 0}] =
+             notice["arguments"]["shortfalls"]
+  end
+
+  test "berth retries, phase changes and pause/resume do not extend a visit", c do
+    s = route(c, false, 60_000)
+    s = TijaraTides.Domain.BerthFixture.update(s, "company:1", berth_retry_ms: 300_000)
+    s = ShipInstructions.advance(s, c.catalogue)
+    assert Game.get(s, "ship_instructions", "route:buy1")["reason"] == "Waiting for a berth"
+    {:ok, s, _} = command(c, s, "pause", %{"operation" => "pause"})
+    s = Game.advance(s, 60_000, c.catalogue)
+    assert plan(s)["status"] == "paused"
+    assert plan(s)["wait_timed_out"]
+    assert plan(s)["wait_deadline_ms"] == 60_000
+    {:ok, s, _} = command(c, s, "resume", %{"operation" => "resume"})
+    s = ShipInstructions.advance(s, c.catalogue)
+    assert ship(s)["status"] == "sailing"
+    assert lots(s) == 0
+  end
+
+  test "completed targets do not time out while waiting for departure funding", c do
+    s = route(c, false, 60_000) |> ShipInstructions.advance(c.catalogue)
+    s = Game.advance(s, 100_000, c.catalogue)
+    assert lots(s) == 3
+    refute plan(s)["wait_timed_out"]
+    assert plan(s)["visit_arrived_ms"] == 0
+    assert Game.get(s, "notices", "route-timeout:company:1") == nil
+  end
+
+  test "starting a route while sailing leaves the timer unset until arrival", c do
+    q = Fleet.voyage_quote(ship(c.state), "Singapore", c.catalogue)
+    {:ok, s, _} = Fleet.sail(c.state, c.account, "company:1", "Singapore", q["fuel"], c.catalogue)
+    {:ok, s, _} = command(c, s, "a", %{"operation" => "add_stop", "port" => "Singapore"})
+    {:ok, s, _} = command(c, s, "b", %{"operation" => "add_stop", "port" => "Jakarta"})
+
+    {:ok, s, _} =
+      command(c, s, "wait", %{"operation" => "set_wait", "stop" => "a", "max_wait_ms" => 60_000})
+
+    {:ok, s, _} = command(c, s, "start", %{"operation" => "start", "auto_depart" => false})
+    assert plan(s)["visit_arrived_ms"] == nil
+    assert plan(s)["wait_deadline_ms"] == nil
+    arrival = ship(s)["arrive_ms"]
+    s = Game.advance(s, arrival - s.clock_ms + 1, c.catalogue)
+    assert plan(s)["visit_arrived_ms"] == arrival
+    assert plan(s)["wait_deadline_ms"] == arrival + 60_000
+  end
+
+  test "an empty visit arriving after its deadline completes without a shortfall notice", c do
+    s = route(c, false, 1000)
+    {:ok, s, _} = command(c, s, "remove-buy", %{"operation" => "remove_rule", "rule" => "buy1"})
+    s = Game.advance(s, 1000, c.catalogue)
+    refute plan(s)["wait_timed_out"]
+    assert Game.get(s, "notices", "route-timeout:company:1") == nil
+    assert Game.get(s, "visit_plans", "company:1|Jakarta")
+  end
+
+  test "stop-after-visit also stops after a timeout, and the next circuit uses a fresh limit",
+       c do
+    s = route(c, true, 1000)
+    rule = Game.get(s, "route_rules", "buy1")
+    s = State.put(s, "route_rules", "buy1", %{rule | "limit" => 0})
+    {:ok, s, _} = command(c, s, "stop", %{"operation" => "stop_after"})
+    s = Game.advance(s, 1000, c.catalogue)
+    assert plan(s)["status"] == "paused"
+    assert lots(s) == 0
+
+    {:ok, s, _} =
+      command(c, s, "next-limit", %{
+        "operation" => "set_wait",
+        "stop" => "s1",
+        "max_wait_ms" => 5000
+      })
+
+    {:ok, s, _} = command(c, s, "resume", %{"operation" => "resume"})
+    s = ShipInstructions.advance(s, c.catalogue)
+    s = until(s, c, &(plan(&1)["visit"] == 2), 100)
+    s = Game.advance(s, ship(s)["arrive_ms"] - s.clock_ms, c.catalogue)
+    assert plan(s)["wait_deadline_ms"] == plan(s)["visit_arrived_ms"] + 5000
+    refute plan(s)["wait_timed_out"]
+    assert Game.get(s, "ship_instructions", "route:buy1")["filled"] == 0
   end
 
   test "maximum buys current stock and sell-all resolves the actual arrival load", c do

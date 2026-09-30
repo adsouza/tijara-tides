@@ -1506,8 +1506,9 @@ assignment. Repeating routes now extend this execution path with private ordered
 per-visit cargo targets, pause/resume and stop-after-visit controls. The editor
 sits in a collapsed Repeating route disclosure in the Ships panel and preserves
 its open state across live updates. Automatic departure remains off by default.
-Warehouse collection, remote exchange orders, optional expiry and maximum-wait
-controls remain later extensions. See IMPLEMENTATION.md for the bounded
+Warehouse collection and repeating-stop maximum waits are implemented. Remote
+exchange orders and optional instruction expiry remain later extensions.
+See IMPLEMENTATION.md for the bounded
 playtest route editor and its lifecycle.
 
 The Ships panel shows a next-port instruction editor with the voyage

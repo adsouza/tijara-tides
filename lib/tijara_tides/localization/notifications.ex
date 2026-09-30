@@ -165,5 +165,13 @@ defmodule TijaraTides.Localization.Notifications do
       )
 
   defp message("route.paused", args), do: gettext("%{reason}", args)
+
+  defp message("route.wait_expired", args),
+    do:
+      gettext(
+        "%{ship} at %{port}: maximum wait elapsed. Unfilled route targets were cancelled; committed handling will finish before departure.",
+        args
+      )
+
   defp message(_code, _args), do: gettext("Notification unavailable")
 end

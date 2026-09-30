@@ -1748,6 +1748,175 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              )
   end
 
+  test "route wait form, private countdown, receipts and timeout shortfalls survive restart", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Patient routes",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    render_click(view, "ship", %{"id" => ship})
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Jakarta"}) |> render_submit()
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Singapore"}) |> render_submit()
+    stops = GameServer.snapshot(token, c.server).private["route_stops"]
+    first = stops |> Map.values() |> Enum.find(&(&1["position"] == 0))
+    assert first["max_wait_ms"] == nil
+    assert has_element?(view, "#route-wait-#{first["id"]}[phx-hook=ExchangeDraft]")
+    view |> form("#route-wait-#{first["id"]}", %{"minutes" => "1"}) |> render_submit()
+
+    assert GameServer.snapshot(token, c.server).private["route_stops"][first["id"]]["max_wait_ms"] ==
+             60_000
+
+    assert has_element?(view, "#route-wait-#{first["id"]} input[name=minutes][value='1']")
+    view |> form("#route-wait-#{first["id"]}", %{"minutes" => "43201"}) |> render_submit()
+    assert render(view) =~ "Choose a maximum wait"
+
+    assert GameServer.snapshot(token, c.server).private["route_stops"][first["id"]]["max_wait_ms"] ==
+             60_000
+
+    view |> form("#route-wait-#{first["id"]}", %{"minutes" => ""}) |> render_submit()
+
+    assert GameServer.snapshot(token, c.server).private["route_stops"][first["id"]]["max_wait_ms"] ==
+             nil
+
+    wait = %{
+      "action" => "route",
+      "operation" => "set_wait",
+      "ship" => ship,
+      "stop" => first["id"],
+      "max_wait_ms" => 60_000
+    }
+
+    assert {:ok, _} = GameServer.command(token, "wait-setting", wait, c.server)
+    assert {:ok, _} = GameServer.command(token, "wait-setting", wait, c.server)
+
+    rule = %{
+      "action" => "route",
+      "operation" => "add_rule",
+      "ship" => ship,
+      "stop" => first["id"],
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 3,
+      "limit" => 0
+    }
+
+    assert {:ok, _} = GameServer.command(token, "rule", rule, c.server)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "start",
+               %{
+                 "action" => "route",
+                 "operation" => "start",
+                 "ship" => ship,
+                 "auto_depart" => false
+               },
+               c.server
+             )
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 30_000)
+    before = GameServer.snapshot(token, c.server).private
+    timer = before["ship_routes"][ship]
+    assert timer["visit_arrived_ms"] == 0
+    assert timer["wait_deadline_ms"] == 60_000
+    render_click(view, "ship", %{"id" => ship})
+    assert has_element?(view, "[id='route-wait-countdown-#{ship}']", "00:00:30")
+    refute Map.has_key?(GameServer.snapshot(nil, c.server).public, "ship_routes")
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :wait_replacement
+      )
+
+    restored = GameServer.snapshot(token, replacement).private
+    assert restored["ship_routes"][ship] == timer
+    assert restored["route_stops"] == before["route_stops"]
+    assert {:ok, _} = GameServer.command(token, "wait-setting", wait, replacement)
+    assert GameServer.snapshot(token, replacement).private["ship_routes"][ship] == timer
+    GameServer.connect(token, replacement)
+    advance(replacement, 30_000)
+    expired = GameServer.snapshot(token, replacement).private
+    assert expired["ship_routes"][ship]["wait_timed_out"]
+    assert expired["ships"][ship]["cargo"] == []
+    assert [order] = Map.values(expired["ship_instructions"])
+    assert order["status"] == "cancelled"
+    assert order["filled"] == 0
+
+    assert [[0, 60_000, true]] ==
+             Repo.query!(
+               "SELECT visit_arrived_ms, wait_deadline_ms, wait_timed_out FROM game_ship_routes WHERE world_id=$1 AND id=$2",
+               [c.world_id, ship]
+             ).rows
+
+    Application.put_env(:tijara_tides, :game_server, replacement)
+    {:ok, new_view, _} = conn |> recycle() |> live("/play")
+    render_click(new_view, "ship", %{"id" => ship})
+    refute has_element?(new_view, "[id='route-wait-countdown-#{ship}']")
+
+    assert has_element?(
+             new_view,
+             "[id='route-last-timeout-#{ship}']",
+             "0/3 lots filled; remainder cancelled"
+           )
+
+    notices = expired["notices"]
+    advance(replacement, 1)
+    assert GameServer.snapshot(token, replacement).private["notices"] == notices
+
+    again =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :wait_expired_replacement
+      )
+
+    assert GameServer.snapshot(token, again).private["ship_routes"][ship]["wait_timed_out"]
+    assert GameServer.snapshot(token, again).private["notices"] == notices
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "resume",
+               %{"action" => "route", "operation" => "resume", "ship" => ship},
+               again
+             )
+
+    GameServer.connect(token, again)
+    advance(again, 1)
+    departed = GameServer.snapshot(token, again).private
+    assert departed["ships"][ship]["status"] == "sailing"
+    assert departed["ship_instructions"] == %{}
+
+    model =
+      TijaraTides.UseCases.GameQueries.route_editor(
+        departed,
+        departed["ships"][ship],
+        :sys.get_state(again).catalogue
+      )
+
+    assert [%{"quantity" => 3, "filled" => 0}] = model.last_timeout["arguments"]["shortfalls"]
+  end
+
   test "repeating route UI, receipts, private templates and active visit survive restart", c do
     Application.put_env(:tijara_tides, :game_server, c.server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)

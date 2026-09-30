@@ -265,7 +265,7 @@ with launch tuning described in this document. Remaining work includes:
   freshness-aware reservation replacement, and direct ship trades against
   player order books (§§6–8).
 - **Automation:** linked remote orders and their atomic handover at berth,
-  earmarked advance purchase budgets, optional expiry and maximum-wait controls,
+  earmarked advance purchase budgets, optional instruction expiry,
   and departure-funding allocation and accumulation policies (§8).
 - **Ports and physical handling:** full ship-size, terminal and waterway limits,
   predictive queue estimates, automatic warehouse-transfer queuing, transfers
@@ -439,8 +439,26 @@ cleaning, without earmarking cash. Prices use the same limit semantics and
 voyage-affordability checks as manual and single-visit trades. Partial fills retry
 and never accumulate across circuits. Once sales finish, exhausted hold capacity
 cancels the remaining loading shortfall with notification. Other unfilled targets
-wait until filled or explicitly cancelled. Expiry and maximum-wait controls,
-linked exchange orders and advance purchase budgets remain future extensions.
+wait until filled, explicitly cancelled, or their stop's maximum wait elapses.
+Instruction expiry, linked exchange orders and advance purchase budgets remain
+future extensions.
+
+Each stop has an optional maximum wait, configured in minutes (up to 30 days)
+inside its collapsed Wait limit disclosure. Blank means unlimited waiting.
+The active-world deadline is saved from arrival, including berth queues and
+handling, and survives retries, partial fills, phase changes, pause/resume and
+database reload. Starting a route at its current port starts the visit then;
+starting while sailing uses its actual arrival. Limit edits apply to visits
+that have not arrived yet and never change the current visit's saved deadline.
+At the inclusive deadline, timeout runs before berth admission or new route
+fills. Unfilled targets are cancelled, including purchases whose sale phase has
+not finished, while committed handling drains without starting another phase.
+Then the ordinary automatic-departure and stop-after-visit rules apply; funding
+blocks remain separate. The editor shows an active-world countdown and retains
+the latest timed-out visit's cargo shortfalls through its private notice even
+after departure. Unlimited existing stops retain their behavior. Migration
+`20260930000001_add_route_wait_limits.exs` adds typed stop limits and visit timers.
+
 Loading now takes compatible owned warehouse stock first, prioritizing stock
 earmarked for the ship, before buying the shortfall. Transfers retain cost and
 expiry and incur handling fees without consuming the market-purchase budget.

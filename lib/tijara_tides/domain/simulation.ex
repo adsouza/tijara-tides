@@ -19,6 +19,7 @@ defmodule TijaraTides.Domain.Simulation do
     phases = [
       finance_before: &TijaraTides.Domain.Services.FinancialSettlement.settle/1,
       fleet: &Fleet.advance(&1, elapsed),
+      route_waits: &TijaraTides.Domain.ShipWorld.expire_route_waits(&1, catalogue),
       exchange_reconcile: &TijaraTides.Domain.Services.Exchange.reconcile/1,
       estates: &TijaraTides.Domain.Services.Estates.advance(&1, catalogue),
       auctions: &TijaraTides.Domain.Services.Auctions.advance(&1, catalogue),

@@ -38,6 +38,14 @@ defmodule TijaraTides.UseCases.ShipPlanningQueries do
     plan =
       (private["visit_plans"] || %{}) |> Map.values() |> Enum.find(&(&1["ship_id"] == ship["id"]))
 
+    last_timeout =
+      (private["notices"] || [])
+      |> Enum.filter(
+        &(&1["code"] == "route.wait_expired" and
+            get_in(&1, ["arguments", "ship_id"]) == ship["id"])
+      )
+      |> Enum.max_by(& &1["clock_ms"], fn -> nil end)
+
     stop_goods =
       Map.new(stops, fn stop ->
         choices =
@@ -60,7 +68,8 @@ defmodule TijaraTides.UseCases.ShipPlanningQueries do
       goods: goods,
       stop_goods: stop_goods,
       orders: orders,
-      plan: plan
+      plan: plan,
+      last_timeout: last_timeout
     }
   end
 

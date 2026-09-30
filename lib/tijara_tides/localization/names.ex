@@ -60,6 +60,7 @@ defmodule TijaraTides.Localization.Names do
   def translate("Supply"), do: gettext("Supply")
   def translate("Demand"), do: gettext("Demand")
   def translate("Completing loading targets"), do: gettext("Completing loading targets")
+  def translate("Maximum wait elapsed"), do: gettext("Maximum wait elapsed")
   def translate("Waiting for a berth"), do: gettext("Waiting for a berth")
   def translate("Waiting for the limit price"), do: gettext("Waiting for the limit price")
 
