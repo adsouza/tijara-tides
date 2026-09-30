@@ -3,6 +3,53 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
   alias TijaraTides.Domain.{Account, ChangeSet, Notices, Participation, State}
   alias TijaraTides.Domain.Account.{InvitationProgress, Rows}
 
+  @doc "Read the next earning opportunity and unused-invitation expiry without awarding quota."
+  def forecast(state, account) do
+    company = State.get(state, "companies", account["company_id"])
+    row = State.get(state, "invitation_progress", account["id"])
+    issued = issued(state, account["id"])
+
+    refund_ms =
+      issued
+      |> Enum.map(&max(0, &1["expires_ms"] - state.clock_ms))
+      |> Enum.min(fn -> nil end)
+
+    status =
+      cond do
+        account["suspended_ms"] != nil ->
+          "suspended"
+
+        company == nil or company["bankruptcy_ms"] != nil ->
+          "no_company"
+
+        not healthy?(state, account) ->
+          "financial_trouble"
+
+        account["invite_quota"] + length(issued) >= InvitationProgress.limit() ->
+          "capacity"
+
+        row == nil or row["company_id"] != account["company_id"] or
+            row["active_until_ms"] < state.clock_ms ->
+          "inactive"
+
+        true ->
+          "earning"
+      end
+
+    remaining_ms =
+      if status == "earning" do
+        elapsed = max(0, min(state.clock_ms, row["active_until_ms"]) - row["checked_ms"])
+        max(0, InvitationProgress.period_ms() - row["progress_ms"] - elapsed)
+      else
+        InvitationProgress.period_ms()
+      end
+
+    %{"status" => status, "remaining_ms" => remaining_ms, "refund_ms" => refund_ms}
+  end
+
+  defp issued(state, id),
+    do: Enum.filter(State.owned(state, "invitations", "inviter", id), &(&1["status"] == "issued"))
+
   def observe(before, changed, catalogue, scope \\ :changed) do
     settings = Participation.settings(catalogue)
 
@@ -49,8 +96,7 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
       previous = State.get(before, "accounts", id)
       eligible? = healthy?(before, previous) and healthy?(state, account)
 
-      outstanding =
-        Enum.count(State.owned(state, "invitations", "inviter", id), &(&1["status"] == "issued"))
+      outstanding = length(issued(state, id))
 
       capacity = max(0, InvitationProgress.limit() - account["invite_quota"] - outstanding)
 

@@ -201,6 +201,40 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     |> Enum.map_join(":", &TijaraTides.Localization.number(&1, format: "00"))
   end
 
+  def invitation_expectation(%{"status" => "earning", "remaining_ms" => remaining}) do
+    gettext(
+      "Next invitation in %{time} of active-world time (hours:minutes:seconds), if your company stays active and solvent.",
+      time: active_countdown(remaining)
+    )
+  end
+
+  def invitation_expectation(%{"status" => "suspended"}),
+    do: gettext("Invitation earning is paused while your account is suspended.")
+
+  def invitation_expectation(%{"status" => "no_company"}),
+    do:
+      gettext(
+        "Form a company and complete an economic action worth at least $100. A new invitation takes two days of active, solvent operation."
+      )
+
+  def invitation_expectation(%{"status" => "financial_trouble"}),
+    do:
+      gettext(
+        "Clear unpaid bills and loan arrears to resume earning. A new invitation takes two days of active, solvent operation."
+      )
+
+  def invitation_expectation(%{"status" => "capacity"}),
+    do:
+      gettext(
+        "Invitation earning resumes when an outstanding invitation is accepted. Unused invitations return on expiry."
+      )
+
+  def invitation_expectation(_),
+    do:
+      gettext(
+        "Complete an economic action worth at least $100 to start earning. A new invitation takes two days of active, solvent operation."
+      )
+
   # Commands that claim stock inside a warehouse; only ship trades mean cargo aboard.
   @warehouse_stock ~w(auction_consign auction_revise warehouse_reserve exchange_place exchange_amend)
 

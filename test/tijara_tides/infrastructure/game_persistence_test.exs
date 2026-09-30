@@ -514,6 +514,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
     conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => player})
     {:ok, view, _} = live(conn, "/play")
+    assert has_element?(view, "#invitation-expectation", "Next invitation in")
+    refute has_element?(view, "#invitations")
+    assert resumed.entities["accounts"][account["id"]]["email"] == nil
     GameServer.connect(player, replacement)
     advance(replacement, 2 * day - resumed.clock_ms + 1)
     assert GameServer.snapshot(player, replacement).private["account"]["invite_quota"] == 1
@@ -522,6 +525,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert grant["account_id"] == account["id"]
     render(view)
     assert render_async(view) =~ "You earned a new invitation. Open the account menu to send it."
+    refute has_element?(view, "#invitation-expectation")
 
     assert_push_event(view, "system-notification", %{
       body: "You earned a new invitation. Open the account menu to send it."

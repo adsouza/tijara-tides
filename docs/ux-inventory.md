@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 145
+Heuristic requirement sentences in DESIGN.md at generation: 148
 
 ## Screens
 
@@ -56,6 +56,7 @@ told after the fact, without being asked to approve it.
 
 | # | Requirement | Section | Kind | Screen |
 |---|-------------|---------|------|--------|
+| 147 | When no invitations are available, the account menu shows the remaining active-world earning time or the action needed to resume earning, and the earliest unused invitation expiry, before email verification. | 2 | display | Company and account |
 | 146 | Each earned grant notifies its owner and points them to the account menu to send the invitation. | 2 | notification | Notifications |
 | 141 | The Ports column includes a collapsed Warehouses disclosure whose open state survives live updates. | 11 | display | Port panel |
 | 145 | The Ports column provides a collapsed Luxury auctions disclosure with scheduled | 7 | input | Auction house |
@@ -200,7 +201,7 @@ told after the fact, without being asked to approve it.
 | 130 | Show available credit, outstanding principal, installment schedules, accrued arrears and the active-world deadline, with borrowing and full repayment actions. | 12 | display | Finance |
 | 131 | Require confirmation before voluntary bankruptcy. | 12 | input | Finance |
 | 132 | Show the replacement-company cooldown and available credit limit before company formation. | 12 | display | Company and account |
-| 140 | Replace the Ships destination dropdown with a port-by-cargo popup matrix. Green outbound and red return discs scale by ROI radius; negative ROI uses a black skull. Rank ports by the sum of the best ROI in each direction, then distance. Clicking a port selects it and dismisses the popup. | 7 | input | Fleet and ship detail |
+| 140 | Replace the Ships destination dropdown with a port-by-cargo popup matrix. Green outbound, yellow return and orange other-port discs scale by ROI radius; orange shows the best ROI for cargo loaded at the candidate destination and sold at another reachable port, excluding the current port, with the onward port named on hover or focus. Negative ROI uses a black skull. Rank ports by the sum of the best ROI in each direction, then distance. Clicking a port selects it and dismisses the popup. | 7 | input | Fleet and ship detail |
 | 126 | Provide a per-visit automatic-departure checkbox, off by default, saved together with the onward destination. | 8 | input | Fleet and ship detail |
 
 ## Defaults that keep the depth optional

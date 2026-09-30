@@ -58,6 +58,8 @@ defmodule TijaraTides.Domain.Visibility do
   def private(state, account) do
     %{
       "account" => Map.drop(account, ["inviter"]),
+      "invitation_forecast" =>
+        TijaraTides.Domain.AccountWorld.InvitationAccrual.forecast(state, account),
       "email_deliveries" =>
         owned(state, "email_requests", "account_id", account["id"])
         |> Enum.filter(&(&1["purpose"] in ["link", "invite"]))

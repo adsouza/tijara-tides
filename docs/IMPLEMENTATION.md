@@ -119,9 +119,10 @@ popup, switching to the current port's Buy view and scrolling to its market side
 controls; that switch now follows a destination chosen for a sailing ship as
 well. The choice is a persisted command on the hull rather than a
 browser-session value, so it survives a reconnect and a second window, and
-departing or rerouting clears it. Compatible cargo columns show green outbound
-and red return symbols on one shared scale: circles price a fresh purchase here,
-squares price cargo already aboard against the candidate port's demand. Symbol
+departing or rerouting clears it. Compatible cargo columns show green outbound,
+yellow return and orange other-port symbols on one shared scale: circles price
+a fresh purchase here, squares price cargo already aboard against the candidate
+port's demand. Symbol
 size is proportional to positive ROI, with hollow symbols for zero or
 unavailable ROI and black skulls for negative ROI. Purchase ROI is the current
 bid minus ask and both handling fees, divided by ask plus purchase handling.
@@ -129,7 +130,10 @@ Aboard-cargo ROI uses the recorded lot costs a sale would consume, in that order
 and including a partial fill of the final batch; cargo whose recorded cost is
 zero reports its proceeds with no ROI rather than dividing by nothing. A good
 stays in the matrix when the hold is the only reason to visit, with no local
-stock required. Hover/focus exposes ROI, lots and aboard-cargo proceeds. These
+stock required. Orange symbols show the best ROI for a load from the candidate
+destination to another reachable port, excluding the current port, and keep
+cargo columns visible even when only an onward trade is available. Hover/focus
+exposes ROI, lots, aboard-cargo proceeds and the best onward port. These
 are market comparisons, excluding cash, capacity, cleaning, voyage costs and
 spoilage, rather than executable trade quotes. Ports sort by the sum of their
 best ROI in each direction (missing directions contribute zero), then sea
@@ -327,7 +331,13 @@ window if they survive it; otherwise the receiver disposes of them immediately.
 ## Verified email identities
 
 Players can link an email from the account menu. Email verification appears above
-Invitations; Invitations stays hidden until an email is verified. Once linked,
+Invitations; sending invitations stays hidden until an email is verified. Players
+with no available invitations see an earning countdown or the action needed to
+resume earning, plus the earliest unused invitation expiry, even before email
+verification. The owner-only forecast uses saved progress and the active-world
+clock; it does not award quota or alter progress. Earning estimates assume
+continued active, solvent operation, and expiry estimates assume the invitation
+remains unused. Once linked,
 the verified address appears on the left of the popup header beside Close; the
 verification form and delivery status are hidden. The underlying identity workflow supports replacement and preserves
 an existing email until the new address is confirmed. Email sign-in on the web

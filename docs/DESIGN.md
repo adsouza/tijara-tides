@@ -139,6 +139,11 @@ retroactive awards. Earned invitation entitlements belong to the inviter and
 cannot be transferred between accounts.
 Each earned grant notifies its owner and points them to the account menu to send
 the invitation. The notice commits with the grant and is not repeated by retries.
+When no invitations are available, the account menu shows the remaining
+active-world earning time or the action needed to resume earning, and the earliest
+unused invitation expiry, before email verification. Earning estimates assume
+continued active, solvent operation; expiry estimates assume the invitation
+remains unused. World pauses preserve both countdowns.
 The resulting invite codes can be shared with prospective players. Invitations
 expire if unused, and each account holds only a small number
 outstanding, so they cannot be hoarded and released as a coordinated wave of
@@ -921,10 +926,12 @@ created refrigerated shipping.
 
 ## 7. Markets, remote trading, and reservations
 
-Replace the Ships destination dropdown with a port-by-cargo popup matrix. Green outbound and
-red return discs scale by ROI radius; negative ROI uses a black skull. Rank ports by the sum of
-the best ROI in each direction, then distance. Clicking a port selects it and dismisses the
-popup.
+Replace the Ships destination dropdown with a port-by-cargo popup matrix. Green outbound,
+yellow return and orange other-port discs scale by ROI radius; orange shows the best ROI for
+cargo loaded at the candidate destination and sold at another reachable port, excluding the
+current port, with the onward port named on hover or focus. Negative ROI uses a black skull.
+Rank ports by the sum of the best ROI in each direction, then distance. Clicking a port
+selects it and dismisses the popup.
 
 
 A shared exchange interface exposes separate local markets at each port.

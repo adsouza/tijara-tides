@@ -36,6 +36,93 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
   defp quota(state), do: State.get(state, "accounts", "a")["invite_quota"]
   defp progress(state), do: State.get(state, "invitation_progress", "a")["progress_ms"]
 
+  defp forecast(state),
+    do: InvitationAccrual.forecast(state, State.get(state, "accounts", "a"))
+
+  test "forecasts use saved world-clock progress without granting invitations" do
+    assert forecast(world())["status"] == "inactive"
+    state = world() |> action() |> tick(@day)
+    assert forecast(state) == %{"status" => "earning", "remaining_ms" => @day, "refund_ms" => nil}
+    projected = %{state | clock_ms: @day + 1000}
+    assert forecast(projected)["remaining_ms"] == @day - 1000
+    assert quota(projected) == 0
+    assert progress(projected) == @day
+  end
+
+  test "inactive and replaced companies cannot project stale partial progress" do
+    state = world() |> action() |> tick(@day)
+    assert forecast(%{state | clock_ms: 3 * @day})["remaining_ms"] == 2 * @day
+    assert forecast(%{state | clock_ms: 3 * @day})["status"] == "inactive"
+
+    replacement =
+      state
+      |> State.put("companies", "new", Map.put(State.get(state, "companies", "c"), "id", "new"))
+      |> State.put(
+        "accounts",
+        "a",
+        Map.put(State.get(state, "accounts", "a"), "company_id", "new")
+      )
+
+    assert forecast(replacement)["status"] == "inactive"
+    assert forecast(replacement)["remaining_ms"] == 2 * @day
+  end
+
+  test "forecast identifies missing company, suspension and financial blocks" do
+    state = world() |> action()
+
+    for {kind, id, key, value, expected} <- [
+          {"accounts", "a", "company_id", nil, "no_company"},
+          {"accounts", "a", "suspended_ms", 0, "suspended"},
+          {"companies", "c", "bankruptcy_ms", 0, "no_company"},
+          {"companies", "c", "unpaid", 1, "financial_trouble"},
+          {"companies", "c", "arrears_since", 0, "financial_trouble"}
+        ] do
+      changed = State.put(state, kind, id, Map.put(State.get(state, kind, id), key, value))
+      assert forecast(changed)["status"] == expected
+    end
+
+    loan = %{
+      "company_id" => "c",
+      "status" => "open",
+      "principal_due" => 0,
+      "interest_due" => 1,
+      "overdue_ms" => nil
+    }
+
+    assert forecast(State.put(state, "loans", "loan", loan))["status"] == "financial_trouble"
+
+    assert forecast(State.put(state, "loans", "loan", Map.put(loan, "interest_due", 0)))["status"] ==
+             "earning"
+  end
+
+  test "forecast counts only the owner's outstanding invitations and exposes earliest refund" do
+    state = world(3) |> action()
+
+    state =
+      Enum.reduce(1..3, state, fn n, state ->
+        {:ok, state, _} =
+          AccountWorld.issue_invite(state, State.get(state, "accounts", "a"), %{
+            invite_hash: "code-#{n}"
+          })
+
+        state
+      end)
+
+    first = Map.put(State.get(state, "invitations", "code-1"), "expires_ms", @day)
+    state = State.put(state, "invitations", "code-1", first)
+    state = State.put(state, "invitations", "other", Map.put(first, "inviter", "other"))
+
+    assert forecast(state) == %{
+             "status" => "capacity",
+             "remaining_ms" => 2 * @day,
+             "refund_ms" => @day
+           }
+
+    state = State.put(state, "invitations", "code-1", Map.put(first, "status", "redeemed"))
+    assert forecast(state)["status"] == "earning"
+    assert forecast(state)["refund_ms"] == 3 * @day
+  end
+
   test "ordinary players earn exactly at two days and splitting ticks preserves the award" do
     state = world() |> action()
     early = tick(state, 2 * @day - 1)

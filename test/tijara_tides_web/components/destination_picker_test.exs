@@ -285,6 +285,103 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     assert colombo.best > dubai.best
   end
 
+  test "other-port opportunities choose the best reachable buyer without replacing returns or ranking" do
+    {definitions, view, ship} = fixture()
+    original = GameQueries.destination_matrix(definitions, view, ship)
+
+    definitions =
+      definitions
+      |> put_in([:catalogue, "routes", "Colombo|Dubai"], %{"nautical_miles" => 300})
+      |> put_in([:catalogue, "routes", "Colombo|Tokyo"], %{"nautical_miles" => 600})
+
+    buyer = %{view.markets["Singapore|b"] | "demand" => 20, "bid" => 400}
+
+    view =
+      view
+      |> put_in([:markets, "Tokyo|b"], buyer)
+      |> put_in([:markets, "Dubai|b", "demand"], 10)
+      |> put_in([:markets, "Dubai|b", "bid"], 400)
+
+    matrix = GameQueries.destination_matrix(definitions, view, ship)
+    colombo = Enum.find(matrix.rows, &(&1.port == "Colombo"))
+    assert colombo.cells["b"].onward.destination == "Tokyo"
+    assert colombo.cells["b"].onward.lots == 20
+    assert_in_delta colombo.cells["b"].onward.roi, 280 / 110, 0.00001
+    assert colombo.cells["b"].inbound == hd(original.rows).cells["b"].inbound
+
+    assert Enum.map(matrix.rows, &{&1.port, &1.best}) ==
+             Enum.map(original.rows, &{&1.port, &1.best})
+
+    # A buyer without enough cash for one lot cannot displace a funded onward buyer.
+    blocked = put_in(view, [:markets, "Tokyo|b", "buyer_budget"], 399)
+    row = hd(GameQueries.destination_matrix(definitions, blocked, ship).rows)
+    assert row.cells["b"].onward.destination == "Dubai"
+    assert row.cells["b"].onward.lots == 10
+
+    # The current port is a return, and unreachable markets are not onward options.
+    unreachable =
+      put_in(
+        definitions,
+        [:catalogue, "routes"],
+        definitions.catalogue["routes"]
+        |> Map.delete("Colombo|Tokyo")
+        |> Map.delete("Colombo|Dubai")
+      )
+
+    row = hd(GameQueries.destination_matrix(unreachable, view, ship).rows)
+    assert row.cells["b"].onward == nil
+    assert row.cells["b"].inbound != nil
+  end
+
+  test "onward-only cargo gets a column and localized orange symbol with the buyer port" do
+    {definitions, view, ship} = fixture()
+
+    definitions =
+      put_in(definitions, [:catalogue, "routes", "Colombo|Tokyo"], %{"nautical_miles" => 600})
+
+    buyer = %{view.markets["Singapore|b"] | "demand" => 20, "bid" => 400}
+
+    view =
+      view
+      |> put_in([:markets, "Singapore|b", "demand"], 0)
+      |> put_in([:markets, "Tokyo|b"], buyer)
+      |> put_in([:markets, "Colombo|c"], %{buyer | "stock" => 20, "ask" => 100})
+      |> put_in([:markets, "Tokyo|c"], buyer)
+
+    matrix = GameQueries.destination_matrix(definitions, view, ship)
+    assert Enum.map(matrix.goods, &elem(&1, 0)) == ["b", "a"]
+    row = hd(matrix.rows)
+    assert row.cells["b"].outbound == nil
+    assert row.cells["b"].inbound == nil
+    assert row.cells["b"].onward.destination == "Tokyo"
+
+    for locale <- ["en", "ar"] do
+      tree =
+        Localization.with_locale(locale, fn ->
+          render_component(&DestinationPicker.panel/1,
+            definitions: definitions,
+            view: view,
+            ship: ship
+          )
+        end)
+        |> LazyHTML.from_fragment()
+
+      # The cargo cells follow profit and distance cells.
+      cell = LazyHTML.query(tree, "tbody tr:first-child td:nth-child(4)")
+
+      assert LazyHTML.query(cell, ".onward circle") |> LazyHTML.to_html() =~
+               ~s(fill="currentColor")
+
+      assert LazyHTML.query(cell, ".onward circle") |> LazyHTML.attribute("r") == ["21.0"]
+      [description] = LazyHTML.query(cell, ".onward") |> LazyHTML.attribute("aria-label")
+      assert description =~ if(locale == "en", do: "Onward to Tokyo", else: "المتابعة إلى طوكيو")
+      if locale == "ar", do: refute(LazyHTML.text(tree) =~ "Other ports")
+      refute LazyHTML.text(cell) =~ "—"
+      assert LazyHTML.query(tree, ".text-yellow-400") |> LazyHTML.text() != ""
+      assert LazyHTML.query(tree, ".text-orange-400") |> LazyHTML.text() != ""
+    end
+  end
+
   test "total dollars outrank percentage and mixed dry cargo shares the hold" do
     {definitions, view, ship} = fixture()
 

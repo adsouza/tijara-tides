@@ -21,7 +21,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
     scale =
       assigns.matrix.rows
       |> Enum.flat_map(fn row ->
-        Enum.flat_map(Map.values(row.cells), &[&1.outbound, &1.inbound])
+        Enum.flat_map(Map.values(row.cells), &[&1.outbound, &1.inbound, &1.onward])
       end)
       |> Enum.filter(&(&1 && is_number(&1.roi) && &1.roi > 0))
       |> Enum.map(&abs(&1.roi))
@@ -65,14 +65,15 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
             <summary class="cursor-pointer">{gettext("About these estimates")}</summary>
             <p id="destination-picker-help" class="mt-2">
               {gettext(
-                "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound and red return. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
+                "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return and other-port symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound, yellow return and orange for the best ROI to another reachable port. Orange symbols compare loading at the candidate destination for ports other than the current port; hover or focus names the best onward port. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
               )}
             </p>
           </details>
           <div class="mb-3 flex flex-wrap gap-4 text-sm">
             <span class="text-green-400">■ {gettext("Cargo aboard")}</span>
             <span class="text-green-400">● {gettext("Outbound")}</span>
-            <span class="text-red-400">● {gettext("Return")}</span>
+            <span class="text-yellow-400">● {gettext("Return")}</span>
+            <span class="text-orange-400">● {gettext("Other ports")}</span>
           </div>
           <div class="destination-matrix-scroll">
             <table class="destination-matrix text-sm">
@@ -159,7 +160,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                   </td>
                   <td class="tabular-nums">{display_number(row.distance)}</td>
                   <td :for={{id, _} <- @matrix.goods} class="opportunity-cell">
-                    <%= for {direction, opportunity} <- [{:outbound, row.cells[id].outbound}, {:inbound, row.cells[id].inbound}], opportunity do %>
+                    <%= for {direction, opportunity} <- [{:outbound, row.cells[id].outbound}, {:inbound, row.cells[id].inbound}, {:onward, row.cells[id].onward}], opportunity do %>
                       <% description =
                         if Map.get(opportunity, :source) == :aboard do
                           gettext(
@@ -175,10 +176,16 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                         else
                           gettext("%{direction}: %{roi} ROI · %{lots} market lots",
                             direction:
-                              if(direction == :outbound,
-                                do: gettext("Outbound"),
-                                else: gettext("Return")
-                              ),
+                              case direction do
+                                :outbound ->
+                                  gettext("Outbound")
+
+                                :inbound ->
+                                  gettext("Return")
+
+                                :onward ->
+                                  gettext("Onward to %{port}", port: l10n(opportunity.destination))
+                              end,
                             roi: cargo_roi(opportunity.roi),
                             lots: display_number(opportunity.lots)
                           )
@@ -186,7 +193,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                       <span
                         class={[
                           "opportunity-disc",
-                          if(direction == :outbound, do: "outbound", else: "inbound")
+                          Atom.to_string(direction)
                         ]}
                         tabindex="0"
                         role="img"
@@ -236,7 +243,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                       </span>
                     <% end %>
                     <span
-                      :if={!row.cells[id].outbound && !row.cells[id].inbound}
+                      :if={!row.cells[id].outbound && !row.cells[id].inbound && !row.cells[id].onward}
                       aria-label={gettext("No trade opportunity")}
                     >—</span>
                   </td>

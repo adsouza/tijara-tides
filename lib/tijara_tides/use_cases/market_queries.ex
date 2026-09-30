@@ -20,6 +20,15 @@ defmodule TijaraTides.UseCases.MarketQueries do
             port != ship["port"],
             distance = route_distance(definitions, ship, port),
             is_number(distance) do
+          onward_ports =
+            definitions.catalogue["ports"]
+            |> Map.keys()
+            |> Enum.filter(fn target ->
+              target not in [ship["port"], port] &&
+                is_number(route_distance(definitions, %{ship | "port" => port}, target))
+            end)
+            |> Enum.sort()
+
           cells =
             Map.new(goods, fn {id, _} ->
               local = view.markets[ship["port"] <> "|" <> id]
@@ -32,7 +41,8 @@ defmodule TijaraTides.UseCases.MarketQueries do
                      do: aboard_opportunity(aboard[id], remote),
                      else: market_opportunity(local, remote)
                    ),
-                 inbound: market_opportunity(remote, local)
+                 inbound: market_opportunity(remote, local),
+                 onward: onward_opportunity(remote, view.markets, onward_ports, id)
                }}
             end)
 
@@ -63,13 +73,26 @@ defmodule TijaraTides.UseCases.MarketQueries do
       goods =
         Enum.filter(goods, fn {id, _} ->
           Map.has_key?(aboard, id) or
-            Enum.any?(rows, fn row -> row.cells[id].outbound || row.cells[id].inbound end)
+            Enum.any?(rows, fn row ->
+              row.cells[id].outbound || row.cells[id].inbound || row.cells[id].onward
+            end)
         end)
 
       %{goods: goods, rows: rows}
     else
       %{goods: [], rows: []}
     end
+  end
+
+  defp onward_opportunity(supplier, markets, ports, good) do
+    ports
+    |> Enum.flat_map(fn port ->
+      case market_opportunity(supplier, markets[port <> "|" <> good]) do
+        nil -> []
+        opportunity -> [Map.put(opportunity, :destination, port)]
+      end
+    end)
+    |> Enum.max_by(&{&1.roi, &1.lots}, fn -> nil end)
   end
 
   defp aboard_opportunity(batches, buyer) do

@@ -111,19 +111,22 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               </ul>
             </div>
           </section>
+          <.expectation
+            :if={@view.private["account"]["invite_quota"] < 1}
+            forecast={@view.private["invitation_forecast"]}
+          />
           <section
             :if={@view.private["account"]["email"]}
             id="invitations"
             class="my-4 space-y-2"
           >
-            <h2 class="text-xl"><.emoji symbol="🎟️" />{gettext("Invitations")}</h2>
+            <h2 :if={@view.private["account"]["invite_quota"] > 0} class="text-xl">
+              <.emoji symbol="🎟️" />{gettext("Invitations")}
+            </h2>
             <p class="text-sm text-slate-400">
               {gettext(
                 "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
               )}
-            </p>
-            <p :if={@view.private["account"]["invite_quota"] < 1}>
-              {gettext("Available invitations: 0")}
             </p>
             <div
               :if={@view.private["account"]["invite_quota"] > 0}
@@ -508,6 +511,31 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
         </section>
       </div>
     </details>
+    """
+  end
+
+  attr :forecast, :map, required: true
+
+  def expectation(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :forecast,
+        assigns.forecast || %{"status" => "inactive", "refund_ms" => nil}
+      )
+
+    ~H"""
+    <section id="invitation-expectation" class="my-4 space-y-2">
+      <h2 class="text-xl"><.emoji symbol="🎟️" />{gettext("Invitations")}</h2>
+      <p>{gettext("Available invitations: 0")}</p>
+      <p class="text-sm text-slate-400">{invitation_expectation(@forecast)}</p>
+      <p :if={@forecast["refund_ms"] != nil} class="text-sm text-slate-400">
+        {gettext(
+          "An unused invitation returns in %{time} of active-world time (hours:minutes:seconds), unless accepted first.",
+          time: active_countdown(@forecast["refund_ms"])
+        )}
+      </p>
+    </section>
     """
   end
 end
