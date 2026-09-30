@@ -4,6 +4,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     "merchant_warehouses" =>
       Enum.map(~w(id port good storage blocks capacity expires_ms protected_ms), &{&1, &1}),
     "company_activity" => Enum.map(~w(company_id last_action_ms), &{&1, &1}),
+    "invitation_progress" =>
+      Enum.map(~w(account_id company_id checked_ms active_until_ms progress_ms), &{&1, &1}),
     "auctions" =>
       Enum.map(
         ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed ship_id),
@@ -237,7 +239,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(accounts companies company_activity merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
+  @kinds ~w(accounts companies company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
 
   @children %{
     "warehouses" =>

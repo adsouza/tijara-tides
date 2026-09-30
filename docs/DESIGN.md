@@ -125,9 +125,20 @@ recover through or contact. Linking at any later time removes both. The threshol
 and prompt cadence are tuning parameters.
 
 Account creation consumes an invitation issued by an existing player. Invitations
-are earned through sustained play, provisionally one per completed game year
-operating actively and solvent, rather than granted at signup. Earned invitation
-entitlements belong to the inviter and cannot be transferred between accounts.
+are earned through sustained play, provisionally one per two real days of
+active, solvent operation, measured on the active-world clock rather than granted
+at signup. A qualifying economic action worth at least $100, including automated
+trades, keeps the company active for two active-world days. Formation, sign-in,
+and borrowing alone do not count. Solvent operation requires a current company,
+an unsuspended account, no unpaid operating bills, and no loan arrears. Inactivity,
+financial trouble, or company replacement resets partial progress. World pauses
+preserve progress. Available and outstanding invitations together are capped at
+three; time spent at that cap does not bank future awards. Existing companies
+start earning with a qualifying action after this feature is introduced, with no
+retroactive awards. Earned invitation entitlements belong to the inviter and
+cannot be transferred between accounts.
+Each earned grant notifies its owner and points them to the account menu to send
+the invitation. The notice commits with the grant and is not repeated by retries.
 The resulting invite codes can be shared with prospective players. Invitations
 expire if unused, and each account holds only a small number
 outstanding, so they cannot be hoarded and released as a coordinated wave of

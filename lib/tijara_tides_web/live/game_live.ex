@@ -982,7 +982,12 @@ defmodule TijaraTidesWeb.GameLive do
     socket =
       if connected?(socket) and previous do
         Enum.reduce(notices -- previous, socket, fn notice, acc ->
-          if notice["code"] in ["ship.loaded", "ship.unloaded", "auction.won"] do
+          if notice["code"] in [
+               "ship.loaded",
+               "ship.unloaded",
+               "auction.won",
+               "invitation.earned"
+             ] do
             push_event(acc, "system-notification", %{
               title: gettext("Tijara Tides"),
               body:
@@ -1011,7 +1016,9 @@ defmodule TijaraTidesWeb.GameLive do
 
     socket = assign(socket, :system_notices, notices)
 
-    latest_notice = if view.private, do: List.first(view.private["notices"] || [])
+    latest_notice =
+      Enum.find(notices -- (previous || []), &(&1["code"] == "invitation.earned")) ||
+        List.first(notices)
 
     socket =
       if latest_notice && Map.has_key?(socket.assigns, :latest_notice) &&

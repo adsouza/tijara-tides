@@ -400,6 +400,18 @@ its own books when that company next settles. Each of these transitions writes a
 single company, and all of them still commit in one atomic world transaction.
 
 Company attachment validates ownership and exclusive active membership.
+Invitation accrual stores one `game_invitation_progress` checkpoint per earning
+account. `Account.InvitationProgress` applies the two-active-world-day policy;
+`AccountWorld.InvitationAccrual` supplies economic activity, financial health and
+remaining capacity facts. Commands observe only affected owners; world ticks
+observe all accounts after settlement and invitation expiry. Quota and progress
+commit with the same fenced world transaction. A qualifying economic action
+starts or extends activity for two active-world days. Partial progress resets
+after inactivity, financial trouble or company replacement; available plus
+outstanding invitations are capped at three. New checkpoints begin with the
+first qualifying action, without translating wall-clock activity history or
+backdating awards. The invitation-progress migration adds this bounded state.
+
 Invitation commands reload current account state so stale snapshots cannot
 restore spent quota. Expiry restores unused quota only once. Verified email
 binding prevents identity and session reassignment across accounts. Delivery

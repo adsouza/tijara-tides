@@ -409,6 +409,158 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert State.get(restored, "markets", "Jakarta|lumber")["production_credit"] == 5000
   end
 
+  test "earned invitations survive restart, fenced rollback and receipt replay", c do
+    alias TijaraTides.Domain.{State, Warehouse, WarehouseWorld}
+    day = 86_400_000
+    {:ok, %{"session" => sponsor}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, invitation} =
+      GameServer.command(sponsor, "invite-player", %{"action" => "invite"}, c.server)
+
+    {:ok, %{"session" => player}} = GameServer.redeem(invitation["code"], c.server)
+
+    assert {:ok, _} =
+             GameServer.command(
+               player,
+               "company",
+               %{"action" => "company", "name" => "Earned invitations"},
+               c.server
+             )
+
+    assert {:ok, _} =
+             GameServer.command(
+               player,
+               "borrow",
+               %{"action" => "borrow", "amount" => 100_000},
+               c.server
+             )
+
+    game = :sys.get_state(c.server).game
+    account = GameServer.snapshot(player, c.server).private["account"]
+    assert account["invite_quota"] == 0
+    refute State.get(game, "invitation_progress", account["id"])
+
+    price = Warehouse.quote(WarehouseWorld.used(game, "Jakarta", "dry"), "dry", 100, 1)
+    assert price >= 10_000
+
+    lease = %{
+      "action" => "warehouse_lease",
+      "port" => "Jakarta",
+      "storage" => "dry",
+      "blocks" => 100,
+      "days" => 1,
+      "price" => price
+    }
+
+    assert {:ok, lease_reply} = GameServer.command(player, "lease", lease, c.server)
+    GameServer.connect(player, c.server)
+    advance(c.server, day)
+    before = :sys.get_state(c.server).game
+    progress = State.get(before, "invitation_progress", account["id"])
+    assert progress["progress_ms"] >= day
+    assert progress["progress_ms"] < 2 * day
+    assert State.get(before, "accounts", account["id"])["invite_quota"] == 0
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
+    assert restored.entities["invitation_progress"] == before.entities["invitation_progress"]
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: day},
+        id: :invitation_replacement
+      )
+
+    resumed = :sys.get_state(replacement).game
+    assert resumed.clock_ms == before.clock_ms
+    assert resumed.entities["invitation_progress"] == before.entities["invitation_progress"]
+    assert {:ok, ^lease_reply} = GameServer.command(player, "lease", lease, replacement)
+
+    assert State.get(:sys.get_state(replacement).game, "invitation_progress", account["id"]) ==
+             progress
+
+    # A former owner may plan an award but cannot persist quota or its checkpoint.
+    candidate =
+      TijaraTides.Domain.Services.FinancialSettlement.settle(%{before | clock_ms: 2 * day})
+
+    candidate =
+      TijaraTides.Domain.AccountWorld.InvitationAccrual.observe(
+        before,
+        candidate,
+        :sys.get_state(c.server).catalogue,
+        :all
+      )
+
+    candidate = %{candidate | revision: before.revision + 1}
+    assert State.get(candidate, "accounts", account["id"])["invite_quota"] == 1
+
+    assert {:error, :ownership_lost} =
+             GameStore.commit(Repo, c.world_id, before.epoch, before, candidate)
+
+    assert Repo.query!("SELECT invite_quota FROM game_accounts WHERE world_id=$1 AND id=$2", [
+             c.world_id,
+             account["id"]
+           ]).rows == [[0]]
+
+    assert Repo.query!(
+             "SELECT progress_ms FROM game_invitation_progress WHERE world_id=$1 AND id=$2",
+             [c.world_id, account["id"]]
+           ).rows == [[progress["progress_ms"]]]
+
+    assert Repo.query!(
+             "SELECT id FROM game_notices WHERE world_id=$1 AND code='invitation.earned'",
+             [c.world_id]
+           ).rows == []
+
+    Application.put_env(:tijara_tides, :game_server, replacement)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+    conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => player})
+    {:ok, view, _} = live(conn, "/play")
+    GameServer.connect(player, replacement)
+    advance(replacement, 2 * day - resumed.clock_ms + 1)
+    assert GameServer.snapshot(player, replacement).private["account"]["invite_quota"] == 1
+    notices = GameServer.snapshot(player, replacement).private["notices"]
+    assert [grant] = Enum.filter(notices, &(&1["code"] == "invitation.earned"))
+    assert grant["account_id"] == account["id"]
+    render(view)
+    assert render_async(view) =~ "You earned a new invitation. Open the account menu to send it."
+
+    assert_push_event(view, "system-notification", %{
+      body: "You earned a new invitation. Open the account menu to send it."
+    })
+
+    awarded = :sys.get_state(replacement).game
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, awarded)
+    assert restored.entities["notices"] == awarded.entities["notices"]
+    advance(replacement, 0)
+    assert GameServer.snapshot(player, replacement).private["account"]["invite_quota"] == 1
+
+    assert Enum.filter(
+             GameServer.snapshot(player, replacement).private["notices"],
+             &(&1["code"] == "invitation.earned")
+           ) == [grant]
+
+    render(view)
+    render_async(view)
+
+    refute_push_event(view, "system-notification", %{
+      body: "You earned a new invitation. Open the account menu to send it."
+    })
+
+    assert {:ok, earned} =
+             GameServer.command(player, "earned-invite", %{"action" => "invite"}, replacement)
+
+    assert {:ok, ^earned} =
+             GameServer.command(player, "earned-invite", %{"action" => "invite"}, replacement)
+
+    assert GameServer.snapshot(player, replacement).private["account"]["invite_quota"] == 0
+
+    assert Enum.filter(
+             GameServer.snapshot(player, replacement).private["notices"],
+             &(&1["code"] == "invitation.earned")
+           ) == [grant]
+
+    assert {:ok, _} = GameServer.redeem(earned["code"], replacement)
+  end
+
   test "merchant leases and acquired cargo survive reload without duplicating inventory", c do
     alias TijaraTides.Domain.{State, CargoLots, PortCargoMarketWorld}
     alias TijaraTides.Infrastructure.Persistence.CommandStore

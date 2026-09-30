@@ -117,6 +117,11 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             class="my-4 space-y-2"
           >
             <h2 class="text-xl"><.emoji symbol="🎟️" />{gettext("Invitations")}</h2>
+            <p class="text-sm text-slate-400">
+              {gettext(
+                "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
+              )}
+            </p>
             <p :if={@view.private["account"]["invite_quota"] < 1}>
               {gettext("Available invitations: 0")}
             </p>

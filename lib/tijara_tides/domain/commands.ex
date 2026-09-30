@@ -14,6 +14,7 @@ defmodule TijaraTides.Domain.Commands do
     do: TijaraTides.Domain.AccountWorld.set_locale(state, account, locale)
 
   def execute(state, account, command, context) do
+    before = state
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
     current_account = TijaraTides.Domain.State.get(state, "accounts", account["id"]) || account
 
@@ -32,6 +33,13 @@ defmodule TijaraTides.Domain.Commands do
            |> TijaraTides.Domain.Services.Auctions.reconcile(
              context.catalogue,
              account["company_id"]
+           )
+           |> then(
+             &TijaraTides.Domain.AccountWorld.InvitationAccrual.observe(
+               before,
+               &1,
+               context.catalogue
+             )
            ), reply}
 
         other ->

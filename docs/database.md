@@ -143,13 +143,17 @@ replenish and are capped. Supply and demand recover one lot every 150 seconds
 of active world time (0.4 lots per minute); buyer budgets recover one lot’s
 reference value on the same interval. Partial intervals carry across ticks. This is a manual
 NPC market adapter, not the eventual central limit order book. Berth capacity
-and queues, warehouses, standing exchange orders, and annual
-invitation allocations remain deferred. Next-port cargo instructions and optional
+and queues, warehouses, and standing exchange orders remain deferred. Earned
+invitations grant one per two active-world days of active, solvent operation,
+as detailed in [implementation scope and tuning](IMPLEMENTATION.md).
+Next-port cargo instructions and optional
 automatic departure are available. Operating shortfalls accumulate as unpaid
 bills and participate in the implemented loan settlement and bankruptcy rules.
 
 Launch invitations grant three outgoing invitations; ordinary invitees initially
-have no outgoing quota. Unused invitations expire after three active-world days
+have no outgoing quota but can earn invitations through substantial economic
+activity. Available plus outstanding invitations are capped at three. Unused
+invitations expire after three active-world days
 and restore their inviter's quota. Device sessions expire after one wall-clock
 year. Before redemption, GET /play delivers a private random device credential
 in the signed, HTTP-only cookie. A lost redemption response can be retried using

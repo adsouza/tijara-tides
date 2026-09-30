@@ -147,8 +147,8 @@ for ownership, settlement and the retained world transaction boundary.
 replenishment. Trading coordinates it with Ship and CompanyFinance; all three
 still commit atomically. See [market aggregate](docs/architecture.md#port-cargo-market-aggregate).
 
-`Account` owns identity, sessions, invitations, company membership and personal
-bankruptcy history. Financial settlement invokes its lifecycle transitions rather
+`Account` owns identity, sessions, invitations, invitation accrual progress,
+company membership and personal bankruptcy history. Financial settlement invokes its lifecycle transitions rather
 than modifying account rows directly. See [account aggregate](docs/architecture.md#account-aggregate).
 
 Persistence consumes an explicit touched-row change set rather than comparing

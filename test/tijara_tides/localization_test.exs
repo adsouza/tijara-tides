@@ -212,6 +212,16 @@ defmodule TijaraTides.LocalizationTest do
     assert Notifications.render(%{"text" => "Older notice"}, %{}) == "Older notice"
   end
 
+  test "earned invitation notices tell players where to send them in their locale" do
+    notice = %{"code" => "invitation.earned", "arguments" => %{}}
+
+    assert Localization.with_locale("en", fn -> Notifications.render(notice, %{}) end) ==
+             "You earned a new invitation. Open the account menu to send it."
+
+    assert Localization.with_locale("ar", fn -> Notifications.render(notice, %{}) end) ==
+             "حصلت على دعوة جديدة. افتح قائمة الحساب لإرسالها."
+  end
+
   test "Arabic email keeps credentials and actual paragraph breaks" do
     body =
       Email.body(

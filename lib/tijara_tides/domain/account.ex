@@ -40,6 +40,9 @@ defmodule TijaraTides.Domain.Account do
   def restore_invitation(%__MODULE__{} = account),
     do: %{account | invite_quota: account.invite_quota + 1}
 
+  def earn_invitations(%__MODULE__{} = account, count) when is_integer(count) and count > 0,
+    do: %{account | invite_quota: account.invite_quota + count}
+
   def counted(%__MODULE__{} = account, now),
     do: Enum.count(account.bankruptcy_events, &(&1.created_ms + @history_ms > now))
 

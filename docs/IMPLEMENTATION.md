@@ -195,14 +195,26 @@ every 150 seconds of active world time (0.4 lots per minute); buyer budgets
 recover one lot’s reference value on the same interval. Partial intervals carry
 across ticks. This is a manual NPC market adapter, not the eventual central
 limit order book. Finite berths and queues, warehouse leases, transfers,
-reservations, renewals and extensions are available. Annual invitation
-allocations remain deferred. Warehouse-backed standing exchange orders are
+reservations, renewals and extensions are available. Earned invitation
+allocations grant one per two active-world days of active, solvent operation.
+Warehouse-backed standing exchange orders are
 available for standardized cargo. Next-port cargo instructions and optional
 automatic departure are available. Operating shortfalls accumulate as unpaid
 bills and participate in the implemented loan settlement and bankruptcy rules.
 
 Launch invitations grant three outgoing invitations; ordinary invitees initially
-have no outgoing quota. Unused invitations expire after three active-world days
+have no outgoing quota. All players can earn invitations through qualifying
+economic actions worth at least $100, including automated trades. Each action
+keeps a company active for two active-world days; forming a company, signing in,
+and drawing credit do not qualify. Earning requires an unsuspended owner, an
+operating company, no unpaid bills, and no loan arrears. Inactivity, financial
+trouble, or a replacement company resets partial progress. Available plus
+outstanding invitations are capped at three, with no banked progress while full.
+Progress and quota commit atomically and survive reloads. Players receive a
+localized notice with each earned grant, pointing to the account menu. The notice
+commits with the grant and is not repeated by retries. Existing companies
+start with their next qualifying action, without retroactive credit. Unused
+invitations expire after three active-world days
 and restore their inviter's quota. Device sessions expire after one wall-clock
 year. Before redemption, GET /play delivers a private random device credential
 in the signed, HTTP-only cookie. A lost redemption response can be retried using
@@ -254,8 +266,8 @@ with launch tuning described in this document. Remaining work includes:
   predictive queue estimates, automatic warehouse-transfer queuing, transfers
   between storage types, and utilization-triggered berth/storage growth with
   published construction lead times (§§4, 10, 11).
-- **Accounts and disclosures:** earned annual invitations, Google identity
-  linking, asset-triggered linking prompts, concrete suspicious-trade and
+- **Accounts and disclosures:** Google identity linking, asset-triggered linking
+  prompts, concrete suspicious-trade and
   invitation-subtree review mechanisms, and remaining required disclosures,
   including local-time estimates alongside actionable countdowns (§§2, 3, 7).
 

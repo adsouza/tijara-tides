@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 144
+TRIPWIRE = 145
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -31,6 +31,7 @@ SCREENS = [
 
 # (id, verbatim quote from DESIGN.md, section, kind, screen)
 REQUIREMENTS = [
+    (146, "Each earned grant notifies its owner and points them to the account menu to send the invitation.", 2, "notification", "Notifications"),
     (141, 'The Ports column includes a collapsed Warehouses disclosure whose open state survives live updates.', 11, "display", "Port panel"),
     (145, "The Ports column provides a collapsed Luxury auctions disclosure with scheduled", 7, "input", "Auction house"),
     (144, "The Ports column provides a collapsed Cargo exchange disclosure for standardized", 7, "input", "Port panel"),

@@ -33,9 +33,14 @@ defmodule TijaraTides.Domain.Simulation do
       expire_invitations: &AccountWorld.expire_invitations/1
     ]
 
-    Enum.reduce(phases, %{state | clock_ms: state.clock_ms + elapsed}, fn {phase, transition},
-                                                                          current ->
-      measure.(phase, fn -> transition.(current) end)
+    changed =
+      Enum.reduce(phases, %{state | clock_ms: state.clock_ms + elapsed}, fn {phase, transition},
+                                                                            current ->
+        measure.(phase, fn -> transition.(current) end)
+      end)
+
+    measure.(:invitation_accrual, fn ->
+      TijaraTides.Domain.AccountWorld.InvitationAccrual.observe(state, changed, catalogue, :all)
     end)
   end
 end

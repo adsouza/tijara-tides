@@ -2570,3 +2570,12 @@ msgstr "جارٍ التفكير…"
 
 msgid "That command could not be completed. The game is still running. Please contact the operator if this keeps happening."
 msgstr "تعذّر إكمال هذا الأمر. لا تزال اللعبة تعمل. يُرجى التواصل مع المشغّل إذا تكرر ذلك."
+
+#: lib/tijara_tides_web/components/game/account_panel.ex:121
+#, elixir-autogen, elixir-format
+msgid "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
+msgstr "اكسب دعوة واحدة مقابل كل يومين من النشاط التجاري مع الوفاء بالالتزامات المالية. يمكنك الاحتفاظ بثلاث دعوات كحد أقصى، بما فيها الدعوات التي تنتظر القبول."
+
+#, elixir-autogen, elixir-format
+msgid "You earned a new invitation. Open the account menu to send it."
+msgstr "حصلت على دعوة جديدة. افتح قائمة الحساب لإرسالها."

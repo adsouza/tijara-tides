@@ -62,7 +62,8 @@ defmodule TijaraTides.Infrastructure.PhaseTelemetryTest do
           :berths,
           :automated_visits,
           :release_berths,
-          :expire_invitations
+          :expire_invitations,
+          :invitation_accrual
         ] do
       assert_receive {:phase_name, ^phase}
     end

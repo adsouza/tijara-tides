@@ -111,6 +111,9 @@ defmodule TijaraTides.Localization.Notifications do
   defp message("invitation.accepted", args),
     do: gettext("Your invitation was accepted. Company formation is pending.", args)
 
+  defp message("invitation.earned", args),
+    do: gettext("You earned a new invitation. Open the account menu to send it.", args)
+
   defp message("company.formed", args), do: gettext("Your invitee now runs %{company}.", args)
 
   defp message("ship.departed", args),

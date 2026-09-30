@@ -11,27 +11,27 @@
 msgid ""
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:145
+#: lib/tijara_tides/localization/notifications.ex:148
 #, elixir-autogen, elixir-format
 msgid "%{company} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:164
+#: lib/tijara_tides/localization/notifications.ex:167
 #, elixir-autogen, elixir-format
 msgid "%{reason}"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:124
+#: lib/tijara_tides/localization/notifications.ex:127
 #, elixir-autogen, elixir-format
 msgid "%{ship} at %{port}: %{side} %{cargo}, %{filled}/%{quantity} lots filled. %{reason}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:117
+#: lib/tijara_tides/localization/notifications.ex:120
 #, elixir-autogen, elixir-format
 msgid "%{ship} automatically departed %{port} for %{destination}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:120
+#: lib/tijara_tides/localization/notifications.ex:123
 #, elixir-autogen, elixir-format
 msgid "%{ship}: automatic departure to %{destination} paused. %{reason}."
 msgstr ""
@@ -66,12 +66,12 @@ msgstr ""
 msgid "%{value1} kg · %{value2}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:379
+#: lib/tijara_tides_web/components/game/account_panel.ex:384
 #, elixir-autogen, elixir-format
 msgid "%{value1} loan · %{value2}% per period · %{value3} · %{value4} principal remaining"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:234
+#: lib/tijara_tides_web/components/game/account_panel.ex:239
 #, elixir-autogen, elixir-format
 msgid "%{value1} locked as a guarantee. It is returned to the sponsoring company after the guaranteed loans are repaid; on bankruptcy, unpaid loan debt is covered up to this cap and the rest is refunded."
 msgstr ""
@@ -187,7 +187,7 @@ msgstr ""
 msgid "About this port"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1327
+#: lib/tijara_tides_web/live/game_live.ex:1334
 #, elixir-autogen, elixir-format
 msgid "Account suspended"
 msgstr ""
@@ -202,7 +202,7 @@ msgstr ""
 msgid "Account, finance & invitations"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:391
+#: lib/tijara_tides_web/components/game/account_panel.ex:396
 #, elixir-autogen, elixir-format
 msgid "Accrued interest not yet due: %{value1} · Currently due: %{value2}"
 msgstr ""
@@ -238,7 +238,7 @@ msgstr ""
 msgid "After the final stop, return to %{value1}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:131
+#: lib/tijara_tides/localization/notifications.ex:134
 #, elixir-autogen, elixir-format
 msgid "All overdue payments have been cleared. The bankruptcy grace period has ended."
 msgstr ""
@@ -268,7 +268,7 @@ msgstr ""
 msgid "Arrange a loan"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:329
+#: lib/tijara_tides_web/components/game/account_panel.ex:334
 #, elixir-autogen, elixir-format
 msgid "Arrears: %{value1}. Bankruptcy deadline in %{value2} active-world minutes. World suspension pauses this countdown."
 msgstr ""
@@ -278,7 +278,7 @@ msgstr ""
 msgid "Assumes unloading all current cargo. Estimates update with the voyage and may change with delays."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1347
+#: lib/tijara_tides_web/live/game_live.ex:1354
 #, elixir-autogen, elixir-format
 msgid "Available cash"
 msgstr ""
@@ -288,12 +288,12 @@ msgstr ""
 msgid "Available in a later market milestone"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:129
+#: lib/tijara_tides_web/components/game/account_panel.ex:134
 #, elixir-autogen, elixir-format
 msgid "Available invitations: %{value1}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:121
+#: lib/tijara_tides_web/components/game/account_panel.ex:126
 #, elixir-autogen, elixir-format
 msgid "Available invitations: 0"
 msgstr ""
@@ -318,17 +318,17 @@ msgstr ""
 msgid "Book value: %{value1}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:369
+#: lib/tijara_tides_web/components/game/account_panel.ex:374
 #, elixir-autogen, elixir-format
 msgid "Borrow"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:367
+#: lib/tijara_tides_web/components/game/account_panel.ex:372
 #, elixir-autogen, elixir-format
 msgid "Borrowing…"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1163
+#: lib/tijara_tides_web/live/game_live.ex:1170
 #, elixir-autogen, elixir-format
 msgid "Build a company. Trade the world."
 msgstr ""
@@ -394,7 +394,7 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:70
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:288
 #: lib/tijara_tides_web/components/ship_route_editor.ex:139
-#: lib/tijara_tides_web/live/game_live.ex:1374
+#: lib/tijara_tides_web/live/game_live.ex:1381
 #, elixir-autogen, elixir-format
 msgid "Cargo"
 msgstr ""
@@ -499,8 +499,8 @@ msgstr ""
 msgid "Company leaderboard"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1307
-#: lib/tijara_tides_web/live/game_live.ex:1308
+#: lib/tijara_tides_web/live/game_live.ex:1314
+#: lib/tijara_tides_web/live/game_live.ex:1315
 #, elixir-autogen, elixir-format
 msgid "Company name"
 msgstr ""
@@ -515,22 +515,22 @@ msgstr ""
 msgid "Connecting…"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1255
+#: lib/tijara_tides_web/live/game_live.ex:1262
 #, elixir-autogen, elixir-format
 msgid "Continue on this device"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:303
+#: lib/tijara_tides_web/components/game/account_panel.ex:308
 #, elixir-autogen, elixir-format
 msgid "Debt: %{value1} · Available credit: %{value2} · Lifetime bankruptcies: %{value3}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:500
+#: lib/tijara_tides_web/components/game/account_panel.ex:505
 #, elixir-autogen, elixir-format
 msgid "Declare bankruptcy"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:498
+#: lib/tijara_tides_web/components/game/account_panel.ex:503
 #, elixir-autogen, elixir-format
 msgid "Declaring…"
 msgstr ""
@@ -572,7 +572,7 @@ msgstr ""
 msgid "Does not expire"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:406
+#: lib/tijara_tides_web/components/game/account_panel.ex:411
 #, elixir-autogen, elixir-format
 msgid "Due in (HH:MM:SS)"
 msgstr ""
@@ -592,7 +592,7 @@ msgstr ""
 msgid "Email linking is not available on this server yet. Keep this device session to retain access. Invitations cannot be reused to sign in."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1219
+#: lib/tijara_tides_web/live/game_live.ex:1226
 #, elixir-autogen, elixir-format
 msgid "Email me a sign-in link"
 msgstr ""
@@ -602,7 +602,7 @@ msgstr ""
 msgid "Email to link"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1251
+#: lib/tijara_tides_web/live/game_live.ex:1258
 #, elixir-autogen, elixir-format
 msgid "Emailed sign-in token"
 msgstr ""
@@ -618,7 +618,7 @@ msgstr ""
 msgid "Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1314
+#: lib/tijara_tides_web/live/game_live.ex:1321
 #, elixir-autogen, elixir-format
 msgid "Establish company"
 msgstr ""
@@ -648,7 +648,7 @@ msgstr ""
 msgid "Explore the trading world"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1329
+#: lib/tijara_tides_web/live/game_live.ex:1336
 #, elixir-autogen, elixir-format
 msgid "Five bankruptcies within 112 active-world days trigger suspension. Aging out does not lift it. Your original sponsor must pledge at least $50,000 to reinstate you."
 msgstr ""
@@ -673,12 +673,12 @@ msgstr ""
 msgid "From %{value1} · %{value2}"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1367
+#: lib/tijara_tides_web/live/game_live.ex:1374
 #, elixir-autogen, elixir-format
 msgid "Game panels"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:167
+#: lib/tijara_tides_web/components/game/account_panel.ex:172
 #, elixir-autogen, elixir-format
 msgid "Generate shareable"
 msgstr ""
@@ -694,7 +694,7 @@ msgstr ""
 msgid "Group port traffic"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:268
+#: lib/tijara_tides_web/components/game/account_panel.ex:273
 #, elixir-autogen, elixir-format
 msgid "Guarantee %{value1}. The pledge caps their borrowing and your liability."
 msgstr ""
@@ -710,7 +710,7 @@ msgstr ""
 msgid "Highest first: (best bid − best ask) ÷ best ask, before handling and voyage costs."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1233
+#: lib/tijara_tides_web/live/game_live.ex:1240
 #, elixir-autogen, elixir-format
 msgid "In the desktop app, copy the sign-in token from your email and paste it here. Do not use the email link in a browser first."
 msgstr ""
@@ -750,13 +750,13 @@ msgstr ""
 msgid "Instructions at %{value1}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:407
+#: lib/tijara_tides_web/components/game/account_panel.ex:412
 #, elixir-autogen, elixir-format
 msgid "Interest"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1269
-#: lib/tijara_tides_web/live/game_live.ex:1270
+#: lib/tijara_tides_web/live/game_live.ex:1276
+#: lib/tijara_tides_web/live/game_live.ex:1277
 #, elixir-autogen, elixir-format
 msgid "Invitation code"
 msgstr ""
@@ -766,8 +766,8 @@ msgstr ""
 msgid "Invitations"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:146
-#: lib/tijara_tides_web/components/game/account_panel.ex:147
+#: lib/tijara_tides_web/components/game/account_panel.ex:151
+#: lib/tijara_tides_web/components/game/account_panel.ex:152
 #, elixir-autogen, elixir-format
 msgid "Invitee email"
 msgstr ""
@@ -807,22 +807,22 @@ msgstr ""
 msgid "Load / est. profit"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:346
+#: lib/tijara_tides_web/components/game/account_panel.ex:351
 #, elixir-autogen, elixir-format
 msgid "Loan amount in $10,000 steps"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:358
+#: lib/tijara_tides_web/components/game/account_panel.ex:363
 #, elixir-autogen, elixir-format
 msgid "Loan amount in dollars"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:311
+#: lib/tijara_tides_web/components/game/account_panel.ex:316
 #, elixir-autogen, elixir-format
 msgid "Loan terms"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:295
+#: lib/tijara_tides_web/components/game/account_panel.ex:300
 #, elixir-autogen, elixir-format
 msgid "Loans and repayments"
 msgstr ""
@@ -843,7 +843,7 @@ msgstr ""
 msgid "Lots"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1287
+#: lib/tijara_tides_web/live/game_live.ex:1294
 #, elixir-autogen, elixir-format
 msgid "Name your company"
 msgstr ""
@@ -853,12 +853,12 @@ msgstr ""
 msgid "Net profit"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:298
+#: lib/tijara_tides_web/components/game/account_panel.ex:303
 #, elixir-autogen, elixir-format
 msgid "New borrowing requires your original sponsor's cash pledge, even after earlier guaranteed loans were repaid."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:313
+#: lib/tijara_tides_web/components/game/account_panel.ex:318
 #, elixir-autogen, elixir-format
 msgid "New loans have %{value1} installments and accrue %{value2}% interest per %{value3} active-world hours on outstanding principal, continuously while the world runs. Recent bankruptcies raise rates from 8% to 9%, 10%, 12%, 14%, then 16%; existing loans keep their rate. Early repayment has no penalty and avoids future interest. Borrowing is not profit."
 msgstr ""
@@ -929,7 +929,7 @@ msgstr ""
 msgid "No ships with this status."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:165
+#: lib/tijara_tides/localization/notifications.ex:168
 #, elixir-autogen, elixir-format
 msgid "Notification unavailable"
 msgstr ""
@@ -959,7 +959,7 @@ msgstr ""
 msgid "Page %{value1} · up to %{value2} companies per list"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1252
+#: lib/tijara_tides_web/live/game_live.ex:1259
 #, elixir-autogen, elixir-format
 msgid "Paste your sign-in token"
 msgstr ""
@@ -969,7 +969,7 @@ msgstr ""
 msgid "Pause route"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:138
+#: lib/tijara_tides/localization/notifications.ex:141
 #, elixir-autogen, elixir-format
 msgid "Payments overdue. Clear all arrears within %{minutes} active-world minutes to avoid bankruptcy."
 msgstr ""
@@ -989,12 +989,12 @@ msgstr ""
 msgid "Players online"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:287
+#: lib/tijara_tides_web/components/game/account_panel.ex:292
 #, elixir-autogen, elixir-format
 msgid "Pledge & reinstate"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:285
+#: lib/tijara_tides_web/components/game/account_panel.ex:290
 #, elixir-autogen, elixir-format
 msgid "Pledging…"
 msgstr ""
@@ -1025,7 +1025,7 @@ msgstr ""
 
 #: lib/tijara_tides_web/components/game/ports_panel.ex:24
 #: lib/tijara_tides_web/components/game/ports_panel.ex:25
-#: lib/tijara_tides_web/live/game_live.ex:1368
+#: lib/tijara_tides_web/live/game_live.ex:1375
 #, elixir-autogen, elixir-format
 msgid "Ports"
 msgstr ""
@@ -1040,7 +1040,7 @@ msgstr ""
 msgid "Previous page"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:407
+#: lib/tijara_tides_web/components/game/account_panel.ex:412
 #, elixir-autogen, elixir-format
 msgid "Principal"
 msgstr ""
@@ -1050,7 +1050,7 @@ msgstr ""
 msgid "Profit"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:398
+#: lib/tijara_tides_web/components/game/account_panel.ex:403
 #, elixir-autogen, elixir-format
 msgid "Projected schedule assuming timely payments in active-world time:"
 msgstr ""
@@ -1106,32 +1106,32 @@ msgstr ""
 msgid "Ranking"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:474
+#: lib/tijara_tides_web/components/game/account_panel.ex:479
 #, elixir-autogen, elixir-format
 msgid "Recast loan"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:456
+#: lib/tijara_tides_web/components/game/account_panel.ex:461
 #, elixir-autogen, elixir-format
 msgid "Recast payment in $10,000 steps"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:468
+#: lib/tijara_tides_web/components/game/account_panel.ex:473
 #, elixir-autogen, elixir-format
 msgid "Recast payment in dollars"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:481
+#: lib/tijara_tides_web/components/game/account_panel.ex:486
 #, elixir-autogen, elixir-format
 msgid "Recast: pay accrued interest first, then principal. Smaller remaining installments, same payoff date and interest rate. Keep cash for trading."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:474
+#: lib/tijara_tides_web/components/game/account_panel.ex:479
 #, elixir-autogen, elixir-format
 msgid "Recasting…"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1275
+#: lib/tijara_tides_web/live/game_live.ex:1282
 #, elixir-autogen, elixir-format
 msgid "Redeem invitation"
 msgstr ""
@@ -1141,7 +1141,7 @@ msgstr ""
 msgid "Refresh"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:402
+#: lib/tijara_tides_web/components/game/account_panel.ex:407
 #, elixir-autogen, elixir-format
 msgid "Remaining active-world time (HH:MM:SS); pauses when the world is suspended"
 msgstr ""
@@ -1161,12 +1161,12 @@ msgstr ""
 msgid "Remove stop"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:437
+#: lib/tijara_tides_web/components/game/account_panel.ex:442
 #, elixir-autogen, elixir-format
 msgid "Repay"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:437
+#: lib/tijara_tides_web/components/game/account_panel.ex:442
 #, elixir-autogen, elixir-format
 msgid "Repaying…"
 msgstr ""
@@ -1176,7 +1176,7 @@ msgstr ""
 msgid "Repeating route"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1316
+#: lib/tijara_tides_web/live/game_live.ex:1323
 #, elixir-autogen, elixir-format
 msgid "Replacement company available in %{value1} active-world minutes."
 msgstr ""
@@ -1216,7 +1216,7 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1190
+#: lib/tijara_tides_web/live/game_live.ex:1197
 #, elixir-autogen, elixir-format
 msgid "Return to lobby"
 msgstr ""
@@ -1273,7 +1273,7 @@ msgstr ""
 msgid "Selling…"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:156
+#: lib/tijara_tides_web/components/game/account_panel.ex:161
 #, elixir-autogen, elixir-format
 msgid "Send invitation"
 msgstr ""
@@ -1305,7 +1305,7 @@ msgstr ""
 
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:29
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:30
-#: lib/tijara_tides_web/live/game_live.ex:1371
+#: lib/tijara_tides_web/live/game_live.ex:1378
 #, elixir-autogen, elixir-format
 msgid "Ships"
 msgstr ""
@@ -1330,12 +1330,12 @@ msgstr ""
 msgid "Show other companies’ ships"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1200
+#: lib/tijara_tides_web/live/game_live.ex:1207
 #, elixir-autogen, elixir-format
 msgid "Sign in with email"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1216
+#: lib/tijara_tides_web/live/game_live.ex:1223
 #, elixir-autogen, elixir-format
 msgid "Sign-in email"
 msgstr ""
@@ -1350,22 +1350,22 @@ msgstr ""
 msgid "Spoilage expected before unloading finishes."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:216
+#: lib/tijara_tides_web/components/game/account_panel.ex:221
 #, elixir-autogen, elixir-format
 msgid "Sponsor guarantees"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:277
+#: lib/tijara_tides_web/components/game/account_panel.ex:282
 #, elixir-autogen, elixir-format
 msgid "Sponsor pledge in dollars"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1289
+#: lib/tijara_tides_web/live/game_live.ex:1296
 #, elixir-autogen, elixir-format
 msgid "Start with $0 and no ships. Borrow up to %{value1} to buy ships and fund cargo and voyages. Interest accrues while the world runs; prior bankruptcies reduce your credit limit."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1258
+#: lib/tijara_tides_web/live/game_live.ex:1265
 #, elixir-autogen, elixir-format
 msgid "Start with an invitation"
 msgstr ""
@@ -1392,22 +1392,22 @@ msgstr ""
 msgid "Target lots"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:240
+#: lib/tijara_tides_web/components/game/account_panel.ex:245
 #, elixir-autogen, elixir-format
 msgid "The guaranteed loans are repaid. %{value1} returns to your company the next time it settles — within a few seconds, or on your next action."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1186
+#: lib/tijara_tides_web/live/game_live.ex:1193
 #, elixir-autogen, elixir-format
 msgid "The lobby is open. The operator must configure game storage and apply its migrations before companies can begin trading."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1184
+#: lib/tijara_tides_web/live/game_live.ex:1191
 #, elixir-autogen, elixir-format
 msgid "The trading world is not available yet"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1334
+#: lib/tijara_tides_web/live/game_live.ex:1341
 #, elixir-autogen, elixir-format
 msgid "This account has no sponsor. Contact the operator; there is no automatic reinstatement."
 msgstr ""
@@ -1426,14 +1426,14 @@ msgstr ""
 #: lib/tijara_tides_web/components/layouts.ex:35
 #: lib/tijara_tides_web/components/layouts/root.html.heex:10
 #: lib/tijara_tides_web/components/layouts/root.html.heex:10
-#: lib/tijara_tides_web/live/game_live.ex:987
-#: lib/tijara_tides_web/live/game_live.ex:1162
+#: lib/tijara_tides_web/live/game_live.ex:992
+#: lib/tijara_tides_web/live/game_live.ex:1169
 #: lib/tijara_tides_web/live/lobby_live.ex:34
 #, elixir-autogen, elixir-format
 msgid "Tijara Tides"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:218
+#: lib/tijara_tides_web/components/game/account_panel.ex:223
 #, elixir-autogen, elixir-format
 msgid "To sponsor a player, clear overdue bills and hold at least as much unreserved cash as your own outstanding loan principal and interest."
 msgstr ""
@@ -1453,12 +1453,12 @@ msgstr ""
 msgid "Trading not available yet"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1357
+#: lib/tijara_tides_web/live/game_live.ex:1364
 #, elixir-autogen, elixir-format
 msgid "Trading result"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1362
+#: lib/tijara_tides_web/live/game_live.ex:1369
 #, elixir-autogen, elixir-format
 msgid "Unpaid: %{value1}"
 msgstr ""
@@ -1468,12 +1468,12 @@ msgstr ""
 msgid "Updating…"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1230
+#: lib/tijara_tides_web/live/game_live.ex:1237
 #, elixir-autogen, elixir-format
 msgid "Use an emailed token on this device"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:181
+#: lib/tijara_tides_web/components/game/account_panel.ex:186
 #, elixir-autogen, elixir-format
 msgid "Uses one invitation. The recipient verifies the email when redeeming the link. You will not receive their sign-in credential."
 msgstr ""
@@ -1515,7 +1515,7 @@ msgstr ""
 msgid "Year"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1260
+#: lib/tijara_tides_web/live/game_live.ex:1267
 #, elixir-autogen, elixir-format
 msgid "You can explore the world without an account. Redeem a shareable invitation to establish your company on this device."
 msgstr ""
@@ -1530,7 +1530,7 @@ msgstr ""
 msgid "Your Tijara Tides sign-in link"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:224
+#: lib/tijara_tides_web/components/game/account_panel.ex:229
 #, elixir-autogen, elixir-format
 msgid "Your borrowing is backed by a %{value1} sponsor pledge."
 msgstr ""
@@ -1555,7 +1555,7 @@ msgstr ""
 msgid "Your fleet"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:159
+#: lib/tijara_tides/localization/notifications.ex:162
 #, elixir-autogen, elixir-format
 msgid "Your guarantee has settled: %{loss} forfeited and %{refund} returned to the sponsoring company."
 msgstr ""
@@ -1565,17 +1565,17 @@ msgstr ""
 msgid "Your invitation was accepted. Company formation is pending."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:246
+#: lib/tijara_tides_web/components/game/account_panel.ex:251
 #, elixir-autogen, elixir-format
 msgid "Your invitee has gone bankrupt. %{value1} of this %{value2} guarantee will be forfeited and %{value3} returned, the next time your company settles."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:114
+#: lib/tijara_tides/localization/notifications.ex:117
 #, elixir-autogen, elixir-format
 msgid "Your invitee now runs %{company}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:152
+#: lib/tijara_tides/localization/notifications.ex:155
 #, elixir-autogen, elixir-format
 msgid "Your sponsor has funded a guarantee. Your account is reinstated; the bankruptcy restart cooldown still applies."
 msgstr ""
@@ -1585,18 +1585,18 @@ msgstr ""
 msgid "at %{value1} · %{value2}/%{value3} lots · %{value4} %{value5}/lot"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:441
+#: lib/tijara_tides_web/components/game/account_panel.ex:446
 #, elixir-autogen, elixir-format
 msgid "in full"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:167
+#: lib/tijara_tides_web/components/game/account_panel.ex:172
 #, elixir-autogen, elixir-format
 msgid "invitation code"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:162
-#: lib/tijara_tides_web/components/game/account_panel.ex:464
+#: lib/tijara_tides_web/components/game/account_panel.ex:167
+#: lib/tijara_tides_web/components/game/account_panel.ex:469
 #, elixir-autogen, elixir-format
 msgid "or"
 msgstr ""
@@ -1611,7 +1611,7 @@ msgstr ""
 msgid "· cap $%{value1}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:194
+#: lib/tijara_tides_web/components/game/account_panel.ex:199
 #, elixir-autogen, elixir-format
 msgid "· expires in %{value1}"
 msgstr ""
@@ -2406,7 +2406,7 @@ msgstr ""
 msgid "Ship filters %{arrow}"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1122
+#: lib/tijara_tides_web/live/game_live.ex:1129
 #, elixir-autogen, elixir-format
 msgid "bid %{bid} / ask %{ask}"
 msgstr ""
@@ -2660,7 +2660,7 @@ msgstr ""
 msgid "verified"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:261
+#: lib/tijara_tides_web/components/game/account_panel.ex:266
 #, elixir-autogen, elixir-format
 msgid "Fund this guarantee? Cash is locked immediately, including before the invitee borrows. It can be forfeited on their bankruptcy and is not withdrawable. Your own bankruptcy does not release it."
 msgstr ""
@@ -3710,7 +3710,7 @@ msgstr ""
 msgid "Remaining lots"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1353
+#: lib/tijara_tides_web/live/game_live.ex:1360
 #, elixir-autogen, elixir-format
 msgid "Reserved funds"
 msgstr ""
@@ -3929,7 +3929,7 @@ msgstr ""
 msgid "Remote trades settle into warehouses. Buys reserve limit-price cash and space; sells reserve stock. Best price, then earliest order wins; fills use the resting price. Reducing quantity keeps priority; increasing quantity or changing price resets it. No exchange fees. Market maker rows show only their current price level, shared with ship trading."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:494
+#: lib/tijara_tides_web/components/game/account_panel.ex:499
 #, elixir-autogen, elixir-format
 msgid "Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 3-minute world-clock cooldown before a new company starting with no cash or ships."
 msgstr ""
@@ -4306,4 +4306,14 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/destination_picker.ex:65
 #, elixir-autogen, elixir-format
 msgid "About these estimates"
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/account_panel.ex:121
+#, elixir-autogen, elixir-format
+msgid "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
+msgstr ""
+
+#: lib/tijara_tides/localization/notifications.ex:115
+#, elixir-autogen, elixir-format
+msgid "You earned a new invitation. Open the account menu to send it."
 msgstr ""
