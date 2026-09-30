@@ -927,9 +927,9 @@ created refrigerated shipping.
 ## 7. Markets, remote trading, and reservations
 
 Replace the Ships destination dropdown with a port-by-cargo popup matrix. Green outbound,
-yellow return and orange other-port discs scale by ROI radius; orange shows the best ROI for
-cargo loaded at the candidate destination and sold at another reachable port, excluding the
-current port, with the onward port named on hover or focus. Negative ROI uses a black skull.
+yellow return and orange other-port discs scale by ROI radius; orange appears only when no
+return opportunity exists in that cell and shows the best ROI for cargo loaded at the
+candidate destination and sold at another reachable port, excluding the current port, with the onward port named on hover or focus. Negative ROI uses a black skull.
 Rank ports by the sum of the best ROI in each direction, then distance. Clicking a port
 selects it and dismisses the popup.
 

@@ -409,7 +409,7 @@ msgstr ""
 msgid "Cargo / supply"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:73
+#: lib/tijara_tides_web/components/game/destination_picker.ex:75
 #: lib/tijara_tides_web/components/game/map_panel.ex:339
 #, elixir-autogen, elixir-format
 msgid "Cargo aboard"
@@ -467,7 +467,7 @@ msgstr ""
 
 #: lib/tijara_tides_web/components/financial_reports.ex:23
 #: lib/tijara_tides_web/components/financial_reports.ex:34
-#: lib/tijara_tides_web/components/game/destination_picker.ex:58
+#: lib/tijara_tides_web/components/game/destination_picker.ex:60
 #, elixir-autogen, elixir-format
 msgid "Close"
 msgstr ""
@@ -1002,7 +1002,7 @@ msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:314
 #: lib/tijara_tides_web/components/game/cargo_panel.ex:166
-#: lib/tijara_tides_web/components/game/destination_picker.ex:83
+#: lib/tijara_tides_web/components/game/destination_picker.ex:85
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:89
 #: lib/tijara_tides_web/components/ship_route_editor.ex:227
 #, elixir-autogen, elixir-format
@@ -3241,39 +3241,39 @@ msgstr ""
 msgid "Destination: %{port}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:86
+#: lib/tijara_tides_web/components/game/destination_picker.ex:88
 #, elixir-autogen, elixir-format
 msgid "Distance (nm)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:255
+#: lib/tijara_tides_web/components/game/destination_picker.ex:257
 #, elixir-autogen, elixir-format
 msgid "No compatible trade opportunities right now. You can still choose a port."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:247
+#: lib/tijara_tides_web/components/game/destination_picker.ex:249
 #, elixir-autogen, elixir-format
 msgid "No trade opportunity"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:74
-#: lib/tijara_tides_web/components/game/destination_picker.ex:181
+#: lib/tijara_tides_web/components/game/destination_picker.ex:76
+#: lib/tijara_tides_web/components/game/destination_picker.ex:183
 #, elixir-autogen, elixir-format
 msgid "Outbound"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:75
-#: lib/tijara_tides_web/components/game/destination_picker.ex:184
+#: lib/tijara_tides_web/components/game/destination_picker.ex:77
+#: lib/tijara_tides_web/components/game/destination_picker.ex:186
 #, elixir-autogen, elixir-format
 msgid "Return"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:50
+#: lib/tijara_tides_web/components/game/destination_picker.ex:52
 #, elixir-autogen, elixir-format
 msgid "Trade opportunities from %{port}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:177
+#: lib/tijara_tides_web/components/game/destination_picker.ex:179
 #, elixir-autogen, elixir-format
 msgid "%{direction}: %{roi} ROI · %{lots} market lots"
 msgstr ""
@@ -3935,12 +3935,12 @@ msgstr ""
 msgid "Declare bankruptcy? This closes your company, forfeits access to its assets, and starts a 3-minute world-clock cooldown before a new company starting with no cash or ships."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:171
+#: lib/tijara_tides_web/components/game/destination_picker.ex:173
 #, elixir-autogen, elixir-format
 msgid "ROI unavailable for zero-cost cargo"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:166
+#: lib/tijara_tides_web/components/game/destination_picker.ex:168
 #, elixir-autogen, elixir-format
 msgid "Sell aboard cargo: %{roi} · %{lots} lots · %{proceeds} after sale handling"
 msgstr ""
@@ -4182,58 +4182,58 @@ msgstr ""
 msgid "Divert %{ship} to here"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:128
-#: lib/tijara_tides_web/components/game/destination_picker.ex:149
+#: lib/tijara_tides_web/components/game/destination_picker.ex:130
+#: lib/tijara_tides_web/components/game/destination_picker.ex:151
 #, elixir-autogen, elixir-format
 msgid "Buy %{lots} lots of %{cargo}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:85
+#: lib/tijara_tides_web/components/game/destination_picker.ex:87
 #, elixir-autogen, elixir-format
 msgid "Estimated net profit"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:158
+#: lib/tijara_tides_web/components/game/destination_picker.ex:160
 #, elixir-autogen, elixir-format
 msgid "Insufficient voyage funds"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:125
+#: lib/tijara_tides_web/components/game/destination_picker.ex:127
 #, elixir-autogen, elixir-format
 msgid "Purchases: %{cost}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:135
+#: lib/tijara_tides_web/components/game/destination_picker.ex:137
 #, elixir-autogen, elixir-format
 msgid "Sell %{lots} lots of %{cargo}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:118
+#: lib/tijara_tides_web/components/game/destination_picker.ex:120
 #, elixir-autogen, elixir-format
 msgid "Suggested cargo mix"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:124
+#: lib/tijara_tides_web/components/game/destination_picker.ex:126
 #, elixir-autogen, elixir-format
 msgid "Voyage costs: %{cost}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:122
+#: lib/tijara_tides_web/components/game/destination_picker.ex:124
 #, elixir-autogen, elixir-format
 msgid "Next voyage profit: %{profit}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:111
+#: lib/tijara_tides_web/components/game/destination_picker.ex:113
 #, elixir-autogen, elixir-format
 msgid "No profitable onward load"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:142
+#: lib/tijara_tides_web/components/game/destination_picker.ex:144
 #, elixir-autogen, elixir-format
 msgid "Then sail to %{port}: %{profit}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:110
+#: lib/tijara_tides_web/components/game/destination_picker.ex:112
 #, elixir-autogen, elixir-format
 msgid "Two voyages"
 msgstr ""
@@ -4299,7 +4299,7 @@ msgstr ""
 msgid "That command could not be completed. The game is still running. Please contact the operator if this keeps happening."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:65
+#: lib/tijara_tides_web/components/game/destination_picker.ex:67
 #, elixir-autogen, elixir-format
 msgid "About these estimates"
 msgstr ""
@@ -4314,19 +4314,14 @@ msgstr ""
 msgid "You earned a new invitation. Open the account menu to send it."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:187
+#: lib/tijara_tides_web/components/game/destination_picker.ex:189
 #, elixir-autogen, elixir-format
 msgid "Onward to %{port}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/destination_picker.ex:76
+#: lib/tijara_tides_web/components/game/destination_picker.ex:78
 #, elixir-autogen, elixir-format
 msgid "Other ports"
-msgstr ""
-
-#: lib/tijara_tides_web/components/game/destination_picker.ex:67
-#, elixir-autogen, elixir-format
-msgid "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return and other-port symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound, yellow return and orange for the best ROI to another reachable port. Orange symbols compare loading at the candidate destination for ports other than the current port; hover or focus names the best onward port. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/account_panel.ex:533
@@ -4362,4 +4357,9 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/presentation.ex:205
 #, elixir-autogen, elixir-format
 msgid "Next invitation in %{time} of active-world time (hours:minutes:seconds), if your company stays active and solvent."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/destination_picker.ex:69
+#, elixir-autogen, elixir-format
+msgid "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return and other-port symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound, yellow return and orange for the best ROI to another reachable port. Orange symbols appear only when no return opportunity exists in the same cell; they compare loading at the candidate destination for ports other than the current port, and hover or focus names the best onward port. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
 msgstr ""

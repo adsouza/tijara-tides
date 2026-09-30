@@ -312,6 +312,24 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     assert Enum.map(matrix.rows, &{&1.port, &1.best}) ==
              Enum.map(original.rows, &{&1.port, &1.best})
 
+    tree =
+      render_component(&DestinationPicker.panel/1,
+        definitions: definitions,
+        view: view,
+        ship: ship
+      )
+      |> LazyHTML.from_fragment()
+
+    cell = LazyHTML.query(tree, "tbody tr:first-child td:nth-child(4)")
+
+    assert LazyHTML.query(cell, ".inbound circle") |> LazyHTML.to_html() =~
+             ~s(fill="currentColor")
+
+    assert LazyHTML.query(cell, ".onward") |> Enum.empty?()
+    # Hidden onward ROI must not shrink the visible symbols.
+    assert LazyHTML.query(tree, "tbody tr:first-child .outbound circle")
+           |> LazyHTML.attribute("r") == ["21.0"]
+
     # A buyer without enough cash for one lot cannot displace a funded onward buyer.
     blocked = put_in(view, [:markets, "Tokyo|b", "buyer_budget"], 399)
     row = hd(GameQueries.destination_matrix(definitions, blocked, ship).rows)

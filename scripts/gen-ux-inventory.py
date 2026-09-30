@@ -177,7 +177,7 @@ REQUIREMENTS = [
     (130, "Show available credit, outstanding principal, installment schedules, accrued arrears and the active-world deadline, with borrowing and full repayment actions.", 12, "display", "Finance"),
     (131, "Require confirmation before voluntary bankruptcy.", 12, "input", "Finance"),
     (132, "Show the replacement-company cooldown and available credit limit before company formation.", 12, "display", "Company and account"),
-    (140, "Replace the Ships destination dropdown with a port-by-cargo popup matrix. Green outbound, yellow return and orange other-port discs scale by ROI radius; orange shows the best ROI for cargo loaded at the candidate destination and sold at another reachable port, excluding the current port, with the onward port named on hover or focus. Negative ROI uses a black skull. Rank ports by the sum of the best ROI in each direction, then distance. Clicking a port selects it and dismisses the popup.", 7, "input", "Fleet and ship detail"),
+    (140, "Replace the Ships destination dropdown with a port-by-cargo popup matrix. Green outbound, yellow return and orange other-port discs scale by ROI radius; orange appears only when no return opportunity exists in that cell and shows the best ROI for cargo loaded at the candidate destination and sold at another reachable port, excluding the current port, with the onward port named on hover or focus. Negative ROI uses a black skull. Rank ports by the sum of the best ROI in each direction, then distance. Clicking a port selects it and dismisses the popup.", 7, "input", "Fleet and ship detail"),
     (126, "Provide a per-visit automatic-departure checkbox, off by default, saved together with the onward destination.", 8, 'input', 'Fleet and ship detail'),
 
 ]

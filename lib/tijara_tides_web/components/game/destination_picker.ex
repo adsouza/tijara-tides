@@ -21,7 +21,9 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
     scale =
       assigns.matrix.rows
       |> Enum.flat_map(fn row ->
-        Enum.flat_map(Map.values(row.cells), &[&1.outbound, &1.inbound, &1.onward])
+        Enum.flat_map(Map.values(row.cells), fn cell ->
+          Enum.map(visible_opportunities(cell), &elem(&1, 1))
+        end)
       end)
       |> Enum.filter(&(&1 && is_number(&1.roi) && &1.roi > 0))
       |> Enum.map(&abs(&1.roi))
@@ -65,7 +67,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
             <summary class="cursor-pointer">{gettext("About these estimates")}</summary>
             <p id="destination-picker-help" class="mt-2">
               {gettext(
-                "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return and other-port symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound, yellow return and orange for the best ROI to another reachable port. Orange symbols compare loading at the candidate destination for ports other than the current port; hover or focus names the best onward port. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
+                "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return and other-port symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound, yellow return and orange for the best ROI to another reachable port. Orange symbols appear only when no return opportunity exists in the same cell; they compare loading at the candidate destination for ports other than the current port, and hover or focus names the best onward port. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
               )}
             </p>
           </details>
@@ -160,7 +162,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                   </td>
                   <td class="tabular-nums">{display_number(row.distance)}</td>
                   <td :for={{id, _} <- @matrix.goods} class="opportunity-cell">
-                    <%= for {direction, opportunity} <- [{:outbound, row.cells[id].outbound}, {:inbound, row.cells[id].inbound}, {:onward, row.cells[id].onward}], opportunity do %>
+                    <%= for {direction, opportunity} <- visible_opportunities(row.cells[id]), opportunity do %>
                       <% description =
                         if Map.get(opportunity, :source) == :aboard do
                           gettext(
@@ -258,5 +260,12 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
       </.focus_wrap>
     </div>
     """
+  end
+
+  defp visible_opportunities(cell) do
+    [
+      {:outbound, cell.outbound},
+      if(cell.inbound, do: {:inbound, cell.inbound}, else: {:onward, cell.onward})
+    ]
   end
 end

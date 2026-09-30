@@ -130,9 +130,10 @@ Aboard-cargo ROI uses the recorded lot costs a sale would consume, in that order
 and including a partial fill of the final batch; cargo whose recorded cost is
 zero reports its proceeds with no ROI rather than dividing by nothing. A good
 stays in the matrix when the hold is the only reason to visit, with no local
-stock required. Orange symbols show the best ROI for a load from the candidate
-destination to another reachable port, excluding the current port, and keep
-cargo columns visible even when only an onward trade is available. Hover/focus
+stock required. Return symbols take priority over other-port symbols in the same
+cell; hidden onward opportunities do not affect the shared ROI scale. Orange
+symbols show the best ROI for a load from the candidate destination to another
+reachable port, excluding the current port, and keep cargo columns visible even when only an onward trade is available. Hover/focus
 exposes ROI, lots, aboard-cargo proceeds and the best onward port. These
 are market comparisons, excluding cash, capacity, cleaning, voyage costs and
 spoilage, rather than executable trade quotes. Ports sort by the sum of their
