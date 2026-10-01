@@ -1,12 +1,12 @@
 defmodule TijaraTides.UseCases.ShipPlanningQueries do
   @moduledoc "Route and visit editor preparation, including draft defaults; never authorizes a command."
-  alias TijaraTides.Domain.{Fleet, CargoRules}
+  alias TijaraTides.Domain.{Fleet, CargoRules, Warehouse, WarehouseWorld, OrderBook}
   import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2]
 
   import TijaraTides.UseCases.MarketQueries,
     only: [cargo_aboard: 2, purchase_total: 4, largest_trade: 3]
 
-  def route_editor(private, ship, catalogue) do
+  def route_editor(private, ship, catalogue, clock \\ 0) do
     route = Map.get(private["ship_routes"] || %{}, ship["id"])
 
     stops =
@@ -69,7 +69,29 @@ defmodule TijaraTides.UseCases.ShipPlanningQueries do
       stop_goods: stop_goods,
       orders: orders,
       plan: plan,
-      warehouses: private["warehouses"] || %{},
+      link_warehouses:
+        Map.new(stops, fn stop ->
+          {stop["id"],
+           Map.new(goods, fn {good, item} ->
+             choices =
+               if OrderBook.supported?(item),
+                 do:
+                   (private["warehouses"] || %{})
+                   |> Enum.filter(fn {_, row} ->
+                     Warehouse.receiving_allowed?(
+                       WarehouseWorld.snapshot(row),
+                       ship["company_id"],
+                       stop["port"],
+                       item,
+                       clock
+                     )
+                   end)
+                   |> Enum.sort_by(&elem(&1, 0)),
+                 else: []
+
+             {good, choices}
+           end)}
+        end),
       links: private["remote_links"] || %{},
       exchange_orders: private["exchange_orders"] || %{},
       budgets: private["visit_budgets"] || %{},

@@ -229,6 +229,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
             <% draft = Map.get(@drafts, stop["id"], %{}) %>
             <% side = if draft["side"] == "sell", do: "sell", else: "buy" %>
             <% goods = @model.stop_goods[stop["id"]][side] %>
+            <% selected_good = draft["good"] || (List.first(goods) && elem(List.first(goods), 0)) %>
             <div id={"route-editor-" <> stop["id"] <> "-" <> (draft["rule"] || "new")}>
               <.form
                 for={%{}}
@@ -323,8 +324,10 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
                   >
                     <option value="">{gettext("No linked order")}</option>
                     <option
-                      :for={{id, warehouse} <- Enum.sort(@model.warehouses)}
-                      :if={warehouse["port"] == stop["port"] && warehouse["expires_ms"] > @clock}
+                      :for={
+                        {id, warehouse} <-
+                          get_in(@model.link_warehouses, [stop["id"], selected_good]) || []
+                      }
                       value={id}
                       selected={draft["linked_warehouse_id"] == id}
                     >

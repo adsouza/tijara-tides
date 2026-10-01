@@ -969,3 +969,9 @@ helpers use that same motion function. Ship rows snapshot the weather model,
 and legacy voyages activate it prospectively, preventing historical weather
 from rewriting completed movement. All weather and fleet changes commit with
 the world clock in the existing atomic tick transaction.
+
+Route editor warehouse options are prepared per stop and cargo by
+`ShipPlanningQueries`, using `Warehouse.receiving_allowed?` with the committed
+world clock. Command-side link validation uses that same predicate; award-only,
+expired, foreign, wrong-port and incompatible storage never become receiving
+options merely because a component renders their rows.

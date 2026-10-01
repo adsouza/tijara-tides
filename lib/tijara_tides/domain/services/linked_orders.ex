@@ -75,8 +75,13 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
 
     rule["side"] == "buy" && rule["quantity_mode"] == "fixed" && rule["limit"] > 0 &&
       OrderBook.supported?(catalogue["goods"][rule["good"]]) && stop && warehouse &&
-      warehouse["company_id"] == account["company_id"] && warehouse["port"] == stop["port"] &&
-      warehouse["expires_ms"] > state.clock_ms
+      TijaraTides.Domain.Warehouse.receiving_allowed?(
+        WarehouseWorld.snapshot(warehouse),
+        account["company_id"],
+        stop["port"],
+        catalogue["goods"][rule["good"]],
+        state.clock_ms
+      )
   end
 
   defp committed?(state, rule) do

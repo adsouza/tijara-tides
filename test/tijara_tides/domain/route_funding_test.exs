@@ -129,6 +129,56 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     q["fuel"] + q["canal_fees"]
   end
 
+  test "route queries and commands agree on eligible receiving warehouses", c do
+    s = route(c, c.s)
+    w = State.get(s, "warehouses", "w")
+
+    variants = [
+      {"award", %{"award_grace" => true}},
+      {"expired", %{"expires_ms" => 1}},
+      {"foreign", %{"company_id" => "other"}},
+      {"elsewhere", %{"port" => "Singapore"}},
+      {"incompatible", %{"storage" => "liquid", "good" => "crude_oil"}},
+      {"cooled", %{"storage" => "reefer"}}
+    ]
+
+    s =
+      Enum.reduce(variants, s, fn {id, changes}, state ->
+        State.put(state, "warehouses", id, Map.merge(w, Map.put(changes, "id", id)))
+      end)
+
+    s = %{s | clock_ms: 1}
+
+    model =
+      TijaraTides.UseCases.GameQueries.route_editor(
+        s.entities,
+        State.get(s, "ships", "co:1"),
+        c.cat,
+        s.clock_ms
+      )
+
+    assert Enum.map(model.link_warehouses["co:1:a"]["lumber"], &elem(&1, 0)) == ["cooled", "w"]
+
+    assert {:error, :linked_order_invalid} =
+             TijaraTides.Domain.Services.RouteEditing.execute(
+               s,
+               c.a,
+               %{
+                 "ship" => "co:1",
+                 "operation" => "add_rule",
+                 "stop" => "co:1:a",
+                 "side" => "buy",
+                 "good" => "lumber",
+                 "quantity" => 1,
+                 "limit" => 100,
+                 "linked_warehouse_id" => "award"
+               },
+               %{id: "invalid-award", catalogue: c.cat}
+             )
+
+    assert State.entities(s, "exchange_orders") == %{}
+  end
+
   test "manual departure commands coordinate the next visit budget with fuel atomically", c do
     s = route(c, c.s) |> then(&config(c, &1, "co:1", 1000))
     required = fuel_required(c, s)

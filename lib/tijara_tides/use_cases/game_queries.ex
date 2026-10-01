@@ -44,6 +44,9 @@ defmodule TijaraTides.UseCases.GameQueries do
 
   defdelegate route_editor(private, ship, catalogue), to: TijaraTides.UseCases.ShipPlanningQueries
 
+  defdelegate route_editor(private, ship, catalogue, clock),
+    to: TijaraTides.UseCases.ShipPlanningQueries
+
   defdelegate instruction_editor(
                 definitions,
                 ship,

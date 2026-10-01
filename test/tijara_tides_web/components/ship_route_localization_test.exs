@@ -35,7 +35,7 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
       }
 
       model = %{
-        warehouses: %{},
+        link_warehouses: %{},
         links: %{},
         budgets: %{},
         exchange_orders: %{},

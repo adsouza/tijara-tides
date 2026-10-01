@@ -987,7 +987,14 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             </div>
             <TijaraTidesWeb.ShipRouteEditor.panel
               ship={@ship}
-              model={GameQueries.route_editor(@view.private, @ship, @definitions.catalogue)}
+              model={
+                GameQueries.route_editor(
+                  @view.private,
+                  @ship,
+                  @definitions.catalogue,
+                  @view.public["clock_ms"]
+                )
+              }
               catalogue={@definitions.catalogue}
               drafts={@route_drafts}
               request_id={@request_id}

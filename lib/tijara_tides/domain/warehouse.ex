@@ -64,6 +64,15 @@ defmodule TijaraTides.Domain.Warehouse do
          (w.storage in ["dry", "reefer"] and item["hold"] in ["dry", "reefer"])) and
         (w.storage != "liquid" or item["id"] == w.good)
 
+  def receiving_open?(%__MODULE__{} = w, now), do: not w.award_grace and now < w.expires_ms
+
+  def receiving_allowed?(%__MODULE__{} = w, company, port, item, now) when is_map(item),
+    do:
+      w.company_id == company and w.port == port and receiving_open?(w, now) and
+        compatible?(w, item)
+
+  def receiving_allowed?(%__MODULE__{}, _company, _port, _item, _now), do: false
+
   def cleaning_cost(last_liquid, item) do
     if item["hold"] == "liquid" and last_liquid not in [nil, item["id"]],
       do: if("vegetable_oil" in [last_liquid, item["id"]], do: 25_000, else: 5000),
@@ -372,7 +381,7 @@ defmodule TijaraTides.Domain.Warehouse do
     stock = fresh_stock(w, order.good, now)
 
     cond do
-      (w.award_grace and order.side == "buy") or
+      (order.side == "buy" and not receiving_open?(w, now)) or
           (now >= w.expires_ms and
              not (order.side == "sell" and
                       (order.liquidation or
