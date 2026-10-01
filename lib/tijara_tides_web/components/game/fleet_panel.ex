@@ -50,6 +50,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
           class="my-6 rounded-xl border border-slate-700 p-5"
         >
           <% inspected = @view.public["ships"][@inspected_ship] %>
+          <.weather_notice ship={inspected} clock={@view.public["clock_ms"]} />
           <div class="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
@@ -275,6 +276,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   value1: minutes(max(0, s["arrive_ms"] - @view.public["clock_ms"]))
                 )}
               </p>
+              <.weather_notice ship={s} clock={@view.public["clock_ms"]} />
             </button>
           </div>
           <div :if={@ship} class="mt-2 rounded-xl bg-slate-900 px-5 pt-2 pb-5">
@@ -582,6 +584,11 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               ><.emoji symbol="⛵" />{if @ship["status"] == "sailing",
                 do: gettext("Confirm reroute"),
                 else: gettext("Reserve fuel and sail")}</button>
+              <p :if={(@preview["weather_delay_ms"] || 0) > 0} class="text-xs text-amber-300">
+                {gettext("Known weather delay: %{minutes} min; included in this estimate.",
+                  minutes: minutes(@preview["weather_delay_ms"])
+                )}
+              </p>
               <.voyage_freshness
                 id={"preview-freshness-" <> @ship["id"]}
                 estimates={@preview["freshness"]}

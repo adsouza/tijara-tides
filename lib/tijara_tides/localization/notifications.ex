@@ -101,6 +101,13 @@ defmodule TijaraTides.Localization.Notifications do
   defp message("warehouse.cleared", args),
     do: gettext("Warehouse cargo at %{port} was cleared. Net proceeds: %{refund}.", args)
 
+  defp message("ship.weather", args),
+    do:
+      gettext(
+        "Weather revised %{ship}'s arrival at %{destination}; total weather delay %{minutes} min.",
+        args
+      )
+
   defp message("ship.loaded", args), do: gettext("%{ship} finished loading at %{port}.", args)
   defp message("ship.unloaded", args), do: gettext("%{ship} finished unloading at %{port}.", args)
 

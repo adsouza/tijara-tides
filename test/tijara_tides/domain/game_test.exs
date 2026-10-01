@@ -646,6 +646,7 @@ defmodule TijaraTides.Domain.GameTest do
     legacy =
       ship
       |> Map.delete("voyage_speedup")
+      |> Map.delete("weather")
       |> Map.merge(%{
         "depart_ms" => 0,
         "arrive_ms" => 100_000,

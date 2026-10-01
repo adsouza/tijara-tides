@@ -2917,3 +2917,18 @@ msgstr "وقت المناولة المقدر: %{minutes} دقيقة"
 
 msgid "Handling time for 100 lots: ordinary %{ordinary} min, perishables %{perishable} min, scrap %{scrap} min, liquids %{liquid} min."
 msgstr "وقت مناولة 100 دفعة: البضائع العادية %{ordinary} دقيقة، القابلة للتلف %{perishable} دقيقة، الخردة %{scrap} دقيقة، السوائل %{liquid} دقيقة."
+
+msgid "Regional storm: %{minutes} min remaining. Voyage estimates include known weather delays."
+msgstr "عاصفة إقليمية: متبقي %{minutes} دقيقة. تقديرات الرحلات تشمل تأخيرات الطقس المعروفة."
+
+msgid "Waiting for regional weather: %{minutes} min. Fuel use is paused; cargo continues aging."
+msgstr "انتظار تحسن الطقس الإقليمي: %{minutes} دقيقة. استهلاك الوقود متوقف والبضائع تواصل تقادمها."
+
+msgid "Weather added %{minutes} min to this voyage's arrival estimate."
+msgstr "أضاف الطقس %{minutes} دقيقة إلى وقت الوصول المقدر لهذه الرحلة."
+
+msgid "Weather revised %{ship}'s arrival at %{destination}; total weather delay %{minutes} min."
+msgstr "غيّر الطقس وقت وصول %{ship} إلى %{destination}؛ مجموع تأخير الطقس %{minutes} دقيقة."
+
+msgid "Known weather delay: %{minutes} min; included in this estimate."
+msgstr "تأخير الطقس المعروف: %{minutes} دقيقة؛ مشمول في هذا التقدير."

@@ -84,6 +84,29 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
+  defdelegate weather_region(coordinates), to: TijaraTides.Domain.Weather, as: :region
+  def voyage_speedup, do: @voyage_speedup
+
+  def moving_time(ship, from, into) do
+    if ship["status"] == "sailing" do
+      weather = ship["weather"]
+
+      TijaraTides.Domain.Weather.motion(ship["depart_ms"], ship["arrive_ms"], weather, into) -
+        TijaraTides.Domain.Weather.motion(ship["depart_ms"], ship["arrive_ms"], weather, from)
+    else
+      0
+    end
+  end
+
+  def progress(ship, clock) do
+    TijaraTides.Domain.Weather.motion(
+      ship["depart_ms"],
+      ship["arrive_ms"],
+      ship["weather"],
+      clock
+    ) / TijaraTides.Domain.Weather.duration(ship["depart_ms"], ship["arrive_ms"], ship["weather"])
+  end
+
   defdelegate classes(), to: TijaraTides.Domain.ShipClass, as: :all
 
   def purchase(state, account, class_id, port, price_limit, context, name \\ nil) do
@@ -211,14 +234,29 @@ defmodule TijaraTides.Domain.Fleet do
         div(route["nautical_miles"] * 3_600_000, class["speed"] * @voyage_speedup)
       )
 
+    weather =
+      TijaraTides.Domain.Weather.forecast(
+        route,
+        duration,
+        aged,
+        aged,
+        TijaraTides.Domain.Weather.model(catalogue)
+      )
+
+    total = duration + weather["delay_ms"]
+
     %{
+      "weather" => weather,
+      "weather_delay_ms" => weather["delay_ms"],
+      "sailing_ms" => duration,
       "fuel" => fuel,
       "canal_fees" => Enum.count(route["passages"], &(&1 in ["panama", "suez"])) * 25_000,
-      "duration_ms" => duration,
-      "crew_estimate" => div(duration * class["crew"], 60_000),
+      "duration_ms" => total,
+      "crew_estimate" =>
+        div(duration * class["crew"] * 2 + weather["delay_ms"] * class["crew"], 120_000),
       # Age the estimate from the caller's clock. The settlement cursor stands in only
       # for funding and automation checks, which build synthetic ships and never read it.
-      "maintenance_estimate" => ShipMaintenance.estimate(ship, aged, aged + duration),
+      "maintenance_estimate" => ShipMaintenance.estimate(ship, aged, aged + total),
       "route" => route
     }
   end
@@ -368,7 +406,7 @@ defmodule TijaraTides.Domain.Fleet do
         {:error, {:departure_already_here, destination}}
 
       true ->
-        case voyage_quote(ship, destination, catalogue) do
+        case voyage_quote(ship, destination, catalogue, state.clock_ms) do
           nil -> {:error, {:departure_no_route, ship["port"], destination}}
           estimate -> departure_funding(ship, company, estimate, limit)
         end

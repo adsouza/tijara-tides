@@ -1121,6 +1121,7 @@ defmodule TijaraTidesWeb.GameLive do
           if notice["code"] in [
                "ship.loaded",
                "ship.unloaded",
+               "ship.weather",
                "auction.won",
                "invitation.earned"
              ] do

@@ -337,6 +337,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
               value1: minutes(max(0, inspected["arrive_ms"] - @view.public["clock_ms"]))
             )}
           </p>
+          <.weather_notice ship={inspected} clock={@view.public["clock_ms"]} />
           <div :if={own} class="mt-2 border-t border-slate-600 pt-2">
             <p class="font-semibold"><.emoji symbol="📦" />{gettext("Cargo aboard")}</p>
             <p :if={own["cargo"] == []} class="text-slate-400">{gettext("Empty hold")}</p>

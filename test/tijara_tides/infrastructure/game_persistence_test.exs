@@ -5154,6 +5154,114 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              ).rows
   end
 
+  test "weather warnings, revised ETAs, fuel pauses and forecasts persist through replay and restart",
+       c do
+    alias TijaraTides.Domain.Fleet
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    cat =
+      :sys.get_state(c.server).catalogue
+      |> Map.put("weather", %{
+        "period_ms" => 20_000,
+        "duration_ms" => 4000,
+        "chance_bps" => 10_000,
+        "first_slot" => 1,
+        "seed" => 1,
+        "stagger" => false
+      })
+
+    previous_weather = Application.get_env(:tijara_tides, :weather)
+    Application.put_env(:tijara_tides, :weather, cat["weather"])
+
+    on_exit(fn ->
+      if previous_weather,
+        do: Application.put_env(:tijara_tides, :weather, previous_weather),
+        else: Application.delete_env(:tijara_tides, :weather)
+    end)
+
+    :sys.replace_state(c.server, &%{&1 | catalogue: cat})
+
+    {:ok, %{"company_id" => co}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "weather-company",
+        %{
+          "action" => "company",
+          "name" => "Weather",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    id = co <> ":1"
+
+    command = %{
+      "action" => "sail",
+      "ship" => id,
+      "destination" => "Singapore",
+      "fuel_limit" => 100_000_000
+    }
+
+    {:ok, reply} = GameServer.command(token, "weather-sail", command, c.server)
+    original = GameServer.snapshot(token, c.server).private["ships"][id]
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    advance(c.server, 20_500)
+    snapshot = GameServer.snapshot(token, c.server)
+    delayed = snapshot.private["ships"][id]
+    assert delayed["arrive_ms"] == original["arrive_ms"] + 4000
+    assert delayed["weather"]["delay_ms"] == 4000
+
+    assert delayed["fuel_burned"] ==
+             div(delayed["fuel_total"] * 20_000, delayed["weather"]["sailing_ms"])
+
+    assert map_size(snapshot.public["weather"]) == 24
+    render_async(view)
+    assert has_element?(view, ".weather-wait", "Fuel use is paused")
+    assert has_element?(view, "#port-weather", "Regional storm")
+    known = GameServer.preview(token, co <> ":2", "Singapore", c.server)
+    assert known["weather_delay_ms"] > 0
+    assert known["weather_delay_ms"] + known["weather"]["since_ms"] == 24_000
+    render_click(view, "ship", %{"id" => co <> ":2"})
+    render_change(view, "preview", %{"destination" => "Singapore"})
+    assert render(view) =~ "Known weather delay"
+    assert {:ok, ^reply} = GameServer.command(token, "weather-sail", command, c.server)
+    before = GameServer.snapshot(token, c.server)
+    GenServer.stop(view.pid)
+    stop_supervised!(GameServer)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :weather_replacement
+      )
+
+    :sys.replace_state(replacement, &%{&1 | catalogue: cat})
+    Application.put_env(:tijara_tides, :game_server, replacement)
+    restored = GameServer.snapshot(token, replacement)
+    assert restored.private["ships"] == before.private["ships"]
+    assert restored.public["weather"] == before.public["weather"]
+    assert {:ok, ^reply} = GameServer.command(token, "weather-sail", command, replacement)
+    :ok = GameServer.connect(token, replacement)
+    notices = GameServer.snapshot(token, replacement).private["notices"]
+    advance(replacement, 0)
+    assert GameServer.snapshot(token, replacement).private["notices"] == notices
+    advance(replacement, 300)
+    still = GameServer.snapshot(token, replacement).private["ships"][id]
+    assert still["fuel_burned"] == delayed["fuel_burned"]
+    assert still["arrive_ms"] == delayed["arrive_ms"]
+    assert Fleet.progress(still, 20_800) == Fleet.progress(delayed, 20_500)
+    refute Map.has_key?(GameServer.snapshot(nil, replacement).public["ships"][id], "cargo")
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "graded backing, copied presets and partial-fill priority survive durable reload", c do
     alias TijaraTides.Domain.{
       State,

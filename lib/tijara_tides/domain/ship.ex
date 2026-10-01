@@ -9,7 +9,7 @@ defmodule TijaraTides.Domain.Ship do
   alias __MODULE__.CargoBatch
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
-  @fields ~w(acquired_ms acquisition_value planned_destination voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
+  @fields ~w(acquired_ms acquisition_value planned_destination weather voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
 
@@ -118,7 +118,8 @@ defmodule TijaraTides.Domain.Ship do
         pending_quantity: nil,
         pending_limit: nil,
         pending_destination: nil,
-        voyage_path: nil,
+        voyage_path: estimate["route"]["coordinates"],
+        weather: estimate["weather"],
         paid_canals:
           Enum.reduce(estimate["route"]["passages"] || [], 0, fn p, n ->
             Bitwise.bor(n, __MODULE__.canal_bit(p))
@@ -168,7 +169,8 @@ defmodule TijaraTides.Domain.Ship do
         berth_queued_ms: arrived_at,
         berth_granted_ms: nil,
         arrive_ms: nil,
-        depart_ms: nil
+        depart_ms: nil,
+        weather: nil
     }
   end
 
@@ -188,7 +190,17 @@ defmodule TijaraTides.Domain.Ship do
 
     moving_ms =
       if ship.status == "sailing",
-        do: max(0, min(now, end_ms) - ship.last_cost_ms),
+        do:
+          max(
+            0,
+            TijaraTides.Domain.Weather.motion(ship.depart_ms, end_ms, ship.weather, now) -
+              TijaraTides.Domain.Weather.motion(
+                ship.depart_ms,
+                end_ms,
+                ship.weather,
+                ship.last_cost_ms
+              )
+          ),
         else: 0
 
     idle_ms = now - ship.last_cost_ms - moving_ms
@@ -217,8 +229,14 @@ defmodule TijaraTides.Domain.Ship do
             min(
               ship.fuel_total,
               div(
-                ship.fuel_total * max(0, now - ship.depart_ms),
-                ship.arrive_ms - ship.depart_ms
+                ship.fuel_total *
+                  TijaraTides.Domain.Weather.motion(
+                    ship.depart_ms,
+                    ship.arrive_ms,
+                    ship.weather,
+                    now
+                  ),
+                TijaraTides.Domain.Weather.duration(ship.depart_ms, ship.arrive_ms, ship.weather)
               )
             )
           ),
@@ -268,7 +286,7 @@ defmodule TijaraTides.Domain.Ship do
   defp retime_voyage(%__MODULE__{status: "sailing"} = ship, clock, speedup) do
     previous = ship.voyage_speedup || 60
 
-    if previous == speedup do
+    if previous == speedup or ship.weather != nil do
       ship
     else
       ship
@@ -285,6 +303,42 @@ defmodule TijaraTides.Domain.Ship do
   end
 
   defp retime_voyage(ship, _clock, _speedup), do: ship
+
+  @doc "Reconcile known weather without altering motion or fuel already settled."
+  def apply_weather(
+        %__MODULE__{status: "sailing"} = ship,
+        route,
+        now,
+        elapsed,
+        speedup,
+        catalogue
+      ) do
+    ship = retime_voyage(ship, now - elapsed, speedup)
+    model = (ship.weather && ship.weather["model"]) || TijaraTides.Domain.Weather.model(catalogue)
+    duration = TijaraTides.Domain.Weather.duration(ship.depart_ms, ship.arrive_ms, ship.weather)
+    since = (ship.weather && ship.weather["since_ms"]) || now - elapsed
+
+    weather =
+      TijaraTides.Domain.Weather.forecast(route, duration, ship.depart_ms, now, model, since)
+
+    arrival = ship.depart_ms + duration + weather["delay_ms"]
+
+    previous_motion =
+      TijaraTides.Domain.Weather.motion(
+        ship.depart_ms,
+        ship.arrive_ms,
+        ship.weather,
+        ship.last_cost_ms
+      )
+
+    next_motion =
+      TijaraTides.Domain.Weather.motion(ship.depart_ms, arrival, weather, ship.last_cost_ms)
+
+    unless previous_motion == next_motion,
+      do: raise(ArgumentError, "Weather cannot rewrite settled voyage movement")
+
+    %{ship | weather: weather, arrive_ms: arrival}
+  end
 
   def cargo_available(%__MODULE__{cargo: cargo}, good),
     do: Enum.sum(for batch <- cargo, batch.good == good, do: batch.quantity)
@@ -348,7 +402,8 @@ defmodule TijaraTides.Domain.Ship do
         depart_ms: now,
         arrive_ms: now + quote["duration_ms"],
         fuel_total: quote["fuel"],
-        fuel_burned: 0
+        fuel_burned: 0,
+        weather: quote["weather"]
     }
   end
 

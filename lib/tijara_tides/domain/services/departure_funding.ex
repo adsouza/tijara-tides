@@ -156,7 +156,7 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
       Enum.reduce(plans, state, fn plan, s ->
         ship = State.get(s, "ships", plan["ship_id"])
         spec = spec(s, ship, plan["onward"])
-        quote = Fleet.voyage_quote(ship, plan["onward"], catalogue)
+        quote = Fleet.voyage_quote(ship, plan["onward"], catalogue, state.clock_ms)
         company = State.get(s, "companies", ship["company_id"])
         account = State.get(s, "accounts", company["account_id"])
         policy = account["funding_policy"] || "wait"
@@ -213,7 +213,9 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
       company = State.get(s, "companies", row["company_id"])
       account = company && State.get(s, "accounts", company["account_id"])
       current = if ship && plan, do: spec(s, ship, plan["onward"])
-      quote = if ship && plan, do: Fleet.voyage_quote(ship, plan["onward"], catalogue)
+
+      quote =
+        if ship && plan, do: Fleet.voyage_quote(ship, plan["onward"], catalogue, state.clock_ms)
 
       valid =
         current && quote && company["bankruptcy_ms"] == nil &&
@@ -307,7 +309,7 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
     if available(state, row["company_id"]) + row["accumulated"] >= row["required"] &&
          State.get(state, "companies", row["company_id"])["unpaid"] == 0 do
       ship = State.get(state, "ships", row["ship_id"])
-      quote = Fleet.voyage_quote(ship, row["destination"], catalogue)
+      quote = Fleet.voyage_quote(ship, row["destination"], catalogue, state.clock_ms)
       spec = spec(state, ship, row["destination"])
       # Conversion and Fleet's ordinary fuel reservation are one pure candidate,
       # returned only if departure succeeds. The old accumulation is not spent twice.

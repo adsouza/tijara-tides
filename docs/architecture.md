@@ -21,7 +21,7 @@ PortCargoMarket have explicit aggregate roots; their changes commit in the share
 | Accounting | `Domain.CompanyFinance`, `Domain.Journal`, persistence ledger adapter | Balanced integer-cent entries; durable ledger and entity balances committed together and reconciled. |
 | Financial accumulation | `Domain.Reporting`, `UseCases.CommitPreparation` | Integer capital-time integration and accounting categories; apply pending journal events before commit, clear only after success. |
 | Visibility | `Domain.Visibility` | Public ships never expose cargo, balances, credentials or private instructions; owner projections require authentication. |
-| Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, settle finance before and after fleet operations, then market recovery, ship instructions and invitation expiry in the established order; commit all phases together. |
+| Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, reconcile weather before movement and settle finance before and after fleet operations, then market recovery, ship instructions and invitation expiry in the established order; commit all phases together. |
 
 `Domain.ReadState` exports only reads for application projections.
 `Domain.State` is unexported internal state-access machinery, not a general
@@ -945,3 +945,17 @@ and purchase reservations. The Account root owns the global policy; the Ship
 root owns configured stop budgets and completion of each route visit. Commands
 and ticks use these same transitions. The ledger verifier and SQL transaction
 validate the final combined candidate before publication.
+
+
+### Weather and voyage pauses
+
+`WeatherWorld` owns at most one durable current storm row per geographic sector.
+The pure `Weather` model derives deterministic windows and partitions supplied
+sea geometry. `Services.WeatherDelays` reconciles warnings and calls the named
+`ShipWorld.apply_weather` transition before fleet cost settlement. Only the
+Ship root changes accepted path, forecast and arrival terms. Its pause timeline
+is the shared authority for navigation, fuel and crew settlement; read-side
+helpers use that same motion function. Ship rows snapshot the weather model,
+and legacy voyages activate it prospectively, preventing historical weather
+from rewriting completed movement. All weather and fleet changes commit with
+the world clock in the existing atomic tick transaction.

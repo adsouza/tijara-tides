@@ -23,10 +23,7 @@ defmodule TijaraTides.Domain.VoyageNavigation do
 
     target =
       Enum.sum(Enum.map(legs, fn [a, b] -> distance(a, b) end)) *
-        min(
-          1,
-          max(0, (clock - ship["depart_ms"]) / max(1, ship["arrive_ms"] - ship["depart_ms"]))
-        )
+        TijaraTides.Domain.Fleet.progress(ship, clock)
 
     Enum.reduce_while(
       legs,

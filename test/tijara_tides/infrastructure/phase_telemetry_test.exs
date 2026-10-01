@@ -50,6 +50,7 @@ defmodule TijaraTides.Infrastructure.PhaseTelemetryTest do
 
     for phase <- [
           :finance_before,
+          :weather,
           :fleet,
           :instruction_expiry,
           :route_waits,

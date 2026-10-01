@@ -254,7 +254,7 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
       )
 
     horizon = plan.loading + voyage["duration_ms"] + unloading
-    upkeep = upkeep(plan.ship, ctx.clock, horizon, voyage["duration_ms"])
+    upkeep = upkeep(plan.ship, ctx.clock, horizon, voyage["sailing_ms"] || voyage["duration_ms"])
     maintenance = Fleet.maintenance_estimate(plan.ship, ctx.clock, ctx.clock + horizon)
     costs = voyage["fuel"] + voyage["canal_fees"] + upkeep - maintenance
     # Reserve fleet upkeep through completion without attributing other ships' costs
@@ -264,7 +264,7 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
         for {id, vessel} <- ctx.view.private["ships"], id != plan.ship["id"] do
           sailing =
             if vessel["status"] == "sailing",
-              do: min(horizon, max(0, vessel["arrive_ms"] - ctx.clock)),
+              do: Fleet.moving_time(vessel, ctx.clock, ctx.clock + horizon),
               else: 0
 
           upkeep(vessel, ctx.clock, horizon, sailing)

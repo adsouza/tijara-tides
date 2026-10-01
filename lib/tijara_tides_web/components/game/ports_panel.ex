@@ -97,6 +97,13 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                 liquid: minutes(handling["crude_oil"])
               )}
             </div>
+            <% storm = GameQueries.port_weather(@view.public, @definitions.catalogue, @selected_port) %>
+            <div :if={storm} id="port-weather" class="mt-2 text-amber-300">
+              <.emoji symbol="🌧️" />{gettext(
+                "Regional storm: %{minutes} min remaining. Voyage estimates include known weather delays.",
+                minutes: minutes(max(0, storm["until_ms"] - @view.public["clock_ms"]))
+              )}
+            </div>
             <section id="port-manufacturing" class="mt-3">
               <h3 class="mb-1 text-base font-semibold text-slate-200">
                 <.emoji symbol="🏭" />{gettext("Local manufacturing")}

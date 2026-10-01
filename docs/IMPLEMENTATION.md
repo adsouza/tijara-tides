@@ -986,3 +986,32 @@ Ports publish representative handling times, and trade controls show the
 selected quantity's duration. Accepted handling keeps its stored finish time
 through reload; berth and warehouse protection use that same deadline. Remote
 exchange ownership transfers still incur no physical handling time or fee.
+
+
+## Regional weather and revised voyage estimates
+
+Weather now uses deterministic active-world storm windows in 24 geographic
+sectors, partitioning the actual sea path at sector boundaries, including the
+dateline. Provisional tuning gives each sector a 10% storm chance per 30-minute
+window, with a one-minute storm at a deterministic staggered start. The initial
+window is clear. The generated catalogue controls probability, period, duration
+and seed; `config :tijara_tides, :weather` may override those defaults. Storms
+occupy at most a quarter of their window, with a clear interval.
+
+Dispatch and purchase planning include currently known storms encountered along
+the route. Subsequent announced storms revise the arrival estimate underway.
+The ship snapshots its path, sailing duration and weather model; its bounded
+per-voyage pause timeline and current regional warnings persist in migration
+`20261001000004_add_weather_delays.exs`. Repeating ticks and restarts reconstruct
+the same timeline. Legacy voyages acquire weather only from their first observed
+weather tick, preserving previously travelled distance and fuel consumption.
+
+Actual movement, map markers, diversion starting points, fuel settlement, crew
+estimates and cargo arrival/unloading freshness all use the same pause timeline.
+Fuel consumption stops during weather waits; idle crew pay, refrigeration aging
+and maintenance continue. Storms cause delays without randomly losing cargo or
+ships. Cargo may still spoil through the normal aging rules. Ports publish
+current storm countdowns, dispatch previews show known delay, and public ship
+inspectors and owner fleet controls show weather waits and revised ETAs. Owners
+receive a structured notice when weather changes the estimate. No private
+manifest, cost or financial information is included in public weather disclosure.

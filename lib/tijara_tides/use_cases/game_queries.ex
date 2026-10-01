@@ -1,4 +1,21 @@
 defmodule TijaraTides.UseCases.GameQueries do
+  def voyage_progress(ship, clock), do: TijaraTides.Domain.Fleet.progress(ship, clock)
+
+  def weather_wait(ship, clock) do
+    weather = ship["weather"]
+
+    hold =
+      weather &&
+        Enum.find(weather["holds"], &(&1["starts_ms"] <= clock and clock < &1["until_ms"]))
+
+    if hold, do: hold["until_ms"] - clock
+  end
+
+  def port_weather(public, catalogue, port) do
+    sector = TijaraTides.Domain.Fleet.weather_region(catalogue["ports"][port]["coordinates"])
+    (public["weather"] || %{})[sector]
+  end
+
   def production_recipes(definitions, port) do
     roles = definitions.catalogue["ports"][port]["roles"]
 

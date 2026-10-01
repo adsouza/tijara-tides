@@ -184,6 +184,13 @@ defmodule TijaraTides.Domain.ShipWorld do
   def reroute(state, id, destination, quote, paid),
     do: store(state, Ship.reroute(hull(state, id), destination, quote, paid, state.clock_ms))
 
+  def apply_weather(state, id, catalogue, elapsed, speedup) do
+    ship = hull(state, id)
+    row = TijaraTides.Domain.Ship.Rows.encode(ship)
+    route = %{"coordinates" => TijaraTides.Domain.VoyageNavigation.path(row, catalogue)}
+    store(state, Ship.apply_weather(ship, route, state.clock_ms, elapsed, speedup, catalogue))
+  end
+
   def advance_hull(state, id, elapsed, bankrupt, speedup, book_value) do
     before = hull(state, id)
 

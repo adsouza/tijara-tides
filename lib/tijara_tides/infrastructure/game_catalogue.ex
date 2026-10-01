@@ -13,6 +13,7 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
 
   def all do
     @catalogue
+    |> Map.update!("weather", &Map.merge(&1, Application.get_env(:tijara_tides, :weather, %{})))
     |> Map.put(
       "departure_funding",
       TijaraTides.Domain.Automation.settings(%{

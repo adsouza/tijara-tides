@@ -8,6 +8,7 @@ defmodule TijaraTides.Domain.Simulation do
     do:
       state
       |> Notices.prune_notices()
+      |> TijaraTides.Domain.WeatherWorld.refresh(catalogue)
       |> PortCargoMarketWorld.initialize(catalogue)
       |> TijaraTides.Domain.MerchantWarehouseWorld.advance(catalogue)
 
@@ -18,6 +19,13 @@ defmodule TijaraTides.Domain.Simulation do
   def advance(state, elapsed, catalogue, measure) when is_integer(elapsed) and elapsed >= 0 do
     phases = [
       finance_before: &TijaraTides.Domain.Services.FinancialSettlement.settle/1,
+      weather:
+        &TijaraTides.Domain.Services.WeatherDelays.advance(
+          &1,
+          elapsed,
+          catalogue,
+          Fleet.voyage_speedup()
+        ),
       fleet: &Fleet.advance(&1, elapsed),
       instruction_expiry: &TijaraTides.Domain.ShipWorld.expire_instructions(&1, catalogue),
       route_waits: &TijaraTides.Domain.ShipWorld.expire_route_waits(&1, catalogue),

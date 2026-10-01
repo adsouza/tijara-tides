@@ -44,6 +44,30 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     """
   end
 
+  attr :ship, :map, required: true
+  attr :clock, :integer, required: true
+
+  def weather_notice(assigns) do
+    assigns = assign(assigns, :wait, GameQueries.weather_wait(assigns.ship, assigns.clock))
+
+    ~H"""
+    <p :if={@ship["status"] == "sailing" and @wait} class="weather-wait text-xs text-amber-300">
+      <.emoji symbol="🌧️" />{gettext(
+        "Waiting for regional weather: %{minutes} min. Fuel use is paused; cargo continues aging.",
+        minutes: minutes(@wait)
+      )}
+    </p>
+    <p
+      :if={@ship["status"] == "sailing" and (get_in(@ship, ["weather", "delay_ms"]) || 0) > 0}
+      class="weather-delay text-xs text-amber-300"
+    >
+      {gettext("Weather added %{minutes} min to this voyage's arrival estimate.",
+        minutes: minutes(@ship["weather"]["delay_ms"])
+      )}
+    </p>
+    """
+  end
+
   def bounded_quantity(_quantity, maximum) when maximum < 1, do: 0
   def bounded_quantity(quantity, maximum), do: max(1, min(quantity, maximum))
 
@@ -591,7 +615,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
           List.duplicate(catalogue["ports"][ship["port"]]["coordinates"], 2)
 
       fraction =
-        min(1, max(0, (clock - ship["depart_ms"]) / (ship["arrive_ms"] - ship["depart_ms"])))
+        GameQueries.voyage_progress(ship, clock)
 
       legs = Enum.chunk_every(coords, 2, 1, :discard)
       lengths = Enum.map(legs, fn [a, b] -> distance(a, b) end)

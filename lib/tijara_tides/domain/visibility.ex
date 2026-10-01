@@ -10,6 +10,7 @@ defmodule TijaraTides.Domain.Visibility do
     %{
       "warehouse_utilization" => TijaraTides.Domain.WarehouseWorld.pools(state),
       "clock_ms" => state.clock_ms,
+      "weather" => TijaraTides.Domain.WeatherWorld.public(state),
       "revision" => state.revision,
       "ports" => catalogue["ports"],
       "goods" => catalogue["goods"],
@@ -53,6 +54,7 @@ defmodule TijaraTides.Domain.Visibility do
              "voyage_path",
              "depart_ms",
              "arrive_ms",
+             "weather",
              "berth_queued_ms",
              "berth_granted_ms"
            ])
