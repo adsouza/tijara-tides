@@ -3,7 +3,7 @@ defmodule TijaraTides.Infrastructure.Persistence.FinancialLedger do
 
   # The SQL form of Warehouse.covered_until/1: a prepaid next term backs an auction
   # before it starts. Keep the two in step.
-  @covered_until "w.expires_ms+coalesce(w.next_days,0)*#{TijaraTides.Domain.Warehouse.day_ms()}"
+  @covered_until "w.expires_ms+coalesce(w.next_days,0)*#{TijaraTides.Domain.Warehouse.day_ms()}+CASE WHEN w.award_grace THEN w.grace_ms ELSE 0 END"
 
   def pending(before, after_state, key) do
     previous = Map.get(before, key, [])

@@ -43,10 +43,10 @@ defmodule TijaraTides.Domain.WarehouseLiquidationWorld do
             "expires_ms" => w.expires_ms,
             "grace_end_ms" => w.expires_ms + w.grace_ms,
             "last_ms" => w.expires_ms,
-            "original_blocks" => w.blocks,
+            "original_blocks" => w.grace_blocks || w.blocks,
             "occupied_blocks" => occupied(w, catalogue),
-            "rent" => w.rent,
-            "duration_ms" => w.expires_ms - w.started_ms,
+            "rent" => w.grace_rent || w.rent,
+            "duration_ms" => w.grace_duration_ms || w.expires_ms - w.started_ms,
             "surcharge_bps" => w.surcharge_bps,
             "window_ms" => w.window_ms,
             "clearance_bps" => w.clearance_bps,
@@ -60,7 +60,8 @@ defmodule TijaraTides.Domain.WarehouseLiquidationWorld do
             "charged" => 0,
             "paid" => 0,
             "sunk" => 0,
-            "completed_ms" => nil
+            "completed_ms" => nil,
+            "replacement_paid" => 0
           })
         end
 
@@ -149,6 +150,21 @@ defmodule TijaraTides.Domain.WarehouseLiquidationWorld do
         "paid" => if(estate, do: 0, else: net),
         "sunk" => if(estate, do: net, else: 0),
         "completed_ms" => state.clock_ms
+    })
+  end
+
+  def replace(state, id, charges) do
+    p = pool(state, id)
+
+    unless p["status"] == "grace" && p["proceeds"] == 0 &&
+             charges == p["rent_due"] + p["handling_due"],
+           do: raise(ArgumentError, "Replacement requires the unchanged grace charges")
+
+    put(state, %{
+      p
+      | "status" => "completed",
+        "completed_ms" => state.clock_ms,
+        "replacement_paid" => charges
     })
   end
 

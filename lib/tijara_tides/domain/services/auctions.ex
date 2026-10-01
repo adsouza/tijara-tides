@@ -453,7 +453,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
               s
             else
               {s, cargo} = reprice(s, cargo, a, price)
-              WarehouseWorld.exchange_in(s, bid_claim(a, winner), cargo, a.quantity)
+
+              s
+              |> WarehouseWorld.exchange_in(bid_claim(a, winner), cargo, a.quantity)
+              |> WarehouseWorld.award_storage(winner.warehouse_id, a.id, cargo, cat)
             end
 
           s
@@ -482,7 +485,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
       s = AuctionWorld.record_simulated_bids(s, a.id, Enum.filter(bids, &(&1.kind == :simulated)))
       s = AuctionWorld.close_sold(s, a.id, price, winner)
 
-      delivered = get(s, "warehouses", winner.warehouse_id)
+      delivered =
+        get(s, "warehouses", "award:" <> a.id) || get(s, "warehouses", winner.warehouse_id)
 
       Enum.reduce(
         Enum.uniq([a.company_id | Enum.map(eligible, & &1.company_id)]),

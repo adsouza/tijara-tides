@@ -864,6 +864,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     advance(c.server, listing["closes_ms"] - before.clock_ms + 1)
 
+    original_aw = aw
+    aw = "award:" <> listing["id"]
+
     assert Enum.sum(
              for lot <- GameServer.snapshot(a, c.server).private["warehouses"][aw]["cargo"],
                  do: lot["quantity"]
@@ -881,7 +884,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       }
     end)
 
-    for {token, warehouse} <- [{a, aw}, {b, bw}] do
+    for {token, warehouse} <- [{a, original_aw}, {b, bw}] do
       view = GameServer.snapshot(token, c.server)
       row = view.private["warehouses"][warehouse]
       used = view.public["warehouse_utilization"][port <> "|dry"]
@@ -938,7 +941,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     for warehouse <- [aw, bw] do
       row = Game.get(:sys.get_state(c.server).game, "warehouses", warehouse)
-      assert row["expires_ms"] < resale["closes_ms"]
+      if warehouse == bw, do: assert(row["expires_ms"] < resale["closes_ms"])
       assert Warehouse.covered_until(Warehouse.Rows.decode(row)) >= resale["closes_ms"]
     end
 
@@ -1008,7 +1011,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert {:ok, _} = GameStore.reload(Repo, c.world_id, before)
     advance(c.server, resale["closes_ms"] - before.clock_ms + 1)
     view = GameServer.snapshot(b, c.server)
-    assert Enum.sum(for lot <- view.private["warehouses"][bw]["cargo"], do: lot["quantity"]) == 3
+
+    assert Enum.sum(
+             for lot <- view.private["warehouses"]["award:" <> resale["id"]]["cargo"],
+                 do: lot["quantity"]
+           ) == 3
+
     assert view.private["company"]["reserved"] == 0
     assert :ok == FinancialLedger.audit(Repo, c.world_id)
     before = :sys.get_state(c.server).game
@@ -5031,6 +5039,87 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "won-cargo replacement commits charges and preserves cargo on reload and replay", c do
+    alias TijaraTides.Domain.{State, Warehouse, WarehouseWorld, CargoLots, CompanyFinanceWorld}
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "replacement-company",
+        %{
+          "action" => "company",
+          "name" => "Replacement",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    before = :sys.get_state(c.server).game
+    cat = :sys.get_state(c.server).catalogue
+    account = GameServer.snapshot(token, c.server).private["account"]
+    ids = CommandStore.allocate_lot_ids(%{repo: Repo}, 8)
+
+    {:ok, next, _} =
+      WarehouseWorld.lease(
+        Map.put(before, :lot_allocation, ids),
+        account,
+        %{
+          "port" => "Jakarta",
+          "storage" => "dry",
+          "blocks" => 1,
+          "days" => 1,
+          "price" => Warehouse.quote(WarehouseWorld.used(before, "Jakarta", "dry"), "dry", 1, 1)
+        },
+        "support",
+        cat
+      )
+
+    {next, lot} = CargoLots.create(next, "lumber", 30, nil)
+    cargo = Map.merge(lot, %{"good" => "lumber", "unit_cost" => 100})
+    w = State.get(next, "warehouses", "support")
+
+    next =
+      State.put(next, "warehouses", "support", %{w | "cargo" => [cargo]})
+      |> CompanyFinanceWorld.post(account["company_id"], "purchase", [
+        {"inventory", 3000},
+        {"cash_available", -3000}
+      ])
+      |> WarehouseWorld.award_storage("support", "won", [cargo], cat)
+
+    next =
+      %{next | revision: before.revision + 1, clock_ms: w["expires_ms"] + 3_600_000}
+      |> WarehouseWorld.advance(cat)
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    quote = WarehouseWorld.replacement_quote(restored, "award:won", 1, cat)
+    cmd = %{"warehouse" => "award:won", "days" => 1, "price" => quote.rent}
+    {:ok, replaced, reply} = WarehouseWorld.replace_award(restored, account, cmd, "paid", cat)
+    replaced = %{replaced | revision: restored.revision + 1}
+    receipt = {account["id"], "replace-won", "replace-won-fingerprint", reply}
+
+    assert reply["charges"] > 0
+
+    assert {:ok, :ok} =
+             GameStore.commit(Repo, c.world_id, restored.epoch, restored, replaced, receipt)
+
+    assert {:error, {:replay, ^reply}} =
+             GameStore.commit(Repo, c.world_id, restored.epoch, restored, replaced, receipt)
+
+    assert {:ok, final} = GameStore.reload(Repo, c.world_id, replaced)
+    assert final.entities["warehouses"] == replaced.entities["warehouses"]
+    assert final.entities["warehouse_liquidations"] == replaced.entities["warehouse_liquidations"]
+    assert State.get(final, "warehouses", "paid")["cargo"] == [cargo]
+
+    assert final.entities["warehouse_liquidations"]["award:won"]["replacement_paid"] ==
+             reply["charges"]
+
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "a closed auction bid outlives its lease and clearance still commits", c do
     alias TijaraTides.Domain.Warehouse
 
@@ -5114,9 +5203,14 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     game = :sys.get_state(c.server).game
     assert game.clock_ms >= target, "liquidation tick was rejected; the world stopped advancing"
-    liquidation = Enum.find(Map.values(game.entities["auctions"]), &(&1["liquidation_id"] == wid))
+    award_id = "award:" <> listing["id"]
+
+    liquidation =
+      Enum.find(Map.values(game.entities["auctions"]), &(&1["liquidation_id"] == award_id))
+
     assert liquidation["status"] == "scheduled"
-    assert Game.get(game, "warehouses", wid)["blocks"] > 0
+    assert Game.get(game, "warehouses", award_id)["blocks"] > 0
+    assert Game.get(game, "warehouses", wid) == nil
     advance(c.server, liquidation["closes_ms"] - game.clock_ms + 1)
     game = :sys.get_state(c.server).game
     assert Game.get(game, "warehouses", wid) == nil

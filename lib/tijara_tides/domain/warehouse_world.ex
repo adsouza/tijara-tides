@@ -19,7 +19,18 @@ defmodule TijaraTides.Domain.WarehouseWorld do
 
   defp load(state, row) do
     w = Rows.decode(row)
-    %{w | reservations: reservations(state, w)}
+
+    %{
+      w
+      | reservations: reservations(state, w),
+        external_volume:
+          shared_external_volume(
+            Map.values(entities(state, "warehouses")),
+            Map.values(entities(state, "warehouse_reservations")),
+            w,
+            state.clock_ms
+          )
+    }
   end
 
   defdelegate snapshot(row), to: Rows, as: :decode
@@ -37,27 +48,276 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   defdelegate pool(storage), to: Warehouse
 
   def pools(state) do
-    (Map.values(entities(state, "warehouses")) ++
-       Map.values(entities(state, "merchant_warehouses")))
+    storage_rows(state)
     |> Enum.group_by(&{&1["port"], &1["storage"]})
     |> Map.new(fn {{port, storage}, rows} ->
-      {port <> "|" <> storage, Enum.sum(Enum.map(rows, & &1["blocks"]))}
+      {port <> "|" <> storage, footprint(state, rows)}
     end)
   end
 
-  @doc "Blocks a port pool can still lease for one storage class."
   def spare_blocks(state, port, storage),
     do: max(0, pool(storage).blocks - used(state, port, storage))
 
-  @doc "Blocks leased in one pool, without building the world-wide utilization map."
-  def used(state, port, storage) do
-    Enum.sum(
-      for row <-
-            Map.values(entities(state, "warehouses")) ++
-              Map.values(entities(state, "merchant_warehouses")),
-          row["port"] == port and row["storage"] == storage,
-          do: row["blocks"]
-    )
+  def used(state, port, storage),
+    do:
+      footprint(
+        state,
+        Enum.filter(storage_rows(state), &(&1["port"] == port && &1["storage"] == storage))
+      )
+
+  defp storage_rows(state),
+    do:
+      Map.values(entities(state, "warehouses")) ++
+        Map.values(entities(state, "merchant_warehouses"))
+
+  defp footprint(state, rows) do
+    rows
+    |> Enum.group_by(&(&1["space_group"] || &1["id"]))
+    |> Enum.map(fn {_, group} ->
+      if Enum.any?(group, &(&1["space_group"] != nil)) do
+        leased =
+          Enum.sum(
+            for r <- group,
+                not r["award_grace"] && r["expires_ms"] > state.clock_ms,
+                do: r["blocks"]
+          )
+
+        occupied =
+          Enum.sum(
+            Enum.map(group, fn r ->
+              volume = shared_volume(r)
+
+              if r["protected_ms"] > state.clock_ms,
+                do: max(volume, r["blocks"] * block_litres()),
+                else: volume
+            end)
+          )
+
+        max(leased, div(occupied + block_litres() - 1, block_litres()))
+      else
+        Enum.sum(Enum.map(group, & &1["blocks"]))
+      end
+    end)
+    |> Enum.sum()
+  end
+
+  defp shared_volume(row),
+    do: Enum.sum(for b <- row["cargo"] || [], do: b["quantity"] * row["space_volumes"][b["good"]])
+
+  @doc "Volume in shared allocations that is not covered by another current paid lease."
+  def shared_external_volume(rows, claims, w, now) do
+    if w.space_group do
+      others =
+        rows
+        |> Enum.filter(&(&1["space_group"] == w.space_group && &1["id"] != w.id))
+
+      occupied = Enum.sum(Enum.map(others, &shared_volume/1))
+
+      reserved =
+        Enum.sum(
+          for r <- claims,
+              r["kind"] == "capacity" && Enum.any?(others, &(&1["id"] == r["warehouse_id"])),
+              do: r["quantity"] * w.space_volumes[r["good"]]
+        )
+
+      paid =
+        Enum.sum(
+          for r <- others,
+              not r["award_grace"] && r["expires_ms"] > now,
+              do: r["blocks"] * block_litres()
+        )
+
+      max(0, occupied + reserved - paid)
+    else
+      0
+    end
+  end
+
+  @doc "Give each won lot an isolated allocation within its receiving lease's physical space."
+  def award_storage(state, warehouse_id, auction_id, cargo, catalogue) do
+    w = fetch(state, warehouse_id)
+    award_id = "award:" <> auction_id
+
+    if get(state, "warehouses", award_id),
+      do: raise(ArgumentError, "Auction allocation already exists")
+
+    volumes = Map.new(catalogue["goods"], fn {id, good} -> {id, good["volume_l"]} end)
+    group = w.space_group || w.id
+    cargo = Enum.map(cargo, &CargoRows.coerce/1)
+    ids = Enum.map(cargo, & &1.lot_id)
+    {selected, retained} = Enum.split_with(w.cargo, &(&1.lot_id in ids))
+
+    unless Enum.sum(Enum.map(selected, & &1.quantity)) == Enum.sum(Enum.map(cargo, & &1.quantity)),
+      do: raise(ArgumentError, "Won cargo must be received before allocating storage")
+
+    blocks =
+      div(
+        Enum.sum(for b <- selected, do: b.quantity * volumes[b.good]) + block_litres() - 1,
+        block_litres()
+      )
+
+    expires = max(state.clock_ms, w.expires_ms + (w.next_days || 0) * @day)
+
+    child = %{
+      w
+      | id: award_id,
+        cargo: selected,
+        blocks: blocks,
+        prepaid: 0,
+        next_rent: 0,
+        next_days: nil,
+        source_lease_id: w.id,
+        space_group: group,
+        space_volumes: volumes,
+        award_id: auction_id,
+        award_grace: true,
+        display_number: next_display_number(state, w.company_id),
+        renewal_rate: nil,
+        auto_days: nil,
+        auto_cap: nil,
+        expires_ms: expires,
+        protected_ms: state.clock_ms,
+        grace_rent: if(w.next_days, do: w.next_rent, else: w.rent),
+        grace_blocks: w.blocks,
+        grace_duration_ms:
+          if(w.next_days, do: w.next_days * @day, else: w.expires_ms - w.started_ms)
+    }
+
+    state
+    |> save(%{w | cargo: retained, space_group: group, space_volumes: volumes})
+    |> save(child)
+  end
+
+  defp next_display_number(state, company),
+    do:
+      (owned(state, "warehouses", "company_id", company)
+       |> Enum.map(&(&1["display_number"] || 1))
+       |> Enum.max(fn -> 0 end)) + 1
+
+  @doc "Quote replacement using occupied blocks exactly once in current utilization."
+  def replacement_quote(state, id, days, catalogue) do
+    w = fetch(state, id)
+
+    if w && w.award_grace && state.clock_ms >= w.expires_ms &&
+         state.clock_ms < w.expires_ms + w.grace_ms && days in @terms do
+      blocks = div(Warehouse.volume(w, catalogue) + block_litres() - 1, block_litres())
+
+      if blocks > 0,
+        do: %{
+          blocks: blocks,
+          rent: quote(max(0, used(state, w.port, w.storage) - blocks), w.storage, blocks, days)
+        }
+    end
+  end
+
+  def replace_award(state, account, cmd, lease_id, catalogue) do
+    w = fetch(state, cmd["warehouse"])
+    offer = replacement_quote(state, cmd["warehouse"], cmd["days"], catalogue)
+    company = w && get(state, "companies", w.company_id)
+
+    cond do
+      is_nil(w) or w.company_id != account["company_id"] ->
+        {:error, :warehouse_invalid}
+
+      is_nil(lease_id) or get(state, "warehouses", lease_id) != nil ->
+        {:error, :warehouse_invalid}
+
+      is_nil(offer) or w.protected_ms > state.clock_ms ->
+        {:error, :warehouse_replacement_closed}
+
+      company["bankruptcy_ms"] != nil ->
+        {:error, :finance_no_company}
+
+      cmd["price"] != offer.rent ->
+        {:error, :price_changed}
+
+      true ->
+        candidate = Liquidation.prepare(state, w, catalogue)
+        p = Liquidation.pool(candidate, w.id)
+        charges = p["rent_due"] + p["handling_due"]
+
+        if p["status"] != "grace" do
+          {:error, :warehouse_replacement_closed}
+        else
+          if company["unpaid"] > 0 || company["cash"] - company["reserved"] < offer.rent + charges do
+            {:error, :insufficient_cash}
+          else
+            next = %{
+              w
+              | id: lease_id,
+                blocks: offer.blocks,
+                started_ms: state.clock_ms,
+                expires_ms: state.clock_ms + cmd["days"] * @day,
+                rent: offer.rent,
+                prepaid: offer.rent,
+                award_grace: false,
+                source_lease_id: nil,
+                grace_rent: nil,
+                grace_blocks: nil,
+                grace_duration_ms: nil
+            }
+
+            changed =
+              candidate
+              |> TijaraTides.Domain.WarehouseLiquidationWorld.replace(w.id, charges)
+              |> save(next)
+              |> relocate_award(w.id, next.id)
+              |> CompanyFinanceWorld.post(w.company_id, "warehouse_replacement", [
+                {"prepaid_rent", offer.rent},
+                {"rent_expense", charges},
+                {"cash_available", -offer.rent - charges}
+              ])
+
+            {:ok, changed, %{"charges" => charges}}
+          end
+        end
+    end
+  end
+
+  defp relocate_award(state, old, new) do
+    state =
+      Enum.reduce(entities(state, "warehouse_reservations"), state, fn {id, row}, s ->
+        if row["warehouse_id"] == old,
+          do: put(s, "warehouse_reservations", id, %{row | "warehouse_id" => new}),
+          else: s
+      end)
+
+    state
+    |> TijaraTides.Domain.OrderBookWorld.relocate_storage(old, new)
+    |> TijaraTides.Domain.AuctionWorld.relocate_storage(old, new)
+    |> delete("warehouses", old)
+  end
+
+  defp synchronize_awards(state) do
+    Enum.reduce(entities(state, "warehouses"), state, fn {_, row}, s ->
+      if row["award_grace"] do
+        parent = get(s, "warehouses", row["source_lease_id"])
+        w = fetch(s, row["id"])
+
+        if parent && Warehouse.covered_until(snapshot(parent)) > w.expires_ms &&
+             not Liquidation.active?(s, w.id) do
+          covered = Warehouse.covered_until(snapshot(parent))
+          basis_rent = if parent["next_days"], do: parent["next_rent"], else: parent["rent"]
+
+          duration =
+            if parent["next_days"],
+              do: parent["next_days"] * @day,
+              else: parent["expires_ms"] - parent["started_ms"]
+
+          save(s, %{
+            w
+            | expires_ms: covered,
+              grace_rent: basis_rent,
+              grace_blocks: parent["blocks"],
+              grace_duration_ms: duration
+          })
+        else
+          s
+        end
+      else
+        s
+      end
+    end)
   end
 
   defdelegate quote(used, storage, blocks, days), to: Warehouse
@@ -148,7 +408,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         company["unpaid"] > 0 ->
           {:error, :insufficient_cash}
 
-        not Warehouse.releasable?(w, blocks, state.clock_ms, catalogue) ->
+        w.award_grace or not Warehouse.releasable?(w, blocks, state.clock_ms, catalogue) ->
           {:error, :warehouse_occupied}
 
         true ->
@@ -223,7 +483,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         state.clock_ms >= w.expires_ms + w.grace_ms ->
           {:error, :warehouse_expired}
 
-        side == "store" and state.clock_ms >= w.expires_ms ->
+        side == "store" and (w.award_grace or state.clock_ms >= w.expires_ms) ->
           {:error, :warehouse_expired}
 
         not compatible?(w, item) or not CargoRules.compatible_cargo?(ship, item) ->
@@ -233,7 +493,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
           {:error, :insufficient_cargo}
 
         side == "store" and
-            volume(w, catalogue) + reserved_volume(state, w, catalogue, ship["id"], item["id"]) +
+            volume(w, catalogue) + w.external_volume +
+              reserved_volume(state, w, catalogue, ship["id"], item["id"]) +
               n * item["volume_l"] > w.blocks * block_litres() ->
           {:error, :warehouse_capacity}
 
@@ -320,6 +581,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   end
 
   def advance(state, catalogue) do
+    state = synchronize_awards(state)
+
     Enum.reduce(Enum.sort(Map.keys(entities(state, "warehouses"))), state, fn id, state ->
       row = get(state, "warehouses", id)
       {state, w} = roll_term(state, load(state, row))
@@ -682,7 +945,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
 
         true ->
           {state, w} = pay_renewal(state, w, days, early)
-          {:ok, save(state, w), %{}}
+          {:ok, synchronize_awards(save(state, w)), %{}}
       end
     else
       _ -> {:error, :warehouse_invalid}
@@ -690,7 +953,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   end
 
   def renewal_settings(state, account, cmd) do
-    with %{"company_id" => owner} = row <- get(state, "warehouses", cmd["warehouse"]),
+    with %{"company_id" => owner, "award_grace" => false} = row <-
+           get(state, "warehouses", cmd["warehouse"]),
          true <- owner == account["company_id"],
          true <-
            cmd["days"] == 0 or

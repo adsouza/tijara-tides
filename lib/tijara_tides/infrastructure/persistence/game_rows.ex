@@ -18,7 +18,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ),
     "warehouse_liquidations" =>
       Enum.map(
-        ~w(id company_id port status expires_ms grace_end_ms last_ms original_blocks occupied_blocks rent duration_ms surcharge_bps window_ms clearance_bps handling_rate rent_due rent_remainder handling_due clearance_remainders proceeds charged paid sunk completed_ms),
+        ~w(id company_id port status expires_ms grace_end_ms last_ms original_blocks occupied_blocks rent duration_ms surcharge_bps window_ms clearance_bps handling_rate rent_due rent_remainder handling_due clearance_remainders proceeds charged paid sunk completed_ms replacement_paid),
         &{&1, &1}
       ),
     "company_dormancy" =>
@@ -54,7 +54,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ),
     "warehouses" =>
       Enum.map(
-        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms display_number renewal_rate next_rent next_days auto_days auto_cap grace_ms surcharge_bps window_ms clearance_bps),
+        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms source_lease_id space_group space_volumes award_id award_grace grace_rent grace_blocks grace_duration_ms display_number renewal_rate next_rent next_days auto_days auto_cap grace_ms surcharge_bps window_ms clearance_bps),
         &{&1, &1}
       ),
     "reporting_accounts" => Enum.map(~w(id capital since_ms at_ms), &{&1, &1}),
@@ -575,6 +575,9 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     defp column_value(unquote(key), nil), do: unquote(default)
   end
 
+  defp column_value("replacement_paid", nil), do: 0
+  defp column_value("award_grace", nil), do: false
+  defp column_value("space_volumes", nil), do: %{}
   defp column_value("grace_ms", nil), do: 43_200_000
   defp column_value("surcharge_bps", nil), do: 2500
   defp column_value("window_ms", nil), do: 7_200_000

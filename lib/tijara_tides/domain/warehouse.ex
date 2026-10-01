@@ -8,6 +8,15 @@ defmodule TijaraTides.Domain.Warehouse do
   @storage_classes ["dry", "reefer", "liquid"]
   @fields ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms)a
   @renewal_defaults [
+    source_lease_id: nil,
+    space_group: nil,
+    space_volumes: %{},
+    award_id: nil,
+    award_grace: false,
+    grace_rent: nil,
+    grace_blocks: nil,
+    grace_duration_ms: nil,
+    external_volume: 0,
     display_number: 1,
     renewal_rate: nil,
     next_rent: 0,
@@ -57,8 +66,12 @@ defmodule TijaraTides.Domain.Warehouse do
       else: 0
   end
 
-  def extension_open?(w, now), do: now < w.expires_ms and is_nil(w.next_days)
-  def covered_until(w), do: w.expires_ms + (w.next_days || 0) * @day
+  def extension_open?(w, now),
+    do: not w.award_grace and now < w.expires_ms and is_nil(w.next_days)
+
+  def covered_until(w),
+    do: w.expires_ms + (w.next_days || 0) * @day + if(w.award_grace, do: w.grace_ms, else: 0)
+
   def day_ms, do: @day
 
   def extension_rate(w, used_blocks),
@@ -67,12 +80,16 @@ defmodule TijaraTides.Domain.Warehouse do
   def renewal_window_ms, do: 21_600_000
 
   def renewal_open?(w, now),
-    do: now >= w.expires_ms - renewal_window_ms() and now < w.expires_ms and is_nil(w.next_days)
+    do:
+      not w.award_grace and now >= w.expires_ms - renewal_window_ms() and now < w.expires_ms and
+        is_nil(w.next_days)
 
   defp fresh?(batch, clock), do: is_nil(batch.expires_ms) or batch.expires_ms > clock
 
   def fresh_stock(w, good, clock),
     do: Enum.sum(for b <- w.cargo, b.good == good, fresh?(b, clock), do: b.quantity)
+
+  def accrue(%__MODULE__{award_grace: true} = w, _now), do: {w, 0}
 
   def accrue(%__MODULE__{} = w, now) do
     remaining =
@@ -331,17 +348,19 @@ defmodule TijaraTides.Domain.Warehouse do
     stock = fresh_stock(w, order.good, now)
 
     cond do
-      now >= w.expires_ms and
-          not (order.side == "sell" and
-                   (order.liquidation or
-                      (order.kind == :order and now < w.expires_ms + w.grace_ms))) ->
+      (w.award_grace and order.side == "buy") or
+          (now >= w.expires_ms and
+             not (order.side == "sell" and
+                      (order.liquidation or
+                         ((order.kind == :order or w.award_grace) and
+                            now < w.expires_ms + w.grace_ms)))) ->
         {:error, :warehouse_expired}
 
       not compatible?(w, item) ->
         {:error, :incompatible_cargo}
 
       order.side == "buy" and
-          volume(w, catalogue) + reserved_volume(w, catalogue) +
+          volume(w, catalogue) + w.external_volume + reserved_volume(w, catalogue) +
             order.quantity * item["volume_l"] > w.blocks * block_litres() ->
         {:error, :warehouse_capacity}
 
@@ -419,7 +438,7 @@ defmodule TijaraTides.Domain.Warehouse do
     do:
       is_integer(blocks) and blocks > 0 and blocks <= w.blocks and now >= w.protected_ms and
         is_nil(w.next_days) and
-        volume(w, catalogue) + reserved_volume(w, catalogue) <=
+        volume(w, catalogue) + w.external_volume + reserved_volume(w, catalogue) <=
           (w.blocks - blocks) * block_litres()
 
   @doc "A settled incoming fill converts its capacity backing into a ship stock claim."
@@ -436,7 +455,7 @@ defmodule TijaraTides.Domain.Warehouse do
     item = catalogue["goods"][r.good]
 
     cond do
-      now >= w.expires_ms ->
+      now >= w.expires_ms or (w.award_grace and r.kind == "capacity") ->
         {:error, :warehouse_expired}
 
       now < w.protected_ms ->
@@ -453,7 +472,8 @@ defmodule TijaraTides.Domain.Warehouse do
         {:error, :insufficient_cargo}
 
       r.kind == "capacity" and
-          volume(w, catalogue) + reserved_volume(w, catalogue) + r.quantity * item["volume_l"] >
+          volume(w, catalogue) + w.external_volume + reserved_volume(w, catalogue) +
+            r.quantity * item["volume_l"] >
             w.blocks * block_litres() ->
         {:error, :warehouse_capacity}
 

@@ -5,6 +5,23 @@ defmodule TijaraTides.Domain.OrderBookWorld do
   alias TijaraTides.Domain.OrderBook
   alias TijaraTides.Domain.OrderBook.Rows
 
+  @doc "Retain terms and priority when won cargo acquires replacement storage in the same space."
+  def relocate_storage(state, old, new) do
+    previous = get(state, "warehouses", old)
+    replacement = get(state, "warehouses", new)
+
+    unless previous && replacement && previous["company_id"] == replacement["company_id"] &&
+             previous["port"] == replacement["port"] &&
+             previous["storage"] == replacement["storage"] &&
+             previous["space_group"] == replacement["space_group"],
+           do:
+             raise(ArgumentError, "Replacement storage must retain ownership and physical space")
+
+    Enum.reduce(orders(state), state, fn order, s ->
+      if order.warehouse_id == old, do: store(s, %{order | warehouse_id: new}), else: s
+    end)
+  end
+
   def orders(state), do: Enum.map(Map.values(entities(state, "exchange_orders")), &Rows.decode/1)
 
   def fetch(state, id) do

@@ -5,6 +5,14 @@ defmodule TijaraTides.Domain.Warehouse.Rows do
 
   @fields ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms)a
   @renewal_defaults [
+    source_lease_id: nil,
+    space_group: nil,
+    space_volumes: %{},
+    award_id: nil,
+    award_grace: false,
+    grace_rent: nil,
+    grace_blocks: nil,
+    grace_duration_ms: nil,
     display_number: 1,
     renewal_rate: nil,
     next_rent: 0,

@@ -2828,3 +2828,12 @@ msgstr "سُلّم إلى تعليمات السفينة عند الرصيف"
 
 msgid "Visit finished"
 msgstr "انتهت الزيارة"
+
+msgid "Replace occupied storage: %{days} days · %{price}, plus accrued grace charges"
+msgstr "استبدال التخزين المشغول: %{days} أيام · %{price}، بالإضافة إلى رسوم المهلة المستحقة"
+
+msgid "Won cargo has its own storage grace. No new cargo can enter this allocation."
+msgstr "للبضائع المكتسبة بالمزاد مهلة تخزين مستقلة. لا يمكن إدخال بضائع جديدة إلى هذه المساحة."
+
+msgid "Won-cargo replacement is available only during its grace period, after handling finishes."
+msgstr "يمكن استبدال تخزين البضائع المكتسبة بالمزاد خلال مهلتها فقط، بعد انتهاء المناولة."

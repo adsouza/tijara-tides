@@ -50,6 +50,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
     leases =
       Enum.map(leases, fn row ->
         w = WarehouseWorld.snapshot(row)
+        external = WarehouseWorld.shared_external_volume(leases, reservation_rows, w, now)
         volume = Warehouse.volume(w, catalogue)
         reserved_volume = WarehouseWorld.reserved_volume(reservation_rows, w, catalogue)
         reservations = WarehouseWorld.reservations(reservation_rows, w)
@@ -77,12 +78,12 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
               )
 
             store =
-              if now < w.expires_ms,
+              if now < w.expires_ms && not w.award_grace,
                 do:
                   min(
                     aboard,
                     div(
-                      w.blocks * Warehouse.block_litres() - volume -
+                      w.blocks * Warehouse.block_litres() - volume - external -
                         WarehouseWorld.reserved_volume(
                           reservation_rows,
                           w,
@@ -126,6 +127,22 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
 
         %{
           row: row,
+          replacement_offers:
+            if(
+              w.award_grace && now >= w.expires_ms && now < w.expires_ms + w.grace_ms &&
+                volume > 0,
+              do:
+                Enum.map(Warehouse.terms(), fn days ->
+                  n = div(volume + Warehouse.block_litres() - 1, Warehouse.block_litres())
+
+                  %{
+                    days: days,
+                    blocks: n,
+                    price: Warehouse.quote(max(0, used - n), w.storage, n, days)
+                  }
+                end),
+              else: []
+            ),
           liquidation: get_in(view, [:private, "warehouse_liquidations", w.id]),
           grace_end_ms: w.expires_ms + w.grace_ms,
           surcharge_bps: w.surcharge_bps,
@@ -163,6 +180,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
                   {id, item} <- Enum.sort(catalogue["goods"]),
                   Warehouse.compatible?(w, item) and CargoRules.compatible_class?(ship, item),
                   kind <- ["stock", "capacity"],
+                  not w.award_grace or kind == "stock",
                   n =
                     if(kind == "stock",
                       do:
@@ -178,7 +196,8 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
                         max(
                           0,
                           div(
-                            w.blocks * Warehouse.block_litres() - volume - reserved_volume,
+                            w.blocks * Warehouse.block_litres() - volume - external -
+                              reserved_volume,
                             item["volume_l"]
                           )
                         )
@@ -198,11 +217,11 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
               else: []
             ),
           free_blocks:
-            if(now >= w.protected_ms and is_nil(w.next_days),
+            if(not w.award_grace and now >= w.protected_ms and is_nil(w.next_days),
               do:
                 w.blocks -
                   div(
-                    volume + reserved_volume + Warehouse.block_litres() - 1,
+                    volume + external + reserved_volume + Warehouse.block_litres() - 1,
                     Warehouse.block_litres()
                   ),
               else: 0

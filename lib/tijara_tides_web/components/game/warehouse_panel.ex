@@ -145,6 +145,38 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
             charges: money(lease.liquidation["rent_due"] + lease.liquidation["handling_due"])
           )}
         </p>
+        <div :if={lease.row["award_grace"]} class="my-2 text-sm text-teal-200">
+          <p>
+            {gettext("Won cargo has its own storage grace. No new cargo can enter this allocation.")}
+          </p>
+          <form
+            :for={offer <- lease.replacement_offers}
+            phx-submit="warehouse"
+            class="inline-block m-1"
+          >
+            <input type="hidden" name="action" value="warehouse_replace" />
+            <input type="hidden" name="warehouse" value={lease.row["id"]} />
+            <input type="hidden" name="request_id" value={@request_id} />
+            <input type="hidden" name="days" value={offer.days} />
+            <input type="hidden" name="price" value={offer.price} />
+            <button
+              disabled={
+                offer.price +
+                  if(lease.liquidation,
+                    do: lease.liquidation["rent_due"] + lease.liquidation["handling_due"],
+                    else: 0
+                  ) > @storage.cash
+              }
+              class="rounded border border-teal-700 px-2 py-1 disabled:opacity-40"
+            >
+              {gettext(
+                "Replace occupied storage: %{days} days · %{price}, plus accrued grace charges",
+                days: display_number(offer.days),
+                price: money(offer.price)
+              )}
+            </button>
+          </form>
+        </div>
         <p :if={lease.reserved_volume > 0} class="text-xs text-slate-400">
           {gettext("Reserved receiving space: %{volume} m³",
             volume: display_number(div(lease.reserved_volume, 1000))
@@ -156,6 +188,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           )}
         </p>
         <details
+          :if={!lease.row["award_grace"]}
           id={"warehouse-renewal-#{lease.row["id"]}"}
           phx-mounted={JS.ignore_attributes("open")}
           class="my-2"

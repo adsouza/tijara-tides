@@ -370,6 +370,10 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
           "Choose standardized cargo, your warehouse, a positive limit price and 1–10,000 lots."
         ),
       warehouse_invalid: gettext("Select a valid warehouse, ship, cargo and quantity."),
+      warehouse_replacement_closed:
+        gettext(
+          "Won-cargo replacement is available only during its grace period, after handling finishes."
+        ),
       warehouse_renewal_closed:
         gettext(
           "Renewal is available only in the final six hours, before expiry, and once per term."

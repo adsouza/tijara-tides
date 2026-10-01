@@ -278,7 +278,6 @@ with launch tuning described in this document. Remaining work includes:
 
 - **Simulated economy:** differentiated production rates, money-stock and
   source/sink monitoring, and price-level monitoring (§5).
-- **Warehouse estates:** won-cargo storage grace and replacement leases (§§7, 11, 12).
 - **Procurement:** machinery delivery auctions, supplier deposits, buyer funding
   and receiving-capacity commitments, delivery deadlines, settlement/default and
   system-fault protections (§7).
@@ -622,9 +621,20 @@ or running deadlines. Owner notices disclose both storage rates; the storage UI
 shows the grace countdown, held proceeds and accrued charges. Auction listings
 show liquidation status and projected freshness without exposing private lease
 identities. State, reservations, cargo lineage, escrow and postings commit in
-one transaction and resume after reload. Won-cargo grace and replacement leases,
-perishable standing books and port-specific warehouse tuning remain separate
-milestones.
+one transaction and resume after reload. Perishable standing books and
+port-specific warehouse tuning remain separate milestones.
+
+Cargo auction awards receive separate storage allocations in the supporting
+lease's physical space. Their snapshotted grace starts at the later of actual
+settlement and paid coverage expiry, using the active-world clock. A timely paid
+extension extends that support before grace starts. Shared allocations count
+aggregate occupied volume and current paid blocks once; they cannot receive new
+cargo or acquire additional blocks. Other expired stock keeps its own deadline.
+During grace, replacement pays the current progressive new-lease quote for the
+remaining occupied blocks plus accrued storage charges. A fresh paid lease starts
+immediately, preserving lot identity, standing-order priority and auction terms.
+Failed payment changes nothing. The old charge pool retains its payment history,
+and a later expiry of the replacement creates a separate liquidation pool.
 
 Reservations are relational, typed claims owned by the warehouse aggregate.
 Players earmark quantities of a cargo for a ship, or reserve receiving volume.
@@ -925,5 +935,5 @@ guarantees still settle against debt recorded at closure. The legacy
 closure reasons and owner notices distinguish dormancy from bankruptcy.
 
 Expired-lease liquidation now follows the order-book, auction and clearance
-sequence described above, with durable per-lease charge caps. Won-cargo storage
-grace and replacement leases remain pending.
+sequence described above, with durable per-lease charge caps. Won-cargo grace
+and replacement leases use isolated allocations and preserve those caps.

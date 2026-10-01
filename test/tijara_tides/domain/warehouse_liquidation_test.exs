@@ -341,7 +341,11 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     assert p["paid"] == 0
     assert p["sunk"] == p["proceeds"] - p["charged"]
     assert p["sunk"] > 0
-    assert Enum.sum(for b <- State.get(s, "warehouses", "buyer")["cargo"], do: b["quantity"]) == 3
+
+    assert Enum.sum(
+             for b <- State.get(s, "warehouses", "award:" <> a.id)["cargo"], do: b["quantity"]
+           ) == 3
+
     assert State.get(s, "companies", "aco")["reserved"] == 0
     assert State.get(s, "companies", "bco")["reserved"] == 0
     assert close(c, s, a.closes_ms) == s
@@ -421,7 +425,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     s = close(c, s, second.closes_ms)
     assert AuctionWorld.fetch(s, first.id).status == "unsold"
     assert AuctionWorld.fetch(s, second.id).status == "sold"
-    [cargo] = State.get(s, "warehouses", "receiving")["cargo"]
+    [cargo] = State.get(s, "warehouses", "award:" <> second.id)["cargo"]
     assert cargo["expires_ms"] == @grace + 20_000_000
     assert cargo["quantity"] == 1000
     assert WarehouseLiquidation.pool(s, "cold")["status"] == "completed"
@@ -454,7 +458,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     s = close(c, s, @grace + 14_000_000)
     assert AuctionWorld.fetch(s, first.id).status == "cancelled"
     assert AuctionWorld.fetch(s, second.id).status == "sold"
-    [cargo] = State.get(s, "warehouses", "receiving")["cargo"]
+    [cargo] = State.get(s, "warehouses", "award:" <> second.id)["cargo"]
     assert cargo["expires_ms"] == @grace + 20_000_000
     assert cargo["quantity"] == 1000
     assert WarehouseLiquidation.pool(s, "cold")["status"] == "completed"
