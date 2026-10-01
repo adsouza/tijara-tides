@@ -5953,6 +5953,203 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#destination-picker-trigger", port)
   end
 
+  test "a same-tick funding timeout hands the accumulator to an existing request atomically", c do
+    alias TijaraTides.Domain.State
+    alias TijaraTides.Domain.Services.DepartureFunding
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {before, cat, account, claimant, holder, _third} = departure_handoff_fixture(c)
+    old = State.get(before, "departure_requests", holder["id"])
+
+    next =
+      %{before | clock_ms: old["window_deadline_ms"], revision: before.revision + 1}
+      |> DepartureFunding.advance(cat)
+
+    released = State.get(next, "departure_requests", holder["id"])
+    claimed = State.get(next, "departure_requests", claimant["id"])
+    assert released["window_deadline_ms"] == nil
+    assert released["accumulated"] == 0
+    assert released["cooldown_ms"] > next.clock_ms
+    assert claimed["accumulated"] == old["accumulated"]
+    assert claimed["window_deadline_ms"] > next.clock_ms
+
+    assert Enum.any?(State.entities(next, "notices"), fn {_, n} ->
+             n["code"] == "funding.timeout"
+           end)
+
+    receipt = {account["id"], "funding-handoff", "funding-handoff-fingerprint", %{"ok" => true}}
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next, receipt)
+
+    assert {:error, {:replay, %{"ok" => true}}} =
+             GameStore.commit(Repo, c.world_id, before.epoch, before, next, receipt)
+
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+
+    assert State.entities(restored, "departure_requests") ==
+             State.entities(next, "departure_requests")
+
+    assert State.get(restored, "companies", account["company_id"])["reserved"] == 100
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "deleted accumulators release the index before existing and newly inserted claims", c do
+    alias TijaraTides.Domain.{State, AutomationWorld}
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {before, _cat, account, claimant, holder, third} = departure_handoff_fixture(c)
+
+    {restored, _} =
+      Enum.reduce([claimant, third], {before, holder["id"]}, fn vessel, {before, holder_id} ->
+        next =
+          before
+          |> AutomationWorld.abandon_request(State.get(before, "departure_requests", holder_id))
+
+        next =
+          if vessel == third do
+            AutomationWorld.request(
+              next,
+              %{
+                ship_id: third["id"],
+                company_id: account["company_id"],
+                port: "Singapore",
+                stop_id: nil,
+                visit: 0,
+                configured: nil
+              },
+              "wait",
+              900_000_000
+            )
+          else
+            next
+          end
+
+        next =
+          AutomationWorld.accumulate(
+            next,
+            State.get(next, "departure_requests", vessel["id"]),
+            100,
+            200
+          )
+          |> Map.put(:revision, before.revision + 1)
+
+        assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+        assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+
+        assert State.entities(restored, "departure_requests") ==
+                 State.entities(next, "departure_requests")
+
+        assert :ok = FinancialLedger.audit(Repo, c.world_id)
+
+        {restored, vessel["id"]}
+      end)
+
+    # Recreating the deleted request with zero cash still claims the unique slot.
+    invalid =
+      AutomationWorld.accumulate(
+        restored,
+        State.get(before, "departure_requests", claimant["id"]),
+        0,
+        200
+      )
+      |> Map.put(:revision, restored.revision + 1)
+
+    error =
+      assert_raise Postgrex.Error, fn ->
+        GameStore.commit(Repo, c.world_id, restored.epoch, restored, invalid)
+      end
+
+    assert error.postgres.constraint == "game_one_departure_accumulator"
+    assert {:ok, after_rollback} = GameStore.reload(Repo, c.world_id, restored)
+    assert after_rollback.entities == restored.entities
+    assert after_rollback.revision == restored.revision
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  defp departure_handoff_fixture(c) do
+    alias TijaraTides.Domain.{State, CompanyFinanceWorld, ShipWorld}
+    alias TijaraTides.Domain.Services.{RouteEditing, DepartureFunding}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "handoff-company",
+        %{
+          "action" => "company",
+          "name" => "Handoff trader",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    base = :sys.get_state(c.server).game
+    account = GameServer.snapshot(token, c.server).private["account"]
+
+    [claimant, holder, third] =
+      State.entities(base, "ships") |> Map.values() |> Enum.sort_by(& &1["id"])
+
+    cat =
+      Map.put(:sys.get_state(c.server).catalogue, "departure_funding", %{
+        "wait_ms" => 100,
+        "window_ms" => 50,
+        "cooldown_ms" => 200
+      })
+
+    company = State.get(base, "companies", account["company_id"])
+    delta = 100 - company["cash"] + company["reserved"]
+
+    state =
+      CompanyFinanceWorld.post(base, company["id"], "test_funds", [
+        {"cash_available", delta},
+        {"capital", -delta}
+      ])
+
+    # The older holder sorts after its claimant in the persistence map, so an
+    # unordered update batch attempts the new claim before releasing the old one.
+    state =
+      Enum.reduce([{holder, 0}, {claimant, 1}], state, fn {ship, clock}, state ->
+        state = Map.put(state, :clock_ms, clock)
+
+        state =
+          Enum.reduce([{"Jakarta", "a"}, {"Singapore", "b"}], state, fn {port, suffix}, state ->
+            {:ok, state, _} =
+              RouteEditing.execute(
+                state,
+                account,
+                %{"ship" => ship["id"], "operation" => "add_stop", "port" => port},
+                %{id: ship["id"] <> suffix, catalogue: cat}
+              )
+
+            state
+          end)
+
+        {:ok, state, _} =
+          DepartureFunding.configure_visit(
+            state,
+            account,
+            %{"ship" => ship["id"], "stop" => ship["id"] <> "b", "amount" => 900_000_000},
+            cat
+          )
+
+        {:ok, state, _} =
+          RouteEditing.execute(
+            state,
+            account,
+            %{"ship" => ship["id"], "operation" => "start", "auto_depart" => true},
+            %{id: ship["id"] <> "start", catalogue: cat}
+          )
+
+        state |> ShipWorld.prepare_visits(cat) |> DepartureFunding.advance(cat)
+      end)
+
+    next = %{state | clock_ms: 100, revision: base.revision + 1} |> DepartureFunding.advance(cat)
+    assert State.get(next, "departure_requests", holder["id"])["accumulated"] == 100
+    assert State.get(next, "departure_requests", claimant["id"])["window_deadline_ms"] == nil
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, base.epoch, base, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    {restored, cat, account, claimant, holder, third}
+  end
+
   test "linked orders and accumulated departure funding persist, replay and reject unbacked cash releases",
        c do
     alias TijaraTides.Domain.{State, Warehouse, WarehouseWorld, CompanyFinanceWorld}

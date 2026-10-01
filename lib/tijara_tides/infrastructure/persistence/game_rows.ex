@@ -482,11 +482,29 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
         end)
         |> Enum.split_with(fn {_, operation} -> operation == :delete end)
 
-      write_batch(repo, world, kind, before, after_state, puts)
-      delete_batch(repo, world, kind, before, deletes)
+      write_changes(repo, world, kind, before, after_state, puts, deletes)
     end
 
     :ok
+  end
+
+  defp write_changes(repo, world, "departure_requests" = kind, before, after_state, puts, deletes) do
+    # The accumulator index is partial and immediate. A timeout or cancellation
+    # can hand it to another existing request in the same tick, so release rows
+    # must be in a separate statement before any claims, regardless of row order.
+    {releases, claims} =
+      Enum.split_with(puts, fn {{_, id}, _} ->
+        is_nil(get_in(after_state, [:entities, kind, id, "window_deadline_ms"]))
+      end)
+
+    delete_batch(repo, world, kind, before, deletes)
+    write_batch(repo, world, kind, before, after_state, releases)
+    write_batch(repo, world, kind, before, after_state, claims)
+  end
+
+  defp write_changes(repo, world, kind, before, after_state, puts, deletes) do
+    write_batch(repo, world, kind, before, after_state, puts)
+    delete_batch(repo, world, kind, before, deletes)
   end
 
   # Batch existing rows separately from inserts: a tick changes every moving ship,
