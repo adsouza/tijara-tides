@@ -82,6 +82,142 @@ defmodule TijaraTides.Domain.WarehouseTest do
     ])
   end
 
+  test "collection selects earliest qualifying life, preserves excluded lots and acquisition costs",
+       c do
+    state = put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")
+    state = lease(c, state, 10, "reefer")
+
+    state =
+      stock(state, "lease", [{"fruit", 2, 120_000}, {"fruit", 3, 59_999}, {"fruit", 2, 60_000}])
+
+    command = %{
+      "warehouse" => "lease",
+      "ship" => "company:1",
+      "good" => "fruit",
+      "quantity" => 3,
+      "side" => "collect",
+      "min_remaining_ms" => 60_000
+    }
+
+    {:ok, loaded, _} = WarehouseWorld.transfer(state, c.account, command, c.catalogue)
+    cargo = Game.get(loaded, "ships", "company:1")["cargo"]
+    assert Enum.map(cargo, & &1["expires_ms"]) == [60_000, 120_000]
+    assert Enum.all?(cargo, &(&1["unit_cost"] == 100))
+    remaining = Game.get(loaded, "warehouses", "lease")["cargo"]
+    assert Enum.sum(for b <- remaining, do: b["quantity"]) == 4
+    assert Enum.any?(remaining, &(&1["expires_ms"] == 59_999 and &1["quantity"] == 3))
+    assert Enum.any?(remaining, &(&1["expires_ms"] == 120_000 and &1["quantity"] == 1))
+
+    original =
+      Game.get(state, "warehouses", "lease")["cargo"] |> Enum.find(&(&1["expires_ms"] == 120_000))
+
+    child = Enum.find(cargo, &(&1["expires_ms"] == 120_000))
+
+    assert Enum.find(loaded.new_lots, &(&1["id"] == child["lot_id"]))["parent_lot_id"] ==
+             original["lot_id"]
+  end
+
+  test "freshness-limited collection cannot consume other ships' reserved quantity", c do
+    state = put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")
+    ship = Game.get(state, "ships", "company:1")
+
+    state =
+      TijaraTides.Domain.State.put(state, "ships", "company:2", %{ship | "id" => "company:2"})
+
+    state =
+      lease(c, state, 10, "reefer")
+      |> then(&stock(&1, "lease", [{"fruit", 5, 59_999}, {"fruit", 2, 60_000}]))
+
+    {:ok, state, _} =
+      WarehouseWorld.reserve(
+        state,
+        c.account,
+        %{
+          "warehouse" => "lease",
+          "ship" => "company:2",
+          "good" => "fruit",
+          "kind" => "stock",
+          "quantity" => 2
+        },
+        "other-claim",
+        c.catalogue
+      )
+
+    command = %{
+      "warehouse" => "lease",
+      "ship" => "company:1",
+      "good" => "fruit",
+      "quantity" => 1,
+      "side" => "collect",
+      "min_remaining_ms" => 60_000
+    }
+
+    assert {:error, :insufficient_cargo} =
+             WarehouseWorld.transfer(state, c.account, command, c.catalogue)
+
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 60_000) == nil
+    assert Game.get(state, "warehouse_reservations", "other-claim")["quantity"] == 2
+    assert Game.get(state, "ships", "company:1")["cargo"] == []
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 0).id == "lease"
+  end
+
+  test "berth viability uses qualifying owned stock even when market cargo is too old", c do
+    state = put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")
+    state = lease(c, state, 10, "reefer") |> then(&stock(&1, "lease", [{"fruit", 3, 3_600_000}]))
+    market = Game.get(state, "markets", "Jakarta|fruit")
+
+    state =
+      TijaraTides.Domain.State.put(state, "markets", "Jakarta|fruit", %{
+        market
+        | "stock" => 0,
+          "batches" => []
+      })
+
+    order = %{
+      "id" => "fresh",
+      "ship_id" => "company:1",
+      "company_id" => "company",
+      "port" => "Jakarta",
+      "side" => "buy",
+      "good" => "fruit",
+      "quantity_mode" => "fixed",
+      "quantity" => 2,
+      "filled" => 0,
+      "limit" => 100_000,
+      "budget" => 1,
+      "spent" => 0,
+      "onward" => "Singapore",
+      "status" => "planned",
+      "reason" => "Route visit target",
+      "created_ms" => 0,
+      "min_remaining_ms" => 3_600_000
+    }
+
+    state = TijaraTides.Domain.State.put(state, "ship_instructions", "fresh", order)
+
+    state =
+      TijaraTides.Domain.BerthFixture.update(state, "company:1", %{
+        berth_granted_ms: nil,
+        berth_queued_ms: 0
+      })
+
+    admitted = TijaraTides.Domain.Services.BerthAllocation.advance(state, c.catalogue)
+    assert Game.get(admitted, "ships", "company:1")["berth_granted_ms"] == 0
+    filled = TijaraTides.Domain.ShipInstructions.advance(admitted, c.catalogue)
+    assert Game.get(filled, "ship_instructions", "fresh")["filled"] == 2
+    assert Game.get(filled, "ship_instructions", "fresh")["spent"] == 0
+
+    assert Enum.all?(
+             Game.get(filled, "ships", "company:1")["cargo"],
+             &(&1["expires_ms"] == 3_600_000 and &1["unit_cost"] == 100)
+           )
+
+    assert Game.get(filled, "markets", "Jakarta|fruit")["stock"] == 0
+
+    assert Enum.sum(for b <- Game.get(filled, "warehouses", "lease")["cargo"], do: b["quantity"]) ==
+             1
+  end
+
   defp stocked(c) do
     state = lease(c, c.state)
     {state, batch} = CargoLots.create(state, "lumber", 10, nil)

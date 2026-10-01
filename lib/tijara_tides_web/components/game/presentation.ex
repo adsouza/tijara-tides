@@ -495,6 +495,10 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         gettext("Use 1–10,000 lots and a valid nonnegative limit price."),
       instruction_expiry_invalid:
         gettext("Choose an expiry from 1 minute to 30 days, or leave it blank for no expiry."),
+      instruction_freshness_invalid:
+        gettext(
+          "Choose a minimum shelf life from 0 to 43,200 minutes for buys, or leave it blank."
+        ),
       instruction_sell_exceeds_cargo:
         gettext(
           "The sell target exceeds the selected cargo currently aboard. Reduce the target and try again."

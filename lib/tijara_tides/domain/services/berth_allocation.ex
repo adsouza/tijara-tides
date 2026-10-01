@@ -233,6 +233,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
             good: &1["good"],
             quantity: 1,
             limit: &1["limit"],
+            min_remaining_ms: Map.get(&1, "min_remaining_ms", 0),
             destination: &1["onward"]
           }
         )
@@ -242,7 +243,17 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
       (trades == [] ||
          Enum.any?(
            trades,
-           &(TradeSettlement.validate(state, account, &1, catalogue) == :ok)
+           fn trade ->
+             if ship["pending_side"],
+               do: TradeSettlement.validate(state, account, trade, catalogue) == :ok,
+               else:
+                 TijaraTides.Domain.Services.AutomatedVisits.validate(
+                   state,
+                   account,
+                   trade,
+                   catalogue
+                 ) == :ok
+           end
          ))
   end
 

@@ -60,11 +60,23 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       trade.quantity,
       trade.limit,
       trade.destination,
+      trade.min_remaining_ms,
       catalogue
     )
   end
 
-  defp trade(state, account, action, ship_id, good, quantity, limit, destination, catalogue) do
+  defp trade(
+         state,
+         account,
+         action,
+         ship_id,
+         good,
+         quantity,
+         limit,
+         destination,
+         minimum,
+         catalogue
+       ) do
     with %{} = company <- get(state, "companies", account["company_id"]),
          %{"company_id" => owner, "status" => "docked"} = ship <- get(state, "ships", ship_id),
          true <- owner == company["id"] and is_nil(company["bankruptcy_ms"]),
@@ -73,7 +85,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
          true <-
            is_integer(quantity) and quantity > 0 and quantity <= max_lots() and
              is_integer(limit) and
-             limit >= 0 do
+             limit >= 0 and TijaraTides.Domain.CargoRules.valid_remaining?(minimum) do
       market = get(state, "markets", ship["port"] <> "|" <> good)
       quote = quote(state, catalogue, ship["port"], good)
       handling = quantity * handling_rate(catalogue["ports"][ship["port"]])
@@ -91,6 +103,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             quote,
             handling,
             destination,
+            minimum,
             catalogue
           ),
         else: sell(state, company, ship, good, quantity, limit, market, quote, handling)
@@ -163,6 +176,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
          quote,
          handling,
          destination,
+         minimum,
          catalogue
        ) do
     class = classes()[ship["class"]]
@@ -196,6 +210,18 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       quote["stock"] < quantity ->
         {:error, :insufficient_supply}
 
+      item["shelf_ms"] > 0 and
+          Enum.sum(
+            for b <- quote["freshness_batches"],
+                TijaraTides.Domain.CargoRules.qualifies?(
+                  b["expires_ms"],
+                  state.clock_ms,
+                  minimum
+                ),
+                do: b["quantity"]
+          ) < quantity ->
+        {:error, :insufficient_fresh_cargo}
+
       company["cash"] - company["reserved"] < cost + handling + cleaning or company["unpaid"] > 0 ->
         {:error, :insufficient_cash}
 
@@ -215,7 +241,8 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             market["good"],
             quantity,
             quote["ask"],
-            item
+            item,
+            minimum
           )
 
         state =

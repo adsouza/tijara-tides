@@ -99,6 +99,147 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     state
   end
 
+  defp fruit_state(_c, state) do
+    source = Game.get(state, "markets", "Jakarta|fruit")
+
+    state
+    |> put_in([:entities, "ships", "company:1", "class"], "reefer")
+    |> State.put("markets", "Singapore|fruit", %{
+      source
+      | "port" => "Singapore",
+        "stock" => 0,
+        "batches" => []
+    })
+  end
+
+  defp fruit_supply(state, entries) do
+    {state, batches} =
+      Enum.map_reduce(entries, state, fn {quantity, life}, state ->
+        {next, lot} =
+          TijaraTides.Domain.CargoLots.create(state, "fruit", quantity, state.clock_ms + life)
+
+        {lot, next}
+      end)
+      |> then(fn {batches, state} -> {state, batches} end)
+
+    market = Game.get(state, "markets", "Singapore|fruit")
+
+    State.put(state, "markets", "Singapore|fruit", %{
+      market
+      | "stock" => Enum.sum(for b <- batches, do: b["quantity"]),
+        "batches" => batches
+    })
+  end
+
+  test "minimum shelf life is validated for buys, defaults to zero and stays private", c do
+    for value <- [0, 1, 2_592_000_000] do
+      {:ok, state, _} = add(c, c.state, "fresh", %{"min_remaining_ms" => value})
+      assert Game.get(state, "ship_instructions", "fresh")["min_remaining_ms"] == value
+      refute Map.has_key?(Game.public(state, c.catalogue), "ship_instructions")
+    end
+
+    for value <- [nil, false, "60", 1.5, -1, 2_592_000_001] do
+      assert {:error, :instruction_freshness_invalid} =
+               add(c, c.state, "fresh", %{"min_remaining_ms" => value})
+    end
+
+    {:ok, state, _} = add(c, c.state, "legacy")
+    assert Game.get(state, "ship_instructions", "legacy")["min_remaining_ms"] == 0
+  end
+
+  test "insufficiently fresh market stock waits without settlement, then resumes when replenished",
+       c do
+    state = fruit_state(c, c.state)
+
+    {:ok, state, _} =
+      add(c, state, "fresh", %{
+        "good" => "fruit",
+        "quantity" => 2,
+        "min_remaining_ms" => 3_600_000
+      })
+
+    state = arrive(c, state) |> fruit_supply([{5, 3_599_999}])
+    waiting = ShipInstructions.advance(state, c.catalogue)
+
+    assert Game.get(waiting, "ship_instructions", "fresh")["reason"] ==
+             "Waiting for cargo meeting the minimum remaining shelf life"
+
+    assert Game.get(waiting, "ship_instructions", "fresh")["filled"] == 0
+
+    assert Map.drop(waiting.entities, ["ship_instructions", "notices"]) ==
+             Map.drop(state.entities, ["ship_instructions", "notices"])
+
+    assert ShipInstructions.advance(waiting, c.catalogue) == waiting
+    filled = waiting |> fruit_supply([{5, 3_600_000}]) |> ShipInstructions.advance(c.catalogue)
+    assert Game.get(filled, "ship_instructions", "fresh")["filled"] == 2
+    assert Game.get(filled, "ship_instructions", "fresh")["min_remaining_ms"] == 3_600_000
+
+    assert hd(Game.get(filled, "ships", "company:1")["cargo"])["expires_ms"] ==
+             state.clock_ms + 3_600_000
+
+    assert ShipInstructions.advance(filled, c.catalogue) == filled
+  end
+
+  test "market fills select earliest qualifying expiry, preserve excluded stock and retry only the remainder",
+       c do
+    state = fruit_state(c, c.state)
+
+    {:ok, state, _} =
+      add(c, state, "fresh", %{
+        "good" => "fruit",
+        "quantity" => 3,
+        "min_remaining_ms" => 3_600_000
+      })
+
+    state = arrive(c, state) |> fruit_supply([{1, 7_200_000}, {4, 3_599_999}, {1, 3_600_000}])
+    filled = ShipInstructions.advance(state, c.catalogue)
+    order = Game.get(filled, "ship_instructions", "fresh")
+    assert order["filled"] == 2
+    cargo = Game.get(filled, "ships", "company:1")["cargo"]
+
+    assert Enum.map(cargo, & &1["expires_ms"]) == [
+             state.clock_ms + 3_600_000,
+             state.clock_ms + 7_200_000
+           ]
+
+    assert Game.get(filled, "markets", "Singapore|fruit")["stock"] == 4
+    assert ShipInstructions.advance(filled, c.catalogue) == filled
+    ship = Game.get(filled, "ships", "company:1")
+
+    waiting =
+      TijaraTides.Domain.Fleet.advance(%{filled | clock_ms: ship["arrive_ms"]}, 0)
+      |> ShipInstructions.advance(c.catalogue)
+
+    assert Game.get(waiting, "ship_instructions", "fresh")["filled"] == 2
+    assert Game.get(waiting, "ship_instructions", "fresh")["reason"] =~ "minimum remaining"
+    finished = waiting |> fruit_supply([{3, 3_600_000}]) |> ShipInstructions.advance(c.catalogue)
+    assert Game.get(finished, "ship_instructions", "fresh")["filled"] == 3
+    assert Game.get(finished, "ship_instructions", "fresh")["status"] == "filled"
+
+    assert Enum.sum(for b <- Game.get(finished, "ships", "company:1")["cargo"], do: b["quantity"]) ==
+             3
+  end
+
+  test "freshness-unviable instructions do not hold a berth", c do
+    state = fruit_state(c, c.state)
+
+    {:ok, state, _} =
+      add(c, state, "fresh", %{"good" => "fruit", "min_remaining_ms" => 3_600_000})
+
+    state = arrive(c, state) |> fruit_supply([{5, 3_599_999}])
+
+    state =
+      TijaraTides.Domain.BerthFixture.update(state, "company:1", %{
+        berth_granted_ms: nil,
+        berth_queued_ms: state.clock_ms
+      })
+
+    waiting = TijaraTides.Domain.Services.BerthAllocation.advance(state, c.catalogue)
+    assert Game.get(waiting, "ships", "company:1")["berth_granted_ms"] == nil
+    assert Game.get(waiting, "ships", "company:1")["berth_retry_ms"] > state.clock_ms
+    assert Game.get(waiting, "ships", "company:1")["cargo"] == []
+  end
+
   test "departure archives completed history even on a return to the same port", c do
     {:ok, state, _} = add(c, c.state, "next")
     order = Game.get(state, "ship_instructions", "next")

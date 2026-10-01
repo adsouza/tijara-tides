@@ -535,9 +535,9 @@ defmodule TijaraTidesWeb.GameLive do
     target = List.last(params["_target"] || [])
 
     fields =
-      if target in ~w(side good quantity limit budget onward expiry_minutes),
+      if target in ~w(side good quantity limit budget onward expiry_minutes freshness_minutes),
         do: [target],
-        else: ~w(side good quantity limit budget onward expiry_minutes)
+        else: ~w(side good quantity limit budget onward expiry_minutes freshness_minutes)
 
     draft = Map.merge(previous, Map.take(params, fields))
     draft = if target in ["side", "good"], do: Map.drop(draft, ["quantity", "limit"]), else: draft
@@ -570,7 +570,12 @@ defmodule TijaraTidesWeb.GameLive do
           "rule" => id,
           "limit" => :erlang.float_to_binary(rule["limit"] / 100, decimals: 2),
           "budget" => if(rule["budget"], do: to_string(div(rule["budget"], 100)), else: ""),
-          "quantity" => to_string(rule["quantity"] || 1)
+          "quantity" => to_string(rule["quantity"] || 1),
+          "freshness_minutes" =>
+            if(rule["min_remaining_ms"] in [nil, 0],
+              do: "",
+              else: to_string(div(rule["min_remaining_ms"], 60_000))
+            )
         })
 
       {:noreply,
@@ -596,7 +601,7 @@ defmodule TijaraTidesWeb.GameLive do
            socket.assigns.route_drafts,
            key,
            params
-           |> Map.take(~w(rule side good quantity quantity_mode limit budget))
+           |> Map.take(~w(rule side good quantity quantity_mode limit budget freshness_minutes))
            |> Map.filter(fn {_, value} -> is_binary(value) and byte_size(value) <= 128 end)
          )
        )}
@@ -615,6 +620,7 @@ defmodule TijaraTidesWeb.GameLive do
       case params["operation"] do
         op when op in ["add_rule", "update_rule"] ->
           Map.merge(command, %{
+            "min_remaining_ms" => freshness_minimum(params),
             "quantity" => report_number(params["quantity"]) || 0,
             "limit" =>
               if(is_binary(params["limit"]) and byte_size(params["limit"]) <= 32,
@@ -665,6 +671,8 @@ defmodule TijaraTidesWeb.GameLive do
       |> Map.update("quantity", 0, &integer/1)
       |> Map.update("limit", 0, &instruction_cents/1)
       |> Map.update("budget", 0, &(integer(&1) * 100))
+      |> Map.put("min_remaining_ms", freshness_minimum(params))
+      |> Map.delete("freshness_minutes")
       |> Map.put(
         "expires_in_ms",
         if(params["expiry_minutes"] in [nil, ""],
@@ -900,6 +908,12 @@ defmodule TijaraTidesWeb.GameLive do
       {n, ""} when n >= 0.01 and n <= 10_000_000_000 -> round(n * 100)
       _ -> 0
     end
+  end
+
+  defp freshness_minimum(params) do
+    if params["side"] == "sell" or params["freshness_minutes"] in [nil, ""],
+      do: 0,
+      else: (report_number(params["freshness_minutes"]) || -1) * 60_000
   end
 
   defp report_number(value) when is_integer(value), do: value

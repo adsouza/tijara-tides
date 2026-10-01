@@ -121,6 +121,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"max_wait_ms", "max_wait_ms"}
     ],
     "route_rules" => [
+      {"min_remaining_ms", "min_remaining_ms"},
       {"id", "id"},
       {"ship_id", "ship_id"},
       {"company_id", "company_id"},
@@ -142,6 +143,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"departure_wait", "departure_wait"}
     ],
     "ship_instructions" => [
+      {"min_remaining_ms", "min_remaining_ms"},
       {"expires_ms", "expires_ms"},
       {"history_archived", "history_archived"},
       {"id", "id"},

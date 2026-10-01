@@ -18,7 +18,11 @@ defmodule TijaraTides.Domain.PortCargoMarket do
       "ask" => div(item["reference_cents"] * (ask_base + div(500 - market.stock, 25)), 100),
       "bid" => div(item["reference_cents"] * (bid_base - div(500 - market.demand, 25)), 100),
       "handling_fee" => handling_rate(catalogue["ports"][market.port]),
-      "freshness_batches" => if(market.seller, do: market.batches, else: []),
+      "freshness_batches" =>
+        if(market.seller,
+          do: Enum.sort_by(market.batches, &(&1.expires_ms || 9_223_372_036_854_775_807)),
+          else: []
+        ),
       # Factory feedstock is physical inventory, not an offer to sell it.
       "stock" => if(market.seller, do: market.stock, else: 0),
       "demand" => if(market.buyer, do: market.demand, else: 0),
@@ -28,9 +32,10 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   end
 
   @doc "Release supplier cargo, preserving perishable lot identities and split lineage."
-  def supply(%Lots{} = lots, %__MODULE__{} = market, quantity, price, item) do
+  def supply(%Lots{} = lots, %__MODULE__{} = market, quantity, price, item, minimum \\ 0) do
     unless item["id"] == market.good and market.seller and is_integer(quantity) and quantity > 0 and
-             quantity <= market.stock and is_integer(price) and price >= 0,
+             quantity <= market.stock and is_integer(price) and price >= 0 and
+             TijaraTides.Domain.CargoRules.valid_remaining?(minimum),
            do: raise(ArgumentError, "Market cannot supply the requested cargo quantity or price")
 
     {lots, taken, remaining} =
@@ -42,7 +47,19 @@ defmodule TijaraTides.Domain.PortCargoMarket do
                  Enum.sum(Enum.map(market.batches, & &1.quantity)) == market.stock,
                do: raise(ArgumentError, "Market freshness batches must match its unexpired stock")
 
-        Lots.take(lots, market.batches, quantity, market.good)
+        {qualifying, excluded} =
+          Enum.split_with(
+            market.batches,
+            &TijaraTides.Domain.CargoRules.qualifies?(&1.expires_ms, lots.clock_ms, minimum)
+          )
+
+        qualifying = Enum.sort_by(qualifying, &(&1.expires_ms || 9_223_372_036_854_775_807))
+
+        if Enum.sum(Enum.map(qualifying, & &1.quantity)) < quantity,
+          do: raise(ArgumentError, "Market supply does not meet minimum remaining life")
+
+        {next, taken, remaining} = Lots.take(lots, qualifying, quantity, market.good)
+        {next, taken, remaining ++ excluded}
       else
         {next, lot} = Lots.create(lots, market.good, quantity, nil)
         {next, [lot], []}

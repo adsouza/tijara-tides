@@ -49,6 +49,24 @@ defmodule TijaraTides.Domain.PortCargoMarketAggregateTest do
     assert Market.receive_cargo(%{buyer | merchant: true}, 3, 20, cargo).stock == 3
   end
 
+  test "supplier quotes follow earliest expiry and minimum-life fills retain excluded lots" do
+    item = %{"id" => "fruit", "shelf_ms" => 100_000, "reference_cents" => 20, "manual" => true}
+    {lots, newer} = Lots.create(%Lots{clock_ms: 1000}, "fruit", 2, 5000)
+    {lots, older} = Lots.create(lots, "fruit", 2, 3000)
+    market = %{supplier("fruit") | stock: 4, batches: [newer, older]}
+    quote = Market.quote(market, %{"goods" => %{"fruit" => item}, "ports" => %{}})
+    assert Enum.map(quote["freshness_batches"], & &1.expires_ms) == [3000, 5000]
+    {next, remaining, [cargo]} = Market.supply(lots, market, 1, 20, item, 2500)
+    assert cargo.expires_ms == 5000
+    assert cargo.quantity == 1
+    assert cargo.unit_cost == 20
+    assert remaining.stock == 3
+    assert Enum.any?(remaining.batches, &(&1 == older))
+    assert Enum.find(next.new_lots, &(&1["id"] == cargo.lot_id))["parent_lot_id"] == newer.lot_id
+    assert_raise ArgumentError, fn -> Market.supply(lots, market, 3, 20, item, 2500) end
+    assert_raise ArgumentError, fn -> Market.supply(lots, market, 1, 20, item, -1) end
+  end
+
   test "expiry removes supplier stock before replenishment; partial lots preserve lineage" do
     item = %{"id" => "fruit", "shelf_ms" => 100_000, "reference_cents" => 20}
     {state, lot} = Lots.create(%Lots{clock_ms: 0}, "fruit", 10, 100_000)

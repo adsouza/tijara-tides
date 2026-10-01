@@ -143,6 +143,11 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
                 value1: TijaraTides.Localization.number(rule["budget"] / 100, format: "0.00")
               )}
             </span>
+            <span :if={rule["min_remaining_ms"] && rule["min_remaining_ms"] > 0}>
+              {gettext("Minimum remaining shelf life: %{minutes} min",
+                minutes: display_number(div(rule["min_remaining_ms"], 60_000))
+              )}
+            </span>
             <button
               type="button"
               phx-click={
@@ -259,6 +264,21 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
                   value={draft["budget"]}
                   class="block w-full rounded bg-slate-800 p-2 disabled:opacity-40"
                 /></label>
+                <label>{gettext("Minimum shelf life (minutes; buys only)")}<input
+                  name="freshness_minutes"
+                  type="number"
+                  min="0"
+                  max="43200"
+                  step="1"
+                  disabled={side == "sell"}
+                  value={draft["freshness_minutes"] || ""}
+                  class="block w-full rounded bg-slate-800 p-2 disabled:opacity-40"
+                /></label>
+                <p class="self-center text-xs text-slate-400">
+                  {gettext(
+                    "Checked at purchase or collection, in active-world time. Blank accepts any unspoiled cargo."
+                  )}
+                </p>
                 <button
                   disabled={goods == []}
                   class="self-end rounded bg-teal-600 px-3 py-2 disabled:opacity-40"
@@ -379,6 +399,11 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
         </p>
       </details>
       <div :for={order <- @model.orders} class="mt-2 text-sm">
+        <p :if={order["min_remaining_ms"] && order["min_remaining_ms"] > 0}>
+          {gettext("Minimum remaining shelf life: %{minutes} min",
+            minutes: display_number(div(order["min_remaining_ms"], 60_000))
+          )}
+        </p>
         <.emoji symbol={cargo_emoji(order["good"])} />
         {gettext("%{value1} %{value2}: %{value3}/%{value4} lots · %{value5}",
           value1: l10n(order["side"]),

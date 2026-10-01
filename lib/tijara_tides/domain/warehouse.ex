@@ -241,14 +241,21 @@ defmodule TijaraTides.Domain.Warehouse do
     %{w | cargo: w.cargo ++ cargo}
   end
 
-  def release_cargo(%Lots{} = lots, %__MODULE__{} = w, good, quantity) do
-    unless is_integer(quantity) and quantity > 0 and
-             quantity <= fresh_stock(w, good, lots.clock_ms),
+  def release_cargo(%Lots{} = lots, %__MODULE__{} = w, good, quantity, minimum \\ 0) do
+    {fresh, excluded} =
+      Enum.split_with(
+        w.cargo,
+        &TijaraTides.Domain.CargoRules.qualifies?(&1.expires_ms, lots.clock_ms, minimum)
+      )
+
+    unless TijaraTides.Domain.CargoRules.valid_remaining?(minimum) and is_integer(quantity) and
+             quantity > 0 and
+             quantity <= Enum.sum(for b <- fresh, b.good == good, do: b.quantity),
            do: raise(ArgumentError, "Warehouse release exceeds fresh cargo")
 
-    {fresh, stale} = Enum.split_with(w.cargo, &fresh?(&1, lots.clock_ms))
+    fresh = Enum.sort_by(fresh, &(&1.expires_ms || 9_223_372_036_854_775_807))
     {lots, cargo, remaining} = CargoBatch.take(lots, fresh, quantity, good)
-    {lots, %{w | cargo: remaining ++ stale}, cargo}
+    {lots, %{w | cargo: remaining ++ excluded}, cargo}
   end
 
   def protect_handling(%__MODULE__{} = w, until_ms), do: %{w | protected_ms: until_ms}

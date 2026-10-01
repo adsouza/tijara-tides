@@ -1584,6 +1584,19 @@ configured automatic departure still waits for all other active orders and
 committed handling. Replaying the creation request never extends the deadline.
 Repeating-route targets use their stop's maximum wait instead.
 
+The playtest's next-port buys and repeating-route load targets support a minimum
+remaining lifetime at settlement, in active-world minutes (0–43,200; blank means
+any unspoiled cargo). Within each source, choose earliest-expiring qualifying
+stock first, preserving cost, lot identity and expiry. Count only qualifying
+cargo aboard toward a fixed load target, while all cargo occupies capacity.
+When stock fails the requirement, wait and retry without settling a trade or
+spending money. Partially filled instructions retain their committed progress
+and remaining terms. Editing a route template changes future materializations;
+existing visit orders keep their snapshot. This minimum is not a guarantee of
+freshness after loading, travel or unloading; those projected times remain
+estimates. Freshness grades, standing-order buyer terms and freshness-aware
+reservation replacement remain later extensions.
+
 Players can give each destination instructions to sell up to a quantity above a
 minimum price, buy up to a quantity below a maximum price with a spending cap,
 then wait or continue. Sell instructions run before buy instructions. Unfilled

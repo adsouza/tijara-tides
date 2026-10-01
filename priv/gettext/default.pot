@@ -41,7 +41,7 @@ msgstr ""
 msgid "%{value1} %{value2} · %{value3} $%{value4} / lot"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:383
+#: lib/tijara_tides_web/components/ship_route_editor.ex:408
 #, elixir-autogen, elixir-format
 msgid "%{value1} %{value2}: %{value3}/%{value4} lots · %{value5}"
 msgstr ""
@@ -112,7 +112,7 @@ msgstr ""
 msgid "%{value1} min · fuel %{value2} · estimated crew %{value3} · canals %{value4}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:760
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:776
 #, elixir-autogen, elixir-format
 msgid "%{value1} spent / %{value2} cap"
 msgstr ""
@@ -187,7 +187,7 @@ msgstr ""
 msgid "About this port"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1356
+#: lib/tijara_tides_web/live/game_live.ex:1370
 #, elixir-autogen, elixir-format
 msgid "Account suspended"
 msgstr ""
@@ -208,22 +208,22 @@ msgid "Accrued interest not yet due: %{value1} · Currently due: %{value2}"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:618
-#: lib/tijara_tides_web/components/ship_route_editor.ex:193
+#: lib/tijara_tides_web/components/ship_route_editor.ex:198
 #, elixir-autogen, elixir-format
 msgid "Action"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:733
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:749
 #, elixir-autogen, elixir-format
 msgid "Add instruction"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:306
+#: lib/tijara_tides_web/components/ship_route_editor.ex:326
 #, elixir-autogen, elixir-format
 msgid "Add stop"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:727
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:743
 #, elixir-autogen, elixir-format
 msgid "Adding…"
 msgstr ""
@@ -233,7 +233,7 @@ msgstr ""
 msgid "Addresses already linked to another account cannot be used."
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:279
+#: lib/tijara_tides_web/components/ship_route_editor.ex:299
 #, elixir-autogen, elixir-format
 msgid "After the final stop, return to %{value1}."
 msgstr ""
@@ -243,7 +243,7 @@ msgstr ""
 msgid "All overdue payments have been cleared. The bankruptcy grace period has ended."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:722
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:738
 #, elixir-autogen, elixir-format
 msgid "An active sell instruction already exists for this cargo. Cancel it before adding another."
 msgstr ""
@@ -278,7 +278,7 @@ msgstr ""
 msgid "Assumes unloading all current cargo. Estimates update with the voyage and may change with delays."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1376
+#: lib/tijara_tides_web/live/game_live.ex:1390
 #, elixir-autogen, elixir-format
 msgid "Available cash"
 msgstr ""
@@ -328,7 +328,7 @@ msgstr ""
 msgid "Borrowing…"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1192
+#: lib/tijara_tides_web/live/game_live.ex:1206
 #, elixir-autogen, elixir-format
 msgid "Build a company. Trade the world."
 msgstr ""
@@ -340,7 +340,7 @@ msgstr ""
 msgid "Buy"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:200
+#: lib/tijara_tides_web/components/ship_route_editor.ex:205
 #, elixir-autogen, elixir-format
 msgid "Buy / load target"
 msgstr ""
@@ -365,14 +365,14 @@ msgstr ""
 msgid "Buying…"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:272
+#: lib/tijara_tides_web/components/ship_route_editor.ex:292
 #, elixir-autogen, elixir-format
 msgid "Cancel edit"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:198
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:776
-#: lib/tijara_tides_web/components/ship_route_editor.ex:395
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:797
+#: lib/tijara_tides_web/components/ship_route_editor.ex:420
 #, elixir-autogen, elixir-format
 msgid "Cancel order"
 msgstr ""
@@ -393,8 +393,8 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/map_panel.ex:344
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:70
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:288
-#: lib/tijara_tides_web/components/ship_route_editor.ex:204
-#: lib/tijara_tides_web/live/game_live.ex:1403
+#: lib/tijara_tides_web/components/ship_route_editor.ex:209
+#: lib/tijara_tides_web/live/game_live.ex:1417
 #, elixir-autogen, elixir-format
 msgid "Cargo"
 msgstr ""
@@ -460,7 +460,7 @@ msgstr ""
 msgid "Choose cargo"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:803
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:824
 #, elixir-autogen, elixir-format
 msgid "Choose onward destination"
 msgstr ""
@@ -499,8 +499,8 @@ msgstr ""
 msgid "Company leaderboard"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1336
-#: lib/tijara_tides_web/live/game_live.ex:1337
+#: lib/tijara_tides_web/live/game_live.ex:1350
+#: lib/tijara_tides_web/live/game_live.ex:1351
 #, elixir-autogen, elixir-format
 msgid "Company name"
 msgstr ""
@@ -515,7 +515,7 @@ msgstr ""
 msgid "Connecting…"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1284
+#: lib/tijara_tides_web/live/game_live.ex:1298
 #, elixir-autogen, elixir-format
 msgid "Continue on this device"
 msgstr ""
@@ -535,7 +535,7 @@ msgstr ""
 msgid "Declaring…"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:835
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:856
 #, elixir-autogen, elixir-format
 msgid "Depart automatically after orders and handling finish"
 msgstr ""
@@ -577,7 +577,7 @@ msgstr ""
 msgid "Due in (HH:MM:SS)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:154
+#: lib/tijara_tides_web/components/ship_route_editor.ex:159
 #, elixir-autogen, elixir-format
 msgid "Edit"
 msgstr ""
@@ -592,7 +592,7 @@ msgstr ""
 msgid "Email linking is not available on this server yet. Keep this device session to retain access. Invitations cannot be reused to sign in."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1248
+#: lib/tijara_tides_web/live/game_live.ex:1262
 #, elixir-autogen, elixir-format
 msgid "Email me a sign-in link"
 msgstr ""
@@ -602,7 +602,7 @@ msgstr ""
 msgid "Email to link"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1280
+#: lib/tijara_tides_web/live/game_live.ex:1294
 #, elixir-autogen, elixir-format
 msgid "Emailed sign-in token"
 msgstr ""
@@ -618,7 +618,7 @@ msgstr ""
 msgid "Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1343
+#: lib/tijara_tides_web/live/game_live.ex:1357
 #, elixir-autogen, elixir-format
 msgid "Establish company"
 msgstr ""
@@ -633,7 +633,7 @@ msgstr ""
 msgid "Execute when berthed. Sales unload before purchases load. Partial fills retry while waiting; sailing cancels any remainder. Prices are per lot, excluding handling. A purchase cap includes all purchase costs and does not reserve cash."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:861
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:882
 #, elixir-autogen, elixir-format
 msgid "Existing buy instructions disagree. Purchases are paused until you choose one onward port."
 msgstr ""
@@ -648,12 +648,12 @@ msgstr ""
 msgid "Explore the trading world"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1358
+#: lib/tijara_tides_web/live/game_live.ex:1372
 #, elixir-autogen, elixir-format
 msgid "Five bankruptcies within 112 active-world days trigger suspension. Aging out does not lift it. Your original sponsor must pledge at least $50,000 to reinstate you."
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:224
+#: lib/tijara_tides_web/components/ship_route_editor.ex:229
 #, elixir-autogen, elixir-format
 msgid "Fixed lots"
 msgstr ""
@@ -673,7 +673,7 @@ msgstr ""
 msgid "From %{value1} · %{value2}"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1396
+#: lib/tijara_tides_web/live/game_live.ex:1410
 #, elixir-autogen, elixir-format
 msgid "Game panels"
 msgstr ""
@@ -710,7 +710,7 @@ msgstr ""
 msgid "Highest first: (best bid − best ask) ÷ best ask, before handling and voyage costs."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1262
+#: lib/tijara_tides_web/live/game_live.ex:1276
 #, elixir-autogen, elixir-format
 msgid "In the desktop app, copy the sign-in token from your email and paste it here. Do not use the email link in a browser first."
 msgstr ""
@@ -755,8 +755,8 @@ msgstr ""
 msgid "Interest"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1298
-#: lib/tijara_tides_web/live/game_live.ex:1299
+#: lib/tijara_tides_web/live/game_live.ex:1312
+#: lib/tijara_tides_web/live/game_live.ex:1313
 #, elixir-autogen, elixir-format
 msgid "Invitation code"
 msgstr ""
@@ -844,7 +844,7 @@ msgstr ""
 msgid "Lots"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1316
+#: lib/tijara_tides_web/live/game_live.ex:1330
 #, elixir-autogen, elixir-format
 msgid "Name your company"
 msgstr ""
@@ -879,7 +879,7 @@ msgstr ""
 msgid "Next port cargo instructions"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:254
+#: lib/tijara_tides_web/components/ship_route_editor.ex:259
 #, elixir-autogen, elixir-format
 msgid "No cap"
 msgstr ""
@@ -900,7 +900,7 @@ msgstr ""
 msgid "No cargo markets available"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:210
+#: lib/tijara_tides_web/components/ship_route_editor.ex:215
 #, elixir-autogen, elixir-format
 msgid "No compatible cargo"
 msgstr ""
@@ -940,7 +940,7 @@ msgstr ""
 msgid "One quarter is 7 active-world days; one year is 28. Periods start at world time zero. Rankings require a complete period. ROI uses time-weighted assets, including loan-funded assets. Zero capital is unranked."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:796
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:817
 #, elixir-autogen, elixir-format
 msgid "Onward destination after %{value1}"
 msgstr ""
@@ -960,12 +960,12 @@ msgstr ""
 msgid "Page %{value1} · up to %{value2} companies per list"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1281
+#: lib/tijara_tides_web/live/game_live.ex:1295
 #, elixir-autogen, elixir-format
 msgid "Paste your sign-in token"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:338
+#: lib/tijara_tides_web/components/ship_route_editor.ex:358
 #, elixir-autogen, elixir-format
 msgid "Pause route"
 msgstr ""
@@ -980,7 +980,7 @@ msgstr ""
 msgid "Period"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:779
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:800
 #, elixir-autogen, elixir-format
 msgid "Plan an onward destination with or without cargo orders. Departure is manual unless automatic departure is enabled for this visit."
 msgstr ""
@@ -1004,7 +1004,7 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/cargo_panel.ex:166
 #: lib/tijara_tides_web/components/game/destination_picker.ex:85
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:89
-#: lib/tijara_tides_web/components/ship_route_editor.ex:292
+#: lib/tijara_tides_web/components/ship_route_editor.ex:312
 #, elixir-autogen, elixir-format
 msgid "Port"
 msgstr ""
@@ -1026,7 +1026,7 @@ msgstr ""
 
 #: lib/tijara_tides_web/components/game/ports_panel.ex:24
 #: lib/tijara_tides_web/components/game/ports_panel.ex:25
-#: lib/tijara_tides_web/live/game_live.ex:1397
+#: lib/tijara_tides_web/live/game_live.ex:1411
 #, elixir-autogen, elixir-format
 msgid "Ports"
 msgstr ""
@@ -1061,7 +1061,7 @@ msgstr ""
 msgid "Provisional and unranked companies (%{value1})"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:252
+#: lib/tijara_tides_web/components/ship_route_editor.ex:257
 #, elixir-autogen, elixir-format
 msgid "Purchase cap ($, optional)"
 msgstr ""
@@ -1071,7 +1071,7 @@ msgstr ""
 msgid "Purchase cap ($; buys only)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:218
+#: lib/tijara_tides_web/components/ship_route_editor.ex:223
 #, elixir-autogen, elixir-format
 msgid "Quantity"
 msgstr ""
@@ -1132,7 +1132,7 @@ msgstr ""
 msgid "Recasting…"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1304
+#: lib/tijara_tides_web/live/game_live.ex:1318
 #, elixir-autogen, elixir-format
 msgid "Redeem invitation"
 msgstr ""
@@ -1147,12 +1147,12 @@ msgstr ""
 msgid "Remaining active-world time (HH:MM:SS); pauses when the world is suspended"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:162
+#: lib/tijara_tides_web/components/ship_route_editor.ex:167
 #, elixir-autogen, elixir-format
 msgid "Remove"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:356
+#: lib/tijara_tides_web/components/ship_route_editor.ex:376
 #, elixir-autogen, elixir-format
 msgid "Remove route"
 msgstr ""
@@ -1177,7 +1177,7 @@ msgstr ""
 msgid "Repeating route"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1345
+#: lib/tijara_tides_web/live/game_live.ex:1359
 #, elixir-autogen, elixir-format
 msgid "Replacement company available in %{value1} active-world minutes."
 msgstr ""
@@ -1197,7 +1197,7 @@ msgstr ""
 msgid "Reserve fuel and sail"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:806
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:827
 #, elixir-autogen, elixir-format
 msgid "Resolve conflicting destinations"
 msgstr ""
@@ -1217,7 +1217,7 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1219
+#: lib/tijara_tides_web/live/game_live.ex:1233
 #, elixir-autogen, elixir-format
 msgid "Return to lobby"
 msgstr ""
@@ -1227,12 +1227,12 @@ msgstr ""
 msgid "Sales revenue"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:719
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:735
 #, elixir-autogen, elixir-format
 msgid "Save an onward destination below before adding buy instructions."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:868
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:889
 #, elixir-autogen, elixir-format
 msgid "Save onward destination"
 msgstr ""
@@ -1264,7 +1264,7 @@ msgstr ""
 msgid "Sell ship for %{value1}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:202
+#: lib/tijara_tides_web/components/ship_route_editor.ex:207
 #, elixir-autogen, elixir-format
 msgid "Sell up to"
 msgstr ""
@@ -1284,7 +1284,7 @@ msgstr ""
 msgid "Send verification link"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:799
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:820
 #, elixir-autogen, elixir-format
 msgid "Shared onward port"
 msgstr ""
@@ -1306,12 +1306,12 @@ msgstr ""
 
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:29
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:30
-#: lib/tijara_tides_web/live/game_live.ex:1400
+#: lib/tijara_tides_web/live/game_live.ex:1414
 #, elixir-autogen, elixir-format
 msgid "Ships"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:321
+#: lib/tijara_tides_web/components/ship_route_editor.ex:341
 #, elixir-autogen, elixir-format
 msgid "Ships continue automatically after trades and handling finish."
 msgstr ""
@@ -1331,12 +1331,12 @@ msgstr ""
 msgid "Show other companies’ ships"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1229
+#: lib/tijara_tides_web/live/game_live.ex:1243
 #, elixir-autogen, elixir-format
 msgid "Sign in with email"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1245
+#: lib/tijara_tides_web/live/game_live.ex:1259
 #, elixir-autogen, elixir-format
 msgid "Sign-in email"
 msgstr ""
@@ -1361,12 +1361,12 @@ msgstr ""
 msgid "Sponsor pledge in dollars"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1318
+#: lib/tijara_tides_web/live/game_live.ex:1332
 #, elixir-autogen, elixir-format
 msgid "Start with $0 and no ships. Borrow up to %{value1} to buy ships and fund cargo and voyages. Interest accrues while the world runs; prior bankruptcies reduce your credit limit."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1287
+#: lib/tijara_tides_web/live/game_live.ex:1301
 #, elixir-autogen, elixir-format
 msgid "Start with an invitation"
 msgstr ""
@@ -1377,7 +1377,7 @@ msgstr ""
 msgid "Status"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:345
+#: lib/tijara_tides_web/components/ship_route_editor.ex:365
 #, elixir-autogen, elixir-format
 msgid "Stop after this visit"
 msgstr ""
@@ -1388,7 +1388,7 @@ msgid "Stops run in order and repeat. Cargo edits apply when that stage next run
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:663
-#: lib/tijara_tides_web/components/ship_route_editor.ex:230
+#: lib/tijara_tides_web/components/ship_route_editor.ex:235
 #, elixir-autogen, elixir-format
 msgid "Target lots"
 msgstr ""
@@ -1398,17 +1398,17 @@ msgstr ""
 msgid "The guaranteed loans are repaid. %{value1} returns to your company the next time it settles — within a few seconds, or on your next action."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1215
+#: lib/tijara_tides_web/live/game_live.ex:1229
 #, elixir-autogen, elixir-format
 msgid "The lobby is open. The operator must configure game storage and apply its migrations before companies can begin trading."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1213
+#: lib/tijara_tides_web/live/game_live.ex:1227
 #, elixir-autogen, elixir-format
 msgid "The trading world is not available yet"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1363
+#: lib/tijara_tides_web/live/game_live.ex:1377
 #, elixir-autogen, elixir-format
 msgid "This account has no sponsor. Contact the operator; there is no automatic reinstatement."
 msgstr ""
@@ -1427,8 +1427,8 @@ msgstr ""
 #: lib/tijara_tides_web/components/layouts.ex:35
 #: lib/tijara_tides_web/components/layouts/root.html.heex:10
 #: lib/tijara_tides_web/components/layouts/root.html.heex:10
-#: lib/tijara_tides_web/live/game_live.ex:1014
-#: lib/tijara_tides_web/live/game_live.ex:1191
+#: lib/tijara_tides_web/live/game_live.ex:1028
+#: lib/tijara_tides_web/live/game_live.ex:1205
 #: lib/tijara_tides_web/live/lobby_live.ex:34
 #, elixir-autogen, elixir-format
 msgid "Tijara Tides"
@@ -1454,22 +1454,22 @@ msgstr ""
 msgid "Trading not available yet"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1386
+#: lib/tijara_tides_web/live/game_live.ex:1400
 #, elixir-autogen, elixir-format
 msgid "Trading result"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1391
+#: lib/tijara_tides_web/live/game_live.ex:1405
 #, elixir-autogen, elixir-format
 msgid "Unpaid: %{value1}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:866
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:887
 #, elixir-autogen, elixir-format
 msgid "Updating…"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1259
+#: lib/tijara_tides_web/live/game_live.ex:1273
 #, elixir-autogen, elixir-format
 msgid "Use an emailed token on this device"
 msgstr ""
@@ -1489,7 +1489,7 @@ msgstr ""
 msgid "Verify your email using the link we send."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:838
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:859
 #, elixir-autogen, elixir-format
 msgid "Waits for every order to be filled or cancelled and for sufficient sailing funds. Save to apply."
 msgstr ""
@@ -1516,7 +1516,7 @@ msgstr ""
 msgid "Year"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1289
+#: lib/tijara_tides_web/live/game_live.ex:1303
 #, elixir-autogen, elixir-format
 msgid "You can explore the world without an account. Redeem a shareable invitation to establish your company on this device."
 msgstr ""
@@ -1581,7 +1581,7 @@ msgstr ""
 msgid "Your sponsor has funded a guarantee. Your account is reinstated; the bankruptcy restart cooldown still applies."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:743
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:759
 #, elixir-autogen, elixir-format
 msgid "at %{value1} · %{value2}/%{value3} lots · %{value4} %{value5}/lot"
 msgstr ""
@@ -1661,7 +1661,7 @@ msgstr ""
 msgid "Add at least two stops. The last stop returns to the first, so they must differ."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:507
+#: lib/tijara_tides_web/components/game/presentation.ex:511
 #, elixir-autogen, elixir-format
 msgid "All buy instructions at this visit must share one onward port. Update the shared onward destination first."
 msgstr ""
@@ -1676,17 +1676,17 @@ msgstr ""
 msgid "Available cash covers all loan principal, accrued interest and unpaid operating bills. Bankruptcy is unavailable."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:511
+#: lib/tijara_tides_web/components/game/presentation.ex:515
 #, elixir-autogen, elixir-format
 msgid "Buy instructions need a positive spending cap and a different onward port."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:541
+#: lib/tijara_tides_web/components/game/presentation.ex:545
 #, elixir-autogen, elixir-format
 msgid "Choose a docked ship and an available cargo with a positive whole-lot quantity."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:549
+#: lib/tijara_tides_web/components/game/presentation.ex:553
 #, elixir-autogen, elixir-format
 msgid "Choose a purchase destination in the voyage selector before buying cargo. It must have a valid route within the 24-hour voyage limit."
 msgstr ""
@@ -1696,7 +1696,7 @@ msgstr ""
 msgid "Choose a ship owned by your active company."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:547
+#: lib/tijara_tides_web/components/game/presentation.ex:551
 #, elixir-autogen, elixir-format
 msgid "Choose a valid destination port."
 msgstr ""
@@ -1711,7 +1711,7 @@ msgstr ""
 msgid "Choose an available ship class."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:503
+#: lib/tijara_tides_web/components/game/presentation.ex:507
 #, elixir-autogen, elixir-format
 msgid "Choose an onward destination different from the visit port."
 msgstr ""
@@ -1726,7 +1726,7 @@ msgstr ""
 msgid "Choose the ship's next destination; a sailing ship can only use its current destination."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:505
+#: lib/tijara_tides_web/components/game/presentation.ex:509
 #, elixir-autogen, elixir-format
 msgid "Choose whether this visit should depart automatically."
 msgstr ""
@@ -1751,7 +1751,7 @@ msgstr ""
 msgid "Dock and empty the ship, then clear pending cargo instructions, onward plans and repeating routes before selling."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:888
+#: lib/tijara_tides_web/live/game_live.ex:896
 #, elixir-autogen, elixir-format
 msgid "Done."
 msgstr ""
@@ -1796,17 +1796,17 @@ msgstr ""
 msgid "It will be ready in about %{value1} seconds."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:544
+#: lib/tijara_tides_web/components/game/presentation.ex:548
 #, elixir-autogen, elixir-format
 msgid "No invitation entitlement is available."
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:814
+#: lib/tijara_tides_web/live/game_live.ex:822
 #, elixir-autogen, elixir-format
 msgid "No voyage is available to this port right now."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:530
+#: lib/tijara_tides_web/components/game/presentation.ex:534
 #, elixir-autogen, elixir-format
 msgid "Not enough available cash. Check reserved fuel and unpaid costs."
 msgstr ""
@@ -1851,7 +1851,7 @@ msgstr ""
 msgid "Route stops can be edited before starting. Remove the route to replace its plan; committed handling continues."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:546
+#: lib/tijara_tides_web/components/game/presentation.ex:550
 #, elixir-autogen, elixir-format
 msgid "Select a ship owned by your company before departing."
 msgstr ""
@@ -1861,12 +1861,12 @@ msgstr ""
 msgid "Select a ship owned by your company."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:531
+#: lib/tijara_tides_web/components/game/presentation.ex:535
 #, elixir-autogen, elixir-format
 msgid "That cargo exceeds this ship's weight or volume limit."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:542
+#: lib/tijara_tides_web/components/game/presentation.ex:546
 #, elixir-autogen, elixir-format
 msgid "That company name is already taken."
 msgstr ""
@@ -1876,7 +1876,7 @@ msgstr ""
 msgid "That email cannot be linked or invited. Its owner can use email sign-in instead."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:515
+#: lib/tijara_tides_web/components/game/presentation.ex:519
 #, elixir-autogen, elixir-format
 msgid "That instruction is no longer active or does not belong to your company."
 msgstr ""
@@ -1886,47 +1886,47 @@ msgstr ""
 msgid "That invitation could not be redeemed. Check the code and that the game is available."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:554
+#: lib/tijara_tides_web/components/game/presentation.ex:558
 #, elixir-autogen, elixir-format
 msgid "The action could not be completed. Please refresh and try again."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:517
+#: lib/tijara_tides_web/components/game/presentation.ex:521
 #, elixir-autogen, elixir-format
 msgid "The command contains too many fields (maximum 12)."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:519
+#: lib/tijara_tides_web/components/game/presentation.ex:523
 #, elixir-autogen, elixir-format
 msgid "The command payload is too large (maximum 4096 bytes)."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:516
+#: lib/tijara_tides_web/components/game/presentation.ex:520
 #, elixir-autogen, elixir-format
 msgid "The command payload must be an object."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:528
+#: lib/tijara_tides_web/components/game/presentation.ex:532
 #, elixir-autogen, elixir-format
 msgid "The database is unavailable. Please try again later."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:553
+#: lib/tijara_tides_web/components/game/presentation.ex:557
 #, elixir-autogen, elixir-format
 msgid "The fuel limit is invalid. Review the voyage estimate and confirm again."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:527
+#: lib/tijara_tides_web/components/game/presentation.ex:531
 #, elixir-autogen, elixir-format
 msgid "The market is changing quickly. Please try again."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:536
+#: lib/tijara_tides_web/components/game/presentation.ex:540
 #, elixir-autogen, elixir-format
 msgid "The market price changed. Review the latest quote and try again."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:499
+#: lib/tijara_tides_web/components/game/presentation.ex:503
 #, elixir-autogen, elixir-format
 msgid "The sell target exceeds the selected cargo currently aboard. Reduce the target and try again."
 msgstr ""
@@ -1946,7 +1946,7 @@ msgstr ""
 msgid "The shipyard offer has changed. Review the current value and try again."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:526
+#: lib/tijara_tides_web/components/game/presentation.ex:530
 #, elixir-autogen, elixir-format
 msgid "The world paused after an internal error. Please contact the operator."
 msgstr ""
@@ -1956,7 +1956,7 @@ msgstr ""
 msgid "There is no available sea route from %{value1} to %{value2}. Choose another destination."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:537
+#: lib/tijara_tides_web/components/game/presentation.ex:541
 #, elixir-autogen, elixir-format
 msgid "There is not enough supply at that price."
 msgstr ""
@@ -1981,7 +1981,7 @@ msgstr ""
 msgid "This player does not currently need a guarantee."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:538
+#: lib/tijara_tides_web/components/game/presentation.ex:542
 #, elixir-autogen, elixir-format
 msgid "This port cannot buy that quantity right now."
 msgstr ""
@@ -1996,12 +1996,12 @@ msgstr ""
 msgid "This route would take %{value1} minutes, exceeding the 24-hour voyage limit. Choose a closer destination."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:513
+#: lib/tijara_tides_web/components/game/presentation.ex:517
 #, elixir-autogen, elixir-format
 msgid "This ship already has 20 active instructions. Cancel one before adding another."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:533
+#: lib/tijara_tides_web/components/game/presentation.ex:537
 #, elixir-autogen, elixir-format
 msgid "This ship cannot carry that cargo, or its tank already holds a different liquid."
 msgstr ""
@@ -2046,7 +2046,7 @@ msgstr ""
 msgid "Use 1–10,000 lots and a valid nonnegative limit price."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:543
+#: lib/tijara_tides_web/components/game/presentation.ex:547
 #, elixir-autogen, elixir-format
 msgid "Use a company name between 1 and 60 characters."
 msgstr ""
@@ -2061,7 +2061,7 @@ msgstr ""
 msgid "Wait for its status to update before departing."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:539
+#: lib/tijara_tides_web/components/game/presentation.ex:543
 #, elixir-autogen, elixir-format
 msgid "You do not own that much cargo aboard this ship."
 msgstr ""
@@ -2076,7 +2076,7 @@ msgstr ""
 msgid "Your company owes %{value1} in unpaid operating costs. Sell cargo to settle those costs before departing."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:520
+#: lib/tijara_tides_web/components/game/presentation.ex:524
 #, elixir-autogen, elixir-format
 msgid "Your session is invalid or has expired. Please sign in again."
 msgstr ""
@@ -2407,7 +2407,7 @@ msgstr ""
 msgid "Ship filters %{arrow}"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1151
+#: lib/tijara_tides_web/live/game_live.ex:1165
 #, elixir-autogen, elixir-format
 msgid "bid %{bid} / ask %{ask}"
 msgstr ""
@@ -2432,22 +2432,22 @@ msgstr ""
 msgid "No route available"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:265
+#: lib/tijara_tides_web/components/ship_route_editor.ex:285
 #, elixir-autogen, elixir-format
 msgid "Add target"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:328
+#: lib/tijara_tides_web/components/ship_route_editor.ex:348
 #, elixir-autogen, elixir-format
 msgid "Resume route"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:265
+#: lib/tijara_tides_web/components/ship_route_editor.ex:285
 #, elixir-autogen, elixir-format
 msgid "Save target"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:327
+#: lib/tijara_tides_web/components/ship_route_editor.ex:347
 #, elixir-autogen, elixir-format
 msgid "Start route"
 msgstr ""
@@ -2492,13 +2492,13 @@ msgstr ""
 msgid "%{side} for selected cargo"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:172
+#: lib/tijara_tides_web/components/ship_route_editor.ex:177
 #, elixir-autogen, elixir-format
 msgid "Add cargo target"
 msgstr ""
 
 #: lib/tijara_tides_web/components/ship_route_editor.ex:126
-#: lib/tijara_tides_web/components/ship_route_editor.ex:227
+#: lib/tijara_tides_web/components/ship_route_editor.ex:232
 #, elixir-autogen, elixir-format
 msgid "Buy maximum"
 msgstr ""
@@ -2513,7 +2513,7 @@ msgstr ""
 msgid "Completed"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:171
+#: lib/tijara_tides_web/components/ship_route_editor.ex:176
 #, elixir-autogen, elixir-format
 msgid "Edit cargo target"
 msgstr ""
@@ -2538,12 +2538,12 @@ msgstr ""
 msgid "Inspect %{ship}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:241
+#: lib/tijara_tides_web/components/ship_route_editor.ex:246
 #, elixir-autogen, elixir-format
 msgid "Maximum price / lot ($)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:242
+#: lib/tijara_tides_web/components/ship_route_editor.ex:247
 #, elixir-autogen, elixir-format
 msgid "Minimum price / lot ($)"
 msgstr ""
@@ -2584,7 +2584,7 @@ msgid "Route"
 msgstr ""
 
 #: lib/tijara_tides_web/components/ship_route_editor.ex:127
-#: lib/tijara_tides_web/components/ship_route_editor.ex:227
+#: lib/tijara_tides_web/components/ship_route_editor.ex:232
 #, elixir-autogen, elixir-format
 msgid "Sell all aboard"
 msgstr ""
@@ -2600,7 +2600,7 @@ msgstr ""
 msgid "max"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:753
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:769
 #, elixir-autogen, elixir-format
 msgid "maximum"
 msgstr ""
@@ -2610,7 +2610,7 @@ msgstr ""
 msgid "min"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:754
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:770
 #, elixir-autogen, elixir-format
 msgid "minimum"
 msgstr ""
@@ -2666,7 +2666,7 @@ msgstr ""
 msgid "Fund this guarantee? Cash is locked immediately, including before the invitee borrows. It can be forfeited on their bankruptcy and is not withdrawable. Your own bankruptcy does not release it."
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:351
+#: lib/tijara_tides_web/components/ship_route_editor.ex:371
 #, elixir-autogen, elixir-format
 msgid "Remove this route and cancel its unfilled orders? Cargo, committed voyages and handling are preserved."
 msgstr ""
@@ -2711,7 +2711,7 @@ msgstr ""
 msgid "Cancelled by player"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:147
+#: lib/tijara_tides/localization/names.ex:150
 #, elixir-autogen, elixir-format
 msgid "Cancelled remainder on departure"
 msgstr ""
@@ -2856,17 +2856,17 @@ msgstr ""
 msgid "Waiting for unpaid operating costs to clear"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:150
+#: lib/tijara_tides/localization/names.ex:153
 #, elixir-autogen, elixir-format
 msgid "Northern Frangistan"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:151
+#: lib/tijara_tides/localization/names.ex:154
 #, elixir-autogen, elixir-format
 msgid "Pearl River Delta"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:149
+#: lib/tijara_tides/localization/names.ex:152
 #, elixir-autogen, elixir-format
 msgid "Strait of Hormuz"
 msgstr ""
@@ -3296,7 +3296,7 @@ msgstr ""
 msgid "Queue position: %{position}"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:887
+#: lib/tijara_tides_web/live/game_live.ex:895
 #, elixir-autogen, elixir-format
 msgid "Trade queued. Prices, stock and funds are checked again before handling."
 msgstr ""
@@ -3711,7 +3711,7 @@ msgstr ""
 msgid "Remaining lots"
 msgstr ""
 
-#: lib/tijara_tides_web/live/game_live.ex:1382
+#: lib/tijara_tides_web/live/game_live.ex:1396
 #, elixir-autogen, elixir-format
 msgid "Reserved funds"
 msgstr ""
@@ -4294,7 +4294,7 @@ msgstr ""
 msgid "Ship details"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:522
+#: lib/tijara_tides_web/components/game/presentation.ex:526
 #, elixir-autogen, elixir-format
 msgid "That command could not be completed. The game is still running. Please contact the operator if this keeps happening."
 msgstr ""
@@ -4369,7 +4369,7 @@ msgstr ""
 msgid "%{ship} at %{port}: maximum wait elapsed. Unfilled route targets were cancelled; committed handling will finish before departure."
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:373
+#: lib/tijara_tides_web/components/ship_route_editor.ex:393
 #, elixir-autogen, elixir-format
 msgid "%{side} %{cargo}: %{filled}/%{quantity} lots filled; remainder cancelled."
 msgstr ""
@@ -4384,7 +4384,7 @@ msgstr ""
 msgid "Choose a maximum wait from 1 minute to 30 days, or leave it blank for unlimited waiting."
 msgstr ""
 
-#: lib/tijara_tides_web/components/ship_route_editor.ex:368
+#: lib/tijara_tides_web/components/ship_route_editor.ex:388
 #, elixir-autogen, elixir-format
 msgid "Last timed-out visit: %{port}"
 msgstr ""
@@ -4429,7 +4429,7 @@ msgstr ""
 msgid "· Unlimited"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:706
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:722
 #, elixir-autogen, elixir-format
 msgid "Blank means no expiry. Starts when added; pauses while the world is offline."
 msgstr ""
@@ -4439,7 +4439,7 @@ msgstr ""
 msgid "Choose an expiry from 1 minute to 30 days, or leave it blank for no expiry."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:695
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:711
 #, elixir-autogen, elixir-format
 msgid "Expires after (active minutes; optional)"
 msgstr ""
@@ -4449,12 +4449,46 @@ msgstr ""
 msgid "Instruction expired"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:697
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:713
 #, elixir-autogen, elixir-format
 msgid "Instruction expiry minutes"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/fleet_panel.ex:767
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:788
 #, elixir-autogen, elixir-format
 msgid "Expiry remaining: %{time} of active-world time (hours:minutes:seconds)."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:707
+#: lib/tijara_tides_web/components/ship_route_editor.ex:278
+#, elixir-autogen, elixir-format
+msgid "Checked at purchase or collection, in active-world time. Blank accepts any unspoiled cargo."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/presentation.ex:499
+#, elixir-autogen, elixir-format
+msgid "Choose a minimum shelf life from 0 to 43,200 minutes for buys, or leave it blank."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:697
+#, elixir-autogen, elixir-format
+msgid "Minimum remaining shelf life"
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:783
+#: lib/tijara_tides_web/components/ship_route_editor.ex:147
+#: lib/tijara_tides_web/components/ship_route_editor.ex:403
+#, elixir-autogen, elixir-format
+msgid "Minimum remaining shelf life: %{minutes} min"
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/fleet_panel.ex:695
+#: lib/tijara_tides_web/components/ship_route_editor.ex:267
+#, elixir-autogen, elixir-format
+msgid "Minimum shelf life (minutes; buys only)"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:147
+#, elixir-autogen, elixir-format
+msgid "Waiting for cargo meeting the minimum remaining shelf life"
 msgstr ""

@@ -40,7 +40,8 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "quantity_mode" => "maximum",
          "quantity" => nil,
          "limit" => 100,
-         "budget" => nil
+         "budget" => nil,
+         "min_remaining_ms" => 120_000
        }},
       {VisitPlan,
        %{
@@ -89,5 +90,16 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
     for wait <- [0, -1, RouteStop.max_wait_ms() + 1, "1", 1.5] do
       assert_raise ArgumentError, fn -> RouteStop.from_row(Map.put(stop, "max_wait_ms", wait)) end
     end
+
+    {_, target} = Enum.at(rows, 2)
+    assert RouteTarget.from_row(Map.delete(target, "min_remaining_ms")).min_remaining_ms == 0
+
+    for minimum <- [nil, false, -1, 2_592_000_001, "60", 1.5] do
+      assert_raise ArgumentError, fn ->
+        RouteTarget.from_row(Map.put(target, "min_remaining_ms", minimum))
+      end
+    end
+
+    assert_raise ArgumentError, fn -> RouteTarget.from_row(Map.put(target, "side", "sell")) end
   end
 end

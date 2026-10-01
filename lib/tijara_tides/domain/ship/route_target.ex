@@ -1,8 +1,8 @@
 defmodule TijaraTides.Domain.Ship.RouteTarget do
   @moduledoc "Typed route target; persisted fields are decoded explicitly."
-  @fields ~w(id ship_id company_id stop_id side good quantity_mode quantity limit budget)a
-  @enforce_keys @fields
-  defstruct @fields
+  @fields ~w(id ship_id company_id stop_id side good quantity_mode quantity limit budget min_remaining_ms)a
+  @enforce_keys @fields -- [:min_remaining_ms]
+  defstruct (@fields -- [:min_remaining_ms]) ++ [min_remaining_ms: 0]
   @type t :: %__MODULE__{}
   def from_row(nil), do: nil
   def from_row(%__MODULE__{} = child), do: validate!(child)
@@ -10,6 +10,8 @@ defmodule TijaraTides.Domain.Ship.RouteTarget do
   def from_row(row) do
     unknown = Map.keys(row) -- Enum.map(@fields, &Atom.to_string/1)
     if unknown != [], do: raise(ArgumentError, "Unknown route_target fields: #{inspect(unknown)}")
+
+    row = Map.put_new(row, "min_remaining_ms", 0)
 
     struct!(__MODULE__, Map.new(@fields, &{&1, Map.fetch!(row, Atom.to_string(&1))}))
     |> validate!()
@@ -25,7 +27,9 @@ defmodule TijaraTides.Domain.Ship.RouteTarget do
              (child.quantity_mode == "maximum" or
                 (is_integer(child.quantity) and child.quantity in 1..10_000)) and
              is_integer(child.limit) and child.limit >= 0 and
-             (is_nil(child.budget) or (is_integer(child.budget) and child.budget > 0)),
+             (is_nil(child.budget) or (is_integer(child.budget) and child.budget > 0)) and
+             TijaraTides.Domain.CargoRules.valid_remaining?(child.min_remaining_ms) and
+             (child.side == "buy" or child.min_remaining_ms == 0),
            do: raise(ArgumentError, "Invalid route target")
 
     child

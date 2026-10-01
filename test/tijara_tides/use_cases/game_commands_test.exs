@@ -188,7 +188,7 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
 
     log = capture_log(fn -> assert {:error, :command_failed} = run(broken, ops) end)
     assert log =~ "Market cannot supply"
-    assert log =~ "PortCargoMarket.supply/5"
+    assert log =~ "PortCargoMarket.supply/6"
     assert length(Regex.scan(~r/Command planning failed/, log)) == 1
 
     # Allocation exhaustion must still reach its existing pre-commit retry.

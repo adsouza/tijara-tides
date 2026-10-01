@@ -97,13 +97,15 @@ defmodule TijaraTides.Domain.ShipAggregateTest do
       spent: 0,
       budget: 100,
       limit: 30,
-      expires_ms: 60_000
+      expires_ms: 60_000,
+      min_remaining_ms: 120_000
     }
 
     partial = VisitOrder.record_fill(order, 2, 60)
     assert partial.filled == 2
     assert partial.limit == 30
     assert partial.expires_ms == 60_000
+    assert partial.min_remaining_ms == 120_000
     assert VisitOrder.from_row(VisitOrder.to_row(partial)) == partial
     assert_raise ArgumentError, fn -> VisitOrder.record_fill(partial, 4, 0) end
     assert_raise ArgumentError, fn -> VisitOrder.record_fill(partial, 1, 50) end
@@ -116,6 +118,12 @@ defmodule TijaraTides.Domain.ShipAggregateTest do
   test "legacy visit orders have no expiry" do
     assert VisitOrder.from_row(%VisitOrder{} |> VisitOrder.to_row() |> Map.delete("expires_ms")).expires_ms ==
              nil
+
+    assert VisitOrder.from_row(
+             %VisitOrder{}
+             |> VisitOrder.to_row()
+             |> Map.delete("min_remaining_ms")
+           ).min_remaining_ms == 0
   end
 
   test "visit history defaults to visible while explicit archive state survives decoding" do

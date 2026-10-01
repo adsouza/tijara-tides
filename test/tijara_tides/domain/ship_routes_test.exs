@@ -76,6 +76,76 @@ defmodule TijaraTides.Domain.ShipRoutesTest do
     s
   end
 
+  test "freshness terms validate, snapshot qualifying cargo aboard and defer edits to future visits",
+       c do
+    c = %{c | state: put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")}
+    state = route(c, false)
+
+    terms = %{
+      "operation" => "update_rule",
+      "rule" => "buy1",
+      "stop" => "s1",
+      "side" => "buy",
+      "good" => "fruit",
+      "quantity" => 3,
+      "limit" => 1_000_000,
+      "min_remaining_ms" => 3_600_000
+    }
+
+    for value <- [-1, 2_592_000_001, nil, "60", false, 1.5] do
+      assert {:error, :instruction_freshness_invalid} =
+               command(c, state, "bad", Map.put(terms, "min_remaining_ms", value))
+    end
+
+    assert {:error, :instruction_freshness_invalid} =
+             command(c, state, "bad", Map.put(terms, "side", "sell"))
+
+    {:ok, state, _} = command(c, state, "fresh", terms)
+    {state, old} = TijaraTides.Domain.CargoLots.create(state, "fruit", 2, 3_599_999)
+    {state, fresh} = TijaraTides.Domain.CargoLots.create(state, "fruit", 1, 3_600_000)
+    cargo = for lot <- [old, fresh], do: Map.merge(lot, %{"good" => "fruit", "unit_cost" => 100})
+    state = put_in(state, [:entities, "ships", "company:1", "cargo"], cargo)
+    prepared = TijaraTides.Domain.ShipWorld.prepare_visits(state, c.catalogue)
+    assert Game.get(prepared, "ship_instructions", "route:buy1")["quantity"] == 2
+    assert Game.get(prepared, "ship_instructions", "route:buy1")["min_remaining_ms"] == 3_600_000
+    {:ok, edited, _} = command(c, prepared, "edit", Map.put(terms, "min_remaining_ms", 7_200_000))
+    assert Game.get(edited, "route_rules", "buy1")["min_remaining_ms"] == 7_200_000
+    unchanged = TijaraTides.Domain.ShipWorld.prepare_visits(edited, c.catalogue)
+    assert Game.get(unchanged, "ship_instructions", "route:buy1")["min_remaining_ms"] == 3_600_000
+    assert Game.get(unchanged, "ships", "company:1")["cargo"] == cargo
+  end
+
+  test "buy maximum waits when all stock fails its freshness requirement", c do
+    c = %{c | state: put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")}
+    state = route(c, false)
+
+    {:ok, state, _} =
+      command(c, state, "fresh", %{
+        "operation" => "update_rule",
+        "rule" => "buy1",
+        "stop" => "s1",
+        "side" => "buy",
+        "good" => "fruit",
+        "quantity_mode" => "maximum",
+        "limit" => 1_000_000,
+        "min_remaining_ms" => 3_600_000
+      })
+
+    {state, lot} = TijaraTides.Domain.CargoLots.create(state, "fruit", 3, 3_599_999)
+    market = Game.get(state, "markets", "Jakarta|fruit")
+
+    state =
+      State.put(state, "markets", "Jakarta|fruit", %{market | "stock" => 3, "batches" => [lot]})
+
+    waiting = ShipInstructions.advance(state, c.catalogue)
+    order = Game.get(waiting, "ship_instructions", "route:buy1")
+    assert order["status"] == "waiting"
+    assert order["filled"] == 0
+    assert order["reason"] =~ "minimum remaining shelf life"
+    assert Game.get(waiting, "ships", "company:1")["cargo"] == []
+    assert ShipInstructions.advance(waiting, c.catalogue) == waiting
+  end
+
   test "wait limits validate ownership and bounds; edits preserve the current deadline", c do
     s = route(c, false, 60_000)
     assert plan(s)["visit_arrived_ms"] == 0

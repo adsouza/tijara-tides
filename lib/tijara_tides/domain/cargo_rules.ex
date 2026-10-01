@@ -21,6 +21,15 @@ defmodule TijaraTides.Domain.CargoRules do
   @doc "Lots one command may move, whether traded with a market or transferred to storage."
   def max_lots, do: 10_000
 
+  def max_remaining_ms, do: 2_592_000_000
+
+  def valid_remaining?(minimum),
+    do: is_integer(minimum) and minimum >= 0 and minimum <= max_remaining_ms()
+
+  @doc "Minimum life is checked at settlement; nonperishable cargo has unlimited life."
+  def qualifies?(nil, _clock, _minimum), do: true
+  def qualifies?(expiry, clock, minimum), do: expiry > clock and expiry - clock >= minimum
+
   def freshness(batches, quantity, clock, elapsed) do
     {expiries, _} =
       Enum.reduce(batches, {[], max(0, quantity)}, fn batch, {expiries, left} ->

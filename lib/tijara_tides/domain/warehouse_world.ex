@@ -173,7 +173,10 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     end
   end
 
-  def transfer(state, account, cmd, catalogue) do
+  # Validation probes may ignore admission, but their returned state is discarded.
+  def transfer(state, account, cmd, catalogue, admission \\ :normal) do
+    minimum = Map.get(cmd, "min_remaining_ms", 0)
+
     with %{"company_id" => owner} = row <- get(state, "warehouses", cmd["warehouse"]),
          true <- owner == account["company_id"],
          %{"company_id" => ^owner, "status" => "docked"} = ship <-
@@ -181,7 +184,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
          true <- ship["port"] == row["port"],
          %{} = item <- catalogue["goods"][cmd["good"]],
          n when is_integer(n) and n > 0 and n <= @max_lots <- cmd["quantity"],
-         side when side in ["store", "collect"] <- cmd["side"] do
+         side when side in ["store", "collect"] <- cmd["side"],
+         true <- CargoRules.valid_remaining?(minimum) do
       w = load(state, row)
       company = get(state, "companies", owner)
 
@@ -194,7 +198,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       # Collection offers only unspoiled lots, so take/4 must walk that same list: given the
       # whole manifest it matches on good alone and drains expired batches the count excluded.
       {fresh, _stale} =
-        Enum.split_with(w.cargo, &(is_nil(&1.expires_ms) or &1.expires_ms > state.clock_ms))
+        Enum.split_with(w.cargo, &CargoRules.qualifies?(&1.expires_ms, state.clock_ms, minimum))
 
       available =
         if side == "store",
@@ -236,7 +240,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         company["cash"] - company["reserved"] < fee or company["unpaid"] > 0 ->
           {:error, :insufficient_cash}
 
-        not PortBerthsWorld.available?(state, ship, catalogue) ->
+        admission != :validate and not PortBerthsWorld.available?(state, ship, catalogue) ->
           {:error, :warehouse_berth_busy}
 
         true ->
@@ -255,7 +259,9 @@ defmodule TijaraTides.Domain.WarehouseWorld do
               {s, cargo} = ShipWorld.unload_cargo(state, ship["id"], item["id"], n)
               {s, Warehouse.receive_cargo(w, Enum.map(cargo, &CargoRows.coerce/1))}
             else
-              {lots, next, cargo} = Warehouse.release_cargo(lots(state), w, item["id"], n)
+              {lots, next, cargo} =
+                Warehouse.release_cargo(lots(state), w, item["id"], n, minimum)
+
               s = record_lots(state, lots)
 
               {ShipWorld.load_cargo(
@@ -393,7 +399,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       )
 
   @doc "Choose this ship's earmarked stock first, then other available owned stock."
-  def collection_source(state, ship, good) do
+  def collection_source(state, ship, good, minimum \\ 0) do
     owned(state, "warehouses", "company_id", ship["company_id"])
     |> Enum.filter(&(&1["port"] == ship["port"]))
     |> Enum.map(&load(state, &1))
@@ -401,7 +407,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       state.clock_ms < max(w.expires_ms, w.protected_ms) + div(@day, 2) and
         Enum.sum(
           for b <- w.cargo,
-              b.good == good and (is_nil(b.expires_ms) or b.expires_ms > state.clock_ms),
+              b.good == good and CargoRules.qualifies?(b.expires_ms, state.clock_ms, minimum),
               do: b.quantity
         ) > reserved_quantity(state, w, "stock", good, ship["id"])
     end)
@@ -415,7 +421,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       expiry =
         w.cargo
         |> Enum.filter(
-          &(&1.good == good and (is_nil(&1.expires_ms) or &1.expires_ms > state.clock_ms))
+          &(&1.good == good and CargoRules.qualifies?(&1.expires_ms, state.clock_ms, minimum))
         )
         |> Enum.map(&(&1.expires_ms || 9_223_372_036_854_775_807))
         |> Enum.min()

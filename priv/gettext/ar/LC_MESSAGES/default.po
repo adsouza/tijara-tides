@@ -2670,3 +2670,21 @@ msgstr "اختر مدة صلاحية من دقيقة واحدة إلى 30 يوم
 
 msgid "Instruction expired"
 msgstr "انتهت صلاحية التعليمات"
+
+msgid "Minimum shelf life (minutes; buys only)"
+msgstr "الحد الأدنى لمدة الصلاحية (بالدقائق؛ للمشتريات فقط)"
+
+msgid "Minimum remaining shelf life"
+msgstr "الحد الأدنى لمدة الصلاحية المتبقية"
+
+msgid "Checked at purchase or collection, in active-world time. Blank accepts any unspoiled cargo."
+msgstr "يُتحقق منه عند الشراء أو الاستلام، وفق وقت العالم النشط. ترك الحقل فارغاً يقبل أي حمولة غير تالفة."
+
+msgid "Minimum remaining shelf life: %{minutes} min"
+msgstr "الحد الأدنى لمدة الصلاحية المتبقية: %{minutes} دقيقة"
+
+msgid "Choose a minimum shelf life from 0 to 43,200 minutes for buys, or leave it blank."
+msgstr "اختر حداً أدنى لمدة الصلاحية من 0 إلى 43,200 دقيقة للمشتريات، أو اترك الحقل فارغاً."
+
+msgid "Waiting for cargo meeting the minimum remaining shelf life"
+msgstr "بانتظار حمولة تستوفي الحد الأدنى لمدة الصلاحية المتبقية"

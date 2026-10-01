@@ -28,6 +28,7 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
     budget = params["budget"]
     onward = params["onward"]
     expires_in = params["expires_in_ms"]
+    minimum = Map.get(params, "min_remaining_ms", 0)
 
     cond do
       is_nil(ship) or is_nil(account["company_id"]) or ship["company_id"] != account["company_id"] ->
@@ -54,6 +55,9 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
       expires_in != nil and
           (not is_integer(expires_in) or expires_in < 1 or expires_in > 2_592_000_000) ->
         {:error, :instruction_expiry_invalid}
+
+      not CargoRules.valid_remaining?(minimum) or (side != "buy" and minimum != 0) ->
+        {:error, :instruction_freshness_invalid}
 
       side == "sell" and
           quantity >
@@ -101,6 +105,7 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
           "reason" => "Awaiting arrival and a berth",
           "history_archived" => false,
           "expires_ms" => if(expires_in, do: state.clock_ms + expires_in),
+          "min_remaining_ms" => minimum,
           "created_ms" => state.clock_ms
         }
 

@@ -143,6 +143,9 @@ defmodule TijaraTides.Localization.Names do
   def translate("Cancelled by player"), do: gettext("Cancelled by player")
   def translate("Instruction expired"), do: gettext("Instruction expired")
 
+  def translate("Waiting for cargo meeting the minimum remaining shelf life"),
+    do: gettext("Waiting for cargo meeting the minimum remaining shelf life")
+
   def translate("Cancelled remainder on departure"),
     do: gettext("Cancelled remainder on departure")
 

@@ -2744,6 +2744,178 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     Enum.each([lobby, spectator, second], &GenServer.stop(&1.pid, :normal))
   end
 
+  test "minimum shelf life forms, route edits and private terms survive replay and restart", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Fresh routes",
+          "port" => "Singapore",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    select_destination(view, "Jakarta")
+
+    view
+    |> form("form[phx-submit=instruction-onward]", %{"onward" => "Singapore"})
+    |> render_submit()
+
+    selector = "[id='instruction-form-#{ship}']"
+    assert has_element?(view, selector <> " input[name=freshness_minutes][disabled]")
+    view |> form(selector, %{"side" => "buy"}) |> render_change()
+
+    params = %{
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => "1",
+      "limit" => "10000",
+      "budget" => "10000",
+      "freshness_minutes" => "75"
+    }
+
+    view |> form(selector, params) |> render_change()
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
+    assert has_element?(view, selector <> " input[name=freshness_minutes][value='75']")
+
+    for invalid <- ["-1", "43201", "1.5", "invalid"] do
+      view |> form(selector, Map.put(params, "freshness_minutes", invalid)) |> render_submit()
+      assert render(view) =~ "Choose a minimum shelf life"
+      assert GameServer.snapshot(token, c.server).private["ship_instructions"] == %{}
+    end
+
+    [_, request] =
+      Regex.run(
+        ~r/value="([^"]+)"/,
+        view |> element(selector <> " input[name=request_id]") |> render()
+      )
+
+    view |> form(selector, params) |> render_submit()
+    assert [order] = Map.values(GameServer.snapshot(token, c.server).private["ship_instructions"])
+    assert order["min_remaining_ms"] == 4_500_000
+
+    assert has_element?(
+             view,
+             "[id='instruction-#{order["id"]}']",
+             "Minimum remaining shelf life: 75 min"
+           )
+
+    command = %{
+      "action" => "instruction",
+      "ship" => ship,
+      "port" => "Jakarta",
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 1,
+      "limit" => 1_000_000,
+      "budget" => 1_000_000,
+      "onward" => "Singapore",
+      "expiry_minutes" => "",
+      "expires_in_ms" => nil,
+      "min_remaining_ms" => 4_500_000
+    }
+
+    assert {:ok, %{"instruction_id" => id}} =
+             GameServer.command(token, request, command, c.server)
+
+    assert id == order["id"]
+    quote = GameServer.preview(token, ship, "Dubai", c.server)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "divert",
+               %{
+                 "action" => "sail",
+                 "ship" => ship,
+                 "destination" => "Dubai",
+                 "fuel_limit" => quote["fuel"]
+               },
+               c.server
+             )
+
+    render_async(view)
+    render_async(view)
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Dubai"}) |> render_submit()
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Jakarta"}) |> render_submit()
+
+    first =
+      GameServer.snapshot(token, c.server).private["route_stops"]
+      |> Map.values()
+      |> Enum.find(&(&1["position"] == 0))
+
+    form_id = "#route-rule-#{first["id"]}"
+
+    rule_params = %{
+      "side" => "buy",
+      "good" => "spices",
+      "quantity" => "2",
+      "limit" => "10000",
+      "freshness_minutes" => "120"
+    }
+
+    view |> form(form_id, rule_params) |> render_change()
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
+    assert has_element?(view, form_id <> " input[name=freshness_minutes][value='120']")
+    view |> form(form_id, rule_params) |> render_submit()
+    assert [rule] = Map.values(GameServer.snapshot(token, c.server).private["route_rules"])
+    assert rule["min_remaining_ms"] == 7_200_000
+    view |> element("button[phx-value-rule='#{rule["id"]}']", "Edit") |> render_click()
+    assert has_element?(view, form_id <> " input[name=freshness_minutes][value='120']")
+    view |> form(form_id, Map.put(rule_params, "freshness_minutes", "")) |> render_submit()
+
+    assert GameServer.snapshot(token, c.server).private["route_rules"][rule["id"]][
+             "min_remaining_ms"
+           ] == 0
+
+    view |> element("button[phx-value-rule='#{rule["id"]}']", "Edit") |> render_click()
+    view |> form(form_id, rule_params) |> render_submit()
+    before = GameServer.snapshot(token, c.server)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :freshness_replacement
+      )
+
+    restored = GameServer.snapshot(token, replacement)
+    assert restored.private["route_rules"] == before.private["route_rules"]
+    assert restored.private["ship_instructions"] == before.private["ship_instructions"]
+
+    assert {:ok, %{"instruction_id" => ^id}} =
+             GameServer.command(token, request, command, replacement)
+
+    assert [[4_500_000]] ==
+             Repo.query!(
+               "SELECT min_remaining_ms FROM game_ship_instructions WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows
+
+    assert [[7_200_000]] ==
+             Repo.query!(
+               "SELECT min_remaining_ms FROM game_route_rules WHERE world_id=$1 AND id=$2",
+               [c.world_id, rule["id"]]
+             ).rows
+
+    refute Map.has_key?(GameServer.snapshot(nil, replacement).public, "ship_instructions")
+    assert GameServer.snapshot(nil, replacement).private == nil
+  end
+
   test "instruction expiry UI preserves drafts, receipts and deadlines across offline restart",
        c do
     Application.put_env(:tijara_tides, :game_server, c.server)
@@ -2822,6 +2994,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "budget" => 1_000_000,
       "onward" => "Singapore",
       "expiry_minutes" => "2",
+      "min_remaining_ms" => 0,
       "expires_in_ms" => 120_000
     }
 

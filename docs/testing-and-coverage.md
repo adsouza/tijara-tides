@@ -115,6 +115,7 @@ fill after its blocking condition clears.
 | Numeric validation | Non-integer and out-of-range quantities/prices/budgets, invalid onward port |
 | Lifecycle limits | Twenty active instructions accepted, twenty-first rejected, cancellation frees a slot, repeated/missing cancellation rejected |
 | Instruction expiry | Unlimited and legacy rows, duration types/bounds, ownership fencing, before/at deadline, newly viable fills, at-sea expiry, queued berth admission, partial fills and committed handling, automatic departure after handling, unchanged terminal records and retry notices |
+| Minimum shelf life | Numeric bounds and defaults, exact qualifying boundary, wait without cash/cargo movement, later replenishment, partial fills, earliest qualifying expiry, retained excluded lots/cost/split lineage, reservation protection, owned-stock berth admission, qualifying cargo aboard, maximum targets waiting and immutable current-visit snapshots |
 | Departure and privacy | Cancel waiting remainders and incompatible plans; owner-only visibility |
 
 The database/browser integration test additionally exercises UI submission and
@@ -124,6 +125,10 @@ The instruction-expiry integration case covers optional/invalid form input,
 tick-preserved drafts, private countdowns, SQL deadlines, replay without extending
 the deadline, restart without offline catch-up, terminal history and no duplicate
 expiry notice or financial posting.
+The freshness form integration case covers preserved drafts, invalid input,
+stored instruction and route terms, route edits/clearing, owner-only visibility,
+SQL reload and creation replay. Root codec cases cover legacy defaults and
+rejection of invalid freshness terms.
 
 ## Server failure scenarios
 

@@ -164,6 +164,10 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
           (not is_integer(p["budget"]) or p["budget"] not in 1..1_000_000_000_000) ->
         {:error, :instruction_budget_invalid}
 
+      not CargoRules.valid_remaining?(Map.get(p, "min_remaining_ms", 0)) or
+          (p["side"] != "buy" and Map.get(p, "min_remaining_ms", 0) != 0) ->
+        {:error, :instruction_freshness_invalid}
+
       length(rules) >= 20 or
           Enum.any?(rules, &(&1.side == p["side"] and &1.good == p["good"])) ->
         {:error, :route_duplicate_rule}
@@ -178,7 +182,8 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
             "ship_id" => ship["id"],
             "company_id" => ship["company_id"],
             "stop_id" => stop.id,
-            "budget" => if(p["side"] == "buy", do: p["budget"])
+            "budget" => if(p["side"] == "buy", do: p["budget"]),
+            "min_remaining_ms" => Map.get(p, "min_remaining_ms", 0)
           })
           |> RouteTarget.from_row()
 
@@ -565,7 +570,14 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
       only_missing and not is_nil(get(state, "ship_instructions", "route:" <> rule.id))
     end)
     |> Enum.reduce(state, fn rule, acc ->
-      aboard = Enum.sum(for b <- ship["cargo"], b["good"] == rule.good, do: b["quantity"])
+      aboard =
+        Enum.sum(
+          for b <- ship["cargo"],
+              b["good"] == rule.good,
+              side != "buy" or
+                CargoRules.qualifies?(b["expires_ms"], state.clock_ms, rule.min_remaining_ms),
+              do: b["quantity"]
+        )
 
       item = catalogue["goods"][rule.good]
       class = TijaraTides.Domain.ShipClass.all()[ship["class"]]
@@ -603,6 +615,7 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
           "filled" => 0,
           "limit" => rule.limit,
           "budget" => rule.budget,
+          "min_remaining_ms" => rule.min_remaining_ms,
           "spent" => 0,
           "onward" => if(side == "buy", do: next.port),
           "status" => "planned",

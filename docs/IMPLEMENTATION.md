@@ -25,6 +25,22 @@ departure still waits for handling and other active instructions. Migration
 legacy instructions remain unlimited. Deadlines pause offline, survive reloads
 and remain fixed when a creation request is replayed.
 
+Next-port buys and repeating-route load targets also accept an optional minimum
+remaining shelf life, in active-world minutes (0–43,200; blank means any unspoiled
+cargo). Check it at purchase or collection settlement, not at predicted arrival.
+Within each source, take the earliest-expiring qualifying lots first, retaining
+lot identity, split lineage, acquisition cost and expiry. Owned warehouse stock
+qualifying for the ship is used before market purchases, without consuming other
+ships' reserved quantities. Unsuitable stock stays owned in place; no trade or
+cash posting occurs when no stock qualifies. Fixed targets retry the remainder;
+buy-maximum targets also wait when all available stock fails freshness. Route
+load targets count only qualifying cargo already aboard, while all cargo still
+uses physical capacity. Current visit orders retain their snapshotted terms when
+the template is edited. Private controls, progress and waiting reasons persist
+through replay and restart. Migration `20260930000003_add_instruction_freshness.exs`
+defaults existing instruction and route terms to zero. Standing-order freshness
+terms, grades, markdowns and reservation replacement remain deferred.
+
 See [architecture and domain boundaries](architecture.md) for command workflows,
 query projections, consistency and module responsibilities.
 
@@ -269,8 +285,8 @@ with launch tuning described in this document. Remaining work includes:
 - **Procurement:** machinery delivery auctions, supplier deposits, buyer funding
   and receiving-capacity commitments, delivery deadlines, settlement/default and
   system-fault protections (§7).
-- **Perishable and unified markets:** freshness-graded order books, minimum
-  freshness requirements, markdown schedules and presets, mixed-grade backing,
+- **Perishable and unified markets:** freshness-graded order books, buyer
+  freshness requirements on standing orders, markdown schedules and presets, mixed-grade backing,
   freshness-aware reservation replacement, and direct ship trades against
   player order books (§§6–8).
 - **Automation:** linked remote orders and their atomic handover at berth,
@@ -449,7 +465,7 @@ voyage-affordability checks as manual and single-visit trades. Partial fills ret
 and never accumulate across circuits. Once sales finish, exhausted hold capacity
 cancels the remaining loading shortfall with notification. Other unfilled targets
 wait until filled, explicitly cancelled, or their stop's maximum wait elapses.
-Instruction expiry, linked exchange orders and advance purchase budgets remain
+Linked exchange orders and advance purchase budgets remain
 future extensions.
 
 Each stop has an optional maximum wait, configured in minutes (up to 30 days)

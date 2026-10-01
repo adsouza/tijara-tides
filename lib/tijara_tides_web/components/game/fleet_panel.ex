@@ -692,6 +692,22 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   value={instruction.budget}
                   class="block w-full rounded bg-slate-800 p-2 disabled:cursor-not-allowed disabled:opacity-50"
                 /></label>
+                <label>{gettext("Minimum shelf life (minutes; buys only)")}<input
+                  name="freshness_minutes"
+                  aria-label={gettext("Minimum remaining shelf life")}
+                  type="number"
+                  min="0"
+                  max="43200"
+                  step="1"
+                  disabled={instruction.side == "sell"}
+                  value={instruction_value(@instruction_drafts, @ship, "freshness_minutes", "")}
+                  class="block w-full rounded bg-slate-800 p-2 disabled:opacity-40"
+                /></label>
+                <p class="self-center text-xs text-slate-400">
+                  {gettext(
+                    "Checked at purchase or collection, in active-world time. Blank accepts any unspoiled cargo."
+                  )}
+                </p>
                 <label>{gettext("Expires after (active minutes; optional)")}<input
                   name="expiry_minutes"
                   aria-label={gettext("Instruction expiry minutes")}
@@ -763,6 +779,11 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   )}
                 </p>
                 <p>{l10n(order["status"])} · {l10n(order["reason"] || "")}</p>
+                <p :if={order["min_remaining_ms"] && order["min_remaining_ms"] > 0}>
+                  {gettext("Minimum remaining shelf life: %{minutes} min",
+                    minutes: display_number(div(order["min_remaining_ms"], 60_000))
+                  )}
+                </p>
                 <p :if={order["expires_ms"] && order["status"] in ["planned", "waiting"]}>
                   {gettext("Expiry remaining: %{time} of active-world time (hours:minutes:seconds).",
                     time: active_countdown(order["expires_ms"] - @view.public["clock_ms"])

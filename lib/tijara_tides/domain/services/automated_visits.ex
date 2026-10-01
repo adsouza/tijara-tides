@@ -115,12 +115,13 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
         good: order["good"],
         quantity: 1,
         limit: order["limit"],
+        min_remaining_ms: Map.get(order, "min_remaining_ms", 0),
         destination: order["onward"]
       }
 
       source =
         if order["side"] == "buy",
-          do: WarehouseWorld.collection_source(state, ship, order["good"])
+          do: WarehouseWorld.collection_source(state, ship, order["good"], trade.min_remaining_ms)
 
       # Pure probes are discarded. Only the final successful fill is committed.
       result = fn quantity ->
@@ -214,10 +215,15 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
     end
   end
 
-  defp execute_fill(state, account, trade, nil, catalogue),
+  defp execute_fill(state, account, trade, source, catalogue, admission \\ :normal)
+
+  defp execute_fill(state, account, trade, nil, catalogue, :validate),
+    do: Trading.check(state, account, trade, catalogue)
+
+  defp execute_fill(state, account, trade, nil, catalogue, :normal),
     do: Trading.execute(state, account, trade, catalogue)
 
-  defp execute_fill(state, account, trade, warehouse, catalogue) do
+  defp execute_fill(state, account, trade, warehouse, catalogue, admission) do
     case WarehouseWorld.transfer(
            state,
            account,
@@ -226,9 +232,11 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
              "ship" => trade.ship_id,
              "good" => trade.good,
              "quantity" => trade.quantity,
+             "min_remaining_ms" => trade.min_remaining_ms,
              "side" => "collect"
            },
-           catalogue
+           catalogue,
+           admission
          ) do
       {:ok, changed, reply} ->
         ship = get(changed, "ships", trade.ship_id)
@@ -244,6 +252,27 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
 
       other ->
         other
+    end
+  end
+
+  @doc "Probe the same qualifying owned-stock or market source used by visit execution."
+  def validate(state, account, trade, catalogue) do
+    ship = get(state, "ships", trade.ship_id)
+
+    source =
+      if trade.side == "buy",
+        do: WarehouseWorld.collection_source(state, ship, trade.good, trade.min_remaining_ms)
+
+    case execute_fill(
+           Map.put(state, :lot_allocation, {:local, 1}),
+           account,
+           trade,
+           source,
+           catalogue,
+           :validate
+         ) do
+      {:ok, _, _} -> :ok
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -273,6 +302,10 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
   defp reason_text(:price_changed), do: "Waiting for the limit price"
   defp reason_text(:insufficient_cargo), do: "Waiting for cargo aboard"
   defp reason_text(:insufficient_supply), do: "Waiting for market supply"
+
+  defp reason_text(:insufficient_fresh_cargo),
+    do: "Waiting for cargo meeting the minimum remaining shelf life"
+
   defp reason_text(:insufficient_demand), do: "Waiting for market demand or buyer funds"
 
   defp reason_text(:insufficient_cash),
