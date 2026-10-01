@@ -523,7 +523,9 @@ defmodule TijaraTides.Domain.WarehouseWorld do
 
           {state, w} =
             if side == "store" do
-              {s, cargo} = ShipWorld.unload_cargo(state, ship["id"], item["id"], n)
+              {s, cargo} =
+                ShipWorld.unload_cargo(state, ship["id"], item["id"], n, nil, catalogue)
+
               {s, receive_conditioned(w, cargo, state.clock_ms)}
             else
               {lots, next, cargo} =
@@ -1079,7 +1081,9 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         |> save(w)
         |> CompanyFinanceWorld.estate_expense(w.company_id, price, "prepaid_rent")
 
-      {state, cargo} = ShipWorld.unload_cargo(state, ship["id"], item["id"], quantity)
+      {state, cargo} =
+        ShipWorld.unload_cargo(state, ship["id"], item["id"], quantity, nil, catalogue)
+
       w = receive_conditioned(w, cargo, state.clock_ms)
       w = Warehouse.protect_handling(w, get(state, "ships", ship["id"])["arrive_ms"])
 

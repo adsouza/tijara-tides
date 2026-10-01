@@ -182,7 +182,7 @@ defmodule TijaraTides.UseCases.MarketQueries do
         profit =
           if voyage do
             arrival = view.public["clock_ms"] + voyage["loading_ms"] + voyage["duration_ms"]
-            handling = CargoRules.handling_ms(lots)
+            handling = CargoRules.handling_ms(lots, destination, good, definitions.catalogue)
 
             unloading_upkeep =
               Enum.sum(
@@ -320,6 +320,20 @@ defmodule TijaraTides.UseCases.MarketQueries do
         catalogue
       )
 
+  def handling_time(quote, quantity),
+    do:
+      CargoRules.handling_ms(
+        quantity,
+        quote["handling_profile"] || CargoRules.handling_profile(nil, nil, %{})
+      )
+
+  def port_handling(catalogue, port),
+    do:
+      Map.new(
+        ~w(lumber fruit copper_scrap crude_oil),
+        &{&1, CargoRules.handling_ms(100, port, &1, catalogue)}
+      )
+
   def trade_freshness(quote, ship, side, good, quantity, clock) do
     batches =
       if side == "buy",
@@ -334,7 +348,15 @@ defmodule TijaraTides.UseCases.MarketQueries do
           }),
         else: batches
 
-    CargoRules.freshness(batches, quantity, clock, CargoRules.handling_ms(quantity))
+    CargoRules.freshness(
+      batches,
+      quantity,
+      clock,
+      CargoRules.handling_ms(
+        quantity,
+        quote["handling_profile"] || CargoRules.handling_profile(nil, nil, %{})
+      )
+    )
   end
 
   def route_distance(definitions, ship, destination) do

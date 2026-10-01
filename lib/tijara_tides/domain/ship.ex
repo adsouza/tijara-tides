@@ -44,7 +44,14 @@ defmodule TijaraTides.Domain.Ship do
 
     next = %{ship | cargo: ship.cargo ++ cargo}
     capacity!(next, catalogue)
-    quantity = Enum.sum(Enum.map(cargo, & &1.quantity))
+
+    handling =
+      cargo
+      |> Enum.group_by(& &1.good)
+      |> Enum.map(fn {good, bs} ->
+        CargoRules.handling_ms(Enum.sum(Enum.map(bs, & &1.quantity)), ship.port, good, catalogue)
+      end)
+      |> Enum.sum()
 
     last =
       if ShipClass.all()[ship.class]["hold"] == "liquid",
@@ -54,7 +61,7 @@ defmodule TijaraTides.Domain.Ship do
     %{
       next
       | status: "loading",
-        arrive_ms: now + CargoRules.handling_ms(quantity) + if(cleaning > 0, do: 60_000, else: 0),
+        arrive_ms: now + handling + if(cleaning > 0, do: 60_000, else: 0),
         last_liquid: last
     }
   end
@@ -66,7 +73,14 @@ defmodule TijaraTides.Domain.Ship do
     {%{ship | cargo: remaining}, discarded}
   end
 
-  def record_sale(%Lots{} = lots, %__MODULE__{} = ship, good, quantity, lot_ids \\ nil) do
+  def record_sale(
+        %Lots{} = lots,
+        %__MODULE__{} = ship,
+        good,
+        quantity,
+        lot_ids \\ nil,
+        catalogue \\ %{}
+      ) do
     docked!(ship)
 
     unless is_integer(quantity) and quantity > 0 and quantity <= aboard(ship, good),
@@ -80,7 +94,7 @@ defmodule TijaraTides.Domain.Ship do
       ship
       | cargo: remaining,
         status: "unloading",
-        arrive_ms: lots.clock_ms + CargoRules.handling_ms(quantity)
+        arrive_ms: lots.clock_ms + CargoRules.handling_ms(quantity, ship.port, good, catalogue)
     }
 
     {lots, next, sold}

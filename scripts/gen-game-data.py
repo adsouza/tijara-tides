@@ -108,7 +108,8 @@ manufacturing = {
  'vegetable_oil': {'inputs': {'grain': 2}, 'local_cost_cents': 9000},
  'whisky': {'inputs': {'grain': 3}, 'local_cost_cents': 15000},
 }
-result={'refrigeration':{'aging_bps':2500},'manufacturing':manufacturing,'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
+handling={'speed_ms_per_lot':{'slow':500,'med':350,'fast':250},'cargo_bps':{'Perishables':12500,'Scrap':15000,'liquid':7500},'minimum_ms':1000}
+result={'handling':handling,'refrigeration':{'aging_bps':2500},'manufacturing':manufacturing,'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
 (ROOT/'priv/game').mkdir(parents=True,exist_ok=True)
 (ROOT/'priv/game/catalogue.json').write_text(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n')
 print(f'Generated {len(goods)} goods, {len(ports)} ports, {len(routes)} directed sea routes')

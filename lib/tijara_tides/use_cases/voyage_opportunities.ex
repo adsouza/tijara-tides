@@ -210,7 +210,12 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
           end),
         purchases: plan.purchases ++ [%{good: c.id, lots: n}],
         spent: plan.spent + spent,
-        loading: plan.loading + CargoRules.handling_ms(n) + if(cleaning > 0, do: 60_000, else: 0)
+        loading:
+          plan.loading +
+            CargoRules.handling_ms(
+              n,
+              c.source["handling_profile"] || CargoRules.handling_profile(nil, nil, %{})
+            ) + if(cleaning > 0, do: 60_000, else: 0)
     }
   end
 
@@ -243,7 +248,11 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
          basis + cost}
       end)
 
-    unloading = Enum.sum(Enum.map(sales, &CargoRules.handling_ms(&1.lots)))
+    unloading =
+      Enum.sum(
+        Enum.map(sales, &CargoRules.handling_ms(&1.lots, ctx.destination, &1.good, ctx.catalogue))
+      )
+
     horizon = plan.loading + voyage["duration_ms"] + unloading
     upkeep = upkeep(plan.ship, ctx.clock, horizon, voyage["duration_ms"])
     maintenance = Fleet.maintenance_estimate(plan.ship, ctx.clock, ctx.clock + horizon)

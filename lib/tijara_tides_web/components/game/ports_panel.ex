@@ -87,6 +87,16 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             <p class="mt-2">
               {l10n(@definitions.catalogue["ports"][@selected_port]["identity"])}
             </p>
+            <% handling = GameQueries.port_handling(@definitions.catalogue, @selected_port) %>
+            <div id="port-handling-speed" class="mt-2">
+              {gettext(
+                "Handling time for 100 lots: ordinary %{ordinary} min, perishables %{perishable} min, scrap %{scrap} min, liquids %{liquid} min.",
+                ordinary: minutes(handling["lumber"]),
+                perishable: minutes(handling["fruit"]),
+                scrap: minutes(handling["copper_scrap"]),
+                liquid: minutes(handling["crude_oil"])
+              )}
+            </div>
             <section id="port-manufacturing" class="mt-3">
               <h3 class="mb-1 text-base font-semibold text-slate-200">
                 <.emoji symbol="🏭" />{gettext("Local manufacturing")}
@@ -584,6 +594,11 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                       else: gettext("Queue sale")
                     ),
                   else: l10n(String.capitalize(side))}</button>
+                <p :if={quantity > 0} class="basis-full text-xs text-slate-400">
+                  {gettext("Estimated handling: %{minutes} min",
+                    minutes: minutes(GameQueries.handling_time(q, quantity))
+                  )}
+                </p>
                 <%= if side == "buy" and available > 0 and quantity > 0 do %>
                   <% total = GameQueries.purchase_total(q, @ship, item, quantity) %>
                   <% voyage =

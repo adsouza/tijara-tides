@@ -58,6 +58,9 @@ defmodule TijaraTides.UseCases.GameQueries do
   defdelegate purchase_voyage(ship, item, quantity, destination, fleet, clock, catalogue),
     to: TijaraTides.UseCases.MarketQueries
 
+  defdelegate handling_time(quote, quantity), to: TijaraTides.UseCases.MarketQueries
+  defdelegate port_handling(catalogue, port), to: TijaraTides.UseCases.MarketQueries
+
   defdelegate trade_freshness(quote, ship, side, good, quantity, clock),
     to: TijaraTides.UseCases.MarketQueries
 
@@ -116,7 +119,13 @@ defmodule TijaraTides.UseCases.GameQueries do
           Map.put(
             quote,
             "freshness",
-            CargoRules.voyage_freshness(ship, game.clock_ms, quote["duration_ms"])
+            CargoRules.voyage_freshness(
+              ship,
+              game.clock_ms,
+              quote["duration_ms"],
+              destination,
+              catalogue
+            )
           )
       end
     else
@@ -157,7 +166,9 @@ defmodule TijaraTides.UseCases.GameQueries do
                     CargoRules.voyage_freshness(
                       ship,
                       game.clock_ms,
-                      max(0, ship["arrive_ms"] - game.clock_ms)
+                      max(0, ship["arrive_ms"] - game.clock_ms),
+                      ship["destination"],
+                      catalogue
                     ),
                   else: []
 

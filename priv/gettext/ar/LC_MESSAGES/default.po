@@ -2911,3 +2911,9 @@ msgstr "حفظ الإعداد"
 
 msgid "Use percentages below"
 msgstr "استخدام النسب أدناه"
+
+msgid "Estimated handling: %{minutes} min"
+msgstr "وقت المناولة المقدر: %{minutes} دقيقة"
+
+msgid "Handling time for 100 lots: ordinary %{ordinary} min, perishables %{perishable} min, scrap %{scrap} min, liquids %{liquid} min."
+msgstr "وقت مناولة 100 دفعة: البضائع العادية %{ordinary} دقيقة، القابلة للتلف %{perishable} دقيقة، الخردة %{scrap} دقيقة، السوائل %{liquid} دقيقة."

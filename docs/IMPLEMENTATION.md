@@ -968,3 +968,21 @@ lots whose grade minimum is met by the port bid; other cargo stays aboard.
 Migration `20261001000003_add_graded_books.exs` persists settings, portions,
 priorities and presets. Books and owner controls disclose grade and remaining
 life; accepting an amendment atomically replaces cash and cargo/space backing.
+
+
+## Port and cargo handling speeds
+
+Physical loading, unloading, owned-stock collection and warehouse storage now
+use the port roster's speed capability and cargo type. Provisional time per lot
+is 500/350/250 ms at slow/medium/fast ports. Perishables use 125% of ordinary
+handling time, scrap 150%, and pumped liquids 75%; each operation takes at least
+one second and fractional milliseconds round upward. These configurable values
+live in the generated catalogue's `handling` tuning. Tank cleaning still adds
+its existing separate minute and cost.
+
+The shared duration calculation also supplies trade/purchase affordability,
+mixed-manifest route estimates and receiving-port unloading freshness previews.
+Ports publish representative handling times, and trade controls show the
+selected quantity's duration. Accepted handling keeps its stored finish time
+through reload; berth and warehouse protection use that same deadline. Remote
+exchange ownership transfers still incur no physical handling time or fee.

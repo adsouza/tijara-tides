@@ -43,7 +43,37 @@ defmodule TijaraTides.Domain.CargoRules do
         expires_ms: row["expires_ms"]
       })
 
-  def handling_ms(quantity), do: max(1000, quantity * 500)
+  # Compatibility for callers without a catalogue; world operations use snapshotted profiles.
+  def handling_ms(quantity),
+    do: handling_ms(quantity, %{"base_ms" => 500, "cargo_bps" => 10_000, "minimum_ms" => 1000})
+
+  def handling_profile(port, good, catalogue) do
+    tuning = catalogue["handling"] || %{}
+    speeds = tuning["speed_ms_per_lot"] || %{"slow" => 500, "med" => 350, "fast" => 250}
+
+    factors =
+      tuning["cargo_bps"] || %{"Perishables" => 12_500, "Scrap" => 15_000, "liquid" => 7500}
+
+    item = (catalogue["goods"] || %{})[good] || %{}
+    speed = get_in(catalogue, ["ports", port, "tiers", "speed"]) || "slow"
+    kind = if item["hold"] == "liquid", do: "liquid", else: item["category"]
+
+    %{
+      "base_ms" => speeds[speed] || 500,
+      "cargo_bps" => factors[kind] || 10_000,
+      "minimum_ms" => tuning["minimum_ms"] || 1000
+    }
+  end
+
+  def handling_ms(quantity, profile) do
+    max(
+      profile["minimum_ms"],
+      div(max(0, quantity) * profile["base_ms"] * profile["cargo_bps"] + 9999, 10_000)
+    )
+  end
+
+  def handling_ms(quantity, port, good, catalogue),
+    do: handling_ms(quantity, handling_profile(port, good, catalogue))
 
   @doc "Lots one command may move, whether traded with a market or transferred to storage."
   def max_lots, do: 10_000
@@ -85,8 +115,15 @@ defmodule TijaraTides.Domain.CargoRules do
     end
   end
 
-  def voyage_freshness(ship, clock, duration) do
-    unloading = ship["cargo"] |> Enum.map(& &1["quantity"]) |> Enum.sum() |> handling_ms()
+  def voyage_freshness(ship, clock, duration, destination \\ nil, catalogue \\ %{}) do
+    unloading =
+      ship["cargo"]
+      |> Enum.group_by(& &1["good"])
+      |> Enum.map(fn {good, batches} ->
+        quantity = Enum.sum(Enum.map(batches, & &1["quantity"]))
+        handling_ms(quantity, destination, good, catalogue)
+      end)
+      |> Enum.sum()
 
     ship["cargo"]
     |> Enum.group_by(& &1["good"])

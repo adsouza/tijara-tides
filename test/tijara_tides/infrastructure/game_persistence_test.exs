@@ -4617,7 +4617,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#trade-buy-fruit", "0.2 min handling")
     assert has_element?(view, "#trade-buy-fruit", "Estimates may change")
     view |> form("#trade-buy-fruit", %{"quantity" => "20"}) |> render_submit()
-    advance(server, 11_000)
+    advance(server, 13_000)
     select_destination(view, "Singapore")
     assert has_element?(view, ".voyage-freshness", "Fruit: estimated time to first expiry")
     assert has_element?(view, ".voyage-freshness", "after unloading")
@@ -5114,6 +5114,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         },
         cat
       )
+
+    handling = TijaraTides.Domain.CargoRules.handling_ms(2, "Jakarta", "fruit", cat)
+    assert State.get(next, "ships", ship["id"])["arrive_ms"] == next.clock_ms + handling
+
+    assert State.get(next, "warehouses", "warm-storage")["protected_ms"] ==
+             next.clock_ms + handling
 
     warm = State.get(next, "warehouses", "warm-storage")["cargo"] |> hd()
     assert warm["freshness"]["origin_expires_ms"] == origin

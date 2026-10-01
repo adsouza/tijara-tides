@@ -5,7 +5,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   @moduledoc "Atomic manual trades across company cash, ship cargo and market liquidity, with journal postings."
   import TijaraTides.Domain.State
   import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2, voyage_quote: 3]
-  import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 1, max_lots: 0]
+  import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 4, max_lots: 0]
   import TijaraTides.Domain.PortCargoMarketWorld, only: [quote: 4]
   import TijaraTides.Domain.PortCargoMarket, only: [handling_rate: 1]
 
@@ -114,7 +114,20 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             budget_id,
             catalogue
           ),
-        else: sell(state, company, ship, good, quantity, limit, market, quote, handling, terms)
+        else:
+          sell(
+            state,
+            company,
+            ship,
+            good,
+            quantity,
+            limit,
+            market,
+            quote,
+            handling,
+            terms,
+            catalogue
+          )
     else
       _ -> {:error, :invalid_trade}
     end
@@ -135,7 +148,10 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
     with true <- is_binary(destination) and destination != ship["port"],
          %{} = voyage <- voyage_quote(loaded, destination, catalogue),
          true <- voyage["duration_ms"] <= 86_400_000 do
-      loading = handling_ms(quantity) + if(cleaning_cost(ship, item) > 0, do: 60_000, else: 0)
+      loading =
+        handling_ms(quantity, ship["port"], item["id"], catalogue) +
+          if(cleaning_cost(ship, item) > 0, do: 60_000, else: 0)
+
       horizon = loading + voyage["duration_ms"]
 
       upkeep =
@@ -308,7 +324,19 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
     end
   end
 
-  defp sell(state, company, ship, good, quantity, limit, market, quote, handling, terms) do
+  defp sell(
+         state,
+         company,
+         ship,
+         good,
+         quantity,
+         limit,
+         market,
+         quote,
+         handling,
+         terms,
+         catalogue
+       ) do
     available = TijaraTides.Domain.ShipWorld.cargo_available(state, ship["id"], good)
 
     qualified =
@@ -345,7 +373,8 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             ship["id"],
             good,
             quantity,
-            Enum.map(qualified, & &1["lot_id"])
+            Enum.map(qualified, & &1["lot_id"]),
+            catalogue
           )
 
         cost = Enum.sum(Enum.map(sold, &(&1["quantity"] * &1["unit_cost"])))

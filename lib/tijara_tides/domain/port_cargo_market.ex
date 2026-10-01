@@ -18,6 +18,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
       "ask" => div(item["reference_cents"] * (ask_base + div(500 - market.stock, 25)), 100),
       "bid" => div(item["reference_cents"] * (bid_base - div(500 - market.demand, 25)), 100),
       "handling_fee" => handling_rate(catalogue["ports"][market.port]),
+      "handling_profile" =>
+        TijaraTides.Domain.CargoRules.handling_profile(market.port, market.good, catalogue),
       "refrigeration_bps" => TijaraTides.Domain.CargoFreshness.rate("reefer", catalogue),
       "freshness_batches" =>
         if(market.seller,
