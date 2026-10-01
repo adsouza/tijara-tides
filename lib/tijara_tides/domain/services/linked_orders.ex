@@ -12,23 +12,7 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
 
   alias TijaraTides.Domain.Services.Exchange
 
-  def edit_route(state, account, command, context) do
-    with {:ok, changed, reply} <-
-           TijaraTides.Domain.ShipWorld.RoutePlans.execute(state, account, command, context),
-         {:ok, changed} <- reconcile_edit(state, changed, account, command, context.catalogue),
-         {:ok, changed} <- fund_started_visit(changed, command) do
-      {:ok, TijaraTides.Domain.Services.DepartureFunding.reconcile(changed, context.catalogue),
-       reply}
-    end
-  end
-
-  defp fund_started_visit(state, %{"operation" => op, "ship" => ship})
-       when op in ["start", "resume"],
-       do: TijaraTides.Domain.Services.DepartureFunding.fund_current_visit(state, ship)
-
-  defp fund_started_visit(state, _), do: {:ok, state}
-
-  defp reconcile_edit(before, state, account, command, catalogue) do
+  def reconcile_edit(before, state, account, command, catalogue) do
     ship = command["ship"]
 
     old =
@@ -262,47 +246,6 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
     end
   end
 
-  def fill_allowed?(state, order) do
-    link =
-      Enum.find_value(State.entities(state, "remote_links"), fn {_, link} ->
-        if link["order_id"] == order.id, do: link
-      end)
-
-    if link do
-      route = State.get(state, "ship_routes", link["ship_id"])
-      stop = State.get(state, "route_stops", link["stop_id"])
-      ship = State.get(state, "ships", link["ship_id"])
-
-      current =
-        route && stop && route["cursor"] == stop["position"] && not route["visit_finished"]
-
-      link["status"] == "active" && ship && stop &&
-        not (current &&
-               ((route["wait_deadline_ms"] != nil && route["wait_deadline_ms"] <= state.clock_ms) ||
-                  ship["berth_granted_ms"] != nil))
-    else
-      true
-    end
-  end
-
-  def record_fill(state, order, quantity, catalogue) do
-    link =
-      Enum.find_value(State.entities(state, "remote_links"), fn {_, link} ->
-        if(link["order_id"] == order.id, do: link)
-      end)
-
-    if link do
-      unless link["status"] == "active",
-        do: raise(ArgumentError, "A handed-over remote order cannot fill")
-
-      state
-      |> WarehouseWorld.earmark_remote_fill(link, order, quantity, catalogue)
-      |> AutomationWorld.record_remote_fill(link, quantity)
-    else
-      state
-    end
-  end
-
   def handover(state, ship_id) do
     ship = State.get(state, "ships", ship_id)
     route = State.get(state, "ship_routes", ship_id)
@@ -399,14 +342,6 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
 
       if is_nil(rule) or company["bankruptcy_ms"] != nil,
         do: close(s, link, "removed", true) |> AutomationWorld.remove_link(link["id"]),
-        else: s
-    end)
-  end
-
-  def order_cancelled(state, order_id) do
-    Enum.reduce(State.entities(state, "remote_links"), state, fn {_, link}, s ->
-      if link["order_id"] == order_id && link["status"] == "active",
-        do: AutomationWorld.close_link(s, link, "expired"),
         else: s
     end)
   end

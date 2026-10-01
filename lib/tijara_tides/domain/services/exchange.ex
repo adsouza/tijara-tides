@@ -136,7 +136,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
              state
              |> unback(o)
              |> OrderBookWorld.cancel(id)
-             |> TijaraTides.Domain.Services.LinkedOrders.order_cancelled(id), %{}},
+             |> TijaraTides.Domain.Services.RemoteOrderSettlement.order_cancelled(id), %{}},
           else: {:error, :exchange_invalid}
 
       nil ->
@@ -239,7 +239,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
         s
         |> unback(o)
         |> OrderBookWorld.cancel(o.id)
-        |> TijaraTides.Domain.Services.LinkedOrders.order_cancelled(o.id)
+        |> TijaraTides.Domain.Services.RemoteOrderSettlement.order_cancelled(o.id)
         |> Notices.notice(
           company["account_id"],
           "exchange:" <> o.id,
@@ -297,7 +297,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
               OrderBookWorld.counterparts(state, offered)
               |> Enum.find(
                 &(WarehouseWorld.exchange_ready?(state, OrderBook.claim(&1)) &&
-                    TijaraTides.Domain.Services.LinkedOrders.fill_allowed?(state, &1) &&
+                    TijaraTides.Domain.Services.RemoteOrderSettlement.fill_allowed?(state, &1) &&
                     compatible_quantity(state, offered, &1) > 0)
               )
 
@@ -314,7 +314,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
 
         cond do
           not WarehouseWorld.order_backed?(state, OrderBook.claim(o)) or
-              not TijaraTides.Domain.Services.LinkedOrders.fill_allowed?(state, o) ->
+              not TijaraTides.Domain.Services.RemoteOrderSettlement.fill_allowed?(state, o) ->
             {state, budget}
 
           use_npc ->
@@ -404,13 +404,13 @@ defmodule TijaraTides.Domain.Services.Exchange do
     state
     |> WarehouseWorld.exchange_in(OrderBook.claim(buy), acquired, n)
     |> buyer_cash(buy, n, price)
-    |> TijaraTides.Domain.Services.LinkedOrders.record_fill(buy, n, catalogue)
+    |> TijaraTides.Domain.Services.RemoteOrderSettlement.record_fill(buy, n, catalogue)
     |> seller_cash(sell, n, price, cost)
     |> OrderBookWorld.fill(buy, n)
     |> OrderBookWorld.fill(sell, n)
     |> traded(buy, n, price)
     |> reconcile(sell.company_id)
-    |> TijaraTides.Domain.Services.WarehouseLiquidation.refresh(sell.warehouse_id, catalogue)
+    |> TijaraTides.Domain.Services.LiquidationSettlement.refresh(sell.warehouse_id, catalogue)
   end
 
   defp settle_npc(state, o, n, price, catalogue) do
@@ -431,7 +431,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
         s
         |> WarehouseWorld.exchange_in(OrderBook.claim(o), cargo, n)
         |> buyer_cash(o, n, price)
-        |> TijaraTides.Domain.Services.LinkedOrders.record_fill(o, n, catalogue)
+        |> TijaraTides.Domain.Services.RemoteOrderSettlement.record_fill(o, n, catalogue)
       else
         {s, cargo} = WarehouseWorld.exchange_out(state, OrderBook.claim(o), n)
         cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
@@ -445,12 +445,12 @@ defmodule TijaraTides.Domain.Services.Exchange do
     |> OrderBookWorld.fill(o, n)
     |> traded(o, n, price)
     |> reconcile(o.company_id)
-    |> TijaraTides.Domain.Services.WarehouseLiquidation.refresh(o.warehouse_id, catalogue)
+    |> TijaraTides.Domain.Services.LiquidationSettlement.refresh(o.warehouse_id, catalogue)
   end
 
   @doc "Receiver fills valid local buy orders at their existing limit, in price/time order."
   def liquidate_stock(state, warehouse, good, catalogue) do
-    alias TijaraTides.Domain.Services.WarehouseLiquidation, as: Liquidation
+    alias TijaraTides.Domain.Services.LiquidationSettlement, as: Liquidation
     w = WarehouseWorld.fetch(state, warehouse)
 
     if OrderBook.supported?(catalogue["goods"][good]) do
@@ -481,7 +481,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
           get(s, "companies", buy.company_id)["bankruptcy_ms"] != nil or
             (buy.expires_ms != nil and buy.expires_ms <= s.clock_ms) or
             not WarehouseWorld.exchange_ready?(s, OrderBook.claim(buy)) or
-              not TijaraTides.Domain.Services.LinkedOrders.fill_allowed?(s, buy) ->
+              not TijaraTides.Domain.Services.RemoteOrderSettlement.fill_allowed?(s, buy) ->
             {:cont, s}
 
           true ->
@@ -494,7 +494,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
               s
               |> WarehouseWorld.exchange_in(OrderBook.claim(buy), acquired, n)
               |> buyer_cash(buy, n, buy.price)
-              |> TijaraTides.Domain.Services.LinkedOrders.record_fill(buy, n, catalogue)
+              |> TijaraTides.Domain.Services.RemoteOrderSettlement.record_fill(buy, n, catalogue)
               |> OrderBookWorld.fill(buy, n)
               |> traded(buy, n, buy.price)
               |> Liquidation.record_sale(warehouse, cargo, n * buy.price)

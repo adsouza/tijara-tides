@@ -5,7 +5,6 @@ defmodule TijaraTides.Domain.Commands do
   import TijaraTides.Domain.AccountWorld, only: [issue_invite: 3]
   import TijaraTides.Domain.Services.CompanyFormation, only: [create_company: 4]
   alias TijaraTides.Domain.{Trade}
-  import TijaraTides.Domain.Fleet, only: [sail: 6]
 
   def execute(state, account, command, context, catalogue),
     do: execute(state, account, command, Map.put(context, :catalogue, catalogue))
@@ -144,7 +143,7 @@ defmodule TijaraTides.Domain.Commands do
         )
 
       %{"action" => "route"} ->
-        ShipWorld.edit_route(state, account, command, context)
+        TijaraTides.Domain.Services.RouteEditing.execute(state, account, command, context)
 
       %{"action" => "guarantee", "account" => id, "amount" => amount} ->
         TijaraTides.Domain.Guarantees.pledge(state, account, id, amount, context.id)
@@ -229,7 +228,14 @@ defmodule TijaraTides.Domain.Commands do
         )
 
       %{"action" => "sail", "ship" => id, "destination" => destination, "fuel_limit" => limit} ->
-        sail(state, account, id, destination, limit, catalogue)
+        TijaraTides.Domain.Services.DepartureFunding.manual_sail(
+          state,
+          account,
+          id,
+          destination,
+          limit,
+          catalogue
+        )
 
       _ ->
         {:error, :unsupported_command}

@@ -70,7 +70,10 @@ defmodule TijaraTides.Domain.RouteFundingTest do
 
   defp edit(c, s, id, ship, params) do
     {:ok, s, _} =
-      ShipWorld.edit_route(s, c.a, Map.put(params, "ship", ship), %{id: id, catalogue: c.cat})
+      TijaraTides.Domain.Services.RouteEditing.execute(s, c.a, Map.put(params, "ship", ship), %{
+        id: id,
+        catalogue: c.cat
+      })
 
     s
   end
@@ -124,6 +127,34 @@ defmodule TijaraTides.Domain.RouteFundingTest do
   defp fuel_required(c, s, ship \\ "co:1") do
     q = Fleet.voyage_quote(State.get(s, "ships", ship), "Singapore", c.cat)
     q["fuel"] + q["canal_fees"]
+  end
+
+  test "manual departure commands coordinate the next visit budget with fuel atomically", c do
+    s = route(c, c.s) |> then(&config(c, &1, "co:1", 1000))
+    required = fuel_required(c, s)
+
+    payload = %{
+      "action" => "sail",
+      "ship" => "co:1",
+      "destination" => "Singapore",
+      "fuel_limit" => 86_400_000
+    }
+
+    context = %{id: "manual", catalogue: c.cat}
+    insufficient = free(s, required + 999)
+
+    assert {:error, {:departure_funds, _, _, _}} =
+             TijaraTides.Domain.Commands.execute(insufficient, c.a, payload, context)
+
+    assert State.get(insufficient, "visit_budgets", "co:1:b") == nil
+    assert State.get(insufficient, "ships", "co:1")["status"] == "docked"
+
+    {:ok, funded, _} =
+      TijaraTides.Domain.Commands.execute(free(s, required + 1000), c.a, payload, context)
+
+    assert State.get(funded, "visit_budgets", "co:1:b")["remaining"] == 1000
+    assert State.get(funded, "ships", "co:1")["status"] == "sailing"
+    assert cash(funded) == 0
   end
 
   defp stock(s, warehouse, n) do
@@ -218,7 +249,7 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     s = free(s, 0)
 
     assert {:error, :insufficient_cash} =
-             ShipWorld.edit_route(
+             TijaraTides.Domain.Services.RouteEditing.execute(
                s,
                c.a,
                Map.merge(params, %{"ship" => "co:1", "quantity" => 10}),
@@ -793,10 +824,15 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     s = free(s, 100)
 
     assert {:error, :insufficient_cash} =
-             ShipWorld.edit_route(s, c.a, %{"ship" => "co:1", "operation" => "start"}, %{
-               id: "start",
-               catalogue: c.cat
-             })
+             TijaraTides.Domain.Services.RouteEditing.execute(
+               s,
+               c.a,
+               %{"ship" => "co:1", "operation" => "start"},
+               %{
+                 id: "start",
+                 catalogue: c.cat
+               }
+             )
 
     assert State.get(s, "ship_routes", "co:1")["status"] == "draft"
     assert State.entities(s, "visit_budgets") == %{}
@@ -947,7 +983,10 @@ defmodule TijaraTides.Domain.RouteFundingTest do
         )
 
       assert {:error, :linked_order_invalid} =
-               ShipWorld.edit_route(s, c.a, command, %{id: "invalid", catalogue: c.cat})
+               TijaraTides.Domain.Services.RouteEditing.execute(s, c.a, command, %{
+                 id: "invalid",
+                 catalogue: c.cat
+               })
     end
 
     assert State.entities(s, "route_rules") == %{}

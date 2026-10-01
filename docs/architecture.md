@@ -938,6 +938,16 @@ berth handover closes the standing remainder, and target edits update both
 backing and the uncommitted visit atomically. Warehouse cargo stays owned after
 a claim is released. The service never writes another root's rows directly.
 
+`RouteEditing` coordinates route edits, linked demand and visit funding; the Ship
+world adapter applies only the route transition. Command dispatch calls
+`DepartureFunding.manual_sail` to reserve configured visit budgets before the
+lower-level `Fleet.sail` operation. Fleet never invokes the funding coordinator.
+`LinkedOrders` invokes Exchange to manage demand; Exchange invokes only the
+lower-level `RemoteOrderSettlement` eligibility and claim hooks. Similarly,
+`LiquidationSettlement` owns occupancy and sale hooks used by Exchange, while the
+liquidation coordinator owns cancellation, sale sequencing and completion.
+These hooks apply synchronously to the same candidate, before its atomic commit.
+
 `DepartureFunding` coordinates Finance, Fleet and Automation roots. It checks
 current requirements, settles arrears, allocates affordable requests in waiting
 order, and atomically converts one bounded accumulation into ordinary voyage

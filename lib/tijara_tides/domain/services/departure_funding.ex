@@ -23,17 +23,17 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
 
       cond do
         amount == nil or spec.pre_reserved ->
-          Fleet.sail_funded(state, account, ship_id, destination, limit, catalogue)
+          Fleet.sail(state, account, ship_id, destination, limit, catalogue)
 
         company["cash"] - company["reserved"] < amount or company["unpaid"] > 0 ->
           {:error, :insufficient_cash}
 
         true ->
           candidate = AutomationWorld.reserve_visit(state, spec, amount, false)
-          Fleet.sail_funded(candidate, account, ship_id, destination, limit, catalogue)
+          Fleet.sail(candidate, account, ship_id, destination, limit, catalogue)
       end
     else
-      Fleet.sail_funded(state, account, ship_id, destination, limit, catalogue)
+      Fleet.sail(state, account, ship_id, destination, limit, catalogue)
     end
   end
 
@@ -344,7 +344,7 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
           State.get(candidate, "companies", row["company_id"])["account_id"]
         )
 
-      case Fleet.sail_funded(
+      case Fleet.sail(
              candidate,
              account,
              ship["id"],

@@ -63,7 +63,8 @@ defmodule TijaraTides.Domain.ShipWorld do
   defdelegate pause_diverted_route(state, id), to: RoutePlans, as: :divert
 
   defdelegate edit_route(state, account, params, context),
-    to: TijaraTides.Domain.Services.LinkedOrders
+    to: RoutePlans,
+    as: :execute
 
   defdelegate set_advance_budget(state, id, stop?, amount), to: RoutePlans
   defdelegate finish_route_visit(state, ship), to: RoutePlans, as: :finish_current_visit
