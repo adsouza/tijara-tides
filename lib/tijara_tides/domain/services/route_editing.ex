@@ -7,8 +7,9 @@ defmodule TijaraTides.Domain.Services.RouteEditing do
     with {:ok, changed, reply} <- ShipWorld.edit_route(state, account, command, context),
          {:ok, changed} <-
            LinkedOrders.reconcile_edit(state, changed, account, command, context.catalogue),
+         changed = DepartureFunding.reconcile(changed, context.catalogue),
          {:ok, changed} <- fund_started_visit(changed, command) do
-      {:ok, DepartureFunding.reconcile(changed, context.catalogue), reply}
+      {:ok, changed, reply}
     end
   end
 

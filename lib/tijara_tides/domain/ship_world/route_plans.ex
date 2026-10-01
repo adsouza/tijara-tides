@@ -720,6 +720,16 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
 
       route ->
         stops = stops(state, ship_id)
+        current = Enum.at(stops, route.cursor)
+        budget = State.get(state, "visit_budgets", current.id)
+
+        # Successful departure ends this visit even when its targets are unfinished
+        # or the route is paused. Keep the separately reserved inbound visit intact.
+        state =
+          if budget && budget["ship_id"] == ship_id && budget["visit"] == route.visit,
+            do: TijaraTides.Domain.AutomationWorld.release_visit(state, budget),
+            else: state
+
         index = rem(route.cursor + 1, length(stops))
 
         if Enum.at(stops, index).port == destination do

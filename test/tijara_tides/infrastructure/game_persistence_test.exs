@@ -5953,6 +5953,138 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#destination-picker-trigger", port)
   end
 
+  test "mid-visit departures persist refunds and retain only the inbound budget on replay", c do
+    alias TijaraTides.Domain.{State, ShipWorld, Commands}
+    alias TijaraTides.Domain.Services.DepartureFunding
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "budget-company",
+        %{
+          "action" => "company",
+          "name" => "Visit budgets",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    base = :sys.get_state(c.server).game
+    cat = :sys.get_state(c.server).catalogue
+    account = GameServer.snapshot(token, c.server).private["account"]
+
+    ships =
+      State.entities(base, "ships") |> Map.values() |> Enum.sort_by(& &1["id"]) |> Enum.take(2)
+
+    Enum.reduce(Enum.zip(ships, [false, true]), base, fn {ship, paused}, base ->
+      commands = [
+        {"a", %{"action" => "route", "operation" => "add_stop", "port" => "Jakarta"}},
+        {"b", %{"action" => "route", "operation" => "add_stop", "port" => "Singapore"}},
+        {"budget-a", %{"action" => "visit_budget", "stop" => ship["id"] <> "a", "amount" => 200}},
+        {"budget-b", %{"action" => "visit_budget", "stop" => ship["id"] <> "b", "amount" => 300}},
+        {"buy",
+         %{
+           "action" => "route",
+           "operation" => "add_rule",
+           "stop" => ship["id"] <> "a",
+           "side" => "buy",
+           "good" => "lumber",
+           "quantity" => 1,
+           "limit" => 1
+         }},
+        {"start", %{"action" => "route", "operation" => "start", "auto_depart" => false}}
+      ]
+
+      prepared =
+        Enum.reduce(commands, base, fn {suffix, command}, state ->
+          {:ok, state, _} =
+            Commands.execute(state, account, Map.put(command, "ship", ship["id"]), %{
+              id: ship["id"] <> suffix,
+              catalogue: cat
+            })
+
+          state
+        end)
+        |> ShipWorld.prepare_visits(cat)
+
+      prepared =
+        if paused do
+          {:ok, state, _} =
+            Commands.execute(
+              prepared,
+              account,
+              %{"action" => "route", "operation" => "pause", "ship" => ship["id"]},
+              %{id: ship["id"] <> "pause", catalogue: cat}
+            )
+
+          state
+        else
+          prepared
+        end
+
+      before = %{prepared | revision: base.revision + 1}
+      assert State.get(before, "visit_budgets", ship["id"] <> "a")["remaining"] == 200
+      assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, base.epoch, base, before)
+      assert {:ok, before} = GameStore.reload(Repo, c.world_id, before)
+
+      {:ok, sailed, reply} =
+        Commands.execute(
+          before,
+          account,
+          %{
+            "action" => "sail",
+            "ship" => ship["id"],
+            "destination" => "Singapore",
+            "fuel_limit" => 86_400_000
+          },
+          %{id: ship["id"] <> "leave", catalogue: cat}
+        )
+
+      sailed = %{sailed | revision: before.revision + 1}
+      receipt = {account["id"], ship["id"] <> "leave", "leave-fingerprint", reply}
+
+      assert {:ok, :ok} =
+               GameStore.commit(Repo, c.world_id, before.epoch, before, sailed, receipt)
+
+      assert {:error, {:replay, ^reply}} =
+               GameStore.commit(Repo, c.world_id, before.epoch, before, sailed, receipt)
+
+      assert {:ok, restored} = GameStore.reload(Repo, c.world_id, sailed)
+      assert State.get(restored, "visit_budgets", ship["id"] <> "a") == nil
+      assert State.get(restored, "visit_budgets", ship["id"] <> "b")["remaining"] == 300
+      assert State.get(restored, "visit_budgets", ship["id"] <> "b")["visit"] == 1
+
+      assert State.get(restored, "companies", account["company_id"]) ==
+               State.get(sailed, "companies", account["company_id"])
+
+      assert :ok = FinancialLedger.audit(Repo, c.world_id)
+
+      # Simulate a persisted budget left over from a previous visit by the old code.
+      row = State.get(restored, "visit_budgets", ship["id"] <> "b")
+
+      stale =
+        State.put(restored, "visit_budgets", row["id"], %{row | "visit" => 0})
+        |> Map.put(:revision, restored.revision + 1)
+
+      assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, stale)
+      assert {:ok, stale} = GameStore.reload(Repo, c.world_id, stale)
+      company = State.get(stale, "companies", account["company_id"])
+      repaired = DepartureFunding.reconcile(stale, cat) |> Map.put(:revision, stale.revision + 1)
+      assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, stale.epoch, stale, repaired)
+      assert {:ok, repaired} = GameStore.reload(Repo, c.world_id, repaired)
+      assert State.get(repaired, "visit_budgets", row["id"]) == nil
+
+      assert State.get(repaired, "companies", account["company_id"])["reserved"] ==
+               company["reserved"] - 300
+
+      assert :ok = FinancialLedger.audit(Repo, c.world_id)
+      repaired
+    end)
+  end
+
   test "a same-tick funding timeout hands the accumulator to an existing request atomically", c do
     alias TijaraTides.Domain.State
     alias TijaraTides.Domain.Services.DepartureFunding

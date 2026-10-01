@@ -13,7 +13,11 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
 
   @doc "Manual departures still honor an explicitly configured advance budget."
   def manual_sail(state, account, ship_id, destination, limit, catalogue) do
-    state = FinancialSettlement.settle(state, [account["company_id"]])
+    state =
+      state
+      |> reconcile(catalogue)
+      |> FinancialSettlement.settle([account["company_id"]])
+
     ship = State.get(state, "ships", ship_id)
 
     if ship && is_binary(destination) && ship["company_id"] == account["company_id"] do
@@ -202,6 +206,7 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
         valid =
           ship && ship["company_id"] == row["company_id"] && company["bankruptcy_ms"] == nil &&
             if(row["stop_id"], do: stop && route && route["status"] != "draft", else: plan != nil) &&
+            AutomationWorld.current_visit?(s, row) &&
             not visit_ended?(s, ship, route, row)
 
         if valid, do: s, else: AutomationWorld.release_visit(s, row)

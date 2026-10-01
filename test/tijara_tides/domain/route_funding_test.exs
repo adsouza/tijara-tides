@@ -859,6 +859,130 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     assert cash(s) == before - 250
   end
 
+  test "manual departure mid-visit releases only that visit's cash, including after pausing", c do
+    for paused <- [false, true] do
+      s = route(c, c.s) |> then(&config(c, &1, "co:1", 300))
+
+      {:ok, s, _} =
+        DepartureFunding.configure_visit(
+          s,
+          c.a,
+          %{"ship" => "co:1", "stop" => "co:1:a", "amount" => 200},
+          c.cat
+        )
+
+      s =
+        edit(c, s, "waiting-buy", "co:1", %{
+          "operation" => "add_rule",
+          "stop" => "co:1:a",
+          "side" => "buy",
+          "good" => "lumber",
+          "quantity" => 1,
+          "limit" => 1
+        })
+        |> prepare(c)
+
+      s = if paused, do: edit(c, s, "pause", "co:1", %{"operation" => "pause"}), else: s
+      assert State.get(s, "visit_budgets", "co:1:a")["remaining"] == 200
+      assert not State.get(s, "ship_routes", "co:1")["visit_finished"]
+
+      command = %{
+        "action" => "sail",
+        "ship" => "co:1",
+        "destination" => "Singapore",
+        "fuel_limit" => 86_400_000
+      }
+
+      context = %{id: "leave", catalogue: c.cat}
+
+      assert {:error, {:departure_fuel_limit, _, _}} =
+               TijaraTides.Domain.Commands.execute(
+                 s,
+                 c.a,
+                 %{command | "fuel_limit" => 0},
+                 context
+               )
+
+      assert State.get(s, "visit_budgets", "co:1:a")["remaining"] == 200
+      assert State.get(s, "visit_budgets", "co:1:b") == nil
+
+      # The departure transition itself releases funds, before command reconciliation.
+      {:ok, direct, _} = Fleet.sail(s, c.a, "co:1", "Singapore", 86_400_000, c.cat)
+      assert State.get(direct, "visit_budgets", "co:1:a") == nil
+
+      before_cash = cash(s)
+      quote = Fleet.voyage_quote(State.get(s, "ships", "co:1"), "Singapore", c.cat, s.clock_ms)
+      {:ok, sailed, _} = TijaraTides.Domain.Commands.execute(s, c.a, command, context)
+      assert State.get(sailed, "visit_budgets", "co:1:a") == nil
+      assert cash(sailed) == before_cash + 200 - 300 - quote["fuel"] - quote["canal_fees"]
+      assert State.get(sailed, "visit_budgets", "co:1:b")["remaining"] == 300
+      assert State.get(sailed, "visit_budgets", "co:1:b")["visit"] == 1
+      assert DepartureFunding.reconcile(sailed, c.cat).journal == sailed.journal
+
+      # Finish the actual voyage, then leave the next stop before finishing its visit.
+      arrival = State.get(sailed, "ships", "co:1")["arrive_ms"]
+      arrived = %{sailed | clock_ms: arrival} |> Fleet.advance(arrival - sailed.clock_ms)
+      assert State.get(arrived, "ships", "co:1")["port"] == "Singapore"
+      assert State.get(arrived, "ships", "co:1")["status"] == "docked"
+
+      arrived =
+        if paused,
+          do: edit(c, arrived, "resume", "co:1", %{"operation" => "resume"}),
+          else: arrived
+
+      arrived = prepare(arrived, c)
+
+      {:ok, returned, _} =
+        TijaraTides.Domain.Commands.execute(
+          arrived,
+          c.a,
+          %{command | "destination" => "Jakarta"},
+          context
+        )
+
+      assert State.get(returned, "visit_budgets", "co:1:b") == nil
+      assert State.get(returned, "visit_budgets", "co:1:a")["visit"] == 2
+
+      arrival = State.get(returned, "ships", "co:1")["arrive_ms"]
+
+      next_lap =
+        %{returned | clock_ms: arrival}
+        |> Fleet.advance(arrival - returned.clock_ms)
+        |> AutomatedVisits.advance(c.cat)
+
+      assert State.get(next_lap, "visit_budgets", "co:1:a")["remaining"] == 200
+      assert State.get(next_lap, "visit_budgets", "co:1:a")["visit"] == 2
+      assert State.get(next_lap, "ships", "co:1")["status"] == "docked"
+    end
+  end
+
+  test "stale stop budgets are ignored and reconciled before funding a resumed visit", c do
+    s = route(c, c.s)
+
+    {:ok, s, _} =
+      DepartureFunding.configure_visit(
+        s,
+        c.a,
+        %{"ship" => "co:1", "stop" => "co:1:a", "amount" => 200},
+        c.cat
+      )
+
+    s = edit(c, s, "pause", "co:1", %{"operation" => "pause"})
+    route = State.get(s, "ship_routes", "co:1")
+    s = State.put(s, "ship_routes", "co:1", %{route | "visit" => 2})
+    assert AutomationWorld.budget(s, State.get(s, "ships", "co:1"), "Jakarta") == nil
+    before_cash = cash(s)
+    reconciled = DepartureFunding.reconcile(s, c.cat)
+    assert State.get(reconciled, "visit_budgets", "co:1:a") == nil
+    assert cash(reconciled) == before_cash + 200
+    assert DepartureFunding.reconcile(reconciled, c.cat).journal == reconciled.journal
+
+    resumed = edit(c, s, "resume", "co:1", %{"operation" => "resume"})
+    assert State.get(resumed, "visit_budgets", "co:1:a")["visit"] == 2
+    assert State.get(resumed, "visit_budgets", "co:1:a")["remaining"] == 200
+    assert cash(resumed) == before_cash
+  end
+
   test "unfunded initial visit rejects start and malformed budget commands return errors", c do
     s = edit(c, c.s, "co:1:a", "co:1", %{"operation" => "add_stop", "port" => "Jakarta"})
     s = edit(c, s, "co:1:b", "co:1", %{"operation" => "add_stop", "port" => "Singapore"})

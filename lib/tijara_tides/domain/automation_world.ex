@@ -86,19 +86,27 @@ defmodule TijaraTides.Domain.AutomationWorld do
   def budget(state, ship, port) do
     State.owned(state, "visit_budgets", "company_id", ship["company_id"])
     |> Enum.find(
-      &(&1["ship_id"] == ship["id"] and &1["port"] == port and current_budget?(state, ship, &1))
+      &(&1["ship_id"] == ship["id"] and &1["port"] == port and current_visit?(state, &1))
     )
   end
 
-  defp current_budget?(state, ship, row) do
-    route = State.get(state, "ship_routes", ship["id"])
+  @doc "A stop reservation belongs only to its selected visit, including the inbound voyage."
+  def current_visit?(state, row) do
+    if row["stop_id"] do
+      route = State.get(state, "ship_routes", row["ship_id"])
+      stop = State.get(state, "route_stops", row["stop_id"])
+      ship = State.get(state, "ships", row["ship_id"])
 
-    if route && row["stop_id"],
-      do:
-        Enum.any?(State.entities(state, "route_stops"), fn {_, stop} ->
-          stop["id"] == row["stop_id"] and stop["position"] == route["cursor"]
-        end),
-      else: true
+      not is_nil(route) and not is_nil(stop) and not is_nil(ship) and
+        route["status"] != "draft" and not route["visit_finished"] and
+        not route["wait_timed_out"] and row["visit"] == route["visit"] and
+        stop["ship_id"] == row["ship_id"] and stop["position"] == route["cursor"] and
+        stop["port"] == row["port"] and
+        if(ship["status"] == "sailing", do: ship["destination"], else: ship["port"]) ==
+          row["port"]
+    else
+      true
+    end
   end
 
   def release_ship(state, id) do
