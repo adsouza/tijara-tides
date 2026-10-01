@@ -47,7 +47,8 @@ defmodule TijaraTides.Domain.Services.Estates do
 
     s =
       Enum.reduce(Enum.sort(entities(s, "warehouses")), s, fn {id, row}, s ->
-        if estate?(s, row["company_id"]) do
+        if estate?(s, row["company_id"]) and
+             not TijaraTides.Domain.Services.WarehouseLiquidation.active?(s, id) do
           # Preserve commitments already accepting bids, including expired leases.
           closes =
             AuctionWorld.company_auctions(s, row["company_id"])

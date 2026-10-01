@@ -918,3 +918,13 @@ Cross-account credit facts, projections and sponsor guarantee workflows remain
 in CompanyFinanceWorld and CompanyFinanceWorld.Guarantees. CompanyFinance.Rows
 encodes the unchanged company schema; existing child codecs stay at the adapter
 boundary. No database or transaction-boundary migration is involved.
+
+Expired leases use `WarehouseLiquidationWorld` for durable accounting transitions
+and `Services.WarehouseLiquidation` for sales coordination. Warehouse allocation,
+cargo and claims remain owned by `WarehouseWorld`; standing fills remain owned
+by `Exchange`/`OrderBookWorld`, and auction terms/results by `AuctionWorld`.
+Reservation freshness is reconstructed from the auction's immutable expiry.
+The pure warehouse model computes virtual FEFO allocations before releasing
+actual batches, so cancelled lower-grade lots cannot consume stock promised to
+another auction. Proceeds use existing reserved cash until the pool completes;
+all stages share the existing `CommitExecutor` transaction and ledger checks.

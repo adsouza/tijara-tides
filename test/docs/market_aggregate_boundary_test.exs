@@ -5,7 +5,8 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
     for {root, owned} <- [
           {"auction_world", ~w(auctions auction_bids)},
           {"order_book_world", ~w(exchange_orders exchange_trades)},
-          {"warehouse_world", ~w(warehouses warehouse_reservations)}
+          {"warehouse_world", ~w(warehouses warehouse_reservations)},
+          {"warehouse_liquidation_world", ~w(warehouse_liquidations)}
         ] do
       files = Path.wildcard("lib/tijara_tides/domain/**/*.ex")
 

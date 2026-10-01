@@ -1,5 +1,5 @@
 defmodule TijaraTides.Domain.Warehouse.Rows do
-  @moduledoc "Codec for the unchanged lease and cargo rows."
+  @moduledoc "Codec for lease terms, snapshotted expiry settings and cargo rows."
   alias TijaraTides.Domain.Warehouse
   alias TijaraTides.Domain.Ship.CargoRows
 
@@ -10,7 +10,11 @@ defmodule TijaraTides.Domain.Warehouse.Rows do
     next_rent: 0,
     next_days: nil,
     auto_days: nil,
-    auto_cap: nil
+    auto_cap: nil,
+    grace_ms: 43_200_000,
+    surcharge_bps: 2500,
+    window_ms: 7_200_000,
+    clearance_bps: 1000
   ]
   def decode(row) do
     unknown =

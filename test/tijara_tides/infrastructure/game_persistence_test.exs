@@ -1023,12 +1023,20 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     advance(c.server, target - before.clock_ms)
     after_clearance = :sys.get_state(c.server).game
     assert after_clearance.clock_ms >= target
+
+    liquidation =
+      Enum.find(Map.values(after_clearance.entities["auctions"]), &(&1["liquidation_id"] == aw))
+
+    assert liquidation["status"] == "scheduled"
+    assert Game.get(after_clearance, "warehouses", aw)["blocks"] > 0
+    advance(c.server, liquidation["closes_ms"] - after_clearance.clock_ms + 1)
+    after_clearance = :sys.get_state(c.server).game
     assert Game.get(after_clearance, "warehouses", aw) == nil
 
     assert [["sold"], ["unsold"]] ==
              Repo.query!(
-               "SELECT status FROM game_auctions WHERE world_id=$1 AND warehouse_id=$2 ORDER BY status",
-               [c.world_id, aw]
+               "SELECT status FROM game_auctions WHERE world_id=$1 AND warehouse_id=$2 AND id=ANY($3) ORDER BY status",
+               [c.world_id, aw, [resale["id"], unsold["id"]]]
              ).rows
 
     assert [[0]] ==
@@ -4836,6 +4844,193 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok == FinancialLedger.audit(Repo, world)
   end
 
+  test "lease liquidation persists mixed-stage proceeds, rolls back atomically and resumes after reload",
+       c do
+    alias TijaraTides.Domain.{
+      State,
+      Warehouse,
+      WarehouseWorld,
+      CargoLots,
+      CompanyFinanceWorld,
+      AuctionWorld
+    }
+
+    alias TijaraTides.Domain.Services.{Exchange, Auctions, WarehouseLiquidation}
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+
+    {:ok, %{"session" => seller_token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        seller_token,
+        "pool-seller",
+        %{
+          "action" => "company",
+          "name" => "Pool seller",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    {:ok, code} = GameServer.seed(c.server)
+    {:ok, %{"session" => buyer_token}} = GameServer.redeem(code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        buyer_token,
+        "pool-buyer",
+        %{
+          "action" => "company",
+          "name" => "Pool buyer",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    seller = GameServer.snapshot(seller_token, c.server).private["account"]
+    buyer = GameServer.snapshot(buyer_token, c.server).private["account"]
+    before = :sys.get_state(c.server).game
+
+    cat =
+      Map.put(:sys.get_state(c.server).catalogue, "auctions", %{
+        "interval_ms" => 10_000,
+        "window_ms" => 10_000
+      })
+
+    ids = CommandStore.allocate_lot_ids(%{repo: Repo}, 64)
+    next = Map.put(before, :lot_allocation, ids)
+
+    next =
+      Enum.reduce([{seller, "a-pool", 1}, {buyer, "z-buyer", 3}], next, fn {account, id, days},
+                                                                           s ->
+        {:ok, s, _} =
+          WarehouseWorld.lease(
+            s,
+            account,
+            %{
+              "port" => "Jakarta",
+              "storage" => "dry",
+              "blocks" => 10,
+              "days" => days,
+              "price" =>
+                Warehouse.quote(WarehouseWorld.used(s, "Jakarta", "dry"), "dry", 10, days)
+            },
+            id,
+            cat
+          )
+
+        s
+      end)
+
+    {next, lot} = CargoLots.create(next, "lumber", 80, nil)
+    w = State.get(next, "warehouses", "a-pool")
+
+    next =
+      State.put(next, "warehouses", w["id"], %{
+        w
+        | "cargo" => [Map.merge(lot, %{"good" => "lumber", "unit_cost" => 100})]
+      })
+      |> CompanyFinanceWorld.post(seller["company_id"], "purchase", [
+        {"inventory", 8000},
+        {"cash_available", -8000}
+      ])
+
+    m = State.get(next, "markets", "Jakarta|lumber")
+    next = State.put(next, "markets", "Jakarta|lumber", %{m | "stock" => 0, "demand" => 0})
+
+    {:ok, next, _} =
+      Exchange.place(
+        next,
+        buyer,
+        %{
+          "warehouse" => "z-buyer",
+          "good" => "lumber",
+          "side" => "buy",
+          "quantity" => 20,
+          "price" => 1000
+        },
+        "pool-order",
+        cat
+      )
+
+    next =
+      %{next | clock_ms: w["expires_ms"] + 43_200_000, revision: before.revision + 1}
+      |> WarehouseWorld.advance(cat)
+
+    assert WarehouseLiquidation.pool(next, "a-pool")["proceeds"] == 20_000
+    [a] = Enum.filter(AuctionWorld.all(next), &(&1.liquidation_id == "a-pool"))
+    assert a.quantity == 60
+
+    assert_raise Postgrex.Error, fn ->
+      GameStore.commit(
+        Repo,
+        c.world_id,
+        before.epoch,
+        before,
+        next,
+        {seller["id"], "rollback-pool", nil, %{}}
+      )
+    end
+
+    assert [[0]] =
+             Repo.query!("SELECT count(*) FROM game_warehouse_liquidations WHERE world_id=$1", [
+               c.world_id
+             ]).rows
+
+    assert {:ok, unchanged} = GameStore.reload(Repo, c.world_id, before)
+    assert unchanged.entities["companies"] == before.entities["companies"]
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    assert restored.entities["warehouse_liquidations"] == next.entities["warehouse_liquidations"]
+    assert restored.entities["warehouses"] == next.entities["warehouses"]
+    assert AuctionWorld.fetch(restored, a.id) == a
+
+    parent = lot["lot_id"]
+
+    assert [[^parent], [^parent]] =
+             Repo.query!(
+               "SELECT parent_lot_id FROM game_cargo_lots WHERE world_id=$1 AND parent_lot_id=$2 ORDER BY id",
+               [c.world_id, lot["lot_id"]]
+             ).rows
+
+    # A balanced journal alone cannot release proceeds that still belong to an open pool.
+    escaped =
+      CompanyFinanceWorld.post(restored, seller["company_id"], "bad-pool-release", [
+        {"cash_reserved", -20_000},
+        {"cash_available", 20_000}
+      ])
+
+    assert_raise ArgumentError, "Company balances do not reconcile with journal", fn ->
+      GameStore.commit(Repo, c.world_id, restored.epoch, restored, escaped)
+    end
+
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+
+    settled =
+      Auctions.reconcile(
+        %{restored | clock_ms: a.closes_ms, revision: restored.revision + 1},
+        cat
+      )
+      |> WarehouseWorld.advance(cat)
+
+    p = WarehouseLiquidation.pool(settled, "a-pool")
+    assert p["status"] == "completed"
+    assert p["proceeds"] == 20_000 + 60 * 2500
+    assert p["paid"] == p["proceeds"] - p["charged"]
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, settled)
+    assert {:ok, final} = GameStore.reload(Repo, c.world_id, settled)
+    assert WarehouseLiquidation.pool(final, "a-pool") == p
+    assert State.get(final, "warehouses", "a-pool") == nil
+    assert State.get(final, "companies", seller["company_id"])["reserved"] == 0
+    assert AuctionWorld.fetch(final, a.id).status == "unsold"
+    repeated = Auctions.reconcile(final, cat) |> WarehouseWorld.advance(cat)
+    assert repeated.entities == final.entities
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "a closed auction bid outlives its lease and clearance still commits", c do
     alias TijaraTides.Domain.Warehouse
 
@@ -4918,7 +5113,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     advance(c.server, target - game.clock_ms)
 
     game = :sys.get_state(c.server).game
-    assert game.clock_ms >= target, "clearance tick was rejected; the world stopped advancing"
+    assert game.clock_ms >= target, "liquidation tick was rejected; the world stopped advancing"
+    liquidation = Enum.find(Map.values(game.entities["auctions"]), &(&1["liquidation_id"] == wid))
+    assert liquidation["status"] == "scheduled"
+    assert Game.get(game, "warehouses", wid)["blocks"] > 0
+    advance(c.server, liquidation["closes_ms"] - game.clock_ms + 1)
+    game = :sys.get_state(c.server).game
     assert Game.get(game, "warehouses", wid) == nil
 
     assert [[0]] =

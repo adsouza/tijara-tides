@@ -1,11 +1,12 @@
 defmodule TijaraTides.Domain.Services.Auctions do
+  alias TijaraTides.Domain.Services.WarehouseLiquidation, as: Liquidation
   alias TijaraTides.Domain.Services.Estates
   alias TijaraTides.Domain.ShipWorld
   alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.Ship.CargoRows
   alias TijaraTides.Domain.PortCargoMarketWorld
-  @moduledoc "Atomic luxury-auction scheduling, escrow and second-price settlement."
+  @moduledoc "Atomic cargo and asset auction scheduling, escrow and second-price settlement."
   @open_limit 50
   @doc "Open listings one company may hold, whether it consigns them or a receiver does."
   def open_limit, do: @open_limit
@@ -46,7 +47,9 @@ defmodule TijaraTides.Domain.Services.Auctions do
         good: a.good,
         quantity: a.quantity,
         side: "sell",
-        closes_ms: a.closes_ms
+        closes_ms: a.closes_ms,
+        liquidation: a.liquidation_id != nil,
+        expires_ms: a.expires_ms
       )
 
   def bid_claim(a, b),
@@ -102,7 +105,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
   def revise(s, account, cmd, cat) do
     a = AuctionWorld.fetch(s, cmd["auction"])
 
-    if a && AuctionWorld.open?(a) && s.clock_ms < a.opens_ms &&
+    if a && a.liquidation_id == nil && AuctionWorld.open?(a) && s.clock_ms < a.opens_ms &&
          a.company_id == account["company_id"] &&
          live?(s, a.company_id) && quantity?(cmd["quantity"]) && amount?(cmd["price"]) do
       revised = AuctionWorld.revise(s, a.id, cmd["quantity"], cmd["price"])
@@ -123,7 +126,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
   def withdraw_lot(s, account, id) do
     a = AuctionWorld.fetch(s, id)
 
-    if a && AuctionWorld.open?(a) && a.company_id == account["company_id"] &&
+    if a && a.liquidation_id == nil && AuctionWorld.open?(a) &&
+         a.company_id == account["company_id"] &&
          s.clock_ms < a.opens_ms,
        do: {:ok, cancel(s, a), %{}},
        else: {:error, :auction_locked}
@@ -243,7 +247,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
         s,
         fn a, s ->
           s =
-            if (Estates.estate?(s, a.company_id) and a.warehouse_id) &&
+            if (a.liquidation_id == nil and Estates.estate?(s, a.company_id) and a.warehouse_id) &&
                  get(s, "warehouses", a.warehouse_id),
                do: WarehouseWorld.estate_cover(s, a.warehouse_id, a.closes_ms),
                else: s
@@ -377,6 +381,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
       s =
         cond do
+          a.liquidation_id -> Liquidation.unsold(s, a, cat)
           a.ship_id -> Estates.dispose_ship(s, a)
           Estates.estate?(s, a.company_id) -> Estates.dispose_cargo(s, a)
           a.company_id -> WarehouseWorld.release_trade(s, claim(a))
@@ -407,6 +412,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
             {s, batches} = WarehouseWorld.exchange_out(s, claim(a), a.quantity)
             cost = Enum.sum(Enum.map(batches, &(&1.quantity * &1.unit_cost)))
 
+            s = Liquidation.refresh(s, a.warehouse_id, cat)
+
             entries =
               if Estates.estate?(s, a.company_id),
                 do: [{"inventory", -cost}, {"receivership", cost}],
@@ -417,7 +424,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
                   {"cash_available", price}
                 ]
 
-            s = CompanyFinanceWorld.post(s, a.company_id, "auction_sale", entries)
+            s =
+              if a.liquidation_id,
+                do: Liquidation.record_sale(s, a.liquidation_id, batches, price),
+                else: CompanyFinanceWorld.post(s, a.company_id, "auction_sale", entries)
 
             {s, batches}
 
@@ -522,7 +532,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
       ship["cargo"] == []
   end
 
-  defp seller_backed?(s, a), do: WarehouseWorld.order_backed?(s, claim(a))
+  defp seller_backed?(s, a),
+    do:
+      (is_nil(a.expires_ms) or a.expires_ms > s.clock_ms) and
+        WarehouseWorld.order_backed?(s, claim(a))
 
   defp suppliable?(_s, %{company_id: owner}) when not is_nil(owner), do: true
 

@@ -278,8 +278,7 @@ with launch tuning described in this document. Remaining work includes:
 
 - **Simulated economy:** differentiated production rates, money-stock and
   source/sink monitoring, and price-level monitoring (§5).
-- **Warehouse estates:** full expired-lease liquidation stages, won-cargo storage
-  grace and replacement leases (§§7, 11, 12).
+- **Warehouse estates:** won-cargo storage grace and replacement leases (§§7, 11, 12).
 - **Procurement:** machinery delivery auctions, supplier deposits, buyer funding
   and receiving-capacity commitments, delivery deadlines, settlement/default and
   system-fault protections (§7).
@@ -590,14 +589,41 @@ location atomically at acceptance, preserving cost and expiry and splitting lot
 identities only for partial batches. Committed warehouse space is protected
 until handling finishes. Stored cargo remains private to its company.
 
-Expiry prevents new deposits and allows 12 active-world hours for collection.
-Perishable aging continues. Expiry and clearance notify the owner. Ordinary
-expired leases still send remaining cargo to system clearance at
-50% of reference value, with grace rent deducted only from clearance proceeds.
-Bankrupt-company storage instead remains occupied through estate auctions after
-committed handling finishes. All timings pause with the world. Ordinary expired-lease
-liquidation auction stages and port-specific
-warehouse tuning remain subsequent milestones.
+Expiry prevents new deposits and cancels incoming buy orders. The default grace
+period is 12 active-world hours for sale or collection. Perishable aging
+continues. At grace end, remaining usable goods fill compatible local player buy
+orders in price/time order, then enter computer-run liquidation auctions. Owner
+minimum sale prices do not constrain these sales. Ordinary lots use the next
+scheduled port auction with its full window; perishable lots use a fixed two-hour
+window. Cargo unable to survive that window clears immediately. Unsold auction
+lots clear at 10% of configured reference value, multiplied by the remaining
+configured shelf-life fraction for perishables, capped at one. Spoiled cargo is
+discarded without payment. Fractional clearance amounts carry across batch and
+lot splits within the lease pool. Clearance leaves storage and the economy;
+existing finite simulated auction buyers retain their shared demand and budgets.
+
+Each expired lease has a durable accounting pool. All forced-sale proceeds stay
+in reserved cash until its cargo and commitments finish. Grace storage uses the
+previous lease rate per occupied block; liquidation adds a fixed 25% surcharge.
+Only occupied blocks continue accruing charges, and each released block leaves
+port utilization immediately. Unpaid storage and clearance handling are capped
+by the aggregate proceeds of that lease. Warehouse ownership transfers through
+buy orders and auctions add no handling fee. Shortfalls create no payables and
+never debit other cash or another lease's proceeds. Completion pays nonnegative
+net proceeds to a solvent owner. Bankruptcy during this process preserves its
+auctions and charge pool; outstanding net proceeds instead leave the economy.
+Bankruptcy asset auctions retain their separate rules.
+
+Lease rows snapshot grace, surcharge, expedited window and clearance rate from
+`warehouse_liquidation` catalogue settings (`grace_ms`, `surcharge_bps`,
+`window_ms`, `clearance_bps`). Changing defaults does not rewrite accepted terms
+or running deadlines. Owner notices disclose both storage rates; the storage UI
+shows the grace countdown, held proceeds and accrued charges. Auction listings
+show liquidation status and projected freshness without exposing private lease
+identities. State, reservations, cargo lineage, escrow and postings commit in
+one transaction and resume after reload. Won-cargo grace and replacement leases,
+perishable standing books and port-specific warehouse tuning remain separate
+milestones.
 
 Reservations are relational, typed claims owned by the warehouse aggregate.
 Players earmark quantities of a cargo for a ship, or reserve receiving volume.
@@ -839,6 +865,6 @@ guarantees still settle against debt recorded at closure. The legacy
 `bankruptcy_ms` company field serves as the shared receivership marker; public
 closure reasons and owner notices distinguish dormancy from bankruptcy.
 
-Ordinary warehouse liquidation remains the direct-clearance implementation
-described above. Order-book-first liquidation, warehouse liquidation auctions,
-per-lease accounting pools and won-cargo storage grace remain pending.
+Expired-lease liquidation now follows the order-book, auction and clearance
+sequence described above, with durable per-lease charge caps. Won-cargo storage
+grace and replacement leases remain pending.

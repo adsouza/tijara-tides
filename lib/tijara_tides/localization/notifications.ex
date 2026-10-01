@@ -14,7 +14,7 @@ defmodule TijaraTides.Localization.Notifications do
         {"cargo", good} ->
           {"cargo", Localization.text(get_in(goods, [good, "name"]) || good)}
 
-        {key, amount} when key in ["loss", "refund", "price"] ->
+        {key, amount} when key in ["loss", "refund", "price", "grace_rate", "liquidation_rate"] ->
           {key, Localization.money(amount)}
 
         {"storage", class} ->
@@ -81,6 +81,13 @@ defmodule TijaraTides.Localization.Notifications do
     do:
       gettext(
         "A warehouse reservation at %{port} was reduced or released because its cargo, ship, stop or lease is no longer available.",
+        args
+      )
+
+  defp message("warehouse.expired", %{"grace_rate" => _, "liquidation_rate" => _} = args),
+    do:
+      gettext(
+        "Your warehouse lease at %{port} expired. Sale or collection grace: %{minutes} active-world minutes. Storage per occupied block per day: %{grace_rate} during grace; %{liquidation_rate} during liquidation. Charges are capped by this lease's proceeds.",
         args
       )
 

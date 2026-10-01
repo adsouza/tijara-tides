@@ -3,7 +3,7 @@ defmodule TijaraTides.Domain.Warehouse.Claim do
   @kinds [:order, :auction, :bid]
   @fields ~w(id kind company_id warehouse_id good quantity side closes_ms)a
   @enforce_keys ~w(id kind warehouse_id good quantity side)a
-  defstruct @fields
+  defstruct @fields ++ [liquidation: false, expires_ms: nil]
 
   def new(fields) do
     claim = struct!(__MODULE__, Keyword.put_new(fields, :closes_ms, nil))

@@ -364,3 +364,21 @@ and warehouse holdings, and `prepaid_rent` reconciles against lease balances.
 The world transaction currently serializes capacity checks across all leases in
 a port/storage pool. Removing that world lock will require a pool-level lock or
 version before warehouse capacity can be safely allocated by multiple writers.
+
+### Expired-lease liquidation
+
+`game_warehouses` snapshots the grace duration, surcharge, expedited auction
+window and clearance basis points. Expired allocations shrink with occupied
+blocks and may reach zero while committed handling finishes. Each lease ID has
+one `game_warehouse_liquidations` row, retaining original rent/blocks/duration,
+exact rent remainder, per-good clearance remainders, occupancy, unpaid charges,
+held proceeds and terminal payout or estate sink. Completed rows remain durable
+history after the warehouse is deleted.
+
+`game_auctions.liquidation_id` links receiver listings to that pool;
+`expires_ms` supports projected freshness. Seller backing for these listings
+comes from the active liquidation pool and exclusive stock claim, while buyer
+backing still requires paid coverage through auction close. The ledger verifier
+includes open pool proceeds in required reserved cash and verifies liquidation
+seller backing. Pool completion, storage release, auction result, cargo lineage
+and financial postings share the existing world transaction.

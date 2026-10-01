@@ -242,7 +242,8 @@ defmodule TijaraTides.Domain.Services.Exchange do
               buy,
               sell,
               n,
-              if(OrderBook.priority(o) < OrderBook.priority(peer), do: o.price, else: peer.price)
+              if(OrderBook.priority(o) < OrderBook.priority(peer), do: o.price, else: peer.price),
+              catalogue
             )
             |> match_order(id, catalogue, budget - 1)
 
@@ -272,7 +273,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     end
   end
 
-  defp settle_pair(state, buy, sell, n, price) do
+  defp settle_pair(state, buy, sell, n, price, catalogue) do
     {state, cargo} = WarehouseWorld.exchange_out(state, OrderBook.claim(sell), n)
     cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
     acquired = Enum.map(cargo, &CargoRows.encode(%{&1 | unit_cost: price}))
@@ -284,6 +285,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     |> OrderBookWorld.fill(buy, n)
     |> OrderBookWorld.fill(sell, n)
     |> traded(buy, n, price)
+    |> TijaraTides.Domain.Services.WarehouseLiquidation.refresh(sell.warehouse_id, catalogue)
   end
 
   defp settle_npc(state, o, n, price, catalogue) do
@@ -309,7 +311,54 @@ defmodule TijaraTides.Domain.Services.Exchange do
         |> seller_cash(o, n, price, cost)
       end
 
-    state |> OrderBookWorld.fill(o, n) |> traded(o, n, price)
+    state
+    |> OrderBookWorld.fill(o, n)
+    |> traded(o, n, price)
+    |> TijaraTides.Domain.Services.WarehouseLiquidation.refresh(o.warehouse_id, catalogue)
+  end
+
+  @doc "Receiver fills valid local buy orders at their existing limit, in price/time order."
+  def liquidate_stock(state, warehouse, good, catalogue) do
+    alias TijaraTides.Domain.Services.WarehouseLiquidation, as: Liquidation
+    w = WarehouseWorld.fetch(state, warehouse)
+
+    if OrderBook.supported?(catalogue["goods"][good]) do
+      OrderBookWorld.orders(state)
+      |> Enum.filter(
+        &(&1.side == "buy" and &1.port == w.port and &1.good == good and
+            &1.company_id != w.company_id)
+      )
+      |> Enum.sort_by(&{-&1.price, OrderBook.priority(&1)})
+      |> Enum.reduce_while(state, fn buy, s ->
+        n = min(buy.quantity, Liquidation.available(s, warehouse, good))
+
+        cond do
+          n == 0 ->
+            {:halt, s}
+
+          get(s, "companies", buy.company_id)["bankruptcy_ms"] != nil or
+            (buy.expires_ms != nil and buy.expires_ms <= s.clock_ms) or
+              not WarehouseWorld.exchange_ready?(s, OrderBook.claim(buy)) ->
+            {:cont, s}
+
+          true ->
+            {s, cargo} = Liquidation.take(s, warehouse, good, n, catalogue)
+            acquired = Enum.map(cargo, &CargoRows.encode(%{&1 | unit_cost: buy.price}))
+
+            s =
+              s
+              |> WarehouseWorld.exchange_in(OrderBook.claim(buy), acquired, n)
+              |> buyer_cash(buy, n, buy.price)
+              |> OrderBookWorld.fill(buy, n)
+              |> traded(buy, n, buy.price)
+              |> Liquidation.record_sale(warehouse, cargo, n * buy.price)
+
+            {:cont, s}
+        end
+      end)
+    else
+      state
+    end
   end
 
   defp buyer_cash(s, o, n, price),

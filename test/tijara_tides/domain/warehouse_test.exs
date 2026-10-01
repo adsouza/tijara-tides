@@ -312,7 +312,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
              Game.get(state, "warehouses", "lease")
   end
 
-  test "expiry forbids deposits and clears remaining stock after grace", c do
+  test "expiry forbids deposits and keeps remaining stock allocated for auctions", c do
     state = stocked(c)
     {:ok, state, _} = transfer(c, state, "store", 4)
     state = Game.advance(state, 2000, c.catalogue)
@@ -320,7 +320,10 @@ defmodule TijaraTides.Domain.WarehouseTest do
     assert {:error, :warehouse_expired} = transfer(c, state, "store", 1)
     assert {:ok, _, _} = transfer(c, state, "collect", 1)
     state = WarehouseWorld.advance(%{state | clock_ms: 129_600_000}, c.catalogue)
-    assert Game.get(state, "warehouses", "lease") == nil
+    assert Game.get(state, "warehouses", "lease")["blocks"] > 0
+
+    assert TijaraTides.Domain.State.get(state, "warehouse_liquidations", "lease")["status"] ==
+             "liquidating"
   end
 
   test "ownership and berth availability are checked before moving cargo", c do
@@ -473,35 +476,32 @@ defmodule TijaraTides.Domain.WarehouseTest do
     assert {:ok, _, _} = WarehouseWorld.release(state, c.account, "lease", 5, c.catalogue)
   end
 
-  test "clearance never pays out more than the abandoned cargo cost", c do
-    state = lease(c, c.state)
-    # Half reference for lumber is 12,500 a lot, well above the 100 a lot actually paid.
-    state = stock(state, "lease", [{"lumber", 4, nil}])
-    cash = Game.get(state, "companies", "company")["cash"]
-
+  test "fallback uses reference value independently of purchase cost", c do
+    state = lease(c, c.state) |> stock("lease", [{"lumber", 4, nil}])
     state = WarehouseWorld.advance(%{state | clock_ms: 129_600_000}, c.catalogue)
 
-    assert Game.get(state, "warehouses", "lease") == nil
-    proceeds = Game.get(state, "companies", "company")["cash"] - cash
-    assert proceeds <= 400
-  end
+    auction =
+      Enum.find_value(TijaraTides.Domain.State.entities(state, "auctions"), fn {_, a} ->
+        if a["liquidation_id"] == "lease", do: a
+      end)
 
-  test "mixing expensive and cheap batches cannot lift cheap-stock clearance proceeds", c do
-    state = lease(c, c.state) |> stock("lease", [{"lumber", 1, nil}, {"lumber", 1, nil}])
-    row = Game.get(state, "warehouses", "lease")
-    [cheap, expensive] = row["cargo"]
-    row = Map.put(row, "cargo", [cheap, Map.put(expensive, "unit_cost", 50_000)])
-    state = TijaraTides.Domain.State.put(state, "warehouses", "lease", row)
+    market = Game.get(state, "markets", "Jakarta|lumber")
 
     state =
-      CompanyFinanceWorld.post(state, "company", "purchase", [
-        {"inventory", 49_900},
-        {"cash_available", -49_900}
-      ])
+      TijaraTides.Domain.State.put(state, "markets", "Jakarta|lumber", %{market | "demand" => 0})
 
-    cash = Game.get(state, "companies", "company")["cash"]
-    state = WarehouseWorld.advance(%{state | clock_ms: 129_600_000}, c.catalogue)
-    assert Game.get(state, "companies", "company")["cash"] - cash <= 12_600
+    state =
+      TijaraTides.Domain.Services.Auctions.reconcile(
+        %{state | clock_ms: auction["closes_ms"]},
+        c.catalogue
+      )
+
+    state = WarehouseWorld.advance(state, c.catalogue)
+    pool = Game.get(state, "warehouse_liquidations", "lease")
+    assert pool["proceeds"] == div(4 * c.catalogue["goods"]["lumber"]["reference_cents"], 10)
+    assert pool["proceeds"] > 400
+    assert pool["charged"] + pool["paid"] == pool["proceeds"]
+    assert Game.get(state, "warehouses", "lease") == nil
   end
 
   defp reserve(c, state, kind, quantity, id \\ "r", ship \\ "company:1", extra \\ %{}) do
@@ -570,7 +570,8 @@ defmodule TijaraTides.Domain.WarehouseTest do
     {:ok, state, _} = transfer(c, state, "collect", 4)
     assert Game.get(state, "warehouse_reservations", "stock") == nil
     state = WarehouseWorld.advance(%{state | clock_ms: 129_600_000}, c.catalogue)
-    assert Game.get(state, "warehouses", "lease") == nil
+    assert Game.get(state, "warehouses", "lease")["blocks"] > 0
+    assert Game.get(state, "warehouse_liquidations", "lease")["status"] == "liquidating"
   end
 
   test "spoiled stock and removed collection stops release reservations", c do

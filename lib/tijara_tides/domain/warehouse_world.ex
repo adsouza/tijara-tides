@@ -1,4 +1,5 @@
 defmodule TijaraTides.Domain.WarehouseWorld do
+  alias TijaraTides.Domain.Services.WarehouseLiquidation, as: Liquidation
   alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.PortBerthsWorld
   alias TijaraTides.Domain.Ship.CargoRows
@@ -92,30 +93,32 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       company["cash"] - company["reserved"] < price or company["unpaid"] > 0 ->
         {:error, :insufficient_cash}
 
-      get(state, "warehouses", id) != nil ->
+      get(state, "warehouses", id) != nil or Liquidation.pool(state, id) != nil ->
         {:error, :warehouse_invalid}
 
       true ->
-        w = %Warehouse{
-          id: id,
-          display_number:
-            entities(state, "warehouses")
-            |> Map.values()
-            |> Enum.filter(&(&1["company_id"] == company["id"]))
-            |> Enum.map(&(&1["display_number"] || 1))
-            |> Enum.max(fn -> 0 end)
-            |> Kernel.+(1),
-          company_id: company["id"],
-          port: cmd["port"],
-          storage: storage,
-          good: if(storage == "liquid", do: cmd["good"]),
-          blocks: cmd["blocks"],
-          started_ms: state.clock_ms,
-          expires_ms: state.clock_ms + cmd["days"] * @day,
-          rent: price,
-          prepaid: price,
-          protected_ms: state.clock_ms
-        }
+        w =
+          %Warehouse{
+            id: id,
+            display_number:
+              entities(state, "warehouses")
+              |> Map.values()
+              |> Enum.filter(&(&1["company_id"] == company["id"]))
+              |> Enum.map(&(&1["display_number"] || 1))
+              |> Enum.max(fn -> 0 end)
+              |> Kernel.+(1),
+            company_id: company["id"],
+            port: cmd["port"],
+            storage: storage,
+            good: if(storage == "liquid", do: cmd["good"]),
+            blocks: cmd["blocks"],
+            started_ms: state.clock_ms,
+            expires_ms: state.clock_ms + cmd["days"] * @day,
+            rent: price,
+            prepaid: price,
+            protected_ms: state.clock_ms
+          }
+          |> struct!(Liquidation.terms(catalogue))
 
         state =
           save(state, w)
@@ -217,7 +220,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         state.clock_ms < w.protected_ms ->
           {:error, :warehouse_handling}
 
-        state.clock_ms >= max(w.expires_ms, w.protected_ms) + div(@day, 2) ->
+        state.clock_ms >= w.expires_ms + w.grace_ms ->
           {:error, :warehouse_expired}
 
         side == "store" and state.clock_ms >= w.expires_ms ->
@@ -244,6 +247,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
           {:error, :warehouse_berth_busy}
 
         true ->
+          state = Liquidation.before_remove(state, w.id)
+
           state =
             consume_reservations(
               state,
@@ -285,7 +290,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
               %{ship: ship["id"], good: item["id"]}
             )
 
-          {:ok, state, %{}}
+          {:ok, Liquidation.refresh(state, w.id, catalogue), %{}}
       end
     else
       _ -> {:error, :warehouse_invalid}
@@ -312,7 +317,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   end
 
   def advance(state, catalogue) do
-    Enum.reduce(entities(state, "warehouses"), state, fn {_, row}, state ->
+    Enum.reduce(Enum.sort(Map.keys(entities(state, "warehouses"))), state, fn id, state ->
+      row = get(state, "warehouses", id)
       {state, w} = roll_term(state, load(state, row))
       {state, w} = accrue(state, w)
       {state, w} = prepare_renewal(state, w)
@@ -324,12 +330,24 @@ defmodule TijaraTides.Domain.WarehouseWorld do
             state,
             get(state, "companies", w.company_id)["account_id"],
             "warehouse:" <> w.id,
-            {"warehouse.expired", %{"port" => w.port}}
+            {"warehouse.expired",
+             %{
+               "port" => w.port,
+               "minutes" => div(w.grace_ms, 60_000),
+               "grace_rate" =>
+                 div(w.rent * @day, max(1, (w.expires_ms - w.started_ms) * w.blocks)),
+               "liquidation_rate" =>
+                 div(
+                   w.rent * @day * (10_000 + w.surcharge_bps),
+                   max(1, (w.expires_ms - w.started_ms) * w.blocks * 10_000)
+                 )
+             }}
           )
         else
           state
         end
 
+      state = Liquidation.prepare(state, w, catalogue)
       {w, lost} = Warehouse.spoil(w, state.clock_ms)
 
       state =
@@ -343,7 +361,10 @@ defmodule TijaraTides.Domain.WarehouseWorld do
 
       bankrupt = get(state, "companies", w.company_id)["bankruptcy_ms"] != nil
 
-      if settlement = Warehouse.clearance(w, state.clock_ms, bankrupt, catalogue) do
+      if settlement =
+           if(bankrupt and not Liquidation.active?(state, w.id),
+             do: Warehouse.clearance(w, state.clock_ms, true, catalogue)
+           ) do
         %{cost: cost, value: value, charges: charges} = settlement
 
         state
@@ -363,15 +384,20 @@ defmodule TijaraTides.Domain.WarehouseWorld do
           {"prepaid_rent", -w.prepaid - w.next_rent}
         ])
       else
-        save(state, w)
+        state |> save(w) |> Liquidation.advance(w.id, catalogue)
       end
     end)
   end
 
   alias TijaraTides.Domain.Warehouse.Reservation
 
-  def reservations(state, w) when is_map(state),
-    do: reservations(owned(state, "warehouse_reservations", "company_id", w.company_id), w)
+  def reservations(state, w) when is_map(state) do
+    reservations(owned(state, "warehouse_reservations", "company_id", w.company_id), w)
+    |> Enum.map(fn r ->
+      auction = r.auction_id && get(state, "auctions", r.auction_id)
+      %{r | expires_ms: if(auction, do: auction["expires_ms"])}
+    end)
+  end
 
   def reservations(rows, w) when is_list(rows) do
     rows
@@ -404,7 +430,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     |> Enum.filter(&(&1["port"] == ship["port"]))
     |> Enum.map(&load(state, &1))
     |> Enum.filter(fn w ->
-      state.clock_ms < max(w.expires_ms, w.protected_ms) + div(@day, 2) and
+      state.clock_ms < w.expires_ms + w.grace_ms and
         Enum.sum(
           for b <- w.cargo,
               b.good == good and CargoRules.qualifies?(b.expires_ms, state.clock_ms, minimum),
@@ -757,6 +783,9 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   end
 
   def back_order(state, %Claim{} = order, catalogue) do
+    if order.liquidation and not Liquidation.active?(state, order.warehouse_id),
+      do: raise(ArgumentError, "Liquidation claim requires an active pool")
+
     case Warehouse.back_order(fetch(state, order.warehouse_id), order, state.clock_ms, catalogue) do
       {:ok, transition} -> {:ok, apply_transition(state, transition)}
       error -> error
@@ -768,8 +797,12 @@ defmodule TijaraTides.Domain.WarehouseWorld do
 
   def order_backed?(state, %Claim{} = order) do
     case fetch(state, order.warehouse_id) do
-      nil -> false
-      w -> Warehouse.order_backed?(w, order, state.clock_ms)
+      nil ->
+        false
+
+      w ->
+        (not order.liquidation or Liquidation.active?(state, w.id)) and
+          Warehouse.order_backed?(w, order, state.clock_ms)
     end
   end
 
@@ -779,10 +812,62 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   end
 
   def exchange_out(state, %Claim{} = order, n) do
+    state = Liquidation.before_remove(state, order.warehouse_id)
     w = fetch(state, order.warehouse_id)
     transition = Warehouse.consume_order(w, order, n)
-    {lots, next, cargo} = Warehouse.release_cargo(lots(state), w, order.good, n)
+
+    {lots, next, cargo} =
+      if order.liquidation,
+        do: Warehouse.release_liquidation_cargo(lots(state), w, order, n),
+        else: Warehouse.release_cargo(lots(state), w, order.good, n)
+
     {state |> record_lots(lots) |> save(next) |> apply_transition(transition), cargo}
+  end
+
+  @doc "Expired allocations follow actual occupied space without changing their snapshotted rate."
+  def resize_expired(state, id, blocks) do
+    w = fetch(state, id)
+
+    unless state.clock_ms >= w.expires_ms and blocks >= 0 and blocks <= w.blocks,
+      do: raise(ArgumentError, "Expired allocations can only shrink")
+
+    save(state, %{w | blocks: blocks})
+  end
+
+  def release_collection_claims(state, id) do
+    w = fetch(state, id)
+
+    reservations(state, w)
+    |> Enum.filter(&(&1.auction_id == nil))
+    |> Enum.reduce(state, fn r, s ->
+      s
+      |> delete("warehouse_reservations", r.id)
+      |> TijaraTides.Domain.Notices.notice(
+        get(s, "companies", w.company_id)["account_id"],
+        "reservation:" <> r.id,
+        {"warehouse.reservation_released", %{"port" => w.port}}
+      )
+    end)
+  end
+
+  def release_liquidated(state, id) do
+    w = fetch(state, id)
+
+    unless w.cargo == [] and w.reservations == [] and
+             get(state, "warehouse_liquidations", id)["status"] == "completed",
+           do: raise(ArgumentError, "Lease release requires a completed empty liquidation")
+
+    delete(state, "warehouses", id)
+  end
+
+  def liquidation_out(state, id, good, n) do
+    w = fetch(state, id)
+
+    unless Liquidation.active?(state, id) and n <= Liquidation.available(state, id, good),
+      do: raise(ArgumentError, "Liquidation exceeds unreserved cargo")
+
+    {lots, next, cargo} = Warehouse.release_free_cargo(lots(state), w, good, n)
+    {state |> record_lots(lots) |> save(next), cargo}
   end
 
   def exchange_in(state, %Claim{} = order, cargo, n) do

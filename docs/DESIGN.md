@@ -2270,7 +2270,9 @@ values rather than recent local trade prices or the owner's purchase cost.
 Expired perishables receive no payment and are discarded. Cleared goods leave
 port storage, releasing capacity instead of accumulating in a new simulated
 warehouse. Credit proceeds through the normal liquidation accounting after
-outstanding charges; freshness adjustment details remain open. Ordinary lease
+outstanding charges. The agreed clearance freshness multiplier is the remaining
+configured shelf-life fraction, bounded between zero and one; expired goods
+receive zero. Ordinary lease
 liquidation returns net proceeds to its owner; bankruptcy liquidation does not.
 If the owner becomes bankrupt during lease liquidation, continue the existing
 process and auctions without restarting them. Net proceeds not yet paid to the

@@ -123,7 +123,27 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
                 minutes:
                   display_number(div(lease.row["expires_ms"] - @view.public["clock_ms"], 60_000))
               ),
-            else: gettext("Expired: collection only during the 12-hour grace period.")}
+            else:
+              if(@view.public["clock_ms"] < lease.grace_end_ms,
+                do:
+                  gettext("Expired: collection grace ends in %{minutes} mins.",
+                    minutes:
+                      display_number(div(lease.grace_end_ms - @view.public["clock_ms"], 60_000))
+                  ),
+                else: gettext("Liquidating: local buy orders, auctions, then clearance.")
+              )}
+        </p>
+        <p class="text-xs text-slate-400">
+          {gettext(
+            "Liquidation rent: previous rate plus %{percent}%; charges are capped by this lease's proceeds.",
+            percent: display_number(div(lease.surcharge_bps, 100))
+          )}
+        </p>
+        <p :if={lease.liquidation} class="text-xs text-amber-300">
+          {gettext("Proceeds held: %{proceeds}. Accrued storage and handling: %{charges}.",
+            proceeds: money(lease.liquidation["proceeds"]),
+            charges: money(lease.liquidation["rent_due"] + lease.liquidation["handling_due"])
+          )}
         </p>
         <p :if={lease.reserved_volume > 0} class="text-xs text-slate-400">
           {gettext("Reserved receiving space: %{volume} m³",
@@ -355,7 +375,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
         </p>
         <p class="mt-1">
           {gettext(
-            "Releasing empty capacity refunds half its unused rent. After expiry, collect cargo within 12 active-world hours. Remaining goods are cleared at half reference value and never for more than they cost; grace rent is capped at proceeds. Perishables continue aging. Liquid storage is dedicated to one cargo type."
+            "Releasing empty capacity refunds half its unused rent. After expiry, cargo may be sold or collected during the disclosed grace period. Remaining goods fill local buy orders, enter auctions, then clear at 10% of reference value, reduced by remaining shelf life. Perishables keep aging; those unable to survive a full two-hour auction clear immediately. Storage and handling charges never exceed the proceeds of that lease. Liquid storage is dedicated to one cargo type."
           )}
         </p>
       </details>

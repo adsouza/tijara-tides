@@ -4,7 +4,7 @@ defmodule TijaraTides.Domain.Auction do
 
   @fields ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed)a
   @enforce_keys @fields
-  defstruct @fields ++ [ship_id: nil, bids: %{}]
+  defstruct @fields ++ [ship_id: nil, liquidation_id: nil, expires_ms: nil, bids: %{}]
 
   def schedule(clock, offset, interval, window) do
     true = is_integer(interval) and interval > 0 and is_integer(window) and window > 0

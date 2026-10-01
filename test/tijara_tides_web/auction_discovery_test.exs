@@ -274,4 +274,37 @@ defmodule TijaraTidesWeb.AuctionDiscoveryTest do
     assert render_component(&AuctionPanel.discovery/1, view: %{}, definitions: definitions()) =~
              "No luxury auctions available."
   end
+
+  test "receiver auctions expose projected freshness and hide owner revision controls" do
+    lot = %{
+      "id" => "receiver",
+      "good" => "fruit",
+      "port" => "Dubai",
+      "quantity" => 2,
+      "reserve" => 1000,
+      "status" => "scheduled",
+      "opens_ms" => 2000,
+      "closes_ms" => 3000,
+      "expires_ms" => 4000,
+      "liquidation" => true,
+      "price" => nil,
+      "amounts" => []
+    }
+
+    html =
+      render_component(&AuctionPanel.panel/1,
+        definitions: definitions(),
+        port: "Dubai",
+        request_id: "test",
+        view: %{
+          public: %{"clock_ms" => 1000, "auctions" => [lot]},
+          private: %{"consignments" => [lot], "warehouses" => %{}, "auction_bids" => []}
+        }
+      )
+
+    assert html =~ "Warehouse liquidation"
+    assert html =~ "Projected remaining shelf life at close"
+    refute html =~ "auction_revise"
+    refute html =~ "auction_withdraw"
+  end
 end

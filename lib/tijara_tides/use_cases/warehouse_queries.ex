@@ -54,7 +54,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
         reserved_volume = WarehouseWorld.reserved_volume(reservation_rows, w, catalogue)
         reservations = WarehouseWorld.reservations(reservation_rows, w)
         claimed = %{w | reservations: reservations}
-        ready = docked && now >= w.protected_ms
+        ready = (docked && now >= w.protected_ms) and now < w.expires_ms + w.grace_ms
 
         goods =
           if ready,
@@ -126,6 +126,9 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
 
         %{
           row: row,
+          liquidation: get_in(view, [:private, "warehouse_liquidations", w.id]),
+          grace_end_ms: w.expires_ms + w.grace_ms,
+          surcharge_bps: w.surcharge_bps,
           volume: volume,
           transfers: transfers,
           reserved_volume: reserved_volume,

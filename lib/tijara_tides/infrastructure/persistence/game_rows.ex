@@ -1,6 +1,11 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "warehouse_liquidations" =>
+      Enum.map(
+        ~w(id company_id port status expires_ms grace_end_ms last_ms original_blocks occupied_blocks rent duration_ms surcharge_bps window_ms clearance_bps handling_rate rent_due rent_remainder handling_due clearance_remainders proceeds charged paid sunk completed_ms),
+        &{&1, &1}
+      ),
     "company_dormancy" =>
       Enum.map(
         ~w(id company_id account_id last_visit_ms warned_ms closes_ms closed_ms guarantee_id guaranteed_debt),
@@ -13,7 +18,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       Enum.map(~w(account_id company_id checked_ms active_until_ms progress_ms), &{&1, &1}),
     "auctions" =>
       Enum.map(
-        ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed ship_id),
+        ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed ship_id liquidation_id expires_ms),
         &{&1, &1}
       ),
     "auction_bids" =>
@@ -34,7 +39,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ),
     "warehouses" =>
       Enum.map(
-        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms display_number renewal_rate next_rent next_days auto_days auto_cap),
+        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms display_number renewal_rate next_rent next_days auto_days auto_cap grace_ms surcharge_bps window_ms clearance_bps),
         &{&1, &1}
       ),
     "reporting_accounts" => Enum.map(~w(id capital since_ms at_ms), &{&1, &1}),
@@ -248,7 +253,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(accounts companies company_dormancy company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
+  @kinds ~w(accounts companies company_dormancy warehouse_liquidations company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
 
   @children %{
     "warehouses" =>
@@ -275,7 +280,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   # Columns the database always stores but state omits at their default, both ways.
   @defaults %{"markets" => %{"feedstock" => false, "production_credit" => 0}}
   @optional %{
-    "auctions" => ~w(ship_id),
+    "auctions" => ~w(ship_id liquidation_id expires_ms),
     "ships" =>
       ~w(acquired_ms acquisition_value planned_destination paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
     "invitations" => ["invitee"]
@@ -551,6 +556,10 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     defp column_value(unquote(key), nil), do: unquote(default)
   end
 
+  defp column_value("grace_ms", nil), do: 43_200_000
+  defp column_value("surcharge_bps", nil), do: 2500
+  defp column_value("window_ms", nil), do: 7_200_000
+  defp column_value("clearance_bps", nil), do: 1000
   defp column_value("locale", nil), do: "en"
   defp column_value("arguments", nil), do: %{}
   defp column_value("capital_ms", value), do: Decimal.new(value)

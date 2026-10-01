@@ -92,6 +92,12 @@ defmodule TijaraTides.Domain.Visibility do
           owned(state, "exchange_orders", "company_id", account["company_id"]),
           &{&1["id"], &1}
         ),
+      "warehouse_liquidations" =>
+        Map.new(
+          owned(state, "warehouse_liquidations", "company_id", account["company_id"])
+          |> Enum.reject(&(&1["status"] == "completed")),
+          &{&1["id"], &1}
+        ),
       "warehouse_reservations" =>
         Map.new(
           owned(state, "warehouse_reservations", "company_id", account["company_id"]),
