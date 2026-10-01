@@ -35,7 +35,7 @@ defmodule TijaraTides.Localization.Notifications do
 
     bindings =
       for key <-
-            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse deadline)a,
+            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse deadline grace_rate liquidation_rate)a,
           Map.has_key?(args, Atom.to_string(key)),
           into: %{},
           do: {key, args[Atom.to_string(key)]}
@@ -84,7 +84,7 @@ defmodule TijaraTides.Localization.Notifications do
         args
       )
 
-  defp message("warehouse.expired", %{"grace_rate" => _, "liquidation_rate" => _} = args),
+  defp message("warehouse.expired", %{grace_rate: _, liquidation_rate: _} = args),
     do:
       gettext(
         "Your warehouse lease at %{port} expired. Sale or collection grace: %{minutes} active-world minutes. Storage per occupied block per day: %{grace_rate} during grace; %{liquidation_rate} during liquidation. Charges are capped by this lease's proceeds.",

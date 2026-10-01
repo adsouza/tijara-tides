@@ -200,6 +200,57 @@ defmodule TijaraTides.LocalizationTest do
     end
   end
 
+  test "lease expiry notices disclose the configured grace duration and both storage rates" do
+    notice = %{
+      "code" => "warehouse.expired",
+      "arguments" => %{
+        "port" => "Custom Port",
+        "minutes" => 90,
+        "grace_rate" => 200,
+        "liquidation_rate" => 300
+      }
+    }
+
+    for locale <- ["en", "ar"] do
+      Localization.with_locale(locale, fn ->
+        rendered = Notifications.render(notice, %{})
+        assert rendered =~ "Custom Port"
+        assert rendered =~ Localization.number(90)
+        assert rendered =~ Localization.money(200)
+        assert rendered =~ Localization.money(300)
+        refute rendered =~ "%{"
+
+        if locale == "en" do
+          assert rendered ==
+                   "Your warehouse lease at Custom Port expired. Sale or collection grace: 90 active-world minutes. Storage per occupied block per day: $2 during grace; $3 during liquidation. Charges are capped by this lease's proceeds."
+        else
+          assert rendered =~ "مهلة البيع أو الاستلام"
+          assert rendered =~ "لا تتجاوز الرسوم حصيلة هذا الإيجار."
+        end
+      end)
+    end
+  end
+
+  test "legacy lease expiry notices remain readable in both locales" do
+    notice = %{"code" => "warehouse.expired", "arguments" => %{"port" => "Custom Port"}}
+
+    for locale <- ["en", "ar"] do
+      Localization.with_locale(locale, fn ->
+        rendered = Notifications.render(notice, %{})
+        assert rendered =~ "Custom Port"
+        refute rendered =~ "%{"
+
+        if locale == "en" do
+          assert rendered ==
+                   "Your warehouse lease at Custom Port expired. Collect its cargo within 12 active-world hours."
+        else
+          assert rendered ==
+                   "انتهى عقد مستودعك في Custom Port. اسحب بضائعه خلال ١٢ ساعة من وقت العالم النشط."
+        end
+      end)
+    end
+  end
+
   test "structured notices retain arbitrary names and legacy messages remain readable" do
     notice = %{"code" => "company.formed", "arguments" => %{"company" => "<Ship & Co>"}}
 
