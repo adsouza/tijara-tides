@@ -1031,11 +1031,12 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     {state, next}
   end
 
-  @doc "Receiver storage retains real pool occupancy and charges only available estate cash."
+  @doc "Receiver extensions charge available estate cash only before lease liquidation starts."
   def estate_cover(state, id, until_ms) do
     w = fetch(state, id)
 
-    if Warehouse.covered_until(w) > until_ms and w.expires_ms > state.clock_ms do
+    if Liquidation.active?(state, id) or
+         (Warehouse.covered_until(w) > until_ms and w.expires_ms > state.clock_ms) do
       state
     else
       days = max(1, div(max(until_ms, state.clock_ms) - w.expires_ms, @day) + 1)

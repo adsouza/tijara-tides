@@ -311,6 +311,80 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     assert State.get(s, "companies", "aco")["unpaid"] == 0
   end
 
+  test "receivership auction cover cannot revive an award lease with an active liquidation pool",
+       c do
+    s = lease(c, c.state, "support") |> stock("support", [{"whisky", 3, nil, 100}])
+    cargo = State.get(s, "warehouses", "support")["cargo"]
+    s = WarehouseWorld.award_storage(s, "support", "won", cargo, c.catalogue)
+    s = advance(c, s, @day)
+    assert WarehouseLiquidation.pool(s, "award:won")["status"] == "grace"
+
+    {:ok, s, _} =
+      Auctions.consign(
+        s,
+        State.get(s, "accounts", "a"),
+        %{
+          "warehouse" => "award:won",
+          "good" => "whisky",
+          "quantity" => 1,
+          "price" => 1000
+        },
+        "award-resale",
+        c.catalogue,
+        "resale-seed"
+      )
+
+    resale = AuctionWorld.fetch(s, "award-resale")
+    assert resale.liquidation_id == nil
+    assert resale.closes_ms > @day
+
+    {:ok, s, _} =
+      TijaraTides.Domain.Services.Bankruptcy.bankrupt(s, State.get(s, "accounts", "a"), "forced")
+
+    original_pool = WarehouseLiquidation.pool(s, "award:won")
+
+    s =
+      Enum.reduce([@day + 1, @day + 2, resale.opens_ms, resale.closes_ms], s, fn clock, s ->
+        next =
+          %{s | clock_ms: clock}
+          |> Estates.advance(c.catalogue)
+          |> Auctions.reconcile(c.catalogue)
+          |> WarehouseWorld.advance(c.catalogue)
+
+        assert State.get(next, "warehouses", "award:won")["expires_ms"] == @day
+
+        assert WarehouseLiquidation.pool(next, "award:won")["grace_end_ms"] ==
+                 original_pool["grace_end_ms"]
+
+        assert WarehouseWorld.estate_cover(next, "award:won", clock + @day) == next
+        next
+      end)
+
+    assert AuctionWorld.fetch(s, "award-resale").status == "unsold"
+    s = advance(c, s, @grace)
+    assert WarehouseLiquidation.pool(s, "award:won")["status"] == "liquidating"
+    assert WarehouseWorld.estate_cover(s, "award:won", @grace + @day) == s
+    [auction] = auctions(s, "award:won")
+    final = close(c, s, auction.closes_ms)
+    assert State.get(final, "warehouses", "award:won") == nil
+    assert WarehouseLiquidation.pool(final, "award:won")["status"] == "completed"
+    assert WarehouseLiquidation.pool(final, "award:won")["paid"] == 0
+  end
+
+  test "receivership still extends storage without an active liquidation pool", c do
+    s = lease(c, c.state, "store") |> stock("store", [{"whisky", 3, nil, 100}])
+
+    {:ok, s, _} =
+      TijaraTides.Domain.Services.Bankruptcy.bankrupt(s, State.get(s, "accounts", "a"), "forced")
+
+    s = %{s | clock_ms: @day}
+    cash = State.get(s, "companies", "aco")["cash"]
+    assert not WarehouseLiquidation.active?(s, "store")
+    next = WarehouseWorld.estate_cover(s, "store", @day + 1000)
+    assert State.get(next, "warehouses", "store")["expires_ms"] > @day + 1000
+    assert State.get(next, "companies", "aco")["cash"] < cash
+  end
+
   test "bankruptcy during liquidation retains auctions and sinks outstanding net proceeds once",
        c do
     s =
