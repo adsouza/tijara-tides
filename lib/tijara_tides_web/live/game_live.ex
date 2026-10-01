@@ -271,9 +271,52 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event("exchange", params, socket) do
     command =
       params
-      |> Map.drop(["_target", "minutes", "clear_expiry"])
+      |> Map.drop(["_target", "minutes", "clear_expiry", "markdown_mode", "freshness_minutes"])
       |> Map.update("quantity", nil, &report_number/1)
       |> Map.update("price", nil, &exchange_price/1)
+      |> Map.update("price_floor", nil, &exchange_price/1)
+      |> Map.update("min_grade", nil, &report_number/1)
+      |> then(fn cmd ->
+        if params["freshness_minutes"] not in [nil, ""],
+          do:
+            Map.put(cmd, "min_remaining_ms", report_number(params["freshness_minutes"]) * 60_000),
+          else: cmd
+      end)
+      |> then(fn cmd ->
+        if params["rebase"], do: Map.put(cmd, "rebase", params["rebase"] == "true"), else: cmd
+      end)
+      |> then(fn cmd ->
+        case params["markdown_mode"] do
+          "custom" ->
+            Map.put(
+              cmd,
+              "markdowns",
+              Map.new(params["markdowns"] || %{}, fn {grade, value} ->
+                {grade, report_number(value)}
+              end)
+            )
+
+          "off" ->
+            Map.put(cmd, "preset", "") |> Map.delete("markdowns")
+
+          "keep" ->
+            Map.drop(cmd, ["markdowns", "price_floor"])
+
+          "preset:" <> id ->
+            Map.put(cmd, "preset", id) |> Map.drop(["markdowns", "price_floor"])
+
+          _ ->
+            if params["action"] == "markdown_preset_save",
+              do:
+                Map.update(
+                  cmd,
+                  "markdowns",
+                  nil,
+                  &Map.new(&1, fn {grade, value} -> {grade, report_number(value)} end)
+                ),
+              else: cmd
+        end
+      end)
 
     command =
       case params["minutes"] do

@@ -22,6 +22,62 @@ defmodule TijaraTides.Domain.OrderBookWorld do
     end)
   end
 
+  @doc "Refresh separately priced physical-lot portions without changing unchanged priorities."
+  def synchronize(state, id, reset \\ false) do
+    case fetch(state, id) do
+      %{side: "sell"} = o ->
+        batches = TijaraTides.Domain.WarehouseWorld.order_cargo(state, OrderBook.claim(o))
+
+        if Enum.any?(batches, & &1.expires_ms) do
+          parents = Map.new(Map.get(state, :new_lots, []), &{&1["id"], &1["parent_lot_id"]})
+
+          portions =
+            Map.new(batches, fn b ->
+              grade = OrderBook.grade(b, state.clock_ms)
+              price = OrderBook.effective_price(o, grade)
+              old = ancestor_portion(o.portions, b.lot_id, parents)
+
+              same =
+                old && old["grade"] == grade && old["price"] == price &&
+                  old["quantity"] >= b.quantity && not reset
+
+              {b.lot_id,
+               %{
+                 "lot_id" => b.lot_id,
+                 "quantity" => b.quantity,
+                 "grade" => grade,
+                 "price" => price,
+                 "expires_ms" => b.expires_ms,
+                 "priority_ms" => if(same, do: old["priority_ms"], else: state.clock_ms),
+                 "priority_seq" => if(same, do: old["priority_seq"], else: state.revision)
+               }}
+            end)
+
+          store(state, %{
+            o
+            | portions: portions,
+              quantity: Enum.sum(Enum.map(batches, & &1.quantity))
+          })
+        else
+          state
+        end
+
+      _ ->
+        state
+    end
+  end
+
+  defp ancestor_portion(portions, id, parents) do
+    portions[id] || if(parents[id], do: ancestor_portion(portions, parents[id], parents))
+  end
+
+  def set_terms(state, id, terms, reset) do
+    o = fetch!(state, id)
+    o = struct!(o, terms)
+    o = if reset, do: %{o | priority_ms: state.clock_ms, priority_seq: state.revision}, else: o
+    store(state, o) |> synchronize(id, reset)
+  end
+
   def orders(state), do: Enum.map(Map.values(entities(state, "exchange_orders")), &Rows.decode/1)
 
   def fetch(state, id) do
@@ -76,6 +132,7 @@ defmodule TijaraTides.Domain.OrderBookWorld do
   def counterparts(state, incoming) do
     owned(state, "exchange_orders", "book_key", incoming.port <> "|" <> incoming.good)
     |> Enum.map(&Rows.decode/1)
+    |> Enum.flat_map(&OrderBook.quotes/1)
     |> OrderBook.counterparts(incoming)
   end
 
@@ -100,17 +157,36 @@ defmodule TijaraTides.Domain.OrderBookWorld do
 
   def public(state) do
     orders(state)
+    |> Enum.flat_map(&OrderBook.quotes/1)
     |> Enum.group_by(&(&1.port <> "|" <> &1.good))
     |> Map.new(fn {key, os} ->
       levels =
         os
-        |> Enum.group_by(&{&1.side, &1.price})
-        |> Enum.map(fn {{side, price}, rows} ->
+        |> Enum.group_by(&{&1.side, &1.price, &1.actual_grade, &1.min_grade, &1.min_remaining_ms})
+        |> Enum.map(fn {{side, price, grade, minimum, life}, rows} ->
           %{
             "side" => side,
             "price" => price,
             "quantity" => Enum.sum(Enum.map(rows, & &1.quantity))
           }
+          |> then(fn row ->
+            if grade != nil or minimum > 0 or life > 0,
+              do:
+                Map.merge(row, %{
+                  "grade" => grade,
+                  "min_grade" => minimum,
+                  "min_remaining_ms" => life
+                })
+                |> then(fn level ->
+                  if grade != nil do
+                    expiry = Enum.min(Enum.map(rows, & &1.portions[&1.portion_id]["expires_ms"]))
+                    Map.put(level, "remaining_ms", max(0, expiry - state.clock_ms))
+                  else
+                    level
+                  end
+                end),
+              else: row
+          end)
         end)
 
       {key, Enum.sort_by(levels, &{&1["side"], &1["price"]})}

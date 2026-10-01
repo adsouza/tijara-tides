@@ -68,6 +68,8 @@ defmodule TijaraTides.Domain.Visibility do
   def private(state, account) do
     %{
       "account" => Map.drop(account, ["inviter"]),
+      "markdown_presets" =>
+        Map.new(owned(state, "markdown_presets", "account_id", account["id"]), &{&1["id"], &1}),
       "invitation_forecast" =>
         TijaraTides.Domain.AccountWorld.InvitationAccrual.forecast(state, account),
       "email_deliveries" =>

@@ -1,8 +1,8 @@
 defmodule TijaraTides.Domain.Ship.VisitOrder do
   @moduledoc "Snapshot of a visit's committed instruction terms and monotonic settlement progress."
-  @fields ~w(id ship_id company_id port good side quantity_mode quantity filled limit budget spent onward status reason created_ms expires_ms history_archived min_remaining_ms)a
-  defstruct (@fields -- [:history_archived, :min_remaining_ms]) ++
-              [history_archived: false, min_remaining_ms: 0]
+  @fields ~w(id ship_id company_id port good side quantity_mode quantity filled limit budget spent onward status reason created_ms expires_ms history_archived min_remaining_ms markdowns price_floor)a
+  defstruct (@fields -- [:history_archived, :min_remaining_ms, :markdowns, :price_floor]) ++
+              [history_archived: false, min_remaining_ms: 0, markdowns: nil, price_floor: 0]
 
   def from_row(row),
     do:
@@ -13,6 +13,7 @@ defmodule TijaraTides.Domain.Ship.VisitOrder do
           &{&1,
            case &1 do
              :history_archived -> Map.get(row, "history_archived", false)
+             :price_floor -> Map.get(row, "price_floor", 0)
              :min_remaining_ms -> Map.get(row, "min_remaining_ms", 0)
              field -> row[Atom.to_string(field)]
            end}
@@ -20,7 +21,11 @@ defmodule TijaraTides.Domain.Ship.VisitOrder do
       )
 
   def to_row(%__MODULE__{} = order),
-    do: Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(order, &1)})
+    do:
+      Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(order, &1)})
+      |> Map.reject(fn {key, value} ->
+        (key == "markdowns" and value == nil) or (key == "price_floor" and value == 0)
+      end)
 
   def record_fill(%__MODULE__{} = order, quantity, spent) do
     if order.status not in ["planned", "waiting"] or quantity < 1 or

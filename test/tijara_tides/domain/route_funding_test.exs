@@ -978,4 +978,51 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     assert cash(changed) > 0
     assert LinkedOrders.handover(changed, "co:1") == changed
   end
+
+  test "perishable linked orders inherit and amend shelf-life requirements", c do
+    m = State.get(c.s, "markets", "Jakarta|fruit")
+
+    s =
+      State.put(c.s, "markets", "Jakarta|fruit", %{
+        m
+        | "stock" => 0,
+          "batches" => [],
+          "demand" => 0
+      })
+      |> then(&route(c, &1))
+
+    s =
+      edit(c, s, "food-rule", "co:1", %{
+        "operation" => "add_rule",
+        "stop" => "co:1:a",
+        "side" => "buy",
+        "good" => "fruit",
+        "quantity" => 5,
+        "limit" => 100,
+        "linked_warehouse_id" => "w",
+        "min_remaining_ms" => 60_000
+      })
+
+    link = State.get(s, "remote_links", "food-rule")
+    order = OrderBookWorld.fetch(s, link["order_id"])
+    assert order.min_remaining_ms == 60_000
+
+    s =
+      edit(c, %{s | clock_ms: 1, revision: 1}, "change", "co:1", %{
+        "operation" => "update_rule",
+        "rule" => "food-rule",
+        "stop" => "co:1:a",
+        "side" => "buy",
+        "good" => "fruit",
+        "quantity" => 5,
+        "limit" => 100,
+        "linked_warehouse_id" => "w",
+        "min_remaining_ms" => 90_000
+      })
+
+    updated = OrderBookWorld.fetch(s, link["order_id"])
+    assert updated.min_remaining_ms == 90_000
+    assert updated.priority_ms == 1
+    assert State.get(s, "companies", "co")["reserved"] == 500
+  end
 end

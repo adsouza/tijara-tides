@@ -199,9 +199,9 @@ defmodule TijaraTides.Domain.Services.WarehouseLiquidation do
     end
   end
 
-  def take(state, id, good, n, catalogue) do
+  def take(state, id, good, n, catalogue, lot_ids \\ nil) do
     state = before_remove(state, id)
-    {state, cargo} = WarehouseWorld.liquidation_out(state, id, good, n)
+    {state, cargo} = WarehouseWorld.liquidation_out(state, id, good, n, lot_ids)
     {refresh(state, id, catalogue), cargo}
   end
 

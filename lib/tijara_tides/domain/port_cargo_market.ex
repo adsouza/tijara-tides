@@ -33,7 +33,15 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   end
 
   @doc "Release supplier cargo, preserving perishable lot identities and split lineage."
-  def supply(%Lots{} = lots, %__MODULE__{} = market, quantity, price, item, minimum \\ 0) do
+  def supply(
+        %Lots{} = lots,
+        %__MODULE__{} = market,
+        quantity,
+        price,
+        item,
+        minimum \\ 0,
+        policy \\ %{}
+      ) do
     unless item["id"] == market.good and market.seller and is_integer(quantity) and quantity > 0 and
              quantity <= market.stock and is_integer(price) and price >= 0 and
              TijaraTides.Domain.CargoRules.valid_remaining?(minimum),
@@ -51,7 +59,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
         {qualifying, excluded} =
           Enum.split_with(
             market.batches,
-            &TijaraTides.Domain.CargoRules.qualifies?(&1.expires_ms, lots.clock_ms, minimum)
+            &(TijaraTides.Domain.CargoRules.qualifies?(&1.expires_ms, lots.clock_ms, minimum) and
+                TijaraTides.Domain.OrderBook.eligible?(&1, lots.clock_ms, policy))
           )
 
         qualifying = Enum.sort_by(qualifying, &(&1.expires_ms || 9_223_372_036_854_775_807))

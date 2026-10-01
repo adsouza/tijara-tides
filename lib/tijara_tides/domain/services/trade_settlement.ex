@@ -62,6 +62,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       trade.destination,
       trade.min_remaining_ms,
       trade.purchase_budget_id,
+      trade,
       catalogue
     )
   end
@@ -77,6 +78,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
          destination,
          minimum,
          budget_id,
+         terms,
          catalogue
        ) do
     with %{} = company <- get(state, "companies", account["company_id"]),
@@ -87,7 +89,10 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
          true <-
            is_integer(quantity) and quantity > 0 and quantity <= max_lots() and
              is_integer(limit) and
-             limit >= 0 and TijaraTides.Domain.CargoRules.valid_remaining?(minimum) do
+             limit >= 0 and TijaraTides.Domain.CargoRules.valid_remaining?(minimum) and
+             TijaraTides.Domain.OrderBook.schedule?(terms.markdowns) and
+             is_integer(terms.price_floor) and terms.price_floor in 0..1_000_000_000_000 and
+             (terms.markdowns == nil or (action == "sell" and item["category"] == "Perishables")) do
       market = get(state, "markets", ship["port"] <> "|" <> good)
       quote = quote(state, catalogue, ship["port"], good)
       handling = quantity * handling_rate(catalogue["ports"][ship["port"]])
@@ -109,7 +114,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             budget_id,
             catalogue
           ),
-        else: sell(state, company, ship, good, quantity, limit, market, quote, handling)
+        else: sell(state, company, ship, good, quantity, limit, market, quote, handling, terms)
     else
       _ -> {:error, :invalid_trade}
     end
@@ -303,8 +308,22 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
     end
   end
 
-  defp sell(state, company, ship, good, quantity, limit, market, quote, handling) do
+  defp sell(state, company, ship, good, quantity, limit, market, quote, handling, terms) do
     available = TijaraTides.Domain.ShipWorld.cargo_available(state, ship["id"], good)
+
+    qualified =
+      Enum.filter(ship["cargo"], fn b ->
+        b["good"] == good and (is_nil(b["expires_ms"]) or b["expires_ms"] > state.clock_ms) and
+          TijaraTides.Domain.OrderBook.effective_price(
+            %{
+              initial_price: limit,
+              price: limit,
+              markdowns: terms.markdowns,
+              price_floor: terms.price_floor
+            },
+            TijaraTides.Domain.OrderBook.grade_row(b, state.clock_ms)
+          ) <= quote["bid"]
+      end)
 
     cond do
       not market["buyer"] ->
@@ -313,7 +332,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       available < quantity ->
         {:error, :insufficient_cargo}
 
-      quote["bid"] < limit ->
+      Enum.sum(for b <- qualified, do: b["quantity"]) < quantity ->
         {:error, :price_changed}
 
       quote["demand"] < quantity or quote["buyer_budget"] < quote["bid"] * quantity ->
@@ -321,7 +340,13 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
       true ->
         {state, sold} =
-          TijaraTides.Domain.ShipWorld.unload_cargo(state, ship["id"], good, quantity)
+          TijaraTides.Domain.ShipWorld.unload_cargo(
+            state,
+            ship["id"],
+            good,
+            quantity,
+            Enum.map(qualified, & &1["lot_id"])
+          )
 
         cost = Enum.sum(Enum.map(sold, &(&1["quantity"] * &1["unit_cost"])))
 

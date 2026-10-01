@@ -2349,8 +2349,6 @@ msgstr "يُخصص تخزين السوائل لنوع واحد من البضائ
 msgid "This warehouse can store any combination of the listed cargo types."
 msgstr "يمكن لهذا المستودع تخزين أي مزيج من أنواع البضائع المدرجة."
 
-msgid "non-perishable solid goods"
-msgstr "بضائع صلبة غير قابلة للتلف"
 
 msgid "Browse open, upcoming and recently settled auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
 msgstr "تصفح المزادات المفتوحة والقادمة والمنتهية حديثًا. اختر ميناءً للمزايدة؛ يلزم توفر مساحة تخزين مناسبة. الأسعار الاحتياطية للشحنة كاملة. الأوقات محسوبة بوقت العالم النشط."
@@ -2841,8 +2839,75 @@ msgstr "يمكن استبدال تخزين البضائع المكتسبة با�
 msgid "Remaining under current storage: %{minutes} mins"
 msgstr "المدة المتبقية في ظروف التخزين الحالية: %{minutes} دقائق"
 
-msgid "Ordinary storage permits perishables. Refrigeration slows aging; transfers preserve harvest time and age. Refrigerated storage costs more."
-msgstr "يسمح التخزين العادي بالبضائع القابلة للتلف. يبطئ التبريد التقادم، وتحافظ عمليات النقل على وقت الحصاد والعمر. التخزين المبرد أعلى تكلفة."
 
 msgid "solid goods, including perishables"
 msgstr "البضائع الصلبة، بما فيها البضائع القابلة للتلف"
+
+msgid "%{minutes} mins remaining"
+msgstr "متبقي %{minutes} دقيقة"
+
+msgid "Absolute price floor ($)"
+msgstr "الحد الأدنى المطلق للسعر ($)"
+
+msgid "Any grade"
+msgstr "أي درجة"
+
+msgid "At least %{minutes} mins"
+msgstr "على الأقل %{minutes} دقيقة"
+
+msgid "Automatic markdowns"
+msgstr "تخفيضات تلقائية"
+
+msgid "Choose a valid freshness requirement or a complete markdown schedule with a percentage for every grade."
+msgstr "اختر شرط نضارة صالحاً أو جدول تخفيضات كاملاً بنسبة لكل درجة."
+
+msgid "Clearance (below 25%)"
+msgstr "تصفية (أقل من 25%)"
+
+msgid "Delete preset"
+msgstr "حذف الإعداد المحفوظ"
+
+msgid "Fair (25–50%)"
+msgstr "مقبول (25–50%)"
+
+msgid "Fresh (75–100%)"
+msgstr "طازج (75–100%)"
+
+msgid "Freshness"
+msgstr "النضارة"
+
+msgid "Good (50–75%)"
+msgstr "جيد (50–75%)"
+
+msgid "Keep applied settings"
+msgstr "إبقاء الإعدادات المطبقة"
+
+msgid "Markdown basis: %{price}. Preset edits do not change these applied settings."
+msgstr "أساس التخفيض: %{price}. تعديل الإعداد المحفوظ لا يغير هذه الإعدادات المطبقة."
+
+msgid "Markdown preset (optional)"
+msgstr "إعداد تخفيض محفوظ (اختياري)"
+
+msgid "Markdown presets"
+msgstr "إعدادات التخفيض المحفوظة"
+
+msgid "Minimum freshness grade"
+msgstr "الحد الأدنى لدرجة النضارة"
+
+msgid "Minimum remaining life (minutes)"
+msgstr "الحد الأدنى للصلاحية المتبقية (دقائق)"
+
+msgid "Preset name"
+msgstr "اسم الإعداد المحفوظ"
+
+msgid "Rebase percentages on the new asking price"
+msgstr "إعادة احتساب النسب على سعر الطلب الجديد"
+
+msgid "Save percentages for every grade. Apply a preset explicitly to copy its settings; editing or deleting it leaves active orders unchanged."
+msgstr "احفظ نسبة لكل درجة. طبّق الإعداد المحفوظ لنسخ إعداداته؛ تعديله أو حذفه لا يغير الأوامر النشطة."
+
+msgid "Save preset"
+msgstr "حفظ الإعداد"
+
+msgid "Use percentages below"
+msgstr "استخدام النسب أدناه"

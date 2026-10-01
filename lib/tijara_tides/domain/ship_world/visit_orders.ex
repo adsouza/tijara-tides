@@ -18,6 +18,7 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
   @open ["planned", "waiting"]
 
   def add(state, account, params, context) do
+    params = TijaraTides.Domain.MarkdownPresetWorld.apply(state, account, params)
     ship = get(state, "ships", params["ship"])
     catalogue = context.catalogue
     good = catalogue["goods"][params["good"]]
@@ -29,6 +30,8 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
     onward = params["onward"]
     expires_in = params["expires_in_ms"]
     minimum = Map.get(params, "min_remaining_ms", 0)
+    markdowns = params["markdowns"]
+    floor = params["price_floor"] || 0
 
     cond do
       is_nil(ship) or is_nil(account["company_id"]) or ship["company_id"] != account["company_id"] ->
@@ -58,6 +61,11 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
 
       not CargoRules.valid_remaining?(minimum) or (side != "buy" and minimum != 0) ->
         {:error, :instruction_freshness_invalid}
+
+      not TijaraTides.Domain.OrderBook.schedule?(markdowns) or
+        not is_integer(floor) or floor not in 0..1_000_000_000_000 or
+          (markdowns != nil and (side != "sell" or good["category"] != "Perishables")) ->
+        {:error, :exchange_freshness_invalid}
 
       side == "sell" and
           quantity >
@@ -106,8 +114,15 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
           "history_archived" => false,
           "expires_ms" => if(expires_in, do: state.clock_ms + expires_in),
           "min_remaining_ms" => minimum,
+          "markdowns" => markdowns,
+          "price_floor" => floor,
           "created_ms" => state.clock_ms
         }
+
+        order =
+          Map.reject(order, fn {key, value} ->
+            (key == "markdowns" and value == nil) or (key == "price_floor" and value == 0)
+          end)
 
         state = if side == "buy", do: save_visit(state, ship, port, onward), else: state
 

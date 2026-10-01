@@ -75,6 +75,12 @@ defmodule TijaraTides.Domain.Commands do
       %{"action" => "auction_withdraw_bid", "auction" => id} ->
         TijaraTides.Domain.Services.Auctions.withdraw_bid(state, account, id)
 
+      %{"action" => "markdown_preset_save"} ->
+        TijaraTides.Domain.MarkdownPresetWorld.save(state, account, command, context.id)
+
+      %{"action" => "markdown_preset_delete", "preset" => id} ->
+        TijaraTides.Domain.MarkdownPresetWorld.delete(state, account, id)
+
       %{"action" => "exchange_place"} ->
         TijaraTides.Domain.Services.Exchange.place(state, account, command, context.id, catalogue)
 

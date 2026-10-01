@@ -35,7 +35,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     end
   end
 
-  def release_stock(state, port, good, quantity, price, item, minimum \\ 0) do
+  def release_stock(state, port, good, quantity, price, item, minimum \\ 0, policy \\ %{}) do
     market = fetch(state, port, good)
 
     if market.merchant and
@@ -44,7 +44,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
        do: raise(ArgumentError, "Merchant stock is not available in paid storage")
 
     {lots, market, cargo} =
-      Market.supply(lots(state), fetch(state, port, good), quantity, price, item, minimum)
+      Market.supply(lots(state), fetch(state, port, good), quantity, price, item, minimum, policy)
 
     {state |> record_lots(lots) |> store(market), Enum.map(cargo, &CargoRows.encode/1)}
   end

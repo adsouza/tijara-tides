@@ -185,7 +185,7 @@ defmodule TijaraTides.Domain.ExchangeTest do
     assert Game.get(s, "companies", "bco")["reserved"] == 0
 
     assert {:error, :exchange_invalid} =
-             order(c, s, "a", "buy", 1, 100, "bad", %{"good" => "fruit"})
+             order(c, s, "a", "buy", 1, 100, "bad", %{"good" => "whisky"})
   end
 
   test "ticks share a fill budget and rotate past unfinished orders", c do

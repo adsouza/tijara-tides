@@ -13,9 +13,11 @@ defmodule TijaraTides.Domain.Services.Exchange do
   @order_budget 512
 
   def place(state, account, cmd, id, catalogue) do
+    cmd = TijaraTides.Domain.MarkdownPresetWorld.apply(state, account, cmd)
     company = get(state, "companies", account["company_id"])
     row = get(state, "warehouses", cmd["warehouse"])
     expires = cmd["expires_ms"]
+    fresh = freshness_terms(cmd, nil, cmd["price"])
 
     cond do
       is_nil(company) or company["bankruptcy_ms"] != nil ->
@@ -36,6 +38,11 @@ defmodule TijaraTides.Domain.Services.Exchange do
           (not is_integer(expires) or expires <= state.clock_ms or expires > 9_000_000_000_000_000) ->
         {:error, :exchange_invalid}
 
+      not valid_freshness?(fresh) or
+          (fresh.markdowns != nil and
+             (cmd["side"] != "sell" or catalogue["goods"][cmd["good"]]["shelf_ms"] == 0)) ->
+        {:error, :exchange_freshness_invalid}
+
       length(owned(state, "exchange_orders", "company_id", company["id"])) >= 100 or
         length(owned(state, "exchange_orders", "book_key", row["port"] <> "|" <> cmd["good"])) >=
           1000 or
@@ -54,12 +61,19 @@ defmodule TijaraTides.Domain.Services.Exchange do
           price: cmd["price"],
           priority_ms: state.clock_ms,
           priority_seq: state.revision,
-          expires_ms: expires
+          expires_ms: expires,
+          min_grade: fresh.min_grade,
+          min_remaining_ms: fresh.min_remaining_ms,
+          markdowns: fresh.markdowns,
+          price_floor: fresh.price_floor,
+          initial_price:
+            if(catalogue["goods"][cmd["good"]]["shelf_ms"] > 0, do: fresh.initial_price)
         }
 
         with {:ok, next} <- back(state, o, catalogue) do
           next =
             OrderBookWorld.accept(next, o)
+            |> OrderBookWorld.synchronize(o.id)
             |> match_order(o.id, catalogue, @fill_budget)
             |> elem(0)
 
@@ -67,6 +81,25 @@ defmodule TijaraTides.Domain.Services.Exchange do
         end
     end
   end
+
+  defp freshness_terms(cmd, o, price) do
+    %{
+      min_grade: Map.get(cmd, "min_grade", (o && o.min_grade) || 0),
+      min_remaining_ms: Map.get(cmd, "min_remaining_ms", (o && o.min_remaining_ms) || 0),
+      markdowns: Map.get(cmd, "markdowns", o && o.markdowns),
+      price_floor: Map.get(cmd, "price_floor", (o && o.price_floor) || 0),
+      initial_price:
+        if(cmd["rebase"] == true or is_nil(o) or is_nil(o.markdowns),
+          do: price,
+          else: o.initial_price || o.price
+        )
+    }
+  end
+
+  defp valid_freshness?(f),
+    do:
+      OrderBook.eligibility?(f.min_grade, f.min_remaining_ms) and OrderBook.schedule?(f.markdowns) and
+        is_integer(f.price_floor) and f.price_floor in 0..1_000_000_000_000
 
   defp back(state, o, catalogue, existing_cash \\ 0) do
     c = get(state, "companies", o.company_id)
@@ -112,10 +145,12 @@ defmodule TijaraTides.Domain.Services.Exchange do
   end
 
   def amend(state, account, cmd, catalogue) do
+    cmd = TijaraTides.Domain.MarkdownPresetWorld.apply(state, account, cmd)
     o = OrderBookWorld.fetch(state, cmd["order"])
     n = cmd["quantity"]
     price = cmd["price"]
     expiry = Map.get(cmd, "expires_ms", o && o.expires_ms)
+    fresh = freshness_terms(cmd, o, price)
 
     cond do
       is_nil(o) or o.company_id != account["company_id"] ->
@@ -132,19 +167,36 @@ defmodule TijaraTides.Domain.Services.Exchange do
           (not is_integer(expiry) or expiry <= state.clock_ms or expiry > 9_000_000_000_000_000) ->
         {:error, :exchange_invalid}
 
+      not valid_freshness?(fresh) or
+          (fresh.markdowns != nil and
+             (o.side != "sell" or catalogue["goods"][o.good]["shelf_ms"] == 0)) ->
+        {:error, :exchange_freshness_invalid}
+
       get(state, "companies", o.company_id)["bankruptcy_ms"] != nil ->
         {:error, :finance_no_company}
 
       true ->
-        # Price the backing against the amended terms; commit them only once it holds.
+        reset =
+          n > o.quantity or price != o.price or
+            Enum.any?(fresh, fn {key, value} ->
+              key != :initial_price and Map.fetch!(o, key) != value
+            end) or (cmd["rebase"] == true and o.initial_price != fresh.initial_price)
+
         updated = OrderBookWorld.fetch(OrderBookWorld.amend(state, o.id, n, price, expiry), o.id)
+        updated = struct!(updated, fresh)
+
+        updated =
+          if reset,
+            do: %{updated | priority_ms: state.clock_ms, priority_seq: state.revision},
+            else: updated
 
         with {:ok, next} <- back(unback(state, o), updated, catalogue, o.quantity * o.price) do
-          {:ok,
-           next
-           |> OrderBookWorld.amend(o.id, n, price, expiry)
-           |> match_order(o.id, catalogue, @fill_budget)
-           |> elem(0), %{}}
+          next =
+            next
+            |> OrderBookWorld.amend(o.id, n, price, expiry)
+            |> OrderBookWorld.set_terms(o.id, fresh, reset)
+
+          {:ok, match_order(next, o.id, catalogue, @fill_budget) |> elem(0), %{}}
         end
     end
   end
@@ -165,7 +217,24 @@ defmodule TijaraTides.Domain.Services.Exchange do
     Enum.reduce(orders, state, fn o, s ->
       company = get(s, "companies", o.company_id)
 
-      if company["bankruptcy_ms"] != nil or (o.expires_ms != nil and o.expires_ms <= s.clock_ms) or
+      available =
+        if o.side == "sell" and map_size(o.portions) > 0,
+          do:
+            Enum.sum(Enum.map(WarehouseWorld.order_cargo(s, OrderBook.claim(o)), & &1.quantity)),
+          else: o.quantity
+
+      s =
+        if available > 0 and available < o.quantity and
+             (o.expires_ms == nil or o.expires_ms > s.clock_ms),
+           do: OrderBookWorld.amend(s, o.id, available, o.price, o.expires_ms),
+           else: s
+
+      o = OrderBookWorld.fetch(s, o.id)
+      s = if available > 0, do: OrderBookWorld.synchronize(s, o.id), else: s
+      o = OrderBookWorld.fetch(s, o.id)
+
+      if available == 0 or company["bankruptcy_ms"] != nil or
+           (o.expires_ms != nil and o.expires_ms <= s.clock_ms) or
            not WarehouseWorld.order_backed?(s, OrderBook.claim(o)) do
         s
         |> unback(o)
@@ -221,14 +290,22 @@ defmodule TijaraTides.Domain.Services.Exchange do
         {state, budget}
 
       o ->
-        peer =
-          OrderBookWorld.counterparts(state, o)
-          |> Enum.find(
-            &(WarehouseWorld.exchange_ready?(state, OrderBook.claim(&1)) &&
-                TijaraTides.Domain.Services.LinkedOrders.fill_allowed?(state, &1))
-          )
+        options =
+          OrderBook.quotes(o)
+          |> Enum.map(fn offered ->
+            peer =
+              OrderBookWorld.counterparts(state, offered)
+              |> Enum.find(
+                &(WarehouseWorld.exchange_ready?(state, OrderBook.claim(&1)) &&
+                    TijaraTides.Domain.Services.LinkedOrders.fill_allowed?(state, &1) &&
+                    compatible_quantity(state, offered, &1) > 0)
+              )
 
-        npc = npc_offer(state, o, catalogue)
+            {offered, peer, npc_offer(state, offered, catalogue)}
+          end)
+
+        {o, peer, npc} =
+          Enum.find(options, fn {_, peer, npc} -> peer != nil or npc != nil end) || hd(options)
 
         use_npc =
           npc &&
@@ -247,7 +324,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
             |> match_order(id, catalogue, budget - 1)
 
           peer != nil ->
-            n = min(o.quantity, peer.quantity)
+            n = min(min(o.quantity, peer.quantity), compatible_quantity(state, o, peer))
             {buy, sell} = if o.side == "buy", do: {o, peer}, else: {peer, o}
 
             settle_pair(
@@ -266,13 +343,46 @@ defmodule TijaraTides.Domain.Services.Exchange do
     end
   end
 
+  defp policy(state, o),
+    do: %{
+      min_grade: o.min_grade,
+      min_remaining_ms: o.min_remaining_ms,
+      receiving_bps: WarehouseWorld.receiving_bps(state, o.warehouse_id)
+    }
+
+  defp compatible_quantity(state, first, second) do
+    {buy, sell} = if first.side == "buy", do: {first, second}, else: {second, first}
+
+    WarehouseWorld.order_cargo(state, OrderBook.claim(sell))
+    |> Enum.filter(
+      &((sell.lot_ids == nil or &1.lot_id in sell.lot_ids) and
+          OrderBook.eligible?(&1, state.clock_ms, policy(state, buy)))
+    )
+    |> Enum.map(& &1.quantity)
+    |> Enum.sum()
+  end
+
   defp npc_offer(state, o, catalogue) do
     q = PortCargoMarketWorld.quote(state, catalogue, o.port, o.good)
 
     if q && q["manual"] do
       {price, available} =
         if o.side == "buy",
-          do: {q["ask"], q["stock"]},
+          do:
+            {q["ask"],
+             if(catalogue["goods"][o.good]["shelf_ms"] > 0,
+               do:
+                 Enum.sum(
+                   for b <- q["freshness_batches"],
+                       OrderBook.eligible?(
+                         TijaraTides.Domain.PortCargoMarket.Rows.decode_batch(b),
+                         state.clock_ms,
+                         policy(state, o)
+                       ),
+                       do: b["quantity"]
+                 ),
+               else: q["stock"]
+             )},
           else: {q["bid"], min(q["demand"], div(q["buyer_budget"], max(1, q["bid"])))}
 
       raw = if o.side == "buy", do: q["stock"], else: q["demand"]
@@ -299,6 +409,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     |> OrderBookWorld.fill(buy, n)
     |> OrderBookWorld.fill(sell, n)
     |> traded(buy, n, price)
+    |> reconcile(sell.company_id)
     |> TijaraTides.Domain.Services.WarehouseLiquidation.refresh(sell.warehouse_id, catalogue)
   end
 
@@ -312,7 +423,9 @@ defmodule TijaraTides.Domain.Services.Exchange do
             o.good,
             n,
             price,
-            catalogue["goods"][o.good]
+            catalogue["goods"][o.good],
+            0,
+            policy(state, o)
           )
 
         s
@@ -331,6 +444,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     state
     |> OrderBookWorld.fill(o, n)
     |> traded(o, n, price)
+    |> reconcile(o.company_id)
     |> TijaraTides.Domain.Services.WarehouseLiquidation.refresh(o.warehouse_id, catalogue)
   end
 
@@ -347,11 +461,22 @@ defmodule TijaraTides.Domain.Services.Exchange do
       )
       |> Enum.sort_by(&{-&1.price, OrderBook.priority(&1)})
       |> Enum.reduce_while(state, fn buy, s ->
-        n = min(buy.quantity, Liquidation.available(s, warehouse, good))
+        free =
+          TijaraTides.Domain.Warehouse.unreserved_cargo(
+            WarehouseWorld.fetch(s, warehouse),
+            good,
+            s.clock_ms
+          )
+
+        eligible = Enum.filter(free, &OrderBook.eligible?(&1, s.clock_ms, policy(s, buy)))
+        n = min(buy.quantity, Enum.sum(Enum.map(eligible, & &1.quantity)))
 
         cond do
-          n == 0 ->
+          free == [] ->
             {:halt, s}
+
+          n == 0 ->
+            {:cont, s}
 
           get(s, "companies", buy.company_id)["bankruptcy_ms"] != nil or
             (buy.expires_ms != nil and buy.expires_ms <= s.clock_ms) or
@@ -360,7 +485,9 @@ defmodule TijaraTides.Domain.Services.Exchange do
             {:cont, s}
 
           true ->
-            {s, cargo} = Liquidation.take(s, warehouse, good, n, catalogue)
+            {s, cargo} =
+              Liquidation.take(s, warehouse, good, n, catalogue, Enum.map(eligible, & &1.lot_id))
+
             acquired = Enum.map(cargo, &CargoRows.encode(%{&1 | unit_cost: buy.price}))
 
             s =

@@ -9,6 +9,8 @@ defmodule TijaraTides.Domain.Trade do
     :limit,
     :destination,
     :purchase_budget_id,
+    markdowns: nil,
+    price_floor: 0,
     min_remaining_ms: 0
   ]
 

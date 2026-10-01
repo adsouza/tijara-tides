@@ -745,6 +745,27 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                     "Checked at purchase or collection, in active-world time. Blank accepts any unspoiled cargo."
                   )}
                 </p>
+                <label :if={instruction.side == "sell"}>
+                  {gettext("Markdown preset (optional)")}
+                  <select name="preset" class="block w-full rounded bg-slate-800 p-2">
+                    <option value="">{gettext("Off")}</option>
+                    <option
+                      :for={
+                        preset <-
+                          Enum.sort_by(
+                            Map.values(@view.private["markdown_presets"] || %{}),
+                            & &1["name"]
+                          )
+                      }
+                      value={preset["id"]}
+                      selected={
+                        instruction_value(@instruction_drafts, @ship, "preset", "") == preset["id"]
+                      }
+                    >
+                      {preset["name"]}
+                    </option>
+                  </select>
+                </label>
                 <label>{gettext("Expires after (active minutes; optional)")}<input
                   name="expiry_minutes"
                   aria-label={gettext("Instruction expiry minutes")}

@@ -32,7 +32,7 @@ defmodule TijaraTides.Domain.PortCargoMarket.Rows do
     |> Map.put("batches", Enum.map(market.batches, &encode_batch/1))
   end
 
-  defp decode_batch(row) do
+  def decode_batch(row) do
     batch = %Batch{
       lot_id: Map.fetch!(row, "lot_id"),
       quantity: Map.fetch!(row, "quantity"),

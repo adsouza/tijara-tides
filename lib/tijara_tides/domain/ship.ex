@@ -66,14 +66,15 @@ defmodule TijaraTides.Domain.Ship do
     {%{ship | cargo: remaining}, discarded}
   end
 
-  def record_sale(%Lots{} = lots, %__MODULE__{} = ship, good, quantity) do
+  def record_sale(%Lots{} = lots, %__MODULE__{} = ship, good, quantity, lot_ids \\ nil) do
     docked!(ship)
 
     unless is_integer(quantity) and quantity > 0 and quantity <= aboard(ship, good),
       do: raise(ArgumentError, "Sale requires a positive integer quantity available aboard")
 
-    {lots, sold, remaining} =
-      CargoBatch.take(lots, ship.cargo, quantity, good)
+    {eligible, others} = Enum.split_with(ship.cargo, &(is_nil(lot_ids) or &1.lot_id in lot_ids))
+    {lots, sold, remaining} = CargoBatch.take(lots, eligible, quantity, good)
+    remaining = remaining ++ others
 
     next = %{
       ship

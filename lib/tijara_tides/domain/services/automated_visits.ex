@@ -44,6 +44,8 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
         good: order["good"],
         quantity: 1,
         limit: order["limit"],
+        markdowns: order["markdowns"],
+        price_floor: order["price_floor"] || 0,
         purchase_budget_id: if(visit_budget && visit_budget["strict"], do: visit_budget["id"]),
         min_remaining_ms: Map.get(order, "min_remaining_ms", 0),
         destination: order["onward"]

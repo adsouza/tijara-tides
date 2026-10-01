@@ -1132,7 +1132,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     {lots, next, cargo} =
       if order.liquidation,
         do: Warehouse.release_liquidation_cargo(lots(state), w, order, n),
-        else: Warehouse.release_cargo(lots(state), w, order.good, n)
+        else: Warehouse.release_claim_cargo(lots(state), w, order, n)
 
     {state |> record_lots(lots) |> save(next) |> apply_transition(transition), cargo}
   end
@@ -1173,14 +1173,30 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     delete(state, "warehouses", id)
   end
 
-  def liquidation_out(state, id, good, n) do
+  def liquidation_out(state, id, good, n, lot_ids \\ nil) do
     w = fetch(state, id)
 
     unless Liquidation.active?(state, id) and n <= Liquidation.available(state, id, good),
       do: raise(ArgumentError, "Liquidation exceeds unreserved cargo")
 
-    {lots, next, cargo} = Warehouse.release_free_cargo(lots(state), w, good, n)
+    {lots, next, cargo} = Warehouse.release_free_cargo(lots(state), w, good, n, lot_ids)
     {state |> record_lots(lots) |> save(next), cargo}
+  end
+
+  def order_cargo(state, claim) do
+    w = fetch(state, claim.warehouse_id)
+
+    if w,
+      do:
+        Warehouse.cargo_allocations(w, claim.good, state.clock_ms)
+        |> elem(0)
+        |> Map.get(Claim.reservation_id(claim), []),
+      else: []
+  end
+
+  def receiving_bps(state, warehouse) do
+    w = fetch(state, warehouse)
+    if w && w.storage == "reefer", do: w.aging_bps, else: 10_000
   end
 
   def exchange_in(state, %Claim{} = order, cargo, n) do

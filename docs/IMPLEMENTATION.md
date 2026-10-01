@@ -38,8 +38,7 @@ load targets count only qualifying cargo already aboard, while all cargo still
 uses physical capacity. Current visit orders retain their snapshotted terms when
 the template is edited. Private controls, progress and waiting reasons persist
 through replay and restart. Migration `20260930000003_add_instruction_freshness.exs`
-defaults existing instruction and route terms to zero. Standing-order freshness
-terms, grades, markdowns and reservation replacement remain deferred.
+defaults existing instruction and route terms to zero. Standing-order freshness terms, graded backing and markdown presets are now implemented; see below.
 
 See [architecture and domain boundaries](architecture.md) for command workflows,
 query projections, consistency and module responsibilities.
@@ -292,12 +291,7 @@ with launch tuning described in this document. Remaining work includes:
 - **Procurement:** machinery delivery auctions, supplier deposits, buyer funding
   and receiving-capacity commitments, delivery deadlines, settlement/default and
   system-fault protections (§7).
-- **Perishable and unified markets:** freshness-graded order books, buyer
-  freshness requirements on standing orders, markdown schedules and presets, mixed-grade backing,
-  freshness-aware reservation replacement, and direct ship trades against
-  player order books (§§6–8).
-- **Automation:** extending linked remote orders to freshness-graded perishable
-  books when those markets are implemented (§8).
+- **Unified markets:** direct ship trades against player order books (§§6–8).
 - **Ports and physical handling:** full ship-size, terminal and waterway limits,
   predictive queue estimates, automatic warehouse-transfer queuing, transfers
   between storage types, and utilization-triggered berth/storage growth with
@@ -860,7 +854,7 @@ The linked order reserves its own cash and receiving capacity. Each completed
 fill becomes owned warehouse cargo earmarked for the collecting ship and stop.
 It cannot become another ship's collection or sell backing. Original lot IDs,
 acquisition cost and expiry survive transfer. Ordinary unlinked orders remain
-independent. Perishable standing books and their linked targets remain deferred.
+independent. Perishable standing books and their linked targets use the same cash/capacity backing and inherit the rule's minimum remaining life.
 
 At berth assignment, one atomic handover cancels the remote remainder and
 releases its cash and incoming capacity, retaining completed stock claims for
@@ -948,3 +942,29 @@ closure reasons and owner notices distinguish dormancy from bankruptcy.
 Expired-lease liquidation now follows the order-book, auction and clearance
 sequence described above, with durable per-lease charge caps. Won-cargo grace
 and replacement leases use isolated allocations and preserve those caps.
+
+
+## Freshness-graded standing books
+
+Perishables now use the standing warehouse book. Biological freshness has four
+provisional grades: Fresh (at least 75%), Good (50–75%), Fair (25–50%), and
+Clearance (below 25%, still unspoiled). Buyers can require a minimum grade and
+remaining active-world lifetime, checked in their receiving storage. Linked
+remote buy orders copy the route rule's lifetime requirement.
+
+Each sell order retains one stock claim with separately priced lot portions.
+Only a portion whose grade or price changes loses priority; unchanged portions,
+partial-fill descendants, and quantity reductions keep it. Expired backing
+shrinks the remaining order without selling spoiled goods. Claim-aware stock
+extraction preserves other orders' allocations.
+
+Optional complete four-grade markdown schedules use a copied initial asking
+price, rounded upward to a cent, with an optional absolute floor. No schedule
+means the asking price stays fixed. Explicit rebasing affects remaining portions
+and resets priority. Players may save up to 50 account-owned presets and apply
+copies to selected orders or one-visit automated sell instructions. Editing or
+deleting a preset leaves applied terms unchanged. Automated sales release only
+lots whose grade minimum is met by the port bid; other cargo stays aboard.
+Migration `20261001000003_add_graded_books.exs` persists settings, portions,
+priorities and presets. Books and owner controls disclose grade and remaining
+life; accepting an amendment atomically replaces cash and cargo/space backing.

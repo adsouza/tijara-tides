@@ -5148,6 +5148,165 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              ).rows
   end
 
+  test "graded backing, copied presets and partial-fill priority survive durable reload", c do
+    alias TijaraTides.Domain.{
+      State,
+      Warehouse,
+      WarehouseWorld,
+      CargoLots,
+      CargoFreshness,
+      CompanyFinanceWorld,
+      OrderBookWorld,
+      OrderBook,
+      MarkdownPresetWorld
+    }
+
+    alias TijaraTides.Domain.Ship.{CargoBatch, CargoRows}
+    alias TijaraTides.Domain.Services.Exchange
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+    {:ok, %{"session" => seller_token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        seller_token,
+        "graded-seller",
+        %{"action" => "company", "name" => "Seller", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    {:ok, code} = GameServer.seed(c.server)
+    {:ok, %{"session" => buyer_token}} = GameServer.redeem(code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        buyer_token,
+        "graded-buyer",
+        %{"action" => "company", "name" => "Buyer", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    seller = GameServer.snapshot(seller_token, c.server).private["account"]
+    buyer = GameServer.snapshot(buyer_token, c.server).private["account"]
+    before = :sys.get_state(c.server).game
+    cat = put_in(:sys.get_state(c.server).catalogue, ["goods", "fruit", "shelf_ms"], 1000)
+    next = Map.put(before, :lot_allocation, CommandStore.allocate_lot_ids(%{repo: Repo}, 32))
+
+    next =
+      Enum.reduce([{seller, "sw"}, {buyer, "bw"}], next, fn {a, id}, s ->
+        {:ok, s, _} =
+          WarehouseWorld.lease(
+            s,
+            a,
+            %{
+              "port" => "Jakarta",
+              "storage" => "dry",
+              "blocks" => 2,
+              "days" => 1,
+              "price" => Warehouse.quote(WarehouseWorld.used(s, "Jakarta", "dry"), "dry", 2, 1)
+            },
+            id,
+            cat
+          )
+
+        s
+      end)
+
+    {next, cargo} =
+      Enum.reduce([900, 500], {next, []}, fn life, {s, bs} ->
+        expiry = s.clock_ms + life
+        {s, lot} = CargoLots.create(s, "fruit", 2, expiry)
+
+        batch =
+          CargoFreshness.initialize(
+            %CargoBatch{
+              good: "fruit",
+              quantity: 2,
+              lot_id: lot["lot_id"],
+              expires_ms: expiry,
+              unit_cost: 10
+            },
+            s.clock_ms,
+            cat["goods"]["fruit"]
+          )
+
+        {s, bs ++ [CargoRows.encode(batch)]}
+      end)
+
+    w = State.get(next, "warehouses", "sw")
+
+    next =
+      State.put(next, "warehouses", "sw", %{w | "cargo" => cargo})
+      |> CompanyFinanceWorld.post(seller["company_id"], "purchase", [
+        {"inventory", 40},
+        {"cash_available", -40}
+      ])
+
+    m = State.get(next, "markets", "Jakarta|fruit")
+
+    next =
+      State.put(next, "markets", "Jakarta|fruit", %{
+        m
+        | "stock" => 0,
+          "batches" => [],
+          "demand" => 0
+      })
+
+    schedule = %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
+
+    {:ok, next, _} =
+      MarkdownPresetWorld.save(next, seller, %{"name" => "Food", "markdowns" => schedule}, "food")
+
+    next = %{next | revision: before.revision + 1}
+
+    {:ok, next, _} =
+      Exchange.place(
+        next,
+        seller,
+        %{
+          "warehouse" => "sw",
+          "good" => "fruit",
+          "side" => "sell",
+          "quantity" => 4,
+          "price" => 1000,
+          "preset" => "food"
+        },
+        "sell-food",
+        cat
+      )
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    assert restored.entities["markdown_presets"] == next.entities["markdown_presets"]
+    assert OrderBookWorld.fetch(restored, "sell-food") == OrderBookWorld.fetch(next, "sell-food")
+    {:ok, changed, _} = MarkdownPresetWorld.delete(restored, seller, "food")
+
+    {:ok, changed, _} =
+      Exchange.place(
+        %{changed | revision: restored.revision + 1},
+        buyer,
+        %{
+          "warehouse" => "bw",
+          "good" => "fruit",
+          "side" => "buy",
+          "quantity" => 1,
+          "price" => 1000,
+          "min_grade" => 3
+        },
+        "buy-food",
+        cat
+      )
+
+    remaining = OrderBookWorld.fetch(changed, "sell-food")
+    assert remaining.quantity == 3 and remaining.markdowns == schedule
+    assert Enum.all?(OrderBook.quotes(remaining), &(&1.priority_ms == next.clock_ms))
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, changed)
+    assert {:ok, final} = GameStore.reload(Repo, c.world_id, changed)
+    assert OrderBookWorld.fetch(final, "sell-food") == remaining
+    assert hd(State.get(final, "warehouses", "bw")["cargo"])["unit_cost"] == 1000
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+    assert Exchange.reconcile(final, seller["company_id"]).entities == final.entities
+  end
+
   test "won-cargo replacement commits charges and preserves cargo on reload and replay", c do
     alias TijaraTides.Domain.{State, Warehouse, WarehouseWorld, CargoLots, CompanyFinanceWorld}
     alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}

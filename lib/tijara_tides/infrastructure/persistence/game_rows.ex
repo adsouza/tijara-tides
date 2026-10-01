@@ -1,6 +1,7 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "markdown_presets" => Enum.map(~w(id account_id name markdowns price_floor), &{&1, &1}),
     "remote_links" =>
       Enum.map(
         ~w(id company_id ship_id stop_id good warehouse_id port order_id generation filled status),
@@ -46,7 +47,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ),
     "exchange_orders" =>
       Enum.map(
-        ~w(id company_id warehouse_id port good side quantity price priority_ms priority_seq expires_ms),
+        ~w(id company_id warehouse_id port good side quantity price priority_ms priority_seq expires_ms min_grade min_remaining_ms initial_price markdowns price_floor portions),
         &{&1, &1}
       ),
     "exchange_trades" => Enum.map(~w(id port good quantity price clock_ms sequence), &{&1, &1}),
@@ -174,6 +175,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"departure_wait", "departure_wait"}
     ],
     "ship_instructions" => [
+      {"markdowns", "markdowns"},
+      {"price_floor", "price_floor"},
       {"min_remaining_ms", "min_remaining_ms"},
       {"expires_ms", "expires_ms"},
       {"history_archived", "history_archived"},
@@ -275,7 +278,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(accounts companies company_dormancy warehouse_liquidations company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules remote_links visit_budgets departure_requests)
+  @kinds ~w(accounts markdown_presets companies company_dormancy warehouse_liquidations company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules remote_links visit_budgets departure_requests)
 
   @children %{
     "warehouses" =>
@@ -306,8 +309,19 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
        ]}
   }
   # Columns the database always stores but state omits at their default, both ways.
-  @defaults %{"markets" => %{"feedstock" => false, "production_credit" => 0}}
+  @defaults %{
+    "ship_instructions" => %{"price_floor" => 0},
+    "exchange_orders" => %{
+      "min_grade" => 0,
+      "min_remaining_ms" => 0,
+      "price_floor" => 0,
+      "portions" => %{}
+    },
+    "markets" => %{"feedstock" => false, "production_credit" => 0}
+  }
   @optional %{
+    "ship_instructions" => ~w(markdowns price_floor),
+    "exchange_orders" => ~w(initial_price markdowns),
     "auctions" => ~w(ship_id liquidation_id expires_ms),
     "ships" =>
       ~w(acquired_ms acquisition_value planned_destination paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
@@ -586,8 +600,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     :ok
   end
 
-  for {_kind, defaults} <- @defaults, {key, default} <- defaults do
-    defp column_value(unquote(key), nil), do: unquote(default)
+  for {key, default} <- @defaults |> Map.values() |> Enum.flat_map(&Map.to_list/1) |> Enum.uniq() do
+    defp column_value(unquote(key), nil), do: unquote(Macro.escape(default))
   end
 
   defp column_value("replacement_paid", nil), do: 0

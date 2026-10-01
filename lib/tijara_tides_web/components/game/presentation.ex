@@ -136,6 +136,12 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       else: cubic_meters(litres)
   end
 
+  def freshness_grade(0), do: gettext("Clearance (below 25%)")
+  def freshness_grade(1), do: gettext("Fair (25–50%)")
+  def freshness_grade(2), do: gettext("Good (50–75%)")
+  def freshness_grade(3), do: gettext("Fresh (75–100%)")
+  def freshness_grade(_), do: gettext("Any grade")
+
   attr :estimates, :list, required: true
   attr :id, :string, required: true
 
@@ -364,6 +370,10 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       auction_locked:
         gettext(
           "This auction is locked. Consignments can change only before opening; bids only before closing."
+        ),
+      exchange_freshness_invalid:
+        gettext(
+          "Choose a valid freshness requirement or a complete markdown schedule with a percentage for every grade."
         ),
       exchange_invalid:
         gettext(

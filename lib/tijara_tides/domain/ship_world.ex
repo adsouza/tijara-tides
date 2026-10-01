@@ -151,13 +151,13 @@ defmodule TijaraTides.Domain.ShipWorld do
     {store(state, ship), Enum.map(discarded, &CargoRows.encode/1)}
   end
 
-  def unload_cargo(state, id, good, quantity) do
+  def unload_cargo(state, id, good, quantity, lot_ids \\ nil) do
     lots = %Lots{
       clock_ms: state.clock_ms,
       lot_allocation: Map.get(state, :lot_allocation, {:local, 1})
     }
 
-    {lots, ship, sold} = Ship.record_sale(lots, hull(state, id), good, quantity)
+    {lots, ship, sold} = Ship.record_sale(lots, hull(state, id), good, quantity, lot_ids)
 
     state =
       if lots.new_lots == [] do

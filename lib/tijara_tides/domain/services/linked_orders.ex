@@ -202,14 +202,20 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
              else: AutomationWorld.open_link(next, rule, "linked:" <> rule["id"] <> ":0", 0)
            )}
 
-        order && demand == order.quantity && rule["limit"] == order.price ->
+        order && demand == order.quantity && rule["limit"] == order.price &&
+            (rule["min_remaining_ms"] || 0) == order.min_remaining_ms ->
           {:ok, state}
 
         order ->
           case Exchange.amend(
                  state,
                  owner(state, rule),
-                 %{"order" => order.id, "quantity" => demand, "price" => rule["limit"]},
+                 %{
+                   "order" => order.id,
+                   "quantity" => demand,
+                   "price" => rule["limit"],
+                   "min_remaining_ms" => rule["min_remaining_ms"] || 0
+                 },
                  catalogue
                ) do
             {:ok, s, _} -> {:ok, s}
@@ -245,7 +251,8 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
              "side" => "buy",
              "good" => rule["good"],
              "quantity" => quantity,
-             "price" => rule["limit"]
+             "price" => rule["limit"],
+             "min_remaining_ms" => rule["min_remaining_ms"] || 0
            },
            id,
            catalogue

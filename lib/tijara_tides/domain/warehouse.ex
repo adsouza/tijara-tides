@@ -305,9 +305,29 @@ defmodule TijaraTides.Domain.Warehouse do
     end)
   end
 
+  def release_claim_cargo(lots, w, claim, quantity) do
+    allocated =
+      cargo_allocations(w, claim.good, lots.clock_ms)
+      |> elem(0)
+      |> Map.get(Claim.reservation_id(claim), [])
+
+    allocated =
+      if claim.lot_ids, do: Enum.filter(allocated, &(&1.lot_id in claim.lot_ids)), else: allocated
+
+    {lots, next, cargo} = release_allocation(lots, w, claim.good, quantity, allocated)
+
+    {fresh, stale} =
+      Enum.split_with(next.cargo, &(is_nil(&1.expires_ms) or &1.expires_ms > lots.clock_ms))
+
+    {lots, %{next | cargo: fresh ++ stale}, cargo}
+  end
+
   @doc "Release free batches while preserving all existing auction grades."
-  def release_free_cargo(%Lots{} = lots, %__MODULE__{} = w, good, quantity),
-    do: release_allocation(lots, w, good, quantity, unreserved_cargo(w, good, lots.clock_ms))
+  def release_free_cargo(%Lots{} = lots, %__MODULE__{} = w, good, quantity, lot_ids \\ nil) do
+    free = unreserved_cargo(w, good, lots.clock_ms)
+    free = if lot_ids, do: Enum.filter(free, &(&1.lot_id in lot_ids)), else: free
+    release_allocation(lots, w, good, quantity, free)
+  end
 
   def release_liquidation_cargo(%Lots{} = lots, %__MODULE__{} = w, %Claim{} = claim, quantity) do
     {held, _free} = cargo_allocations(w, claim.good, lots.clock_ms)
@@ -384,7 +404,7 @@ defmodule TijaraTides.Domain.Warehouse do
           good: order.good,
           kind: if(order.side == "buy", do: "capacity", else: "stock"),
           quantity: order.quantity,
-          created_ms: now,
+          created_ms: order.created_ms || now,
           stop_id: nil,
           expires_ms: order.expires_ms
         }
