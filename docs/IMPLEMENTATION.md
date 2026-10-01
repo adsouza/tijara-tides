@@ -961,8 +961,11 @@ extraction preserves other orders' allocations.
 Optional complete four-grade markdown schedules use a copied initial asking
 price, rounded upward to a cent, with an optional absolute floor. No schedule
 means the asking price stays fixed. Explicit rebasing affects remaining portions
-and resets priority. Players may save up to 50 account-owned presets and apply
-copies to selected orders or one-visit automated sell instructions. Editing or
+and resets priority. Preset names are trimmed and limited to 80 Unicode code
+points, matching the PostgreSQL constraint, and reject Unicode control and format
+characters. New presets use a server-generated identifier; a supplied identifier
+must name an existing preset owned by the caller. Players may save up to 50 account-owned
+presets and apply copies to selected orders or one-visit automated sell instructions. Editing or
 deleting a preset leaves applied terms unchanged. Automated sales release only
 lots whose grade minimum is met by the port bid; other cargo stays aboard.
 Migration `20261001000003_add_graded_books.exs` persists settings, portions,

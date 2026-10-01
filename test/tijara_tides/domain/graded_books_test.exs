@@ -221,6 +221,113 @@ defmodule TijaraTides.Domain.GradedBooksTest do
              2
   end
 
+  test "preset names validate the persisted value in code points", c do
+    alias TijaraTides.Domain.MarkdownPresetWorld, as: Presets
+
+    for unit <- ["e\u0301", "👍🏽", "🚢", "a"] do
+      width = length(String.codepoints(unit))
+      name = String.duplicate(unit, div(80, width)) <> String.duplicate("x", rem(80, width))
+      assert length(String.codepoints(name)) == 80
+
+      {:ok, s, _} =
+        Presets.save(
+          c.state,
+          c.a,
+          %{"name" => "  " <> name <> "  ", "markdowns" => markdowns()},
+          "unicode"
+        )
+
+      assert State.get(s, "markdown_presets", "unicode")["name"] == name
+
+      assert {:error, :exchange_freshness_invalid} =
+               Presets.save(
+                 s,
+                 c.a,
+                 %{"preset" => "unicode", "name" => name <> "x", "markdowns" => markdowns()},
+                 "unused"
+               )
+
+      assert State.get(s, "markdown_presets", "unicode")["name"] == name
+    end
+
+    for name <- [nil, 123, "", " \t\n "] do
+      assert {:error, :exchange_freshness_invalid} =
+               Presets.save(
+                 c.state,
+                 c.a,
+                 %{"name" => name, "markdowns" => markdowns()},
+                 "invalid"
+               )
+    end
+  end
+
+  test "preset names reject control and format characters on creation and amendment", c do
+    alias TijaraTides.Domain.MarkdownPresetWorld, as: Presets
+    payload = %{"name" => "Food", "markdowns" => markdowns()}
+    {:ok, s, _} = Presets.save(c.state, c.a, payload, "owned")
+
+    for name <- [
+          "Food\u0000",
+          "A\u0001B",
+          "A\nB",
+          "A\tB",
+          "A\u007FB",
+          "A\u0085B",
+          "A\u200BB",
+          "A\u202EB",
+          "A\u2066B",
+          "👩‍👩‍👧‍👦",
+          <<255>>
+        ],
+        command <- [
+          Map.put(payload, "name", name),
+          Map.merge(payload, %{"name" => name, "preset" => "owned"})
+        ] do
+      assert {:error, :exchange_freshness_invalid} = Presets.save(s, c.a, command, "new")
+    end
+
+    assert State.get(s, "markdown_presets", "owned")["name"] == "Food"
+    assert State.get(s, "markdown_presets", "new") == nil
+  end
+
+  test "supplied preset ids must identify an existing preset owned by the caller", c do
+    alias TijaraTides.Domain.MarkdownPresetWorld, as: Presets
+    payload = %{"name" => "Food", "markdowns" => markdowns()}
+    {:ok, s, %{"preset" => "owned"}} = Presets.save(c.state, c.a, payload, "owned")
+
+    for id <- [
+          "missing",
+          "",
+          "id\u0000x",
+          String.duplicate("x", 5000),
+          nil,
+          false,
+          123,
+          1.5,
+          [],
+          ["owned"],
+          %{},
+          %{"id" => "owned"}
+        ] do
+      assert {:error, :exchange_freshness_invalid} =
+               Presets.save(s, c.a, Map.put(payload, "preset", id), "generated")
+    end
+
+    assert {:error, :exchange_freshness_invalid} =
+             Presets.save(s, c.b, Map.put(payload, "preset", "owned"), "generated")
+
+    {:ok, amended, %{"preset" => "owned"}} =
+      Presets.save(
+        s,
+        c.a,
+        Map.merge(payload, %{"preset" => "owned", "name" => "Updated"}),
+        "generated"
+      )
+
+    assert State.get(amended, "markdown_presets", "owned")["name"] == "Updated"
+    assert State.get(amended, "markdown_presets", "generated") == nil
+  end
+
   test "preset ownership and applied copies survive edits and deletion", c do
     alias TijaraTides.Domain.MarkdownPresetWorld, as: Presets
 

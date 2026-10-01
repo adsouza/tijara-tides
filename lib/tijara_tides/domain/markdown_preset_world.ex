@@ -3,17 +3,23 @@ defmodule TijaraTides.Domain.MarkdownPresetWorld do
   alias TijaraTides.Domain.{State, OrderBook}
 
   def save(state, account, cmd, new_id) do
-    id = cmd["preset"] || new_id
-    previous = State.get(state, "markdown_presets", id)
-    name = cmd["name"]
+    editing = Map.has_key?(cmd, "preset")
+    id = if editing, do: cmd["preset"], else: new_id
+    previous = if is_binary(id), do: State.get(state, "markdown_presets", id)
+    name = if is_binary(cmd["name"]), do: String.trim(cmd["name"]), else: cmd["name"]
     floor = cmd["price_floor"] || 0
     schedule = cmd["markdowns"]
 
     cond do
+      editing and (not is_binary(id) or is_nil(previous)) ->
+        {:error, :exchange_freshness_invalid}
+
       previous && previous["account_id"] != account["id"] ->
         {:error, :exchange_freshness_invalid}
 
-      not is_binary(name) or String.trim(name) == "" or String.length(name) > 80 ->
+      # PostgreSQL length(text) counts code points, not extended graphemes.
+      not is_binary(name) or not String.valid?(name) or name == "" or
+        length(String.codepoints(name)) > 80 or String.match?(name, ~r/[\p{Cc}\p{Cf}]/u) ->
         {:error, :exchange_freshness_invalid}
 
       is_nil(schedule) or not OrderBook.schedule?(schedule) or not is_integer(floor) or
@@ -28,7 +34,7 @@ defmodule TijaraTides.Domain.MarkdownPresetWorld do
         row = %{
           "id" => id,
           "account_id" => account["id"],
-          "name" => String.trim(name),
+          "name" => name,
           "markdowns" => schedule,
           "price_floor" => floor
         }

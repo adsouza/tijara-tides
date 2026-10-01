@@ -5262,6 +5262,173 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "Unicode preset names reject before commit and preserve readiness and replay", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    schedule = %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
+
+    for {unit, index} <- Enum.with_index(["e\u0301", "👍🏽", "🚢"]) do
+      width = length(String.codepoints(unit))
+      name = String.duplicate(unit, div(80, width)) <> String.duplicate("x", rem(80, width))
+      request = "unicode-#{index}"
+
+      payload = %{
+        "action" => "markdown_preset_save",
+        "name" => "  " <> name <> "  ",
+        "markdowns" => schedule
+      }
+
+      assert {:ok, %{"preset" => id} = reply} =
+               GameServer.command(token, request, payload, c.server)
+
+      assert Repo.query!(
+               "SELECT name,length(name) FROM game_markdown_presets WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows == [[name, 80]]
+
+      assert {:ok, ^reply} = GameServer.command(token, request, payload, c.server)
+
+      revision = :sys.get_state(c.server).game.revision
+      bad_request = request <> "-oversized"
+      bad = %{payload | "name" => name <> "x"} |> Map.put("preset", id)
+
+      assert {:error, :exchange_freshness_invalid} =
+               GameServer.command(token, bad_request, bad, c.server)
+
+      assert :sys.get_state(c.server).status == :ready
+      assert :sys.get_state(c.server).game.revision == revision
+
+      assert Repo.query!(
+               "SELECT request_id FROM game_receipts WHERE world_id=$1 AND request_id=$2",
+               [c.world_id, bad_request]
+             ).rows == []
+
+      assert Repo.query!("SELECT name FROM game_markdown_presets WHERE world_id=$1 AND id=$2", [
+               c.world_id,
+               id
+             ]).rows == [[name]]
+
+      assert {:error, :exchange_freshness_invalid} =
+               GameServer.command(
+                 token,
+                 request <> "-invalid-create",
+                 Map.delete(bad, "preset"),
+                 c.server
+               )
+
+      assert {:ok, _} =
+               GameServer.command(token, bad_request, Map.put(bad, "name", name), c.server)
+
+      game = :sys.get_state(c.server).game
+      assert {:ok, restored} = GameStore.reload(Repo, c.world_id, game)
+      assert restored.entities["markdown_presets"][id]["name"] == name
+    end
+  end
+
+  test "unsafe preset names and client-chosen ids reject without changing durable state", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    {:ok, invitation} = GameServer.seed(c.server)
+    {:ok, %{"session" => other}} = GameServer.redeem(invitation, c.server)
+
+    payload = %{
+      "action" => "markdown_preset_save",
+      "name" => "Food",
+      "markdowns" => %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
+    }
+
+    {:ok, %{"preset" => owned}} = GameServer.command(token, "owned-preset", payload, c.server)
+    {:ok, %{"preset" => foreign}} = GameServer.command(other, "foreign-preset", payload, c.server)
+    before = :sys.get_state(c.server).game
+
+    bad_names =
+      for name <- [
+            "Food\u0000",
+            "A\u0001B",
+            "A\nB",
+            "A\tB",
+            "A\u007FB",
+            "A\u0085B",
+            "A\u200BB",
+            "A\u202EB",
+            "A\u2066B",
+            "👩‍👩‍👧‍👦"
+          ],
+          command <- [
+            Map.put(payload, "name", name),
+            Map.merge(payload, %{"name" => name, "preset" => owned})
+          ],
+          do: command
+
+    bad_ids =
+      for id <- [
+            "missing",
+            "",
+            "id\u0000x",
+            String.duplicate("x", 3000),
+            nil,
+            false,
+            123,
+            1.5,
+            [],
+            [owned],
+            %{},
+            %{"id" => owned},
+            foreign
+          ],
+          do: Map.put(payload, "preset", id)
+
+    for {command, index} <- Enum.with_index(bad_names ++ bad_ids) do
+      request = "invalid-preset-#{index}"
+
+      assert {:error, :exchange_freshness_invalid} =
+               GameServer.command(token, request, command, c.server)
+
+      runtime = :sys.get_state(c.server)
+      assert runtime.status == :ready
+      assert runtime.game.revision == before.revision
+      assert runtime.game.entities == before.entities
+
+      assert Repo.query!(
+               "SELECT request_id FROM game_receipts WHERE world_id=$1 AND request_id=$2",
+               [c.world_id, request]
+             ).rows == []
+
+      assert Repo.query!("SELECT revision FROM game_worlds WHERE id=$1", [c.world_id]).rows == [
+               [before.revision]
+             ]
+    end
+
+    assert Repo.query!(
+             "SELECT id,name FROM game_markdown_presets WHERE world_id=$1 ORDER BY id",
+             [c.world_id]
+           ).rows == Enum.sort([[owned, "Food"], [foreign, "Food"]])
+
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
+    assert restored.entities["markdown_presets"] == before.entities["markdown_presets"]
+
+    # A rejected request remains available for a corrected create and then replay.
+    assert {:ok, %{"preset" => created} = reply} =
+             GameServer.command(token, "invalid-preset-0", payload, c.server)
+
+    assert created not in [owned, foreign]
+    assert {:ok, ^reply} = GameServer.command(token, "invalid-preset-0", payload, c.server)
+    amendment = Map.merge(payload, %{"preset" => owned, "name" => "Updated"})
+
+    assert {:ok, %{"preset" => ^owned} = reply} =
+             GameServer.command(token, "edit-owned", amendment, c.server)
+
+    assert {:ok, ^reply} = GameServer.command(token, "edit-owned", amendment, c.server)
+
+    assert Repo.query!("SELECT name FROM game_markdown_presets WHERE world_id=$1 AND id=$2", [
+             c.world_id,
+             owned
+           ]).rows == [["Updated"]]
+
+    assert Repo.query!("SELECT name FROM game_markdown_presets WHERE world_id=$1 AND id=$2", [
+             c.world_id,
+             foreign
+           ]).rows == [["Food"]]
+  end
+
   test "graded backing, copied presets and partial-fill priority survive durable reload", c do
     alias TijaraTides.Domain.{
       State,
