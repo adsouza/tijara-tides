@@ -984,3 +984,12 @@ Their separate `Rows` codecs preserve the existing durable string-keyed format.
 and other-root facts, store transitions, and coordinate journal postings. The
 models contain no world lookup, row codec, finance posting or workflow dependency;
 no schema change or new transaction boundary is introduced.
+
+Architecture guards cover exclusive writes to weather and markdown-preset rows,
+as well as account, ship, market, warehouse, exchange, auction, liquidation and
+automation ownership. Compiled dependency checks constrain Fleet, LinkedOrders,
+Exchange and settlement hooks to their lower-level service dependencies, and
+check the targeted orchestration graph for cycles. Pure reservation models
+cannot call project adapters, codecs or workflows. These are focused dependency
+rules within the existing world transaction, not a claim that every domain
+module forms an independent aggregate or that the entire domain graph is acyclic.
