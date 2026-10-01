@@ -11,6 +11,12 @@ experiment and its expansion across finance, trading instructions, commit/replay
 conflict recovery, and persistence failures. It records test improvements and the baseline and test-selection safeguards
 required before any mutation-score gate. Mutation testing remains opt-in.
 
+The [proposed test expansion](test-expansion-plan.md) builds on this policy with
+input and notice contracts, lifecycle interactions, SQL transitions, property
+tests with shrinking, generated sequences and mutation audits. It records
+implementation rounds and acceptance criteria; those additions are not yet
+implemented.
+
 For a focused coverage run:
 
 ```sh
