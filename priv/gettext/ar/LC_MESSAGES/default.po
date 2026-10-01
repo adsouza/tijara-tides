@@ -796,9 +796,6 @@ msgstr "الحالة"
 msgid "Stop after this visit"
 msgstr "التوقف بعد هذه الزيارة"
 
-msgid "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Removing the current or next stop returns the route to draft; committed voyages and handling finish. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. No cash is earmarked. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
-msgstr "تُنفذ المحطات بالترتيب وتتكرر. تسري تعديلات البضائع عند تشغيل مرحلتها التالية؛ وتحتفظ أوامر الزيارة القائمة بشروطها. تُعيد إزالة المحطة الحالية أو التالية المسار إلى المسودة؛ وتكتمل الرحلات والمناولة الملتزم بها. ابدأ عند المحطة الأولى أو أثناء الإبحار إليها. ينتهي تفريغ المبيعات قبل بدء المشتريات. يشمل هدف التحميل البضاعة الموجودة على المتن؛ ويُعاد ضبط سقف الشراء الاختياري كل زيارة. دون سقف، تُستخدم السيولة المتاحة مع الاحتفاظ باحتياطي الرحلة. الأسعار لكل دفعة دون المناولة؛ وتشمل الحدود المناولة والتنظيف. لا يُحجز نقد مسبقاً. تنتظر الأهداف الثابتة حتى التنفيذ أو الإلغاء. يتوقف الشراء الأقصى عند بلوغ السعة أو المخزون أو النقد أو السقف المتاح. يبيع خيار بيع كل الحمولة ما يسمح به الطلب وأموال المشترين، ثم يتابع مع البضاعة غير المباعة. تبقى حدود الأسعار ملزمة بالانتظار. بعد انتهاء المبيعات، يلغي امتلاء العنبر أي نقص تحميل متبقٍ. يوقف تعليق المسار التجارة الجديدة والإبحار التلقائي؛ وتكتمل الرحلات والمناولة الملتزم بها."
-
 msgid "Supply is available stock; demand is capped by current buyer funds, in whole lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
 msgstr "العرض هو المخزون المتاح؛ والطلب محدود بأموال المشتري الحالية بدفعات كاملة · الأسعار لكل دفعة قبل المناولة · تحديث مباشر. تعرض خيارات البضائع أعلى سعر شراء وأقل سعر بيع متاحين؛ وتعني — عدم وجود سوق في ذلك الجانب. اختر ميناءً لفحص سوقه."
 
@@ -2734,3 +2731,100 @@ msgstr "تصفية المستودع"
 
 msgid "Your warehouse lease at %{port} expired. Sale or collection grace: %{minutes} active-world minutes. Storage per occupied block per day: %{grace_rate} during grace; %{liquidation_rate} during liquidation. Charges are capped by this lease's proceeds."
 msgstr "انتهى إيجار مستودعك في %{port}. مهلة البيع أو الاستلام: %{minutes} دقيقة من وقت العالم النشط. سعر التخزين لكل وحدة مشغولة يوميًا: %{grace_rate} خلال المهلة؛ و%{liquidation_rate} خلال التصفية. لا تتجاوز الرسوم حصيلة هذا الإيجار."
+
+
+msgid "%{ship}: funding accumulation timed out; reserved cash was released."
+msgstr "%{ship}: انتهت مهلة تجميع التمويل؛ وأُفرج عن النقد المحجوز."
+
+msgid "Advance purchase budget ($, optional)"
+msgstr "ميزانية شراء مسبقة ($، اختيارية)"
+
+msgid "Advance purchase budget at %{port} ($, optional)"
+msgstr "ميزانية شراء مسبقة في %{port} ($، اختيارية)"
+
+msgid "Automatic departure funding policy"
+msgstr "سياسة تمويل الإبحار التلقائي"
+
+msgid "Choose a valid departure funding policy."
+msgstr "اختر سياسة تمويل إبحار صالحة."
+
+msgid "Departure funding: $%{held} accumulated of $%{required}"
+msgstr "تمويل الإبحار: جُمّع $%{held} من $%{required}"
+
+msgid "Edit linked demand through its route cargo target."
+msgstr "عدّل الطلب المرتبط عبر هدف البضاعة في المسار."
+
+msgid "Linked orders support fixed targets for bulk commodities, mass consumer products and scrap. Fills stay reserved for this ship; the remaining order ends at berth."
+msgstr "تدعم الأوامر المرتبطة أهدافاً ثابتة للسلع السائبة والمنتجات الاستهلاكية والخردة. تبقى المشتريات محجوزة لهذه السفينة؛ وينتهي باقي الطلب عند الرصيف."
+
+msgid "Linked purchases at %{port} could not reserve cash or warehouse space for the next circuit."
+msgstr "تعذر حجز النقد أو مساحة المخزن للمشتريات المرتبطة في %{port} للدورة التالية."
+
+msgid "Linked purchases require a fixed buy target, an exchange-supported cargo and your active warehouse at this stop."
+msgstr "تتطلب المشتريات المرتبطة هدف شراء ثابتاً وبضاعة تدعمها البورصة ومخزناً سارياً تملكه في هذه المحطة."
+
+msgid "Linked remote purchases"
+msgstr "مشتريات بعيدة مرتبطة"
+
+msgid "No linked order"
+msgstr "دون أمر مرتبط"
+
+msgid "Purchases skipped for this visit"
+msgstr "تُجاوزت المشتريات لهذه الزيارة"
+
+msgid "Remote purchase warehouse (optional)"
+msgstr "مخزن الشراء البعيد (اختياري)"
+
+msgid "Reserved for this visit: $%{amount}"
+msgstr "المحجوز لهذه الزيارة: $%{amount}"
+
+msgid "Sail with a reduced budget"
+msgstr "الإبحار بميزانية مخفضة"
+
+msgid "Save budget"
+msgstr "حفظ الميزانية"
+
+msgid "Save policy"
+msgstr "حفظ السياسة"
+
+msgid "Skip purchases"
+msgstr "تجاوز المشتريات"
+
+msgid "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Removing the current or next stop returns the route to draft; committed voyages and handling finish. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. An optional advance budget reserves cash before sailing toward its stop and stays a strict purchase limit. Linked remote purchases reserve their own cash and warehouse space. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
+msgstr "تُنفذ المحطات بالترتيب وتتكرر. تسري تعديلات البضائع عند تشغيل مرحلتها التالية؛ وتحتفظ أوامر الزيارة القائمة بشروطها. تُعيد إزالة المحطة الحالية أو التالية المسار إلى المسودة؛ وتكتمل الرحلات والمناولة الملتزم بها. ابدأ عند المحطة الأولى أو أثناء الإبحار إليها. ينتهي تفريغ المبيعات قبل بدء المشتريات. يشمل هدف التحميل البضاعة الموجودة على المتن؛ ويُعاد ضبط سقف الشراء الاختياري كل زيارة. دون سقف، تُستخدم السيولة المتاحة مع الاحتفاظ باحتياطي الرحلة. الأسعار لكل دفعة دون المناولة؛ وتشمل الحدود المناولة والتنظيف. تحجز الميزانية المسبقة الاختيارية نقداً قبل الإبحار إلى محطتها وتبقى سقفاً صارماً للشراء. تحجز المشتريات البعيدة المرتبطة نقدها ومساحة المخزن بشكل منفصل. تنتظر الأهداف الثابتة حتى التنفيذ أو الإلغاء. يتوقف الشراء الأقصى عند بلوغ السعة أو المخزون أو النقد أو السقف المتاح. يبيع خيار بيع كل الحمولة ما يسمح به الطلب وأموال المشترين، ثم يتابع مع البضاعة غير المباعة. تبقى حدود الأسعار ملزمة بالانتظار. بعد انتهاء المبيعات، يلغي امتلاء العنبر أي نقص تحميل متبقٍ. يوقف تعليق المسار التجارة الجديدة والإبحار التلقائي؛ وتكتمل الرحلات والمناولة الملتزم بها."
+
+msgid "The budget cannot be lower than spending already committed."
+msgstr "لا يمكن أن تقل الميزانية عن الإنفاق الملتزم به مسبقاً."
+
+msgid "This policy applies to all automatic departures. Fuel is always fully funded. Reduced budgets stay strict at arrival; skipped visits can still deliver and collect owned cargo."
+msgstr "تسري هذه السياسة على جميع رحلات الإبحار التلقائي. يُموّل الوقود كاملاً دائماً. تبقى الميزانيات المخفضة حدوداً صارمة عند الوصول؛ ويمكن للزيارات التي تتجاوز الشراء تسليم البضاعة المملوكة وجمعها."
+
+msgid "Use available cash"
+msgstr "استخدام النقد المتاح"
+
+msgid "Wait and notify"
+msgstr "الانتظار والإخطار"
+
+msgid "Warehouse %{number}"
+msgstr "المخزن %{number}"
+
+msgid "· %{filled} lots purchased; %{remaining} lots open"
+msgstr "· اشتريت %{filled} دفعة؛ وبقيت %{remaining} دفعة مطلوبة"
+
+msgid "· accumulation remaining: %{time}"
+msgstr "· المتبقي من مهلة التجميع: %{time}"
+
+msgid "Waiting for fuel and the configured purchase budget"
+msgstr "بانتظار تمويل الوقود وميزانية الشراء المحددة"
+
+msgid "%{ship} at %{port}: cancelled %{quantity} linked lots of %{cargo}, releasing %{refund} and their warehouse space. %{filled} purchased lots remain stored. %{reason}."
+msgstr "%{ship} في %{port}: أُلغي طلب %{quantity} دفعة مرتبطة من %{cargo} وأُفرج عن %{refund} ومساحة تخزينها. تبقى %{filled} دفعة مشتراة في المخزن. %{reason}."
+
+msgid "Collection stop or link removed"
+msgstr "أُزيلت محطة الجمع أو رابط الشراء"
+
+msgid "Handed over at berth"
+msgstr "سُلّم إلى تعليمات السفينة عند الرصيف"
+
+msgid "Visit finished"
+msgstr "انتهت الزيارة"

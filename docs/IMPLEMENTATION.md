@@ -286,9 +286,8 @@ with launch tuning described in this document. Remaining work includes:
   freshness requirements on standing orders, markdown schedules and presets, mixed-grade backing,
   freshness-aware reservation replacement, and direct ship trades against
   player order books (§§6–8).
-- **Automation:** linked remote orders and their atomic handover at berth,
-  earmarked advance purchase budgets,
-  and departure-funding allocation and accumulation policies (§8).
+- **Automation:** extending linked remote orders to freshness-graded perishable
+  books when those markets are implemented (§8).
 - **Ports and physical handling:** full ship-size, terminal and waterway limits,
   predictive queue estimates, automatic warehouse-transfer queuing, transfers
   between storage types, and utilization-triggered berth/storage growth with
@@ -445,6 +444,8 @@ and the final/first pair must differ. The final stop returns to the first.
 Running and paused routes remain editable. Cargo targets can be added, edited,
 or removed; already-created visit orders retain their original terms, including
 quantity mode. Changes apply when the relevant stage next creates orders.
+Linked fixed buy targets reconcile unfinished, uncommitted visit orders and
+standing-order backing together; rejected edits retain the previous terms.
 Future stops can be added or removed while preserving the active stop identity.
 Removing the current or next stop returns the route to draft and clears its
 visit orders and onward plan; committed handling and voyages still finish.
@@ -457,13 +458,13 @@ route-managed ships cannot also receive independent next-port instructions.
 Each stop sells up to its configured quantity from cargo actually aboard, then
 finishes unloading before calculating purchase shortfalls. Load targets include
 retained cargo; a fresh per-visit cap limits purchases including handling and
-cleaning, without earmarking cash. Prices use the same limit semantics and
+cleaning. Without an optional advance budget, purchases use unreserved cash.
+Prices use the same limit semantics and
 voyage-affordability checks as manual and single-visit trades. Partial fills retry
 and never accumulate across circuits. Once sales finish, exhausted hold capacity
 cancels the remaining loading shortfall with notification. Other unfilled targets
 wait until filled, explicitly cancelled, or their stop's maximum wait elapses.
-Linked exchange orders and advance purchase budgets remain
-future extensions.
+Linked exchange orders and advance purchase budgets are described below.
 
 Each stop has an optional maximum wait, configured in minutes (up to 30 days)
 inside its collapsed Wait limit disclosure. Blank means unlimited waiting.
@@ -828,6 +829,64 @@ bids are admitted at settlement only when funds and paid receiving space cover
 the lot. Newly acquired stock can be offered only in a later unopened auction.
 Listed quantities are excluded from other offers, and a merchant cannot bid on
 its own listings. Consumer purchases remain the final consumption sink.
+
+## Linked remote orders and departure funding
+
+Fixed buy targets for Bulk commodities, Mass consumer products and Scrap may
+link to an owned compatible warehouse at the stop. Demand subtracts qualifying
+cargo aboard and available owned stock, respecting other stock reservations.
+The linked order reserves its own cash and receiving capacity. Each completed
+fill becomes owned warehouse cargo earmarked for the collecting ship and stop.
+It cannot become another ship's collection or sell backing. Original lot IDs,
+acquisition cost and expiry survive transfer. Ordinary unlinked orders remain
+independent. Perishable standing books and their linked targets remain deferred.
+
+At berth assignment, one atomic handover cancels the remote remainder and
+releases its cash and incoming capacity, retaining completed stock claims for
+collection. The visit collects owned stock before buying its shortfall. Linked
+orders cannot compete for another fill after berth assignment or the inclusive
+maximum-wait deadline. Target reductions release excess backing; increases and
+repricing validate fresh backing before committing the target and order together.
+Committed handling is protected. Removing a link/stop or ending a visit releases
+claims while retaining purchased cargo. A completed circuit rearms each target
+once, without carrying forward unmet quantities. Unaffordable future backing
+retries without duplicating reservations. Private notices report the cancelled
+remainder, cash returned and stored stock retained.
+
+An optional per-stop advance budget reserves purchase cash separately from fuel
+and standing orders. It is a strict cap including market handling and cleaning;
+market purchases, including manual buys during that visit, cannot supplement it
+from free cash, sale proceeds or linked-order refunds. Owned-stock collection
+fees use ordinary available cash. Explicit budget changes respect cash and
+settled spending. Unused funds return when the visit finishes, expires or is
+removed. Repeating stops retain their configured amount, funding only the
+current initial visit at start and the next visit together with departure.
+Single next-port visits can also reserve an explicit budget.
+
+The Fleet panel offers one account-wide insufficient-funds policy: Wait and
+notify (default), Sail with a reduced budget, or Skip purchases. Each policy
+fully funds fuel and canal fees. Reduced budgets remain strict at arrival; Skip
+still permits deliveries and owned-stock collection. Affordable departures are
+allocated by original waiting age, with stable ship-ID ties; an expensive older
+request does not block an affordable younger one. Blocked/resumed notices are
+coalesced. Reservations and departure share the authoritative atomic operation.
+
+After 30 active-world minutes, the oldest eligible request may accumulate cash
+for a fixed 10-minute window. Only one ship per company accumulates. Arrears and
+loan installments settle first. Completion converts the accumulation into the
+ordinary fuel/purchase reservations once. Timeout returns cash, settles arrears
+and funds affordable departures before another accumulation, with a 30-minute
+cooldown and preserved waiting age. Retries and partial funding retain the
+original deadline. The `:departure_funding` application setting configures
+`wait_ms`, `window_ms` and `cooldown_ms`; the domain validates positive durations.
+
+Migration `20261001000000_add_route_funding_and_links.exs` stores private linked
+cycles, visit budgets, departure requests, account policy and route completion.
+Reload and receipt replay preserve reservations, waiting age and deadlines.
+The financial verifier includes fuel, visit and accumulation reservations;
+conflicting cash releases roll back the transaction. Tests cover NPC, player and
+liquidation fills, strict budgets, fair allocation, timeout, plan changes,
+receivership, database reload, command replay and rollback.
 
 ## Owner absence and dormant closure
 

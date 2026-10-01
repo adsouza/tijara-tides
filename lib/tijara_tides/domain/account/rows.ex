@@ -2,8 +2,10 @@ defmodule TijaraTides.Domain.Account.Rows do
   @moduledoc "Codec for the unchanged account row and locale fallback."
   alias TijaraTides.Domain.Account
 
-  @fields ~w(id company_id inviter bankruptcies suspended_ms email invite_quota created_ms locale)a
+  @fields ~w(id company_id inviter bankruptcies suspended_ms email invite_quota created_ms locale funding_policy)a
   def decode(row) do
+    row = Map.put(row, "funding_policy", row["funding_policy"] || "wait")
+
     unless Enum.sort(Map.keys(row)) == Enum.sort(Enum.map(@fields, &Atom.to_string/1)),
       do: raise(ArgumentError, "Account row must contain exactly the persisted account fields")
 

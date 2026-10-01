@@ -152,5 +152,15 @@ defmodule TijaraTides.Localization.Names do
   def translate("Strait of Hormuz"), do: gettext("Strait of Hormuz")
   def translate("Northern Frangistan"), do: gettext("Northern Frangistan")
   def translate("Pearl River Delta"), do: gettext("Pearl River Delta")
+
+  def translate("Waiting for fuel and the configured purchase budget"),
+    do: gettext("Waiting for fuel and the configured purchase budget")
+
+  def translate("Purchases skipped for this visit"),
+    do: gettext("Purchases skipped for this visit")
+
+  def translate("Handed over at berth"), do: gettext("Handed over at berth")
+  def translate("Visit finished"), do: gettext("Visit finished")
+  def translate("Collection stop or link removed"), do: gettext("Collection stop or link removed")
   def translate(value), do: TijaraTides.Localization.Ports.translate(value)
 end

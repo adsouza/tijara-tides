@@ -422,6 +422,16 @@ defmodule TijaraTides.Domain.Warehouse do
         volume(w, catalogue) + reserved_volume(w, catalogue) <=
           (w.blocks - blocks) * block_litres()
 
+  @doc "A settled incoming fill converts its capacity backing into a ship stock claim."
+  def earmark_fill(%__MODULE__{} = w, %Reservation{kind: "stock"} = r, now, catalogue) do
+    unless r.quantity > 0 and r.company_id == w.company_id and r.ship_id != nil and
+             now < w.expires_ms and compatible?(w, catalogue["goods"][r.good]) and
+             r.quantity + reserved_quantity(w, "stock", r.good) <= fresh_stock(w, r.good, now),
+           do: raise(ArgumentError, "Remote fill must be backed by available owned stock")
+
+    transition(w, [r], [])
+  end
+
   def reserve(%__MODULE__{} = w, %Reservation{} = r, now, catalogue) do
     item = catalogue["goods"][r.good]
 

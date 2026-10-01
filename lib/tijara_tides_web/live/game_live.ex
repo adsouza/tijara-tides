@@ -631,7 +631,9 @@ defmodule TijaraTidesWeb.GameLive do
            socket.assigns.route_drafts,
            key,
            params
-           |> Map.take(~w(rule side good quantity quantity_mode limit budget freshness_minutes))
+           |> Map.take(
+             ~w(rule side good quantity quantity_mode limit budget freshness_minutes linked_warehouse_id)
+           )
            |> Map.filter(fn {_, value} -> is_binary(value) and byte_size(value) <= 128 end)
          )
        )}
@@ -640,10 +642,33 @@ defmodule TijaraTidesWeb.GameLive do
     end
   end
 
+  def handle_event("funding-policy", params, socket),
+    do:
+      run(socket, %{
+        "action" => "funding_policy",
+        "policy" => params["policy"],
+        "request_id" => params["request_id"]
+      })
+
+  def handle_event("visit-budget", params, socket) do
+    amount = if(params["amount"] in [nil, ""], do: nil, else: instruction_cents(params["amount"]))
+
+    run(socket, %{
+      "action" => "visit_budget",
+      "ship" => socket.assigns.selected_ship,
+      "stop" => params["stop"],
+      "port" => params["port"],
+      "amount" => amount,
+      "request_id" => params["request_id"]
+    })
+  end
+
   def handle_event("route", params, socket) do
     command =
       params
-      |> Map.take(~w(operation port stop rule side good quantity_mode request_id))
+      |> Map.take(
+        ~w(operation port stop rule side good quantity_mode linked_warehouse_id request_id)
+      )
       |> Map.merge(%{"action" => "route", "ship" => socket.assigns.selected_ship})
 
     command =

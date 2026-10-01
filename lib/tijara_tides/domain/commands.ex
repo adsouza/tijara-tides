@@ -34,6 +34,7 @@ defmodule TijaraTides.Domain.Commands do
              context.catalogue,
              account["company_id"]
            )
+           |> TijaraTides.Domain.Services.DepartureFunding.reconcile(context.catalogue)
            |> then(
              &TijaraTides.Domain.AccountWorld.InvitationAccrual.observe(
                before,
@@ -115,6 +116,17 @@ defmodule TijaraTides.Domain.Commands do
 
       %{"action" => "cancel_berth_trade", "ship" => id} ->
         TijaraTides.Domain.Services.BerthAllocation.cancel(state, account, id)
+
+      %{"action" => "funding_policy", "policy" => policy} ->
+        TijaraTides.Domain.AccountWorld.set_funding_policy(state, account, policy)
+
+      %{"action" => "visit_budget"} ->
+        TijaraTides.Domain.Services.DepartureFunding.configure_visit(
+          state,
+          account,
+          command,
+          catalogue
+        )
 
       %{"action" => "route"} ->
         ShipWorld.edit_route(state, account, command, context)

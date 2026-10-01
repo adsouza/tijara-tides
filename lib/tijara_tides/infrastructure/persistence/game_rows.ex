@@ -1,6 +1,21 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "remote_links" =>
+      Enum.map(
+        ~w(id company_id ship_id stop_id good warehouse_id port order_id generation filled status),
+        &{&1, &1}
+      ),
+    "visit_budgets" =>
+      Enum.map(
+        ~w(id company_id ship_id stop_id port amount remaining strict skip visit),
+        &{&1, &1}
+      ),
+    "departure_requests" =>
+      Enum.map(
+        ~w(id company_id ship_id destination stop_id visit configured policy required blocked_ms accumulated window_deadline_ms cooldown_ms),
+        &{&1, &1}
+      ),
     "warehouse_liquidations" =>
       Enum.map(
         ~w(id company_id port status expires_ms grace_end_ms last_ms original_blocks occupied_blocks rent duration_ms surcharge_bps window_ms clearance_bps handling_rate rent_due rent_remainder handling_due clearance_remainders proceeds charged paid sunk completed_ms),
@@ -119,10 +134,11 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "ship_routes" =>
       Enum.map(
-        ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason visit_arrived_ms wait_deadline_ms wait_timed_out),
+        ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason visit_arrived_ms wait_deadline_ms wait_timed_out visit_finished),
         &{&1, &1}
       ),
     "route_stops" => [
+      {"advance_budget", "advance_budget"},
       {"id", "id"},
       {"ship_id", "ship_id"},
       {"company_id", "company_id"},
@@ -131,6 +147,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"max_wait_ms", "max_wait_ms"}
     ],
     "route_rules" => [
+      {"linked_warehouse_id", "linked_warehouse_id"},
       {"min_remaining_ms", "min_remaining_ms"},
       {"id", "id"},
       {"ship_id", "ship_id"},
@@ -144,6 +161,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"budget", "budget_cents"}
     ],
     "visit_plans" => [
+      {"advance_budget", "advance_budget"},
       {"id", "id"},
       {"ship_id", "ship_id"},
       {"company_id", "company_id"},
@@ -174,6 +192,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"created_ms", "created_ms"}
     ],
     "accounts" => [
+      {"funding_policy", "funding_policy"},
       {"locale", "locale"},
       {"id", "id"},
       {"company_id", "company_id"},
@@ -253,7 +272,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(accounts companies company_dormancy warehouse_liquidations company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
+  @kinds ~w(accounts companies company_dormancy warehouse_liquidations company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules remote_links visit_budgets departure_requests)
 
   @children %{
     "warehouses" =>
@@ -560,6 +579,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   defp column_value("surcharge_bps", nil), do: 2500
   defp column_value("window_ms", nil), do: 7_200_000
   defp column_value("clearance_bps", nil), do: 1000
+  defp column_value("funding_policy", nil), do: "wait"
+  defp column_value("visit_finished", nil), do: false
   defp column_value("locale", nil), do: "en"
   defp column_value("arguments", nil), do: %{}
   defp column_value("capital_ms", value), do: Decimal.new(value)

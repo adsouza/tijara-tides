@@ -53,6 +53,8 @@ defmodule TijaraTides.Infrastructure.PhaseTelemetryTest do
           :fleet,
           :instruction_expiry,
           :route_waits,
+          :automation_reconcile,
+          :linked_orders,
           :exchange_reconcile,
           :estates,
           :auctions,

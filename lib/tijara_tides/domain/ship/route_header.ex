@@ -1,7 +1,12 @@
 defmodule TijaraTides.Domain.Ship.RouteHeader do
   @moduledoc "Typed route header; persisted fields are decoded explicitly."
   @fields ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason)a
-  @wait_defaults [visit_arrived_ms: nil, wait_deadline_ms: nil, wait_timed_out: false]
+  @wait_defaults [
+    visit_arrived_ms: nil,
+    wait_deadline_ms: nil,
+    wait_timed_out: false,
+    visit_finished: false
+  ]
   @all_fields @fields ++ Keyword.keys(@wait_defaults)
   @enforce_keys @fields
   defstruct @fields ++ @wait_defaults
@@ -29,7 +34,7 @@ defmodule TijaraTides.Domain.Ship.RouteHeader do
              child.phase in ["arrival", "selling", "buying"] and is_integer(child.cursor) and
              child.cursor >= 0 and is_integer(child.visit) and child.visit >= 0 and
              is_boolean(child.auto_depart) and is_boolean(child.stop_after) and
-             is_boolean(child.wait_timed_out) and
+             is_boolean(child.wait_timed_out) and is_boolean(child.visit_finished) and
              (is_nil(child.visit_arrived_ms) or
                 (is_integer(child.visit_arrived_ms) and child.visit_arrived_ms >= 0)) and
              (is_nil(child.wait_deadline_ms) or

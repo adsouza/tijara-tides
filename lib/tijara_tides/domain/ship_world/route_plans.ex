@@ -36,6 +36,77 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
 
   defp put(state, kind, id, row), do: State.put(state, kind, id, row)
 
+  @doc "Update an uncommitted linked loading target and its current instruction together."
+  def reconcile_linked_target(state, rule, catalogue) do
+    route = get(state, "ship_routes", rule["ship_id"])
+    stop = get(state, "route_stops", rule["stop_id"])
+    ship = get(state, "ships", rule["ship_id"])
+
+    if route && stop && route.cursor == stop.position && route.phase == "buying" &&
+         not route.visit_finished && not route.wait_timed_out do
+      order = get(state, "ship_instructions", "route:" <> rule["id"])
+
+      next =
+        Enum.at(stops(state, ship["id"]), rem(route.cursor + 1, length(stops(state, ship["id"]))))
+
+      aboard =
+        Enum.sum(
+          for b <- ship["cargo"],
+              b["good"] == rule["good"],
+              CargoRules.qualifies?(b["expires_ms"], state.clock_ms, rule["min_remaining_ms"]),
+              do: b["quantity"]
+        )
+
+      cond do
+        order && (order["good"] != rule["good"] && order["filled"] > 0) ->
+          {:error, :route_stop_committed}
+
+        order && rule["budget"] != nil && rule["budget"] < order["spent"] ->
+          {:error, :instruction_budget_invalid}
+
+        order ->
+          quantity = order["filled"] + max(0, rule["quantity"] - aboard)
+
+          if quantity > 10_000 do
+            {:error, :instruction_quantity_invalid}
+          else
+            changed = %{
+              order
+              | "quantity" => max(1, quantity),
+                "limit" => rule["limit"],
+                "budget" => rule["budget"],
+                "min_remaining_ms" => rule["min_remaining_ms"],
+                "good" => rule["good"],
+                "status" => if(quantity <= order["filled"], do: "filled", else: "planned"),
+                "reason" => "Route visit target"
+            }
+
+            {:ok, put(state, "ship_instructions", order["id"], changed)}
+          end
+
+        true ->
+          {:ok, materialize(state, ship, stop, next, "buy", catalogue, true)}
+      end
+    else
+      {:ok, state}
+    end
+  end
+
+  def finish_current_visit(state, ship_id) do
+    route = get(state, "ship_routes", ship_id)
+    put(state, "ship_routes", ship_id, %{route | visit_finished: true})
+  end
+
+  def set_advance_budget(state, id, true, amount) do
+    stop = get(state, "route_stops", id)
+    put(state, "route_stops", id, %{stop | advance_budget: amount})
+  end
+
+  def set_advance_budget(state, id, false, amount) do
+    plan = get(state, "visit_plans", id)
+    put(state, "visit_plans", id, %{plan | advance_budget: amount})
+  end
+
   def load(state, ship_id) do
     %TijaraTides.Domain.Ship.RoutePlan{
       header: get(state, "ship_routes", ship_id),
@@ -160,6 +231,11 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
           p["limit"] not in 0..1_000_000_000_000 ->
         {:error, :instruction_quantity_invalid}
 
+      p["linked_warehouse_id"] not in [nil, ""] and
+          (not is_binary(p["linked_warehouse_id"]) or p["side"] != "buy" or
+             Map.get(p, "quantity_mode", "fixed") != "fixed" or p["limit"] == 0) ->
+        {:error, :linked_order_invalid}
+
       p["side"] == "buy" and not is_nil(p["budget"]) and
           (not is_integer(p["budget"]) or p["budget"] not in 1..1_000_000_000_000) ->
         {:error, :instruction_budget_invalid}
@@ -183,6 +259,8 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
             "company_id" => ship["company_id"],
             "stop_id" => stop.id,
             "budget" => if(p["side"] == "buy", do: p["budget"]),
+            "linked_warehouse_id" =>
+              if(p["linked_warehouse_id"] in [nil, ""], do: nil, else: p["linked_warehouse_id"]),
             "min_remaining_ms" => Map.get(p, "min_remaining_ms", 0)
           })
           |> RouteTarget.from_row()
@@ -251,6 +329,7 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
               | status: "draft",
                 cursor: 0,
                 phase: "arrival",
+                visit_finished: false,
                 visit_arrived_ms: nil,
                 wait_deadline_ms: nil,
                 wait_timed_out: false,
@@ -651,6 +730,7 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
             | cursor: index,
               visit: route.visit + 1,
               phase: "arrival",
+              visit_finished: false,
               visit_arrived_ms: nil,
               wait_deadline_ms: nil,
               wait_timed_out: false,
@@ -662,6 +742,7 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
             %{
               route
               | phase: "arrival",
+                visit_finished: false,
                 visit_arrived_ms: nil,
                 wait_deadline_ms: nil,
                 wait_timed_out: false

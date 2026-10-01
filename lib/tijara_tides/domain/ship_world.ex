@@ -62,7 +62,11 @@ defmodule TijaraTides.Domain.ShipWorld do
 
   defdelegate pause_diverted_route(state, id), to: RoutePlans, as: :divert
 
-  defdelegate edit_route(state, account, params, context), to: RoutePlans, as: :execute
+  defdelegate edit_route(state, account, params, context),
+    to: TijaraTides.Domain.Services.LinkedOrders
+
+  defdelegate set_advance_budget(state, id, stop?, amount), to: RoutePlans
+  defdelegate finish_route_visit(state, ship), to: RoutePlans, as: :finish_current_visit
 
   def route_stops(state, ship),
     do: RoutePlans.stops(state, ship) |> Enum.map(&Ship.RouteStop.to_row/1)
@@ -100,6 +104,11 @@ defmodule TijaraTides.Domain.ShipWorld do
 
   @automation ~w(route_rules route_stops ship_routes ship_instructions visit_plans)
   def cancel_automation(state, ship_id) do
+    state =
+      state
+      |> TijaraTides.Domain.AutomationWorld.release_ship(ship_id)
+      |> TijaraTides.Domain.Services.LinkedOrders.remove_ship(ship_id)
+
     state = store(state, Ship.cancel_automation(fetch(state, ship_id)))
 
     Enum.reduce(@automation, state, fn kind, state ->
@@ -196,10 +205,17 @@ defmodule TijaraTides.Domain.ShipWorld do
     if next == ship, do: state, else: store(state, next)
   end
 
-  def grant_berth(state, id), do: store(state, Ship.grant_berth(hull(state, id), state.clock_ms))
+  def grant_berth(state, id),
+    do:
+      state
+      |> TijaraTides.Domain.Services.LinkedOrders.handover(id)
+      |> then(&store(&1, Ship.grant_berth(hull(&1, id), &1.clock_ms)))
 
   def admit_handling(state, id),
-    do: store(state, Ship.admit_handling(hull(state, id), state.clock_ms))
+    do:
+      state
+      |> TijaraTides.Domain.Services.LinkedOrders.handover(id)
+      |> then(&store(&1, Ship.admit_handling(hull(&1, id), &1.clock_ms)))
 
   def release_berth(state, id, retry_at \\ nil),
     do: store(state, Ship.release_berth(hull(state, id), state.clock_ms, retry_at))

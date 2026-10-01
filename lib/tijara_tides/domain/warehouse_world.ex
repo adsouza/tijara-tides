@@ -286,7 +286,10 @@ defmodule TijaraTides.Domain.WarehouseWorld do
             |> CompanyFinanceWorld.post(
               owner,
               "warehouse_transfer",
-              [{"handling_expense", fee}, {"cash_available", -fee}],
+              [
+                {"handling_expense", fee},
+                {"cash_available", -fee}
+              ],
               %{ship: ship["id"], good: item["id"]}
             )
 
@@ -457,6 +460,51 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     |> List.first()
   end
 
+  @doc "Earmark a committed remote fill; its incoming capacity has already been consumed."
+  def earmark_remote_fill(state, link, order, quantity, catalogue) do
+    id = "linked:" <> link["order_id"]
+    w = fetch(state, order.warehouse_id)
+    old = get(state, "warehouse_reservations", id)
+
+    r = %Reservation{
+      id: id,
+      warehouse_id: w.id,
+      company_id: w.company_id,
+      ship_id: link["ship_id"],
+      stop_id: link["stop_id"],
+      good: order.good,
+      kind: "stock",
+      quantity: quantity + if(old, do: old["quantity"], else: 0),
+      created_ms: if(old, do: old["created_ms"], else: state.clock_ms)
+    }
+
+    w = %{w | reservations: Enum.reject(w.reservations, &(&1.id == id))}
+    apply_transition(state, Warehouse.earmark_fill(w, r, state.clock_ms, catalogue))
+  end
+
+  def release_link_stock(state, ship, stop, good, keep \\ 0) do
+    claims =
+      entities(state, "warehouse_reservations")
+      |> Map.values()
+      |> Enum.filter(
+        &(&1["ship_id"] == ship and &1["stop_id"] == stop and &1["good"] == good and
+            String.starts_with?(&1["id"], "linked:"))
+      )
+      |> Enum.sort_by(&{&1["created_ms"], &1["id"]})
+
+    Enum.reduce(claims, {state, keep}, fn row, {s, remaining} ->
+      n = min(row["quantity"], remaining)
+
+      s =
+        if n == 0,
+          do: delete(s, "warehouse_reservations", row["id"]),
+          else: put(s, "warehouse_reservations", row["id"], %{row | "quantity" => n})
+
+      {s, remaining - n}
+    end)
+    |> elem(0)
+  end
+
   def reserve(state, account, cmd, id, catalogue) do
     with %{"company_id" => owner} = row <- get(state, "warehouses", cmd["warehouse"]),
          true <- owner == account["company_id"],
@@ -516,7 +564,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     case get(state, "warehouse_reservations", id) do
       %{"company_id" => owner} = r ->
         if owner != account["company_id"] or r["order_id"] != nil or r["auction_id"] != nil or
-             r["bid_id"] != nil,
+             r["bid_id"] != nil or String.starts_with?(id, "linked:"),
            do: {:error, :warehouse_invalid},
            else: {:ok, delete(state, "warehouse_reservations", id), %{}}
 

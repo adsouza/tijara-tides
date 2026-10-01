@@ -382,3 +382,25 @@ backing still requires paid coverage through auction close. The ledger verifier
 includes open pool proceeds in required reserved cash and verifies liquidation
 seller backing. Pool completion, storage release, auction result, cargo lineage
 and financial postings share the existing world transaction.
+
+### Route funding and linked remote orders
+
+`20261001000000_add_route_funding_and_links.exs` adds `funding_policy` to accounts,
+optional `advance_budget` values to route stops and single visit plans,
+`linked_warehouse_id` to fixed route buy targets, and `visit_finished` to route
+headers. Existing accounts default to Wait; existing stops retain unreserved
+purchases until explicitly configured.
+
+`game_remote_links` retains target/stop/warehouse identity, order generation,
+completed quantity and handover status after an exchange order fills or closes.
+`game_visit_budgets` records the funded amount, remaining cash, strict/skip flags
+and visit identity. `game_departure_requests` retains original waiting age,
+policy and requirement, accumulated cash, fixed deadline and retry cooldown.
+A partial unique index permits only one active accumulation window per company.
+These rows are private projections and commit with their orders, claims, ledger
+postings and voyage. Receipt replay cannot reserve the same cash twice.
+
+The financial verifier requires cash backing for remaining sailing fuel,
+standing orders, bids, liquidation proceeds, visit budgets and departure
+accumulations together. Releasing cash while those commitments remain is rejected
+inside the transaction, including otherwise balanced journal entries.

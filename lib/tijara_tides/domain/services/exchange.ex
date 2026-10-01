@@ -98,7 +98,12 @@ defmodule TijaraTides.Domain.Services.Exchange do
     case OrderBookWorld.fetch(state, id) do
       %OrderBook{company_id: owner} = o ->
         if owner == account["company_id"],
-          do: {:ok, state |> unback(o) |> OrderBookWorld.cancel(id), %{}},
+          do:
+            {:ok,
+             state
+             |> unback(o)
+             |> OrderBookWorld.cancel(id)
+             |> TijaraTides.Domain.Services.LinkedOrders.order_cancelled(id), %{}},
           else: {:error, :exchange_invalid}
 
       nil ->
@@ -115,6 +120,9 @@ defmodule TijaraTides.Domain.Services.Exchange do
     cond do
       is_nil(o) or o.company_id != account["company_id"] ->
         {:error, :exchange_invalid}
+
+      String.starts_with?(o.id, "linked:") && account["linked_operation"] != true ->
+        {:error, :linked_order_managed}
 
       not is_integer(n) or n not in 1..@max_lots or not is_integer(price) or
           price not in 1..1_000_000_000_000 ->
@@ -162,6 +170,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
         s
         |> unback(o)
         |> OrderBookWorld.cancel(o.id)
+        |> TijaraTides.Domain.Services.LinkedOrders.order_cancelled(o.id)
         |> Notices.notice(
           company["account_id"],
           "exchange:" <> o.id,
@@ -214,7 +223,10 @@ defmodule TijaraTides.Domain.Services.Exchange do
       o ->
         peer =
           OrderBookWorld.counterparts(state, o)
-          |> Enum.find(&WarehouseWorld.exchange_ready?(state, OrderBook.claim(&1)))
+          |> Enum.find(
+            &(WarehouseWorld.exchange_ready?(state, OrderBook.claim(&1)) &&
+                TijaraTides.Domain.Services.LinkedOrders.fill_allowed?(state, &1))
+          )
 
         npc = npc_offer(state, o, catalogue)
 
@@ -224,7 +236,8 @@ defmodule TijaraTides.Domain.Services.Exchange do
                if(o.side == "buy", do: npc.price <= peer.price, else: npc.price >= peer.price))
 
         cond do
-          not WarehouseWorld.order_backed?(state, OrderBook.claim(o)) ->
+          not WarehouseWorld.order_backed?(state, OrderBook.claim(o)) or
+              not TijaraTides.Domain.Services.LinkedOrders.fill_allowed?(state, o) ->
             {state, budget}
 
           use_npc ->
@@ -281,6 +294,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     state
     |> WarehouseWorld.exchange_in(OrderBook.claim(buy), acquired, n)
     |> buyer_cash(buy, n, price)
+    |> TijaraTides.Domain.Services.LinkedOrders.record_fill(buy, n, catalogue)
     |> seller_cash(sell, n, price, cost)
     |> OrderBookWorld.fill(buy, n)
     |> OrderBookWorld.fill(sell, n)
@@ -301,7 +315,10 @@ defmodule TijaraTides.Domain.Services.Exchange do
             catalogue["goods"][o.good]
           )
 
-        s |> WarehouseWorld.exchange_in(OrderBook.claim(o), cargo, n) |> buyer_cash(o, n, price)
+        s
+        |> WarehouseWorld.exchange_in(OrderBook.claim(o), cargo, n)
+        |> buyer_cash(o, n, price)
+        |> TijaraTides.Domain.Services.LinkedOrders.record_fill(o, n, catalogue)
       else
         {s, cargo} = WarehouseWorld.exchange_out(state, OrderBook.claim(o), n)
         cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
@@ -338,7 +355,8 @@ defmodule TijaraTides.Domain.Services.Exchange do
 
           get(s, "companies", buy.company_id)["bankruptcy_ms"] != nil or
             (buy.expires_ms != nil and buy.expires_ms <= s.clock_ms) or
-              not WarehouseWorld.exchange_ready?(s, OrderBook.claim(buy)) ->
+            not WarehouseWorld.exchange_ready?(s, OrderBook.claim(buy)) or
+              not TijaraTides.Domain.Services.LinkedOrders.fill_allowed?(s, buy) ->
             {:cont, s}
 
           true ->
@@ -349,6 +367,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
               s
               |> WarehouseWorld.exchange_in(OrderBook.claim(buy), acquired, n)
               |> buyer_cash(buy, n, buy.price)
+              |> TijaraTides.Domain.Services.LinkedOrders.record_fill(buy, n, catalogue)
               |> OrderBookWorld.fill(buy, n)
               |> traded(buy, n, buy.price)
               |> Liquidation.record_sale(warehouse, cargo, n * buy.price)

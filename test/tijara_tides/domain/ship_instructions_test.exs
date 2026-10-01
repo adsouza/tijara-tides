@@ -555,15 +555,24 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
       waiting = ShipInstructions.advance(blocked, c.catalogue)
       assert Game.get(waiting, "ships", "company:1")["status"] == "docked"
       assert Game.get(waiting, "visit_plans", "company:1|Singapore")["departure_wait"] =~ reason
-      assert Game.entities(waiting, "companies") == Game.entities(blocked, "companies")
+      # Funding settles overdue obligations before reserving cash, including arrears timestamps.
+      assert Map.take(Game.get(waiting, "companies", "company"), ~w(cash reserved unpaid profit)) ==
+               Map.take(
+                 Game.get(blocked, "companies", "company"),
+                 ~w(cash reserved unpaid profit)
+               )
+
       assert ShipInstructions.advance(waiting, c.catalogue) == waiting
 
       recovered =
-        put_in(
-          waiting,
-          [:entities, "companies", "company", field],
-          arrived.entities["companies"]["company"][field]
-        )
+        if field == "unpaid",
+          do: waiting,
+          else:
+            put_in(
+              waiting,
+              [:entities, "companies", "company", field],
+              arrived.entities["companies"]["company"][field]
+            )
 
       recovered =
         put_in(

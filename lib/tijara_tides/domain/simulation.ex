@@ -21,6 +21,9 @@ defmodule TijaraTides.Domain.Simulation do
       fleet: &Fleet.advance(&1, elapsed),
       instruction_expiry: &TijaraTides.Domain.ShipWorld.expire_instructions(&1, catalogue),
       route_waits: &TijaraTides.Domain.ShipWorld.expire_route_waits(&1, catalogue),
+      automation_reconcile:
+        &TijaraTides.Domain.Services.DepartureFunding.reconcile(&1, catalogue),
+      linked_orders: &TijaraTides.Domain.Services.LinkedOrders.advance(&1, catalogue),
       exchange_reconcile: &TijaraTides.Domain.Services.Exchange.reconcile/1,
       estates: &TijaraTides.Domain.Services.Estates.advance(&1, catalogue),
       auctions: &TijaraTides.Domain.Services.Auctions.advance(&1, catalogue),

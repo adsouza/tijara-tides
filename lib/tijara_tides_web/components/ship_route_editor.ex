@@ -26,7 +26,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
         <summary class="cursor-pointer">{gettext("About repeating routes")}</summary>
         <p class="mt-2">
           {gettext(
-            "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Removing the current or next stop returns the route to draft; committed voyages and handling finish. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. No cash is earmarked. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
+            "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Removing the current or next stop returns the route to draft; committed voyages and handling finish. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. An optional advance budget reserves cash before sailing toward its stop and stays a strict purchase limit. Linked remote purchases reserve their own cash and warehouse space. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
           )}
         </p>
       </details>
@@ -116,6 +116,41 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
               )}
             </p>
           </details>
+          <.form
+            for={%{}}
+            id={"route-budget-" <> stop["id"]}
+            phx-hook="ExchangeDraft"
+            phx-submit="visit-budget"
+            class="mt-2 flex flex-wrap items-end gap-2"
+          >
+            <input type="hidden" name="stop" value={stop["id"]} />
+            <input type="hidden" name="request_id" value={@request_id} />
+            <label>
+              {gettext("Advance purchase budget ($, optional)")}
+              <input
+                type="number"
+                name="amount"
+                min="0"
+                max="10000000000"
+                step="0.01"
+                value={if stop["advance_budget"], do: stop["advance_budget"] / 100, else: ""}
+                placeholder={gettext("Use available cash")}
+                class="block rounded bg-slate-800 p-2"
+              />
+            </label>
+            <button class="rounded border px-3 py-2">{gettext("Save budget")}</button>
+          </.form>
+          <p :if={@model.budgets[stop["id"]]} class="mt-2 text-xs text-amber-200">
+            {gettext("Reserved for this visit: $%{amount}",
+              amount:
+                TijaraTides.Localization.number(@model.budgets[stop["id"]]["remaining"] / 100,
+                  format: "0.00"
+                )
+            )}
+            <span :if={@model.budgets[stop["id"]]["skip"]}>{gettext(
+              "Purchases skipped for this visit"
+            )}</span>
+          </p>
           <p :for={rule <- Map.get(@model.rules, stop["id"], [])} class="mt-2">
             <.emoji symbol={cargo_emoji(rule["good"])} />
             {gettext("%{value1} %{value2} · %{value3} $%{value4} / lot",
@@ -147,6 +182,21 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
               {gettext("Minimum remaining shelf life: %{minutes} min",
                 minutes: display_number(div(rule["min_remaining_ms"], 60_000))
               )}
+            </span>
+            <span :if={rule["linked_warehouse_id"]} class="text-teal-200">
+              {gettext("Linked remote purchases")}
+              <span :if={@model.links[rule["id"]]}>
+                {gettext("· %{filled} lots purchased; %{remaining} lots open",
+                  filled: display_number(@model.links[rule["id"]]["filled"]),
+                  remaining:
+                    display_number(
+                      get_in(@model.exchange_orders, [
+                        @model.links[rule["id"]]["order_id"],
+                        "quantity"
+                      ]) || 0
+                    )
+                )}
+              </span>
             </span>
             <button
               type="button"
@@ -264,6 +314,31 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
                   value={draft["budget"]}
                   class="block w-full rounded bg-slate-800 p-2 disabled:opacity-40"
                 /></label>
+                <label>
+                  {gettext("Remote purchase warehouse (optional)")}
+                  <select
+                    name="linked_warehouse_id"
+                    disabled={side != "buy" || draft["quantity_mode"] == "maximum"}
+                    class="block w-full rounded bg-slate-800 p-2 disabled:opacity-40"
+                  >
+                    <option value="">{gettext("No linked order")}</option>
+                    <option
+                      :for={{id, warehouse} <- Enum.sort(@model.warehouses)}
+                      :if={warehouse["port"] == stop["port"] && warehouse["expires_ms"] > @clock}
+                      value={id}
+                      selected={draft["linked_warehouse_id"] == id}
+                    >
+                      {gettext("Warehouse %{number}",
+                        number: display_number(warehouse["display_number"] || 0)
+                      )}
+                    </option>
+                  </select>
+                </label>
+                <p class="self-center text-xs text-slate-400">
+                  {gettext(
+                    "Linked orders support fixed targets for bulk commodities, mass consumer products and scrap. Fills stay reserved for this ship; the remaining order ends at berth."
+                  )}
+                </p>
                 <label>{gettext("Minimum shelf life (minutes; buys only)")}<input
                   name="freshness_minutes"
                   type="number"
@@ -375,6 +450,24 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
           class="rounded border px-2 py-1"
         >{gettext("Remove route")}</button>
       </div>
+      <p :if={@model.funding_request} class="my-2 text-sm text-amber-200">
+        {gettext("Departure funding: $%{held} accumulated of $%{required}",
+          held:
+            TijaraTides.Localization.number(@model.funding_request["accumulated"] / 100,
+              format: "0.00"
+            ),
+          required:
+            TijaraTides.Localization.number(@model.funding_request["required"] / 100, format: "0.00")
+        )}
+        <span :if={@model.funding_request["window_deadline_ms"]}>
+          {gettext("· accumulation remaining: %{time}",
+            time:
+              TijaraTidesWeb.GameUI.Presentation.active_countdown(
+                @model.funding_request["window_deadline_ms"] - @clock
+              )
+          )}
+        </span>
+      </p>
       <p :if={@model.plan && @model.plan["departure_wait"]} class="my-2 text-sm text-amber-200">
         {l10n(@model.plan["departure_wait"])}
       </p>

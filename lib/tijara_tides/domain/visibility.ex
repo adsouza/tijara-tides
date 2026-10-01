@@ -87,6 +87,21 @@ defmodule TijaraTides.Domain.Visibility do
           else: []
         )
         |> Enum.map(&Map.drop(&1, ["valuation_seed"])),
+      "remote_links" =>
+        Map.new(
+          owned(state, "remote_links", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
+      "visit_budgets" =>
+        Map.new(
+          owned(state, "visit_budgets", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
+      "departure_requests" =>
+        Map.new(
+          owned(state, "departure_requests", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
       "exchange_orders" =>
         Map.new(
           owned(state, "exchange_orders", "company_id", account["company_id"]),

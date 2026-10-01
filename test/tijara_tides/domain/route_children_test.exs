@@ -18,7 +18,8 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "reason" => "Following route",
          "visit_arrived_ms" => 100,
          "wait_deadline_ms" => 1000,
-         "wait_timed_out" => false
+         "wait_timed_out" => false,
+         "visit_finished" => false
        }},
       {RouteStop,
        %{
@@ -27,7 +28,8 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "company_id" => "c",
          "position" => 1,
          "port" => "Jakarta",
-         "max_wait_ms" => 900
+         "max_wait_ms" => 900,
+         "advance_budget" => nil
        }},
       {RouteTarget,
        %{
@@ -41,7 +43,8 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "quantity" => nil,
          "limit" => 100,
          "budget" => nil,
-         "min_remaining_ms" => 120_000
+         "min_remaining_ms" => 120_000,
+         "linked_warehouse_id" => nil
        }},
       {VisitPlan,
        %{
@@ -51,7 +54,8 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "port" => "Jakarta",
          "onward" => "Singapore",
          "auto_depart" => true,
-         "departure_wait" => nil
+         "departure_wait" => nil,
+         "advance_budget" => nil
        }}
     ]
 

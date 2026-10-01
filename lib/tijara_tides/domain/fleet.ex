@@ -303,7 +303,18 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  def sail(state, account, id, destination, limit, catalogue) do
+  def sail(state, account, id, destination, limit, catalogue),
+    do:
+      TijaraTides.Domain.Services.DepartureFunding.manual_sail(
+        state,
+        account,
+        id,
+        destination,
+        limit,
+        catalogue
+      )
+
+  def sail_funded(state, account, id, destination, limit, catalogue) do
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
 
     with {:ok, _ship, company, estimate} <-

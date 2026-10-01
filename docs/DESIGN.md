@@ -1744,6 +1744,8 @@ pay overdue obligations first, and run the normal oldest-affordable departure
 allocation before another accumulation attempt. Apply a configured retry
 cooldown to accumulation attempts so released cash is not immediately captured
 again; ordinary affordable departures remain eligible during that cooldown.
+The initial configurable durations are 30 active-world minutes before
+accumulation, a 10-minute window, and a 30-minute retry cooldown.
 Preserve the ship's original waiting age. Notify the player when accumulation
 times out. Window and cooldown durations follow the world-clock policy and
 remain tuning parameters. Accumulated reservations also release under the normal

@@ -13,6 +13,12 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
 
   def all do
     @catalogue
+    |> Map.put(
+      "departure_funding",
+      TijaraTides.Domain.Automation.settings(%{
+        "departure_funding" => Application.get_env(:tijara_tides, :departure_funding, %{})
+      })
+    )
     |> Map.put("auctions", Application.get_env(:tijara_tides, :auctions, %{}))
     |> Map.put(
       "dormancy",

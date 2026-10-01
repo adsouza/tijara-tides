@@ -59,6 +59,13 @@ defmodule TijaraTides.Domain.AccountWorld do
     end
   end
 
+  def set_funding_policy(state, account, policy) when policy in ["wait", "reduced", "skip"] do
+    {:ok, current} = Account.set_funding_policy(fetch(state, account["id"]), policy)
+    {:ok, store(state, current), %{}}
+  end
+
+  def set_funding_policy(_state, _account, _policy), do: {:error, :funding_policy_invalid}
+
   def fetch(state, id) do
     # An absent account reads as an empty one; the codec no longer decodes a nil row.
     account =

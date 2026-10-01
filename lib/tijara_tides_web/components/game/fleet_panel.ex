@@ -170,6 +170,41 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             </.form>
           </details>
 
+          <.form
+            for={%{}}
+            id="departure-funding-policy"
+            phx-hook="ExchangeDraft"
+            phx-submit="funding-policy"
+            class="mb-3 flex flex-wrap items-end gap-2 text-sm"
+          >
+            <input type="hidden" name="request_id" value={@request_id} />
+            <label>
+              {gettext("Automatic departure funding policy")}
+              <select name="policy" class="block rounded bg-slate-800 p-2">
+                <option
+                  value="wait"
+                  selected={(@view.private["account"]["funding_policy"] || "wait") == "wait"}
+                >
+                  {gettext("Wait and notify")}
+                </option>
+                <option
+                  value="reduced"
+                  selected={@view.private["account"]["funding_policy"] == "reduced"}
+                >
+                  {gettext("Sail with a reduced budget")}
+                </option>
+                <option value="skip" selected={@view.private["account"]["funding_policy"] == "skip"}>
+                  {gettext("Skip purchases")}
+                </option>
+              </select>
+            </label>
+            <button class="rounded border px-3 py-2">{gettext("Save policy")}</button>
+          </.form>
+          <p class="mb-3 text-xs text-slate-400">
+            {gettext(
+              "This policy applies to all automatic departures. Fuel is always fully funded. Reduced budgets stay strict at arrival; skipped visits can still deliver and collect owned cargo."
+            )}
+          </p>
           <form id="fleet-filter" phx-change="fleet-status" class="mb-3 text-sm">
             <label for="fleet-status">{gettext("Ship status")}</label>
             <select
@@ -891,6 +926,37 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 >{gettext("Save onward destination")}</button>
               </.form>
             </details>
+            <div
+              :for={{_, plan} <- @view.private["visit_plans"] || %{}}
+              :if={plan["ship_id"] == @ship["id"] && !@view.private["ship_routes"][@ship["id"]]}
+              class="mt-3 text-sm"
+            >
+              <.form
+                for={%{}}
+                id={"visit-budget-" <> plan["id"]}
+                phx-hook="ExchangeDraft"
+                phx-submit="visit-budget"
+                class="flex flex-wrap items-end gap-2"
+              >
+                <input type="hidden" name="port" value={plan["port"]} />
+                <input type="hidden" name="request_id" value={@request_id} />
+                <label>
+                  {gettext("Advance purchase budget at %{port} ($, optional)",
+                    port: l10n(plan["port"])
+                  )}
+                  <input
+                    name="amount"
+                    type="number"
+                    min="0"
+                    max="10000000000"
+                    step="0.01"
+                    value={if plan["advance_budget"], do: plan["advance_budget"] / 100, else: ""}
+                    class="block rounded bg-slate-800 p-2"
+                  />
+                </label>
+                <button class="rounded border px-3 py-2">{gettext("Save budget")}</button>
+              </.form>
+            </div>
             <TijaraTidesWeb.ShipRouteEditor.panel
               ship={@ship}
               model={GameQueries.route_editor(@view.private, @ship, @definitions.catalogue)}

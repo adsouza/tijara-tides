@@ -481,6 +481,14 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
           "The ship must be at, or sailing toward, the route's selected stop to start or resume."
         ),
       route_missing: gettext("This ship has no saved repeating route."),
+      funding_policy_invalid: gettext("Choose a valid departure funding policy."),
+      visit_budget_committed:
+        gettext("The budget cannot be lower than spending already committed."),
+      linked_order_invalid:
+        gettext(
+          "Linked purchases require a fixed buy target, an exchange-supported cargo and your active warehouse at this stop."
+        ),
+      linked_order_managed: gettext("Edit linked demand through its route cargo target."),
       route_wait_invalid:
         gettext(
           "Choose a maximum wait from 1 minute to 30 days, or leave it blank for unlimited waiting."

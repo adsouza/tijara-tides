@@ -35,6 +35,11 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
       }
 
       model = %{
+        warehouses: %{},
+        links: %{},
+        budgets: %{},
+        exchange_orders: %{},
+        funding_request: nil,
         route: %{
           "status" => "paused",
           "phase" => "arrival",

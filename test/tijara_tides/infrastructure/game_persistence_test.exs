@@ -5309,4 +5309,180 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(view, "#destination-picker")
     assert has_element?(view, "#destination-picker-trigger", port)
   end
+
+  test "linked orders and accumulated departure funding persist, replay and reject unbacked cash releases",
+       c do
+    alias TijaraTides.Domain.{State, Warehouse, WarehouseWorld, CompanyFinanceWorld}
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "automation-company",
+        %{
+          "action" => "company",
+          "name" => "Automation trader",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    private = GameServer.snapshot(token, c.server).private
+    [ship, second | _] = private["ships"] |> Map.values() |> Enum.sort_by(& &1["id"])
+    game = :sys.get_state(c.server).game
+    rent = Warehouse.quote(WarehouseWorld.used(game, "Jakarta", "dry"), "dry", 10, 1)
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "automation-lease",
+        %{
+          "action" => "warehouse_lease",
+          "port" => "Jakarta",
+          "storage" => "dry",
+          "blocks" => 10,
+          "days" => 1,
+          "price" => rent
+        },
+        c.server
+      )
+
+    [warehouse] = GameServer.snapshot(token, c.server).private["warehouses"] |> Map.values()
+
+    stops =
+      Map.new([ship, second], fn vessel ->
+        for {port, index} <- [{"Jakarta", 0}, {"Singapore", 1}] do
+          assert {:ok, _} =
+                   GameServer.command(
+                     token,
+                     vessel["id"] <> ":stop:" <> to_string(index),
+                     %{
+                       "action" => "route",
+                       "operation" => "add_stop",
+                       "ship" => vessel["id"],
+                       "port" => port
+                     },
+                     c.server
+                   )
+        end
+
+        rows =
+          GameServer.snapshot(token, c.server).private["route_stops"]
+          |> Map.values()
+          |> Enum.filter(&(&1["ship_id"] == vessel["id"]))
+          |> Enum.sort_by(& &1["position"])
+
+        {vessel["id"], rows}
+      end)
+
+    linked = %{
+      "action" => "route",
+      "operation" => "add_rule",
+      "ship" => ship["id"],
+      "stop" => hd(stops[ship["id"]])["id"],
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 3,
+      "limit" => 1,
+      "linked_warehouse_id" => warehouse["id"]
+    }
+
+    assert {:ok, reply} = GameServer.command(token, "linked-target", linked, c.server)
+    before_replay = GameServer.snapshot(token, c.server).private
+    assert {:ok, ^reply} = GameServer.command(token, "linked-target", linked, c.server)
+
+    assert GameServer.snapshot(token, c.server).private["company"]["reserved"] ==
+             before_replay["company"]["reserved"]
+
+    for {vessel, auto} <- [{ship, false}, {second, true}] do
+      assert {:ok, _} =
+               GameServer.command(
+                 token,
+                 vessel["id"] <> ":start",
+                 %{
+                   "action" => "route",
+                   "operation" => "start",
+                   "ship" => vessel["id"],
+                   "auto_depart" => auto
+                 },
+                 c.server
+               )
+    end
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "next-budget",
+               %{
+                 "action" => "visit_budget",
+                 "ship" => second["id"],
+                 "stop" => List.last(stops[second["id"]])["id"],
+                 "amount" => 900_000_000
+               },
+               c.server
+             )
+
+    :sys.replace_state(c.server, fn s ->
+      %{
+        s
+        | catalogue:
+            Map.put(s.catalogue, "departure_funding", %{
+              "wait_ms" => 100,
+              "window_ms" => 10_000,
+              "cooldown_ms" => 200
+            })
+      }
+    end)
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 100)
+    advance(c.server, 200)
+    state = :sys.get_state(c.server).game
+    request = State.get(state, "departure_requests", second["id"])
+    assert request["accumulated"] > 0
+    assert request["window_deadline_ms"] > state.clock_ms
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, state)
+
+    for kind <-
+          ~w(remote_links departure_requests visit_budgets exchange_orders warehouse_reservations accounts route_stops route_rules ship_routes) do
+      assert State.entities(restored, kind) == State.entities(state, kind)
+    end
+
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    before = restored
+
+    invalid =
+      CompanyFinanceWorld.post(before, request["company_id"], "unbacked-funding-release", [
+        {"cash_reserved", -1},
+        {"cash_available", 1}
+      ])
+      |> Map.put(:revision, before.revision + 1)
+
+    assert_raise ArgumentError, ~r/balances do not reconcile/, fn ->
+      GameStore.commit(Repo, c.world_id, before.epoch, before, invalid)
+    end
+
+    assert {:ok, after_rollback} = GameStore.reload(Repo, c.world_id, before)
+    assert after_rollback.entities == before.entities
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "new-policy",
+               %{"action" => "funding_policy", "policy" => "reduced"},
+               c.server
+             )
+
+    assert GameServer.snapshot(token, c.server).private["account"]["funding_policy"] == "reduced"
+    assert GameServer.snapshot(token, c.server).private["departure_requests"] == %{}
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+    conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => token})
+    {:ok, view, html} = live(conn, "/play")
+    assert html =~ "Automatic departure funding policy"
+    assert has_element?(view, "#departure-funding-policy option[value=reduced][selected]")
+  end
 end

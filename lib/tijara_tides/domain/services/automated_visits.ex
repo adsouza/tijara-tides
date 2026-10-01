@@ -4,7 +4,7 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
 
   @moduledoc "Coordinate visit fills and automatic departures across ship, market and finance roots."
   import TijaraTides.Domain.State, only: [get: 3, entities: 2]
-  alias TijaraTides.Domain.{Fleet, Notices, Trade}
+  alias TijaraTides.Domain.{Fleet, Trade}
   alias TijaraTides.Domain.Services.TradeSettlement, as: Trading
   @open ["planned", "waiting"]
   def advance(state, catalogue) do
@@ -18,86 +18,15 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
     )
     |> Enum.sort_by(&{if(&1["side"] == "sell", do: 0, else: 1), &1["created_ms"], &1["id"]})
     |> Enum.reduce(state, &attempt(&2, &1, catalogue))
-    |> depart_ready_visits(catalogue)
+    |> TijaraTides.Domain.Services.DepartureFunding.advance(catalogue)
   end
-
-  defp depart_ready_visits(state, catalogue) do
-    entities(state, "visit_plans")
-    |> Enum.sort_by(fn {id, _} -> id end)
-    |> Enum.reduce(state, fn {id, plan}, state ->
-      ship = get(state, "ships", plan["ship_id"])
-
-      if plan["auto_depart"] == true and
-           ShipWorld.automation_enabled?(state, plan["ship_id"]) and
-           not is_nil(ship) and
-           ship["port"] == plan["port"] and
-           ship["status"] in ["docked", "loading", "unloading"] do
-        pending =
-          Enum.any?(entities(state, "ship_instructions"), fn {_, order} ->
-            order["ship_id"] == ship["id"] and order["port"] == plan["port"] and
-              order["status"] in @open
-          end)
-
-        cond do
-          ship["status"] != "docked" ->
-            departure_wait(state, plan, "Waiting for cargo handling to finish")
-
-          pending or not is_nil(ship["pending_side"]) ->
-            departure_wait(state, plan, "Waiting for cargo orders to be filled or cancelled")
-
-          true ->
-            company = get(state, "companies", ship["company_id"])
-            account = get(state, "accounts", company["account_id"])
-            quote = Fleet.voyage_quote(ship, plan["onward"], catalogue)
-
-            case Fleet.sail(
-                   state,
-                   account,
-                   ship["id"],
-                   plan["onward"],
-                   if(quote, do: quote["fuel"], else: 0),
-                   catalogue
-                 ) do
-              {:ok, changed, _} ->
-                Notices.notice(
-                  changed,
-                  account["id"],
-                  "auto-depart:" <> id,
-                  {"ship.departed",
-                   %{
-                     "ship" => ship["name"],
-                     "port" => plan["port"],
-                     "destination" => plan["onward"]
-                   }}
-                )
-
-              {:error, reason} ->
-                departure_wait(state, plan, departure_reason(reason))
-            end
-        end
-      else
-        state
-      end
-    end)
-  end
-
-  defp departure_reason({:departure_funds, _, _, _}),
-    do: "Waiting for available funds for fuel and canal fees"
-
-  defp departure_reason({:departure_unpaid, _}), do: "Waiting for unpaid operating costs to clear"
-
-  defp departure_reason({:departure_no_route, _, _}),
-    do: "No sea route is available to the onward destination"
-
-  defp departure_reason({:departure_too_long, _}),
-    do: "The onward voyage exceeds the maximum duration"
-
-  defp departure_reason(_), do: "The onward destination is unavailable; update the visit plan"
 
   defp attempt(state, order, catalogue) do
     ship = get(state, "ships", order["ship_id"])
+    visit_budget = ship && TijaraTides.Domain.AutomationWorld.budget(state, ship, order["port"])
 
-    if ship && is_nil(ship["pending_side"]) && ship["status"] == "docked" &&
+    if order["status"] in @open && ship && is_nil(ship["pending_side"]) &&
+         ship["status"] == "docked" &&
          ship["port"] == order["port"] do
       company = get(state, "companies", order["company_id"])
       account = get(state, "accounts", company["account_id"])
@@ -115,6 +44,7 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
         good: order["good"],
         quantity: 1,
         limit: order["limit"],
+        purchase_budget_id: if(visit_budget && visit_budget["strict"], do: visit_budget["id"]),
         min_remaining_ms: Map.get(order, "min_remaining_ms", 0),
         destination: order["onward"]
       }
@@ -138,12 +68,20 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
       end
 
       first =
-        if length(ShipWorld.visit_onwards(state, ship["id"], order["port"])) > 1 and
-             order["side"] == "buy",
-           do: {:error, :instruction_onward_conflict},
-           else: result.(1)
+        if visit_budget && visit_budget["skip"] && order["side"] == "buy" && is_nil(source),
+          do: {:error, :purchases_skipped},
+          else:
+            if(
+              length(ShipWorld.visit_onwards(state, ship["id"], order["port"])) > 1 and
+                order["side"] == "buy",
+              do: {:error, :instruction_onward_conflict},
+              else: result.(1)
+            )
 
       case first do
+        {:error, :purchases_skipped} ->
+          finish(state, order, "Purchases skipped for this visit", catalogue)
+
         {:error, :berth_busy} ->
           state
           |> TijaraTides.Domain.Services.BerthAllocation.enqueue(ship["id"])
@@ -218,12 +156,26 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
   defp execute_fill(state, account, trade, source, catalogue, admission \\ :normal)
 
   defp execute_fill(state, account, trade, nil, catalogue, :validate),
-    do: Trading.check(state, account, trade, catalogue)
+    do:
+      Trading.check(
+        TijaraTides.Domain.Services.LinkedOrders.handover(state, trade.ship_id),
+        account,
+        trade,
+        catalogue
+      )
 
   defp execute_fill(state, account, trade, nil, catalogue, :normal),
-    do: Trading.execute(state, account, trade, catalogue)
+    do:
+      Trading.execute(
+        TijaraTides.Domain.Services.LinkedOrders.handover(state, trade.ship_id),
+        account,
+        trade,
+        catalogue
+      )
 
   defp execute_fill(state, account, trade, warehouse, catalogue, admission) do
+    state = TijaraTides.Domain.Services.LinkedOrders.handover(state, trade.ship_id)
+
     case WarehouseWorld.transfer(
            state,
            account,
@@ -259,6 +211,9 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
   def validate(state, account, trade, catalogue) do
     ship = get(state, "ships", trade.ship_id)
 
+    budget = TijaraTides.Domain.AutomationWorld.budget(state, ship, ship["port"])
+    trade = %{trade | purchase_budget_id: if(budget && budget["strict"], do: budget["id"])}
+
     source =
       if trade.side == "buy",
         do: WarehouseWorld.collection_source(state, ship, trade.good, trade.min_remaining_ms)
@@ -292,9 +247,6 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
 
   defp finish(state, order, reason, catalogue),
     do: ShipWorld.cancel_visit_order(state, order["id"], reason, catalogue)
-
-  defp departure_wait(state, plan, reason),
-    do: ShipWorld.wait_for_departure(state, plan["id"], reason)
 
   defp reason_text(:instruction_onward_conflict),
     do: "Choose one shared onward port for this visit before purchases can resume"

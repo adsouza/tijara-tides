@@ -928,3 +928,20 @@ The pure warehouse model computes virtual FEFO allocations before releasing
 actual batches, so cancelled lower-grade lots cannot consume stock promised to
 another auction. Proceeds use existing reserved cash until the pool completes;
 all stages share the existing `CommitExecutor` transaction and ledger checks.
+
+## Automation reservation ownership
+
+`AutomationWorld` owns linked-order cycle records, visit budget reservations and
+departure funding requests. `LinkedOrders` coordinates route targets with the
+OrderBook and Warehouse roots: remote fills become exclusive ship stock claims,
+berth handover closes the standing remainder, and target edits update both
+backing and the uncommitted visit atomically. Warehouse cargo stays owned after
+a claim is released. The service never writes another root's rows directly.
+
+`DepartureFunding` coordinates Finance, Fleet and Automation roots. It checks
+current requirements, settles arrears, allocates affordable requests in waiting
+order, and atomically converts one bounded accumulation into ordinary voyage
+and purchase reservations. The Account root owns the global policy; the Ship
+root owns configured stop budgets and completion of each route visit. Commands
+and ticks use these same transitions. The ledger verifier and SQL transaction
+validate the final combined candidate before publication.

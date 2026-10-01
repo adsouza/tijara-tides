@@ -61,6 +61,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       trade.limit,
       trade.destination,
       trade.min_remaining_ms,
+      trade.purchase_budget_id,
       catalogue
     )
   end
@@ -75,6 +76,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
          limit,
          destination,
          minimum,
+         budget_id,
          catalogue
        ) do
     with %{} = company <- get(state, "companies", account["company_id"]),
@@ -104,6 +106,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             handling,
             destination,
             minimum,
+            budget_id,
             catalogue
           ),
         else: sell(state, company, ship, good, quantity, limit, market, quote, handling)
@@ -177,6 +180,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
          handling,
          destination,
          minimum,
+         budget_id,
          catalogue
        ) do
     class = classes()[ship["class"]]
@@ -192,6 +196,18 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       |> Enum.filter(&(&1["company_id"] == company["id"]))
 
     voyage = purchase_voyage(ship, item, quantity, destination, fleet, state.clock_ms, catalogue)
+
+    budget =
+      if budget_id,
+        do: get(state, "visit_budgets", budget_id),
+        else: TijaraTides.Domain.AutomationWorld.budget(state, ship, ship["port"])
+
+    strict =
+      budget && budget["strict"] && budget["ship_id"] == ship["id"] &&
+        budget["port"] == ship["port"] && budget["company_id"] == company["id"]
+
+    purchasing_cash =
+      if strict, do: budget["remaining"], else: company["cash"] - company["reserved"]
 
     cond do
       not market["seller"] ->
@@ -222,13 +238,15 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
           ) < quantity ->
         {:error, :insufficient_fresh_cargo}
 
-      company["cash"] - company["reserved"] < cost + handling + cleaning or company["unpaid"] > 0 ->
+      purchasing_cash < cost + handling + cleaning or (not is_nil(budget) and budget["skip"]) or
+          company["unpaid"] > 0 ->
         {:error, :insufficient_cash}
 
       is_nil(voyage) ->
         {:error, :purchase_destination_required}
 
-      company["cash"] - company["reserved"] - cost - handling - cleaning < voyage["required"] ->
+      company["cash"] - company["reserved"] - if(strict, do: 0, else: cost + handling + cleaning) <
+          voyage["required"] ->
         {:error,
          {:purchase_voyage_funds, destination, voyage["required"],
           company["cash"] - company["reserved"] - cost - handling - cleaning}}
@@ -265,10 +283,21 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
               {"inventory", cost},
               {"handling_expense", handling},
               {"cleaning_expense", cleaning},
-              {"cash_available", -cost - handling - cleaning}
+              {if(strict, do: "cash_reserved", else: "cash_available"),
+               -cost - handling - cleaning}
             ],
             %{ship: ship["id"], good: item["id"]}
           )
+
+        state =
+          if strict,
+            do:
+              TijaraTides.Domain.AutomationWorld.consume_visit(
+                state,
+                budget["id"],
+                cost + handling + cleaning
+              ),
+            else: state
 
         {:ok, state, %{"spent" => cost + handling + cleaning, "quantity" => quantity}}
     end

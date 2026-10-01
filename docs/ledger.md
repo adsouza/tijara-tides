@@ -98,3 +98,15 @@ Stop the game owner before maintenance edits and restart it afterward. Financial
 maintenance must update game summaries and post balanced adjustments atomically;
 editing balances alone is rejected by reconciliation. Backups retain the actual
 pre-migration history available to us, not a reconstruction.
+
+## Automation cash reservations
+
+Visit budgets and bounded departure accumulations move cash between
+`cash_available` and `cash_reserved`, without changing profit or total cash.
+Strict arrival purchases debit their visit reservation and retain the ordinary
+inventory, handling and cleaning postings. Fuel and standing orders retain
+separate backing. Conversion of an accumulation releases its original balance
+and reserves the current fuel/purchase amounts in the same atomic departure;
+there is no second accumulation balance after departure. Timeout and unused
+visit cash return to available cash once. The persistence verifier includes all
+of these outstanding obligations in its minimum reserved-cash check.

@@ -126,6 +126,23 @@ defmodule TijaraTides.Localization.Notifications do
 
   defp message("company.formed", args), do: gettext("Your invitee now runs %{company}.", args)
 
+  defp message("funding.timeout", args),
+    do: gettext("%{ship}: funding accumulation timed out; reserved cash was released.", args)
+
+  defp message("linked.unfunded", args),
+    do:
+      gettext(
+        "Linked purchases at %{port} could not reserve cash or warehouse space for the next circuit.",
+        args
+      )
+
+  defp message("linked.cancelled", args),
+    do:
+      gettext(
+        "%{ship} at %{port}: cancelled %{quantity} linked lots of %{cargo}, releasing %{refund} and their warehouse space. %{filled} purchased lots remain stored. %{reason}.",
+        args
+      )
+
   defp message("ship.departed", args),
     do: gettext("%{ship} automatically departed %{port} for %{destination}.", args)
 

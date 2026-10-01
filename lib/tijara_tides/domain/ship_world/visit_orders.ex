@@ -187,7 +187,8 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
       "port" => port,
       "onward" => onward,
       "auto_depart" => enabled,
-      "departure_wait" => nil
+      "departure_wait" => nil,
+      "advance_budget" => if(previous, do: previous.advance_budget)
     })
   end
 

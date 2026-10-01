@@ -69,6 +69,11 @@ defmodule TijaraTides.UseCases.ShipPlanningQueries do
       stop_goods: stop_goods,
       orders: orders,
       plan: plan,
+      warehouses: private["warehouses"] || %{},
+      links: private["remote_links"] || %{},
+      exchange_orders: private["exchange_orders"] || %{},
+      budgets: private["visit_budgets"] || %{},
+      funding_request: get_in(private, ["departure_requests", ship["id"]]),
       last_timeout: last_timeout
     }
   end
