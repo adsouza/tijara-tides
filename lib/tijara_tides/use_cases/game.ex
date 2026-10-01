@@ -11,6 +11,7 @@ defmodule TijaraTides.UseCases.Game do
   def preview(token, ship, destination), do: runtime().preview(token, ship, destination)
   def command(token, request_id, payload), do: runtime().command(token, request_id, payload)
   def connect(token), do: runtime().connect(token)
+  def visit(token), do: runtime().visit(token)
   def subscribe(), do: runtime().subscribe()
   def definitions(), do: runtime().definitions()
   def request_id(), do: runtime().request_id()

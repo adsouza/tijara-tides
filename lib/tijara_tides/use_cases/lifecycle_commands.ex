@@ -52,16 +52,33 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
   defp execute(game, {:sign_out, session}, _),
     do: {:ok, AccountWorld.sign_out(game, session), %{}}
 
+  defp execute(game, {:visit, session}, context) do
+    with {:ok, account} <- Authentication.required(game, session, context.wall_ms) do
+      changed =
+        AccountWorld.advance_owner_dormancy(game, account, context.wall_ms, context.catalogue)
+
+      {:ok, account} = Authentication.required(changed, session, context.wall_ms)
+      changed = AccountWorld.owner_visit(changed, account, context.wall_ms)
+      if changed == game, do: {:replay, %{}}, else: {:ok, changed, %{}}
+    end
+  end
+
+  defp execute(game, :dormancy_check, context) do
+    changed = AccountWorld.advance_dormancy(game, context.wall_ms, context.catalogue)
+    if changed == game, do: {:replay, %{}}, else: {:ok, changed, %{}}
+  end
+
   defp execute(game, {:advance, elapsed}, context) do
     wall = Map.get(context, :wall_ms)
+    absent = AccountWorld.advance_dormancy(game, wall, context.catalogue)
 
     scale =
       if is_integer(wall),
-        do: TijaraTides.Domain.ParticipationWorld.index(game, wall, context.catalogue),
+        do: TijaraTides.Domain.ParticipationWorld.index(absent, wall, context.catalogue),
         else: 10_000
 
     changed =
-      game
+      absent
       |> Map.put(:participation_bps, scale)
       |> Game.advance(elapsed, context.catalogue, &TijaraTides.UseCases.Observation.measure/2)
 
@@ -84,15 +101,24 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
     end
   end
 
-  defp execute(game, {:email_redeem, code, device, session}, context),
-    do:
-      EmailIdentity.redeem(
-        game,
-        code,
-        device,
-        Authentication.optional(game, session, context.wall_ms),
-        context
-      )
+  defp execute(game, {:email_redeem, code, device, session}, context) do
+    with {:ok, changed, result} <-
+           EmailIdentity.redeem(
+             game,
+             code,
+             device,
+             Authentication.optional(game, session, context.wall_ms),
+             context
+           ) do
+      {:ok, account} = Authentication.required(changed, device, context.wall_ms)
+
+      changed =
+        AccountWorld.advance_owner_dormancy(changed, account, context.wall_ms, context.catalogue)
+
+      {:ok, account} = Authentication.required(changed, device, context.wall_ms)
+      {:ok, AccountWorld.owner_visit(changed, account, context.wall_ms), result}
+    end
+  end
 
   defp execute(game, {action, id}, context) when action in [:email_failed, :email_delivered] do
     case ReadState.get(game, "email_requests", id) do

@@ -142,6 +142,27 @@ defmodule TijaraTides.Infrastructure.EmailDeliveryTest do
     end
   end
 
+  test "dormancy warns with an absolute deadline and a game URL rather than an identity credential" do
+    configure([
+      %{
+        "id" => "warning",
+        "email" => "recipient@example.com",
+        "purpose" => "dormancy",
+        "expires_ms" => 1_900_000_000_000
+      }
+    ])
+
+    assert {:noreply, nil} = EmailDelivery.handle_info(:poll, nil)
+    assert_receive {:attempted_email, message}
+    assert message.subject == "Your Tijara Tides company closure warning"
+    assert message.text_body =~ "2030-03-17T17:46:40.000Z"
+    assert message.text_body =~ "https://game.example.com/"
+    assert message.text_body =~ "does not increase your bankruptcy count"
+    refute message.text_body =~ "/email/verify"
+    refute message.text_body =~ TijaraTides.Infrastructure.GameServer.email_token("warning")
+    assert_receive {:outbox_update, {:email_delivered, "warning"}}
+  end
+
   test "disabled delivery and unrelated messages leave the outbox alone; empty polls do not send" do
     configure([])
     Application.put_env(:tijara_tides, :email_enabled, false)

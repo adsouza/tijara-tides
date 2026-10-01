@@ -123,6 +123,106 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
            ).rows == [["valid-after-error"]]
   end
 
+  test "dormancy persists while idle, ignores snapshot and connection heartbeats, and survives restart",
+       c do
+    {:ok, wall} = Agent.start_link(fn -> 0 end)
+
+    :sys.replace_state(c.server, fn state ->
+      %{
+        state
+        | wall_clock: fn -> Agent.get(wall, & &1) end,
+          catalogue:
+            Map.put(state.catalogue, "dormancy", %{"absence_ms" => 100, "warning_ms" => 200})
+      }
+    end)
+
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => company}} =
+      GameServer.command(
+        token,
+        "company",
+        %{"action" => "company", "name" => "Dormancy Test"},
+        c.server
+      )
+
+    assert Repo.query!(
+             "SELECT last_visit_ms,warned_ms,closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[0, nil, nil]]
+
+    Agent.update(wall, fn _ -> 99 end)
+    GameServer.snapshot(token, c.server)
+    assert :ok == GameServer.connect(token, c.server)
+
+    assert Repo.query!(
+             "SELECT last_visit_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[0]]
+
+    # The wall timer is independent of world activation and progression.
+    :sys.replace_state(c.server, &%{&1 | active: false})
+    Agent.update(wall, fn _ -> 100 end)
+    send(c.server, :dormancy_check)
+    state = :sys.get_state(c.server)
+    assert state.game.clock_ms == 0
+    refute state.active
+
+    assert Repo.query!(
+             "SELECT warned_ms,closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[100, 300]]
+
+    # A visit cancels the warning atomically and records a new baseline.
+    Agent.update(wall, fn _ -> 299 end)
+    assert :ok == GameServer.visit(token, c.server)
+
+    assert Repo.query!(
+             "SELECT last_visit_ms,warned_ms,closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[299, nil, nil]]
+
+    Agent.update(wall, fn _ -> 399 end)
+    send(c.server, :dormancy_check)
+    :sys.get_state(c.server)
+
+    assert Repo.query!(
+             "SELECT closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[599]]
+
+    # Initialization honours a warning that elapsed during suspension, before any visit.
+    Agent.update(wall, fn _ -> 1000 end)
+
+    restarted =
+      start_supervised!(
+        {GameServer,
+         name: nil,
+         enabled: true,
+         world_id: c.world_id,
+         wall_clock: fn -> Agent.get(wall, & &1) end,
+         tick_ms: 86_400_000},
+        id: :dormancy_restart
+      )
+
+    view = GameServer.snapshot(token, restarted)
+    assert view.private["account"]["company_id"] == nil
+    assert view.private["account"]["bankruptcies"] == 0
+    assert view.public["companies"][company]["closure_reason"] == "dormant"
+
+    assert Repo.query!(
+             "SELECT warned_ms,closes_ms,closed_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[399, 599, 1000]]
+
+    assert Repo.query!("SELECT count(*) FROM game_bankruptcy_events WHERE world_id=$1", [
+             c.world_id
+           ]).rows == [[0]]
+
+    assert :ok == GameServer.visit(token, restarted)
+    assert GameServer.snapshot(token, restarted).private["account"]["company_id"] == nil
+  end
+
   test "a busy initialized owner remains ready without servicing its mailbox", %{server: server} do
     assert GameServer.readiness(server) == :ready
     :ok = :sys.suspend(server)

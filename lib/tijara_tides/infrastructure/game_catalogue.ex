@@ -10,5 +10,15 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
   @regional_land @regional_land_path |> File.read!() |> Jason.decode!()
   def regional_land, do: @regional_land
   def land, do: @land
-  def all, do: Map.put(@catalogue, "auctions", Application.get_env(:tijara_tides, :auctions, %{}))
+
+  def all do
+    @catalogue
+    |> Map.put("auctions", Application.get_env(:tijara_tides, :auctions, %{}))
+    |> Map.put(
+      "dormancy",
+      TijaraTides.Domain.Account.dormancy_settings(%{
+        "dormancy" => Application.get_env(:tijara_tides, :dormancy, %{})
+      })
+    )
+  end
 end

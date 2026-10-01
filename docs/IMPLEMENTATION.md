@@ -278,10 +278,8 @@ with launch tuning described in this document. Remaining work includes:
 
 - **Simulated economy:** differentiated production rates, money-stock and
   source/sink monitoring, and price-level monitoring (§5).
-- **Dormancy and estates:** durable owner-absence tracking and closure warnings,
-  dormant liquidation without a bankruptcy count,
-  full warehouse liquidation stages, won-cargo storage grace and replacement
-  leases (§§5, 7, 11, 12).
+- **Warehouse estates:** full expired-lease liquidation stages, won-cargo storage
+  grace and replacement leases (§§7, 11, 12).
 - **Procurement:** machinery delivery auctions, supplier deposits, buyer funding
   and receiving-capacity commitments, delivery deadlines, settlement/default and
   system-fault protections (§7).
@@ -770,7 +768,7 @@ since its last qualifying action over seven real days. The index sums these
 weights globally; fleet size, port selection and authentication do not increase
 it. Settled trades, funded auction bids, ship purchases, dispatches and paid
 warehouse terms qualify at $100 or more. Automated economic actions count;
-owner absence and dormant closure remain separate, unimplemented behavior.
+owner absence and dormant closure use the separate lifecycle described below.
 Failed commands, receipt replays, bid withdrawals and operating expenses do not
 refresh participation. Timestamps commit atomically with the economic action.
 
@@ -804,3 +802,43 @@ bids are admitted at settlement only when funds and paid receiving space cover
 the lot. Newly acquired stock can be offered only in a later unopened auction.
 Listed quantities are excluded from other offers, and a merchant cannot bid on
 its own listings. Consumer purchases remain the final consumption sink.
+
+## Owner absence and dormant closure
+
+Dormancy uses durable wall-clock timestamps per company, separate from economic
+activity. The default absence interval is 30 real days followed by 7 real days of
+advance warning. `TIJARA_DORMANCY_ABSENCE_DAYS` and
+`TIJARA_DORMANCY_WARNING_DAYS` configure positive whole-day intervals. An issued
+warning keeps its original closure deadline even if settings change.
+
+Authenticated page loads, email sign-in and explicit player actions reset absence;
+snapshot reads, websocket reconnects, connection heartbeats, automatic UI events
+and economic automation do not. UI-only actions share the coalesced asynchronous
+refresh task. Successful gameplay commands also persist visits atomically. A
+return before the deadline cancels the pending warning notice and queued email;
+a return at or after the deadline cannot restore the old company.
+
+Linked accounts receive retryable warning email with an absolute UTC deadline
+and a game link. The warning is not a sign-in credential. Unlinked accounts have
+in-app notice only; the account panel states the inability to receive external
+warnings and the consequences of losing the device session. Delivery failure or
+an unread warning does not postpone closure. A full warning interval starts when
+the warning is recorded; a late first check never backdates it.
+
+A minute-level wall timer runs even while simulation progression is idle. Startup
+honours existing expired warnings before publishing the restored world. Voyages,
+cargo aging and asset liquidation still use the active-world clock. Existing
+companies without an absence record start a fresh baseline at their first check.
+
+Closure cancels ship automation and order-book commitments, releases invalid
+auction bids, detaches the account and removes economic activity. Ships and cargo
+enter the existing receivership process; residual estate cash leaves circulation.
+Dormant closures persist in `game_company_dormancy`, separate from bankruptcy
+events, and add neither a bankruptcy count nor a restart cooldown. Sponsor
+guarantees still settle against debt recorded at closure. The legacy
+`bankruptcy_ms` company field serves as the shared receivership marker; public
+closure reasons and owner notices distinguish dormancy from bankruptcy.
+
+Ordinary warehouse liquidation remains the direct-clearance implementation
+described above. Order-book-first liquidation, warehouse liquidation auctions,
+per-lease accounting pools and won-cargo storage grace remain pending.

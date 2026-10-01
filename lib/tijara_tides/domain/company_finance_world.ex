@@ -376,7 +376,7 @@ defmodule TijaraTides.Domain.CompanyFinanceWorld do
     ])
   end
 
-  def close_in_receivership(state, company_id) do
+  def close_in_receivership(state, company_id, reason \\ "voluntary") do
     # Receivership explicitly addresses settled history as well as open loans.
     addressed = Enum.map(loans(state, company_id), & &1["id"])
 
@@ -386,8 +386,9 @@ defmodule TijaraTides.Domain.CompanyFinanceWorld do
     save_finances(state, finance, effects)
     |> Notices.notice(
       finance.account_id,
-      "bankruptcy:" <> company_id,
-      {"company.bankrupt", %{"company" => finance.name}}
+      if(reason == "dormant", do: "dormant:" <> company_id, else: "bankruptcy:" <> company_id),
+      {if(reason == "dormant", do: "company.dormant", else: "company.bankrupt"),
+       %{"company" => finance.name}}
     )
   end
 

@@ -6,6 +6,7 @@ defmodule TijaraTides.Domain.Account do
   defstruct @fields ++ [sessions: [], invitations: [], email_requests: [], bankruptcy_events: []]
   @history_ms 112 * 86_400_000
   def history_ms, do: @history_ms
+  defdelegate dormancy_settings(catalogue), to: __MODULE__.Dormancy, as: :settings
 
   def suspended?(%__MODULE__{suspended_ms: value}), do: value != nil
 
@@ -103,6 +104,13 @@ defmodule TijaraTides.Domain.Account do
       do: raise(ArgumentError, "Reinstatement requires a funded pledge from the original sponsor")
 
     %{account | suspended_ms: nil}
+  end
+
+  def detach_dormant(%__MODULE__{} = account, company_id) do
+    unless account.company_id == company_id,
+      do: raise(ArgumentError, "Dormancy must detach the account's own company")
+
+    %{account | company_id: nil}
   end
 
   def set_locale(%__MODULE__{} = account, locale) when locale in ["en", "ar"],

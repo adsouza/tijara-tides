@@ -7,6 +7,7 @@ defmodule TijaraTidesWeb.GameLive do
   def mount(_params, session, socket) do
     TijaraTides.Localization.put_locale(session["locale"])
     token = session["account_token"]
+    if token && not connected?(socket), do: Game.visit(token)
 
     if connected?(socket) do
       :ok = Game.subscribe()
@@ -24,6 +25,8 @@ defmodule TijaraTidesWeb.GameLive do
         refresh_running: false,
         refresh_pending: false,
         heartbeat_pending: false,
+        owner_visit_pending: false,
+        owner_visit_running: false,
         preferred_locale: if(session["locale_explicit"], do: session["locale"]),
         browser_id: session["player_id"],
         page_title: gettext("Your shipping company"),
@@ -69,6 +72,16 @@ defmodule TijaraTidesWeb.GameLive do
         preview: nil
       )
 
+    socket =
+      attach_hook(socket, :owner_visit, :handle_event, fn event, _params, current ->
+        current =
+          if current.assigns.token && event not in ["dropdown-active", "lv:clear-flash"],
+            do: queue_owner_visit(current),
+            else: current
+
+        {:cont, current}
+      end)
+
     {:ok, refresh(socket)}
   end
 
@@ -80,7 +93,17 @@ defmodule TijaraTidesWeb.GameLive do
     {:noreply, socket |> assign(heartbeat_pending: true) |> background_refresh()}
   end
 
+  def handle_info(:owner_visit, socket) do
+    {:noreply,
+     if(socket.assigns.owner_visit_pending, do: background_refresh(socket), else: socket)}
+  end
+
   def handle_info(_message, socket), do: {:noreply, socket}
+
+  defp queue_owner_visit(socket) do
+    unless socket.assigns.owner_visit_pending, do: send(self(), :owner_visit)
+    assign(socket, owner_visit_pending: true)
+  end
 
   defp background_refresh(%{assigns: %{refresh_running: true}} = socket),
     do: assign(socket, refresh_pending: true)
@@ -94,6 +117,7 @@ defmodule TijaraTidesWeb.GameLive do
     token = socket.assigns.token
     selected = socket.assigns.selected_ship
     heartbeat = socket.assigns.heartbeat_pending
+    visit = socket.assigns.owner_visit_pending
     generation = socket.assigns.refresh_generation + 1
 
     socket
@@ -101,10 +125,13 @@ defmodule TijaraTidesWeb.GameLive do
       refresh_generation: generation,
       refresh_running: true,
       refresh_pending: false,
-      heartbeat_pending: false
+      heartbeat_pending: false,
+      owner_visit_pending: false,
+      owner_visit_running: visit
     )
     |> start_async({:world_refresh, generation}, fn ->
       if heartbeat, do: Game.connect(token)
+      if visit, do: Game.visit(token)
       fetch_view(token, selected)
     end)
   end
@@ -114,7 +141,7 @@ defmodule TijaraTidesWeb.GameLive do
     if generation != socket.assigns.refresh_generation do
       {:noreply, socket}
     else
-      socket = assign(socket, refresh_running: false)
+      socket = assign(socket, refresh_running: false, owner_visit_running: false)
 
       socket =
         case result do
@@ -143,7 +170,10 @@ defmodule TijaraTidesWeb.GameLive do
       |> assign(
         refresh_generation: socket.assigns.refresh_generation + 1,
         refresh_running: false,
-        refresh_pending: false
+        refresh_pending: false,
+        owner_visit_pending:
+          socket.assigns.owner_visit_pending || socket.assigns.owner_visit_running,
+        owner_visit_running: false
       )
     else
       socket
@@ -965,6 +995,8 @@ defmodule TijaraTidesWeb.GameLive do
 
   defp refresh(socket) do
     socket = cancel_refresh(socket)
+    if socket.assigns.owner_visit_pending, do: Game.visit(socket.assigns.token)
+    socket = assign(socket, owner_visit_pending: false)
     {view, preview} = fetch_view(socket.assigns.token, socket.assigns.selected_ship)
     apply_view(socket, view, preview)
   end

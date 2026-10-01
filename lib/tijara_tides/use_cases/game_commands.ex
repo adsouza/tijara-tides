@@ -8,8 +8,31 @@ defmodule TijaraTides.UseCases.GameCommands do
   alias TijaraTides.UseCases.{Authentication, CommandRequest, CommitExecutor}
 
   def execute(state, account, command, context) do
+    state =
+      TijaraTides.Domain.AccountWorld.advance_owner_dormancy(
+        state,
+        account,
+        Map.get(context, :wall_ms),
+        context.catalogue
+      )
+
+    account = TijaraTides.Domain.ReadState.get(state, "accounts", account["id"])
+
     case Commands.execute(state, account, command, context) do
       {:ok, changed, reply} ->
+        changed =
+          case Map.get(context, :wall_ms) do
+            nil ->
+              changed
+
+            wall ->
+              TijaraTides.Domain.AccountWorld.owner_visit(
+                changed,
+                TijaraTides.Domain.ReadState.get(changed, "accounts", account["id"]),
+                wall
+              )
+          end
+
         {:ok,
          TijaraTides.Domain.ParticipationWorld.observe(
            state,

@@ -8,7 +8,7 @@ defmodule TijaraTides.Domain.Services.Bankruptcy do
   alias TijaraTides.Domain.{CompanyFinance}
   alias TijaraTides.Domain.CompanyFinanceWorld.Guarantees
 
-  def bankrupt(state, account, reason \\ "voluntary") do
+  def bankrupt(state, account, reason \\ "voluntary", wall_ms \\ nil) do
     company = get(state, "companies", account["company_id"])
 
     cond do
@@ -33,7 +33,7 @@ defmodule TijaraTides.Domain.Services.Bankruptcy do
             guarantee -> {guarantee["id"], min(guarantee["amount"], debt)}
           end
 
-        state = CompanyFinanceWorld.close_in_receivership(state, company["id"])
+        state = CompanyFinanceWorld.close_in_receivership(state, company["id"], reason)
 
         state =
           Enum.reduce(entities(state, "ships"), state, fn {id, ship}, acc ->
@@ -43,16 +43,31 @@ defmodule TijaraTides.Domain.Services.Bankruptcy do
           end)
 
         state =
-          AccountWorld.record_bankruptcy(
-            state,
-            account["id"],
-            company["id"],
-            reason,
-            CompanyFinance.terms().cooldown_ms,
-            escrow
-          )
+          if reason == "dormant" do
+            TijaraTides.Domain.AccountWorld.Dormancy.record_closure(
+              state,
+              account["id"],
+              company["id"],
+              escrow,
+              wall_ms
+            )
+          else
+            AccountWorld.record_bankruptcy(
+              state,
+              account["id"],
+              company["id"],
+              reason,
+              CompanyFinance.terms().cooldown_ms,
+              escrow
+            )
+          end
 
-        {:ok, state, %{"bankrupt" => company["id"]}}
+        state =
+          if reason == "dormant",
+            do: TijaraTides.Domain.Services.Exchange.reconcile(state, company["id"]),
+            else: state
+
+        {:ok, state, %{if(reason == "dormant", do: "dormant", else: "bankrupt") => company["id"]}}
     end
   end
 end

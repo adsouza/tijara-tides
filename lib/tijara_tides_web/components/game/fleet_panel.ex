@@ -82,7 +82,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               :if={@view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil}
               class="mt-3 rounded border border-red-900 bg-red-950/40 p-2 text-sm text-red-300"
             >
-              {gettext("Company in bankruptcy — assets in receivership")}
+              {if @view.public["companies"][inspected["company_id"]]["closure_reason"] == "dormant",
+                do: gettext("Company closed for dormancy — assets in receivership"),
+                else: gettext("Company in bankruptcy — assets in receivership")}
             </p>
             <div class="mt-3 border-t border-slate-700 pt-3">
               <p class="mb-1 text-xs text-slate-400">

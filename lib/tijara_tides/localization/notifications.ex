@@ -20,6 +20,9 @@ defmodule TijaraTides.Localization.Notifications do
         {"storage", class} ->
           {"storage", storage_name(class)}
 
+        {"deadline", wall_ms} ->
+          {"deadline", DateTime.from_unix!(wall_ms, :millisecond) |> DateTime.to_iso8601()}
+
         {key, value} when key in ["reason", "side", "port", "destination"] ->
           {key, Localization.text(value || "")}
 
@@ -32,7 +35,7 @@ defmodule TijaraTides.Localization.Notifications do
 
     bindings =
       for key <-
-            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse)a,
+            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse deadline)a,
           Map.has_key?(args, Atom.to_string(key)),
           into: %{},
           do: {key, args[Atom.to_string(key)]}
@@ -147,6 +150,20 @@ defmodule TijaraTides.Localization.Notifications do
     do:
       gettext(
         "%{company} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes.",
+        args
+      )
+
+  defp message("company.dormancy_warning", args),
+    do:
+      gettext(
+        "%{company} will close for owner absence at %{deadline}. Return to the game before this deadline to keep it. Automated trading does not reset absence.",
+        args
+      )
+
+  defp message("company.dormant", args),
+    do:
+      gettext(
+        "%{company} closed for owner absence. Its assets are in receivership and cannot be restored. Your bankruptcy count is unchanged.",
         args
       )
 

@@ -27,7 +27,17 @@ defmodule TijaraTides.Domain.Visibility do
       "exchange_trades" => TijaraTides.Domain.OrderBookWorld.recent(state),
       "companies" =>
         Map.new(entities(state, "companies"), fn {id, c} ->
-          {id, Map.take(c, ["id", "name", "created_ms", "bankruptcy_ms"])}
+          record = get(state, "company_dormancy", id)
+
+          {id,
+           Map.take(c, ["id", "name", "created_ms", "bankruptcy_ms"])
+           |> Map.put(
+             "closure_reason",
+             if(record && record["closed_ms"] != nil,
+               do: "dormant",
+               else: if(c["bankruptcy_ms"] != nil, do: "bankruptcy")
+             )
+           )}
         end),
       "ships" =>
         Map.new(entities(state, "ships"), fn {id, s} ->

@@ -2688,3 +2688,31 @@ msgstr "اختر حداً أدنى لمدة الصلاحية من 0 إلى 43,20
 
 msgid "Waiting for cargo meeting the minimum remaining shelf life"
 msgstr "بانتظار حمولة تستوفي الحد الأدنى لمدة الصلاحية المتبقية"
+
+#, elixir-autogen, elixir-format
+msgid "%{company} closed for owner absence. Its assets are in receivership and cannot be restored. Your bankruptcy count is unchanged."
+msgstr "أُغلقت %{company} بسبب غياب مالكها. أصولها تحت التصفية ولا يمكن استعادتها. لم يتغير عدد حالات إفلاسك."
+
+#, elixir-autogen, elixir-format
+msgid "%{company} will close for owner absence at %{deadline}. Return to the game before this deadline to keep it. Automated trading does not reset absence."
+msgstr "ستُغلق %{company} بسبب غياب مالكها في %{deadline}. عُد إلى اللعبة قبل هذا الموعد للحفاظ عليها. التداول الآلي لا يعيد ضبط مدة الغياب."
+
+#, elixir-autogen, elixir-format
+msgid "After %{days} days without an authenticated visit, your company receives %{warning} days' warning before closure. Returning before closure cancels it; automated trading and unattended refreshes do not. Dormant closure does not increase your bankruptcy count."
+msgstr "بعد %{days} يومًا دون زيارة موثقة، تتلقى شركتك إنذارًا قبل الإغلاق بمدة %{warning} يومًا. العودة قبل الإغلاق تلغيه، أما التداول الآلي والتحديثات التلقائية فلا تلغيه. الإغلاق بسبب الغياب لا يزيد عدد حالات إفلاسك."
+
+#, elixir-autogen, elixir-format
+msgid "Company closed for dormancy — assets in receivership"
+msgstr "أُغلقت الشركة بسبب الغياب — الأصول تحت التصفية"
+
+#, elixir-autogen, elixir-format
+msgid "Without a verified email, closure warnings can reach you only in the app. Losing this device session also ends access permanently. An unread warning does not postpone closure."
+msgstr "دون بريد إلكتروني موثّق، لا تصلك إنذارات الإغلاق إلا داخل التطبيق. فقدان جلسة هذا الجهاز ينهي الوصول نهائيًا أيضًا. عدم قراءة الإنذار لا يؤجل الإغلاق."
+
+#, elixir-autogen, elixir-format
+msgid "Your Tijara Tides company closure warning"
+msgstr "إنذار بإغلاق شركتك في أمواج التجارة"
+
+#, elixir-autogen, elixir-format
+msgid "Your company will close for owner absence at %{deadline}. Sign in and return to the game before this deadline to cancel closure:\n\n%{url}\n\nAutomated routes and unattended session refreshes do not reset absence. After closure, assets enter receivership and cannot be restored. Dormant closure does not increase your bankruptcy count."
+msgstr "ستُغلق شركتك بسبب غياب مالكها في %{deadline}. سجّل الدخول وعُد إلى اللعبة قبل هذا الموعد لإلغاء الإغلاق:\n\n%{url}\n\nالمسارات الآلية وتحديثات الجلسة التلقائية لا تعيد ضبط مدة الغياب. بعد الإغلاق، تدخل الأصول في التصفية ولا يمكن استعادتها. الإغلاق بسبب الغياب لا يزيد عدد حالات إفلاسك."

@@ -38,7 +38,11 @@ defmodule TijaraTides.Infrastructure.EmailDelivery do
           [row | _] ->
             base = Application.fetch_env!(:tijara_tides, :email_base_url)
             token = GameServer.email_token(row["id"])
-            url = base <> "/email/verify?token=" <> token
+
+            url =
+              if row["purpose"] == "dormancy",
+                do: base <> "/",
+                else: base <> "/email/verify?token=" <> token
 
             message =
               new()

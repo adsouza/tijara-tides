@@ -2,7 +2,9 @@ defmodule TijaraTides.AccountBoundaryTest do
   use ExUnit.Case, async: true
 
   test "only the Account implementation writes identity and account lifecycle rows" do
-    owned = ~w(accounts sessions invitations invitation_progress email_requests bankruptcy_events)
+    owned =
+      ~w(accounts sessions invitations invitation_progress email_requests bankruptcy_events company_dormancy)
+
     files = Path.wildcard("lib/tijara_tides/domain/**/*.ex")
 
     for file <- files,

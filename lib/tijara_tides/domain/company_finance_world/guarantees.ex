@@ -130,7 +130,11 @@ defmodule TijaraTides.Domain.CompanyFinanceWorld.Guarantees do
   # The closure names the escrow it consumed, so prior bankruptcies — the very history
   # that made this beneficiary need a sponsor — never resolve a live guarantee.
   defp failure(state, g) do
-    owned(state, "bankruptcy_events", "account_id", g["beneficiary_id"])
+    (owned(state, "bankruptcy_events", "account_id", g["beneficiary_id"]) ++
+       Enum.filter(
+         owned(state, "company_dormancy", "account_id", g["beneficiary_id"]),
+         &(&1["closed_ms"] != nil)
+       ))
     |> Enum.find(&(&1["guarantee_id"] == g["id"]))
   end
 

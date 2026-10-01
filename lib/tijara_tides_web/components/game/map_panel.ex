@@ -320,7 +320,9 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
             :if={@view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil}
             class="text-red-300"
           >
-            {gettext("Company in bankruptcy — assets in receivership")}
+            {if @view.public["companies"][inspected["company_id"]]["closure_reason"] == "dormant",
+              do: gettext("Company closed for dormancy — assets in receivership"),
+              else: gettext("Company in bankruptcy — assets in receivership")}
           </p>
           <p>
             {l10n(@definitions.classes[inspected["class"]]["name"])} · {l10n(inspected["status"])}
