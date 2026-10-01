@@ -1,29 +1,17 @@
 defmodule TijaraTides.Domain.AutomationWorld do
   @moduledoc "Owns linked-order cycles, visit cash reservations and departure requests."
-  alias TijaraTides.Domain.{State, CompanyFinanceWorld}
+  alias TijaraTides.Domain.{State, CompanyFinanceWorld, VisitBudget, DepartureRequest, RemoteLink}
 
   def open_link(state, rule, order_id, generation) do
-    State.put(state, "remote_links", rule["id"], %{
-      "id" => rule["id"],
-      "company_id" => rule["company_id"],
-      "ship_id" => rule["ship_id"],
-      "stop_id" => rule["stop_id"],
-      "good" => rule["good"],
-      "warehouse_id" => rule["linked_warehouse_id"],
-      "port" => State.get(state, "route_stops", rule["stop_id"])["port"],
-      "order_id" => order_id,
-      "generation" => generation,
-      "filled" => 0,
-      "status" => "active"
-    })
+    port = State.get(state, "route_stops", rule["stop_id"])["port"]
+    store_link(state, RemoteLink.new(rule, order_id, generation, port))
   end
 
-  def record_remote_fill(state, link, quantity),
-    do:
-      State.put(state, "remote_links", link["id"], %{link | "filled" => link["filled"] + quantity})
+  def record_remote_fill(state, row, quantity),
+    do: store_link(state, RemoteLink.fill(RemoteLink.Rows.decode(row), quantity))
 
-  def close_link(state, link, status),
-    do: State.put(state, "remote_links", link["id"], %{link | "status" => status})
+  def close_link(state, row, status),
+    do: store_link(state, RemoteLink.close(RemoteLink.Rows.decode(row), status))
 
   def remove_link(state, id), do: State.delete(state, "remote_links", id)
 
@@ -31,111 +19,69 @@ defmodule TijaraTides.Domain.AutomationWorld do
     unless State.get(state, "visit_budgets", spec.id) == nil,
       do: raise(ArgumentError, "Visit budget already funded")
 
-    amount = amount || 0
-
-    state
-    |> move_cash(spec.company_id, amount, "visit_budget")
-    |> State.put("visit_budgets", spec.id, %{
-      "id" => spec.id,
-      "company_id" => spec.company_id,
-      "ship_id" => spec.ship_id,
-      "stop_id" => spec.stop_id,
-      "port" => spec.port,
-      "amount" => amount,
-      "remaining" => amount,
-      "strict" => spec.configured != nil,
-      "skip" => skip,
-      "visit" => spec.visit
-    })
+    model = VisitBudget.new(spec, amount, skip)
+    state |> move_cash(model.company_id, model.remaining, "visit_budget") |> store_budget(model)
   end
 
   def resize_visit(state, row, amount) do
-    spent = row["amount"] - row["remaining"]
-    delta = amount - row["amount"]
-    company = State.get(state, "companies", row["company_id"])
+    budget = VisitBudget.Rows.decode(row)
+    company = State.get(state, "companies", budget.company_id)
 
-    cond do
-      amount < spent ->
-        {:error, :visit_budget_committed}
-
-      delta > company["cash"] - company["reserved"] or (delta > 0 and company["unpaid"] > 0) ->
-        {:error, :insufficient_cash}
-
-      true ->
-        {:ok,
-         state
-         |> move_cash(row["company_id"], delta, "visit_budget")
-         |> State.put("visit_budgets", row["id"], %{
-           row
-           | "amount" => amount,
-             "remaining" => row["remaining"] + delta,
-             "strict" => true,
-             "skip" => false
-         })}
+    with {:ok, model, delta} <-
+           VisitBudget.resize(
+             budget,
+             amount,
+             company["cash"] - company["reserved"],
+             company["unpaid"]
+           ) do
+      {:ok, state |> move_cash(model.company_id, delta, "visit_budget") |> store_budget(model)}
     end
   end
 
   def consume_visit(state, id, amount) do
-    row = State.get(state, "visit_budgets", id)
-
-    unless row && row["strict"] && not row["skip"] && amount <= row["remaining"],
-      do: raise(ArgumentError, "Purchase exceeds reserved visit budget")
-
-    State.put(state, "visit_budgets", id, %{row | "remaining" => row["remaining"] - amount})
+    case State.get(state, "visit_budgets", id) do
+      nil -> raise(ArgumentError, "Purchase exceeds reserved visit budget")
+      row -> store_budget(state, VisitBudget.consume(VisitBudget.Rows.decode(row), amount))
+    end
   end
 
-  def release_visit(state, row),
-    do:
-      state
-      |> move_cash(row["company_id"], -row["remaining"], "visit_budget_release")
-      |> State.delete("visit_budgets", row["id"])
-
-  def request(state, spec, policy, required) do
-    State.put(state, "departure_requests", spec.ship_id, %{
-      "id" => spec.ship_id,
-      "ship_id" => spec.ship_id,
-      "company_id" => spec.company_id,
-      "destination" => spec.port,
-      "stop_id" => spec.stop_id,
-      "visit" => spec.visit,
-      "configured" => spec.configured,
-      "policy" => policy,
-      "required" => required,
-      "blocked_ms" => state.clock_ms,
-      "accumulated" => 0,
-      "window_deadline_ms" => nil,
-      "cooldown_ms" => nil
-    })
-  end
-
-  def accumulate(state, request, amount, deadline) do
-    unless amount >= 0 and request["accumulated"] + amount <= request["required"],
-      do: raise(ArgumentError, "Invalid departure accumulation")
+  def release_visit(state, row) do
+    model = VisitBudget.Rows.decode(row)
 
     state
-    |> move_cash(request["company_id"], amount, "departure_accumulation")
-    |> State.put("departure_requests", request["id"], %{
-      request
-      | "accumulated" => request["accumulated"] + amount,
-        "window_deadline_ms" => request["window_deadline_ms"] || deadline
-    })
+    |> move_cash(model.company_id, -model.remaining, "visit_budget_release")
+    |> State.delete("visit_budgets", model.id)
   end
 
-  def release_accumulation(state, request, cooldown \\ nil) do
+  def request(state, spec, policy, required),
+    do: store_request(state, DepartureRequest.new(spec, policy, required, state.clock_ms))
+
+  def accumulate(state, row, amount, deadline) do
+    model = DepartureRequest.accumulate(DepartureRequest.Rows.decode(row), amount, deadline)
+    state |> move_cash(model.company_id, amount, "departure_accumulation") |> store_request(model)
+  end
+
+  def release_accumulation(state, row, cooldown \\ nil) do
+    request = DepartureRequest.Rows.decode(row)
+
     state
-    |> move_cash(request["company_id"], -request["accumulated"], "departure_accumulation_release")
-    |> State.put("departure_requests", request["id"], %{
-      request
-      | "accumulated" => 0,
-        "window_deadline_ms" => nil,
-        "cooldown_ms" => cooldown
-    })
+    |> move_cash(request.company_id, -request.accumulated, "departure_accumulation_release")
+    |> store_request(DepartureRequest.release(request, cooldown))
   end
 
   def abandon_request(state, row),
     do: state |> release_accumulation(row) |> State.delete("departure_requests", row["id"])
 
   def complete_request(state, id), do: State.delete(state, "departure_requests", id)
+
+  defp store_link(state, model),
+    do: State.put(state, "remote_links", model.id, RemoteLink.Rows.encode(model))
+
+  defp store_budget(state, model),
+    do: State.put(state, "visit_budgets", model.id, VisitBudget.Rows.encode(model))
+
+  defp store_request(state, model),
+    do: State.put(state, "departure_requests", model.id, DepartureRequest.Rows.encode(model))
 
   def budget(state, ship, port) do
     State.owned(state, "visit_budgets", "company_id", ship["company_id"])

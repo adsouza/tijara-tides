@@ -975,3 +975,12 @@ Route editor warehouse options are prepared per stop and cargo by
 world clock. Command-side link validation uses that same predicate; award-only,
 expired, foreign, wrong-port and incompatible storage never become receiving
 options merely because a component renders their rows.
+
+`LiquidationPool`, `VisitBudget`, `DepartureRequest` and `RemoteLink` are pure
+typed models. They own accrual, exact clearance remainders, reservation resizing
+and consumption, accumulation deadlines, and named lifecycle transitions.
+Their separate `Rows` codecs preserve the existing durable string-keyed format.
+`WarehouseLiquidationWorld` and `AutomationWorld` hydrate models, supply clocks
+and other-root facts, store transitions, and coordinate journal postings. The
+models contain no world lookup, row codec, finance posting or workflow dependency;
+no schema change or new transaction boundary is introduced.
