@@ -53,7 +53,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
               selected={kind == @storage.storage}
             >
               {storage_name(kind)} — {if kind == "dry",
-                do: gettext("non-perishable solid goods"),
+                do: gettext("solid goods, including perishables"),
                 else:
                   Enum.map_join(@storage.storage_goods[kind] || [], ", ", fn {id, _} ->
                     cargo_option(id)
@@ -114,6 +114,12 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           {warehouse_name(lease.row)} · {gettext("%{used} / %{total} m³",
             used: display_number(div(lease.volume, 1000)),
             total: display_number(lease.row["blocks"] * 100)
+          )}
+        </p>
+        <p :for={fresh <- lease.freshness} class="text-xs text-amber-200">
+          <.cargo_label good={fresh.good} />
+          · {gettext("Remaining under current storage: %{minutes} mins",
+            minutes: display_number(div(fresh.remaining_ms, 60_000))
           )}
         </p>
         <p class="text-xs text-slate-400">

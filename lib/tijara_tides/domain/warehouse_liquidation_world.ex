@@ -110,9 +110,26 @@ defmodule TijaraTides.Domain.WarehouseLiquidationWorld do
 
   def clearance_value(state, id, good, numerator, denominator) do
     p = pool(state, id)
-    numerator = numerator + Map.get(p["clearance_remainders"], good, 0)
-    remainder = Map.put(p["clearance_remainders"], good, rem(numerator, denominator))
-    {put(state, %{p | "clearance_remainders" => remainder}), div(numerator, denominator)}
+    previous = Map.get(p["clearance_remainders"], good, %{"numerator" => 0, "denominator" => 1})
+
+    common =
+      div(denominator, Integer.gcd(denominator, previous["denominator"])) *
+        previous["denominator"]
+
+    numerator =
+      numerator * div(common, denominator) +
+        previous["numerator"] * div(common, previous["denominator"])
+
+    remaining = rem(numerator, common)
+    divisor = Integer.gcd(remaining, common)
+
+    remainder =
+      Map.put(p["clearance_remainders"], good, %{
+        "numerator" => div(remaining, divisor),
+        "denominator" => div(common, divisor)
+      })
+
+    {put(state, %{p | "clearance_remainders" => remainder}), div(numerator, common)}
   end
 
   def sale(state, id, proceeds, handling) do

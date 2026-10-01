@@ -18,6 +18,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
       "ask" => div(item["reference_cents"] * (ask_base + div(500 - market.stock, 25)), 100),
       "bid" => div(item["reference_cents"] * (bid_base - div(500 - market.demand, 25)), 100),
       "handling_fee" => handling_rate(catalogue["ports"][market.port]),
+      "refrigeration_bps" => TijaraTides.Domain.CargoFreshness.rate("reefer", catalogue),
       "freshness_batches" =>
         if(market.seller,
           do: Enum.sort_by(market.batches, &(&1.expires_ms || 9_223_372_036_854_775_807)),
@@ -65,6 +66,9 @@ defmodule TijaraTides.Domain.PortCargoMarket do
         {next, [lot], []}
       end
 
+    taken =
+      Enum.map(taken, &TijaraTides.Domain.CargoFreshness.initialize(&1, lots.clock_ms, item))
+
     cargo =
       Enum.map(
         taken,
@@ -73,7 +77,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
           unit_cost: price,
           lot_id: &1.lot_id,
           quantity: &1.quantity,
-          expires_ms: &1.expires_ms
+          expires_ms: &1.expires_ms,
+          freshness: &1.freshness
         }
       )
 
@@ -105,7 +110,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
             &%Batch{
               lot_id: &1.lot_id,
               quantity: &1.quantity,
-              expires_ms: &1.expires_ms
+              expires_ms: &1.expires_ms,
+              freshness: &1.freshness
             }
           )
       else
@@ -122,6 +128,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   end
 
   def validate_catalogue!(catalogue) do
+    TijaraTides.Domain.CargoFreshness.rate("reefer", catalogue)
+
     Enum.each(catalogue["goods"], fn {id, item} ->
       unless Regex.match?(~r/^[a-z]+(_[a-z]+)*$/, id) and item["id"] == id and
                is_binary(item["name"]) and String.trim(item["name"]) != "",
@@ -170,7 +178,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     {lots, batches} =
       if item["shelf_ms"] > 0 and seller and not merchant do
         {next, lot} = Lots.create(lots, good, 500, lots.clock_ms + item["shelf_ms"])
-        {next, [lot]}
+        {next, [TijaraTides.Domain.CargoFreshness.initialize(lot, lots.clock_ms, item)]}
       else
         {lots, []}
       end
@@ -239,7 +247,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
       {lots, batches} =
         if item["shelf_ms"] > 0 and produced > 0 do
           {next, lot} = Lots.create(lots, market.good, produced, now + item["shelf_ms"])
-          {next, batches ++ [lot]}
+          {next, batches ++ [TijaraTides.Domain.CargoFreshness.initialize(lot, now, item)]}
         else
           {lots, batches}
         end

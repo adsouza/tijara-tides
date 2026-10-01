@@ -214,21 +214,14 @@ defmodule TijaraTides.Domain.Services.WarehouseLiquidation do
     p = pool(state, id)
     good = hd(cargo).good
     item = catalogue["goods"][good]
-    shelf = max(1, item["shelf_ms"])
 
-    numerator =
-      Enum.sum(
-        for b <- cargo do
-          freshness =
-            if b.expires_ms,
-              do: min(item["shelf_ms"], max(0, b.expires_ms - state.clock_ms)),
-              else: shelf
-
-          b.quantity * item["reference_cents"] * p["clearance_bps"] * freshness
-        end
-      )
-
-    {state, value} = Pools.clearance_value(state, id, good, numerator, 10_000 * shelf)
+    {state, value} =
+      Enum.reduce(cargo, {state, 0}, fn batch, {s, paid} ->
+        {fresh, shelf} = TijaraTides.Domain.CargoFreshness.ratio(batch, s.clock_ms, item)
+        numerator = batch.quantity * item["reference_cents"] * p["clearance_bps"] * fresh
+        {s, amount} = Pools.clearance_value(s, id, good, numerator, 10_000 * shelf)
+        {s, paid + amount}
+      end)
 
     record_sale(
       state,

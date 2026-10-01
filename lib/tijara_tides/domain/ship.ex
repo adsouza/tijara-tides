@@ -34,6 +34,14 @@ defmodule TijaraTides.Domain.Ship do
            end),
            do: raise(ArgumentError, "Purchased cargo is incompatible with the ship")
 
+    rate = TijaraTides.Domain.CargoFreshness.rate(ShipClass.all()[ship.class]["hold"], catalogue)
+
+    cargo =
+      Enum.map(
+        cargo,
+        &TijaraTides.Domain.CargoFreshness.recondition(&1, now, rate, catalogue["goods"][&1.good])
+      )
+
     next = %{ship | cargo: ship.cargo ++ cargo}
     capacity!(next, catalogue)
     quantity = Enum.sum(Enum.map(cargo, & &1.quantity))

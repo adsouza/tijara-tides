@@ -81,9 +81,20 @@ reference prices, production rates, ship prices, and travel scaling are explicit
 provisional tuning values. Voyages currently run at 600× sailing speed with a
 six-second minimum (10× faster than the initial playtest). Existing voyages are
 retimed on their next tick, preserving progress and fuel already spent.
-New perishable production has correspondingly shorter shelf lives: fruit 7h 12m,
-seafood 3h 36m, and meat 4h 48m of active-world time. Existing lots retain their
-stored expiry timestamps; buying or splitting a lot does not reset its age. New
+New ordinary shelf lives are provisionally 60 active-world minutes for fruit
+(bananas), 90 seconds for meat and 60 seconds for seafood. Refrigeration defaults
+to quarter-speed biological aging, giving fresh cargo 4 hours, 6 minutes and
+4 minutes respectively. Rates and birth shelf lives live in the catalogue;
+accepted holdings snapshot their conditions. Existing lots retain their original
+shelf-life basis and biological age when upgraded. Higher reefer ship crew costs,
+smaller holds and higher refrigerated storage rent supply the cost tradeoff.
+Cargo holds immutable birth expiry and lineage separately from projected expiry
+under its current conditions. Exact integer age units survive warming, cooling,
+resale and splits; cooling cannot revive spoiled goods. Harvest time and biological
+freshness never reset. Lifetime previews use the receiving hold on purchase and
+show remaining time under current conditions in storage. Clearance payments use
+biological freshness, with exact rational cent remainders across mixed birth
+shelf lives. New
 companies start with no cash or ships; players borrow up to $250,000 and buy ships
 at any port. Existing companies retain their assets.
 
@@ -597,7 +608,7 @@ minimum sale prices do not constrain these sales. Ordinary lots use the next
 scheduled port auction with its full window; perishable lots use a fixed two-hour
 window. Cargo unable to survive that window clears immediately. Unsold auction
 lots clear at 10% of configured reference value, multiplied by the remaining
-configured shelf-life fraction for perishables, capped at one. Spoiled cargo is
+biological shelf-life fraction for perishables, capped at one. Spoiled cargo is
 discarded without payment. Fractional clearance amounts carry across batch and
 lot splits within the lease pool. Clearance leaves storage and the economy;
 existing finite simulated auction buyers retain their shared demand and budgets.
@@ -788,7 +799,7 @@ new leases use the next number above the company's surviving leases. Renewal
 and clearance of other leases do not rename a surviving warehouse.
 
 The lease selector offers one option per storage type, listing compatible cargo
-(with ordinary storage abbreviated to "non-perishable solid goods").
+(including perishables in ordinary storage).
 Ordinary and refrigerated leases accept mixtures of their listed goods. Liquid
 leases additionally require a dedicated cargo, chosen from liquid goods only.
 

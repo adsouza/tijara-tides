@@ -338,7 +338,7 @@ defmodule TijaraTides.Domain.GameTest do
     goods = GameCatalogue.all()["goods"]
     ship = fn class -> %{"class" => class, "cargo" => []} end
     assert Game.compatible_cargo?(ship.("freighter"), goods["lumber"])
-    refute Game.compatible_cargo?(ship.("freighter"), goods["fruit"])
+    assert Game.compatible_cargo?(ship.("freighter"), goods["fruit"])
     refute Game.compatible_cargo?(ship.("freighter"), goods["crude_oil"])
     assert Game.compatible_cargo?(ship.("reefer"), goods["fruit"])
     assert Game.compatible_cargo?(ship.("reefer"), goods["lumber"])
@@ -705,7 +705,10 @@ defmodule TijaraTides.Domain.GameTest do
     }
 
     assert {:ok, bought, _} = Game.execute(state, account, command, %{}, catalogue)
-    assert hd(Game.get(bought, "ships", ship["id"])["cargo"])["expires_ms"] == expiry
+    lot = hd(Game.get(bought, "ships", ship["id"])["cargo"])
+    assert lot["freshness"]["origin_expires_ms"] == expiry
+    assert lot["expires_ms"] == bought.clock_ms + 4 * (expiry - bought.clock_ms)
+    expiry = lot["expires_ms"]
     expired = Game.advance(bought, expiry - bought.clock_ms, catalogue)
     assert Game.get(expired, "ships", ship["id"])["cargo"] == []
     assert Game.advance(expired, 0, catalogue) == expired
@@ -746,7 +749,15 @@ defmodule TijaraTides.Domain.GameTest do
   test "market freshness expires between production boundaries" do
     {state, _, catalogue} = setup_game()
     market = Game.get(state, "markets", "Jakarta|fruit")
-    market = %{market | "batches" => Enum.map(market["batches"], &%{&1 | "expires_ms" => 1})}
+
+    market = %{
+      market
+      | "batches" =>
+          Enum.map(market["batches"], fn row ->
+            row |> Map.delete("freshness") |> Map.put("expires_ms", 1)
+          end)
+    }
+
     state = TijaraTides.Domain.State.put(state, "markets", "Jakarta|fruit", market)
     state = Game.advance(state, 1, catalogue)
     assert Game.get(state, "markets", "Jakarta|fruit")["stock"] == 0

@@ -326,6 +326,14 @@ defmodule TijaraTides.UseCases.MarketQueries do
         do: quote["freshness_batches"],
         else: Enum.filter(ship["cargo"], &(&1["good"] == good))
 
+    batches =
+      if side == "buy",
+        do:
+          CargoRules.condition_rows(batches, ship["class"], clock, %{
+            "refrigeration" => %{"aging_bps" => quote["refrigeration_bps"] || 2500}
+          }),
+        else: batches
+
     CargoRules.freshness(batches, quantity, clock, CargoRules.handling_ms(quantity))
   end
 

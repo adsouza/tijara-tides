@@ -6,7 +6,9 @@ defmodule TijaraTides.Domain.CargoRules do
 
   def compatible_class_id?(class, item) do
     hold = ShipClass.all()[class]["hold"]
-    item["hold"] == hold or (hold == "reefer" and item["hold"] == "dry")
+
+    item["hold"] == hold or (hold == "reefer" and item["hold"] == "dry") or
+      (hold == "dry" and item["hold"] == "reefer")
   end
 
   def compatible_cargo?(ship, item) do
@@ -15,6 +17,31 @@ defmodule TijaraTides.Domain.CargoRules do
     compatible_class?(ship, item) and
       (hold != "liquid" or Enum.all?(ship["cargo"], &(&1["good"] == item["id"])))
   end
+
+  def condition_rows(batches, class, now, catalogue \\ %{}) do
+    rate = TijaraTides.Domain.CargoFreshness.rate(ShipClass.all()[class]["hold"], catalogue)
+
+    Enum.map(batches, fn b ->
+      batch = %TijaraTides.Domain.Ship.CargoBatch{
+        good: Map.get(b, "good", ""),
+        quantity: b["quantity"],
+        lot_id: b["lot_id"],
+        expires_ms: b["expires_ms"],
+        freshness: b["freshness"]
+      }
+
+      batch
+      |> TijaraTides.Domain.CargoFreshness.recondition(now, rate)
+      |> TijaraTides.Domain.Ship.CargoRows.encode()
+    end)
+  end
+
+  def valid_age_row?(row),
+    do:
+      TijaraTides.Domain.CargoFreshness.valid?(%{
+        freshness: row["freshness"],
+        expires_ms: row["expires_ms"]
+      })
 
   def handling_ms(quantity), do: max(1000, quantity * 500)
 

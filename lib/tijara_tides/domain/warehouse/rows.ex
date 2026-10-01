@@ -5,6 +5,7 @@ defmodule TijaraTides.Domain.Warehouse.Rows do
 
   @fields ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms)a
   @renewal_defaults [
+    aging_bps: 2500,
     source_lease_id: nil,
     space_group: nil,
     space_volumes: %{},

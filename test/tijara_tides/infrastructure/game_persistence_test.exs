@@ -4056,7 +4056,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#cargo-ship-filter input[type=checkbox][checked]")
     assert "lumber" in option_goods.()
     refute "crude_oil" in option_goods.()
-    refute "fruit" in option_goods.()
+    assert "fruit" in option_goods.()
     send(view.pid, {:game_changed, 0})
     render_async(view)
     refute "crude_oil" in option_goods.()
@@ -4199,7 +4199,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "th", "Aboard")
     assert has_element?(view, "th", "Trade")
     refute has_element?(view, "td", "Appliances")
-    refute has_element?(view, "td", "Fruit")
+    assert has_element?(view, "td", "Fruit")
     assert has_element?(view, "td", "Lumber")
     assert has_element?(view, "#aboard-buy-lumber", "0")
     refute has_element?(view, "#set-port-destination")
@@ -5037,6 +5037,115 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     repeated = Auctions.reconcile(final, cat) |> WarehouseWorld.advance(cat)
     assert repeated.entities == final.entities
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "refrigerated partial transfers preserve biological age and lot lineage across reload",
+       c do
+    alias TijaraTides.Domain.{
+      State,
+      Warehouse,
+      WarehouseWorld,
+      ShipWorld,
+      PortCargoMarketWorld,
+      CompanyFinanceWorld
+    }
+
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "cold-company",
+        %{"action" => "company", "name" => "Cold", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    before = :sys.get_state(c.server).game
+    cat = :sys.get_state(c.server).catalogue
+    a = GameServer.snapshot(token, c.server).private["account"]
+    ship = State.owned(before, "ships", "company_id", a["company_id"]) |> hd()
+    ids = CommandStore.allocate_lot_ids(%{repo: Repo}, 16)
+
+    next =
+      Map.put(before, :lot_allocation, ids)
+      |> State.put("ships", ship["id"], %{ship | "class" => "reefer"})
+
+    {next, cargo} =
+      PortCargoMarketWorld.release_stock(next, "Jakarta", "fruit", 4, 100, cat["goods"]["fruit"])
+
+    origin = hd(cargo)["expires_ms"]
+
+    next =
+      ShipWorld.load_cargo(next, ship["id"], cargo, 0, cat)
+      |> CompanyFinanceWorld.post(a["company_id"], "purchase", [
+        {"inventory", 400},
+        {"cash_available", -400}
+      ])
+
+    {:ok, next, _} =
+      WarehouseWorld.lease(
+        next,
+        a,
+        %{
+          "port" => "Jakarta",
+          "storage" => "dry",
+          "blocks" => 1,
+          "days" => 1,
+          "price" => Warehouse.quote(WarehouseWorld.used(next, "Jakarta", "dry"), "dry", 1, 1)
+        },
+        "warm-storage",
+        cat
+      )
+
+    next = Game.advance(next, 3000, cat)
+    cold = State.get(next, "ships", ship["id"])["cargo"] |> hd()
+
+    {:ok, next, _} =
+      WarehouseWorld.transfer(
+        next,
+        a,
+        %{
+          "warehouse" => "warm-storage",
+          "ship" => ship["id"],
+          "side" => "store",
+          "good" => "fruit",
+          "quantity" => 2
+        },
+        cat
+      )
+
+    warm = State.get(next, "warehouses", "warm-storage")["cargo"] |> hd()
+    assert warm["freshness"]["origin_expires_ms"] == origin
+    assert warm["freshness"]["harvest_ms"] == cold["freshness"]["harvest_ms"]
+    assert warm["expires_ms"] < cold["expires_ms"]
+    next = %{next | revision: before.revision + 1}
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    assert restored.entities["warehouses"] == next.entities["warehouses"]
+    assert restored.entities["ships"] == next.entities["ships"]
+
+    rejuvenated = %{
+      warm["freshness"]
+      | "remaining_units" => warm["freshness"]["remaining_units"] + 10_000,
+        "expires_ms" => warm["expires_ms"] + 1
+    }
+
+    assert_raise Postgrex.Error, fn ->
+      Repo.query!("UPDATE game_cargo_holdings SET freshness=$3 WHERE world_id=$1 AND lot_id=$2", [
+        c.world_id,
+        warm["lot_id"],
+        rejuvenated
+      ])
+    end
+
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+
+    assert [[^origin], [^origin]] =
+             Repo.query!(
+               "SELECT expires_ms FROM game_cargo_lots WHERE world_id=$1 AND parent_lot_id=$2 ORDER BY id",
+               [c.world_id, cold["lot_id"]]
+             ).rows
   end
 
   test "won-cargo replacement commits charges and preserves cargo on reload and replay", c do

@@ -17,6 +17,7 @@ defmodule TijaraTides.Domain.Warehouse do
     grace_blocks: nil,
     grace_duration_ms: nil,
     external_volume: 0,
+    aging_bps: 2500,
     display_number: 1,
     renewal_rate: nil,
     next_rent: 0,
@@ -58,7 +59,10 @@ defmodule TijaraTides.Domain.Warehouse do
     do: Enum.sum(for b <- w.cargo, do: b.quantity * catalogue["goods"][b.good]["volume_l"])
 
   def compatible?(w, item),
-    do: item["hold"] == w.storage and (w.storage != "liquid" or item["id"] == w.good)
+    do:
+      (item["hold"] == w.storage or
+         (w.storage in ["dry", "reefer"] and item["hold"] in ["dry", "reefer"])) and
+        (w.storage != "liquid" or item["id"] == w.good)
 
   def cleaning_cost(last_liquid, item) do
     if item["hold"] == "liquid" and last_liquid not in [nil, item["id"]],

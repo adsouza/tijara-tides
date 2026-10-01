@@ -1,7 +1,7 @@
 defmodule TijaraTides.Domain.Ship.CargoBatch do
-  @moduledoc "A quantity of one cargo lot owned by a ship, with immutable cost and expiry."
+  @moduledoc "A quantity of one cargo lot owned by a ship, with immutable cost and preserved biological age."
   @enforce_keys [:good, :quantity]
-  defstruct [:good, :quantity, :lot_id, :expires_ms, unit_cost: 0]
+  defstruct [:good, :quantity, :lot_id, :expires_ms, unit_cost: 0, freshness: nil]
 
   @type t :: %__MODULE__{
           good: String.t(),
@@ -29,7 +29,7 @@ defmodule TijaraTides.Domain.Ship.CargoBatch do
                 state,
                 good,
                 amount,
-                batch.expires_ms,
+                TijaraTides.Domain.CargoFreshness.origin(batch),
                 batch.lot_id
               )
 
@@ -38,7 +38,7 @@ defmodule TijaraTides.Domain.Ship.CargoBatch do
                 state,
                 good,
                 batch.quantity - amount,
-                batch.expires_ms,
+                TijaraTides.Domain.CargoFreshness.origin(batch),
                 batch.lot_id
               )
 

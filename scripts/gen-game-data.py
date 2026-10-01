@@ -46,7 +46,9 @@ tuning = {
 }
 liquid={'Crude oil','Refined fuel','Vegetable oil'}
 # Active-world minutes: shelf lives shortened 10x alongside playtest voyage pacing.
-life_minutes={'Fruit':432,'Seafood':216,'Meat':288}
+# Ordinary biological life; quarter-speed refrigeration extends viable lifetime.
+# Fruit is tuned against bananas, while meat and seafood need refrigeration.
+life_minutes={'Fruit':60,'Seafood':1,'Meat':1.5}
 # Explicit IDs stay fixed when display labels change. Never derive saved IDs from labels.
 CARGO_IDS = {'Agricultural machinery': 'agricultural_machinery', 'Appliances': 'appliances', 'Construction equipment': 'construction_equipment', 'Copper scrap': 'copper_scrap', 'Crude oil': 'crude_oil', 'Designer clothing': 'designer_clothing', 'Electronics': 'electronics', 'Everyday clothing': 'everyday_clothing', 'Fruit': 'fruit', 'Grain': 'grain', 'Iron ore': 'iron_ore', 'Jewelry': 'jewelry', 'Lumber': 'lumber', 'Meat': 'meat', 'Recovered plastics': 'recovered_plastics', 'Refined fuel': 'refined_fuel', 'Aluminium scrap': 'aluminium_scrap', 'Seafood': 'seafood', 'Spices': 'spices', 'Turbines': 'turbines', 'Vegetable oil': 'vegetable_oil', 'Whisky': 'whisky'}
 assert len(set(CARGO_IDS.values())) == len(CARGO_IDS)
@@ -60,7 +62,7 @@ for category, names in namespace['CATEGORIES']:
   price, weight, volume=tuning[name]
   goods[good_id]={'id':good_id,'name':display_name,'category':category,'reference_cents':price,'weight_kg':weight,
    'volume_l':volume,'hold':'liquid' if name in liquid else 'reefer' if name in life_minutes else 'dry',
-   'shelf_ms':life_minutes.get(name,0)*60000,
+   'shelf_ms':int(life_minutes.get(name,0)*60000),
    'manual':category not in ['Luxury items','Industrial machinery']}
 ports={}
 for name in namespace['ORDER']:
@@ -106,7 +108,7 @@ manufacturing = {
  'vegetable_oil': {'inputs': {'grain': 2}, 'local_cost_cents': 9000},
  'whisky': {'inputs': {'grain': 3}, 'local_cost_cents': 15000},
 }
-result={'manufacturing':manufacturing,'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
+result={'refrigeration':{'aging_bps':2500},'manufacturing':manufacturing,'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
 (ROOT/'priv/game').mkdir(parents=True,exist_ok=True)
 (ROOT/'priv/game/catalogue.json').write_text(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n')
 print(f'Generated {len(goods)} goods, {len(ports)} ports, {len(routes)} directed sea routes')

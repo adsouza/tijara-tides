@@ -3,7 +3,7 @@ defmodule TijaraTides.Domain.MerchantWarehouse do
   @day 86_400_000
   @fields ~w(id port good storage blocks capacity expires_ms)a
   @enforce_keys @fields
-  defstruct @fields ++ [protected_ms: 0]
+  defstruct @fields ++ [protected_ms: 0, aging_bps: 2500]
 
   def open?(w, now), do: w.expires_ms > now and w.protected_ms <= now
   def covers?(w, close), do: w.expires_ms > close
@@ -23,7 +23,9 @@ defmodule TijaraTides.Domain.MerchantWarehouse.Rows do
         MerchantWarehouse,
         Map.new(@fields, &{&1, Map.fetch!(row, Atom.to_string(&1))})
         |> Map.put(:protected_ms, Map.get(row, "protected_ms", 0))
+        |> Map.put(:aging_bps, Map.get(row, "aging_bps", 2500))
       )
 
-  def encode(w), do: Map.new(@fields ++ [:protected_ms], &{Atom.to_string(&1), Map.fetch!(w, &1)})
+  def encode(w),
+    do: Map.new(@fields ++ [:protected_ms, :aging_bps], &{Atom.to_string(&1), Map.fetch!(w, &1)})
 end

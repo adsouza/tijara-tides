@@ -101,7 +101,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
 
     {:ok, loaded, _} = WarehouseWorld.transfer(state, c.account, command, c.catalogue)
     cargo = Game.get(loaded, "ships", "company:1")["cargo"]
-    assert Enum.map(cargo, & &1["expires_ms"]) == [60_000, 120_000]
+    assert Enum.map(cargo, & &1["freshness"]["origin_expires_ms"]) == [60_000, 120_000]
     assert Enum.all?(cargo, &(&1["unit_cost"] == 100))
     remaining = Game.get(loaded, "warehouses", "lease")["cargo"]
     assert Enum.sum(for b <- remaining, do: b["quantity"]) == 4
@@ -111,7 +111,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
     original =
       Game.get(state, "warehouses", "lease")["cargo"] |> Enum.find(&(&1["expires_ms"] == 120_000))
 
-    child = Enum.find(cargo, &(&1["expires_ms"] == 120_000))
+    child = Enum.find(cargo, &(&1["freshness"]["origin_expires_ms"] == 120_000))
 
     assert Enum.find(loaded.new_lots, &(&1["id"] == child["lot_id"]))["parent_lot_id"] ==
              original["lot_id"]
@@ -209,7 +209,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
 
     assert Enum.all?(
              Game.get(filled, "ships", "company:1")["cargo"],
-             &(&1["expires_ms"] == 3_600_000 and &1["unit_cost"] == 100)
+             &(&1["freshness"]["origin_expires_ms"] == 3_600_000 and &1["unit_cost"] == 100)
            )
 
     assert Game.get(filled, "markets", "Jakarta|fruit")["stock"] == 0

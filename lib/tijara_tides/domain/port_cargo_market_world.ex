@@ -52,8 +52,29 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
   def accept_cargo(state, port, good, quantity, price, cargo \\ nil) do
     market = fetch(state, port, good)
     receiving!(state, market, quantity)
-    cargo = cargo && Enum.map(cargo, &CargoRows.coerce/1)
+    cargo = condition_cargo(state, market, cargo)
     store(state, Market.receive_cargo(market, quantity, price, cargo))
+  end
+
+  defp condition_cargo(state, market, cargo) do
+    storage =
+      TijaraTides.Domain.ReadState.get(
+        state,
+        "merchant_warehouses",
+        market.port <> "|" <> market.good
+      )
+
+    rate =
+      if market.merchant && storage,
+        do: storage["aging_bps"] || TijaraTides.Domain.CargoFreshness.rate(storage["storage"]),
+        else: 10_000
+
+    cargo &&
+      Enum.map(cargo, fn row ->
+        row
+        |> CargoRows.coerce()
+        |> TijaraTides.Domain.CargoFreshness.recondition(state.clock_ms, rate)
+      end)
   end
 
   defp receiving!(state, market, quantity) do
@@ -97,7 +118,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
         market,
         quantity,
         amount,
-        cargo && Enum.map(cargo, &CargoRows.coerce/1)
+        condition_cargo(state, market, cargo)
       )
     )
   end

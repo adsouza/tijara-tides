@@ -261,6 +261,8 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
 
   test "perishables clear endangered FEFO batches, auction surviving batches for a full window, and project freshness",
        c do
+    c = %{c | catalogue: put_in(c.catalogue, ["goods", "fruit", "shelf_ms"], 25_920_000)}
+
     s =
       lease(c, c.state, "cold", "a", 2, "reefer")
       |> stock("cold", [
@@ -426,7 +428,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     assert AuctionWorld.fetch(s, first.id).status == "unsold"
     assert AuctionWorld.fetch(s, second.id).status == "sold"
     [cargo] = State.get(s, "warehouses", "award:" <> second.id)["cargo"]
-    assert cargo["expires_ms"] == @grace + 20_000_000
+    assert cargo["freshness"]["origin_expires_ms"] == @grace + 20_000_000
     assert cargo["quantity"] == 1000
     assert WarehouseLiquidation.pool(s, "cold")["status"] == "completed"
   end
@@ -459,7 +461,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     assert AuctionWorld.fetch(s, first.id).status == "cancelled"
     assert AuctionWorld.fetch(s, second.id).status == "sold"
     [cargo] = State.get(s, "warehouses", "award:" <> second.id)["cargo"]
-    assert cargo["expires_ms"] == @grace + 20_000_000
+    assert cargo["freshness"]["origin_expires_ms"] == @grace + 20_000_000
     assert cargo["quantity"] == 1000
     assert WarehouseLiquidation.pool(s, "cold")["status"] == "completed"
     assert State.get(s, "warehouses", "cold") == nil

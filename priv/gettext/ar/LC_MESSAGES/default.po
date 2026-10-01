@@ -2837,3 +2837,12 @@ msgstr "للبضائع المكتسبة بالمزاد مهلة تخزين مس�
 
 msgid "Won-cargo replacement is available only during its grace period, after handling finishes."
 msgstr "يمكن استبدال تخزين البضائع المكتسبة بالمزاد خلال مهلتها فقط، بعد انتهاء المناولة."
+
+msgid "Remaining under current storage: %{minutes} mins"
+msgstr "المدة المتبقية في ظروف التخزين الحالية: %{minutes} دقائق"
+
+msgid "Ordinary storage permits perishables. Refrigeration slows aging; transfers preserve harvest time and age. Refrigerated storage costs more."
+msgstr "يسمح التخزين العادي بالبضائع القابلة للتلف. يبطئ التبريد التقادم، وتحافظ عمليات النقل على وقت الحصاد والعمر. التخزين المبرد أعلى تكلفة."
+
+msgid "solid goods, including perishables"
+msgstr "البضائع الصلبة، بما فيها البضائع القابلة للتلف"

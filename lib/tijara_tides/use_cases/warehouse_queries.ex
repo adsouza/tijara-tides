@@ -127,6 +127,15 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
 
         %{
           row: row,
+          freshness:
+            for(
+              {good, batches} <- Enum.group_by(row["cargo"], & &1["good"]),
+              Enum.any?(batches, & &1["expires_ms"]),
+              do: %{
+                good: good,
+                remaining_ms: max(0, Enum.min(Enum.map(batches, & &1["expires_ms"])) - now)
+              }
+            ),
           replacement_offers:
             if(
               w.award_grace && now >= w.expires_ms && now < w.expires_ms + w.grace_ms &&

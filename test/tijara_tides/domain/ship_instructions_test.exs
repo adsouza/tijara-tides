@@ -174,7 +174,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     assert Game.get(filled, "ship_instructions", "fresh")["filled"] == 2
     assert Game.get(filled, "ship_instructions", "fresh")["min_remaining_ms"] == 3_600_000
 
-    assert hd(Game.get(filled, "ships", "company:1")["cargo"])["expires_ms"] ==
+    assert hd(Game.get(filled, "ships", "company:1")["cargo"])["freshness"]["origin_expires_ms"] ==
              state.clock_ms + 3_600_000
 
     assert ShipInstructions.advance(filled, c.catalogue) == filled
@@ -197,7 +197,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     assert order["filled"] == 2
     cargo = Game.get(filled, "ships", "company:1")["cargo"]
 
-    assert Enum.map(cargo, & &1["expires_ms"]) == [
+    assert Enum.map(cargo, & &1["freshness"]["origin_expires_ms"]) == [
              state.clock_ms + 3_600_000,
              state.clock_ms + 7_200_000
            ]

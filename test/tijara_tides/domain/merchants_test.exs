@@ -114,7 +114,8 @@ defmodule TijaraTides.Domain.MerchantsTest do
     {s, [sold]} =
       PortCargoMarketWorld.release_stock(s, "Jakarta", "fruit", 1, 200, cat["goods"]["fruit"])
 
-    assert sold["expires_ms"] == 100
+    assert sold["freshness"]["origin_expires_ms"] == 100
+    assert sold["expires_ms"] == 400
 
     assert Enum.find(s.new_lots, &(&1["id"] == sold["lot_id"]))["parent_lot_id"] ==
              batch["lot_id"]

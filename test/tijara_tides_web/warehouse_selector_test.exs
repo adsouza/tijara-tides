@@ -37,7 +37,7 @@ defmodule TijaraTidesWeb.WarehouseSelectorTest do
       assert LazyHTML.query(tree, "#warehouse-lease-form select[name=storage] option")
              |> LazyHTML.attribute("value") == ["dry", "reefer", "liquid"]
 
-      if kind == "dry", do: assert(html =~ "non-perishable solid goods")
+      if kind == "dry", do: assert(html =~ "solid goods, including perishables")
 
       for {id, _} <- options.storage_goods[kind], kind != "dry" do
         assert html =~ TijaraTidesWeb.GameUI.Presentation.cargo_name(id)

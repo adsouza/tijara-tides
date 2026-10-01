@@ -36,7 +36,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorldTest do
         "shelf_ms" => 100
       })
 
-    assert cargo == %{
+    assert Map.delete(cargo, "freshness") == %{
              "lot_id" => "part",
              "quantity" => 4,
              "expires_ms" => 100,

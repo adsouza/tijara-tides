@@ -32,17 +32,28 @@ defmodule TijaraTides.Domain.PortCargoMarket.Rows do
     |> Map.put("batches", Enum.map(market.batches, &encode_batch/1))
   end
 
-  defp decode_batch(row),
-    do: %Batch{
+  defp decode_batch(row) do
+    batch = %Batch{
       lot_id: Map.fetch!(row, "lot_id"),
       quantity: Map.fetch!(row, "quantity"),
-      expires_ms: Map.fetch!(row, "expires_ms")
+      expires_ms: Map.fetch!(row, "expires_ms"),
+      freshness: row["freshness"]
     }
 
+    unless TijaraTides.Domain.CargoFreshness.valid?(batch),
+      do: raise(ArgumentError, "Invalid cargo age")
+
+    batch
+  end
+
   def encode_batch(%Batch{} = batch),
-    do: %{
-      "lot_id" => batch.lot_id,
-      "quantity" => batch.quantity,
-      "expires_ms" => batch.expires_ms
-    }
+    do:
+      %{
+        "lot_id" => batch.lot_id,
+        "quantity" => batch.quantity,
+        "expires_ms" => batch.expires_ms
+      }
+      |> then(fn row ->
+        if batch.freshness, do: Map.put(row, "freshness", batch.freshness), else: row
+      end)
 end

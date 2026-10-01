@@ -27,7 +27,10 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
         &{&1, &1}
       ),
     "merchant_warehouses" =>
-      Enum.map(~w(id port good storage blocks capacity expires_ms protected_ms), &{&1, &1}),
+      Enum.map(
+        ~w(id port good storage blocks capacity expires_ms protected_ms aging_bps),
+        &{&1, &1}
+      ),
     "company_activity" => Enum.map(~w(company_id last_action_ms), &{&1, &1}),
     "invitation_progress" =>
       Enum.map(~w(account_id company_id checked_ms active_until_ms progress_ms), &{&1, &1}),
@@ -54,7 +57,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ),
     "warehouses" =>
       Enum.map(
-        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms source_lease_id space_group space_volumes award_id award_grace grace_rent grace_blocks grace_duration_ms display_number renewal_rate next_rent next_days auto_days auto_cap grace_ms surcharge_bps window_ms clearance_bps),
+        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms source_lease_id space_group space_volumes award_id award_grace grace_rent grace_blocks grace_duration_ms aging_bps display_number renewal_rate next_rent next_days auto_days auto_cap grace_ms surcharge_bps window_ms clearance_bps),
         &{&1, &1}
       ),
     "reporting_accounts" => Enum.map(~w(id capital since_ms at_ms), &{&1, &1}),
@@ -277,7 +280,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @children %{
     "warehouses" =>
       {"cargo", "game_warehouse_cargo_batches", "warehouse_id",
-       Enum.map(~w(lot_id quantity expires_ms good unit_cost), fn k ->
+       Enum.map(~w(lot_id quantity expires_ms good unit_cost freshness), fn k ->
          {k,
           %{"quantity" => "quantity_lots", "good" => "good_id", "unit_cost" => "unit_cost_cents"}[
             k
@@ -290,11 +293,17 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
          {"quantity", "quantity_lots"},
          {"expires_ms", "expires_ms"},
          {"good", "good_id"},
-         {"unit_cost", "unit_cost_cents"}
+         {"unit_cost", "unit_cost_cents"},
+         {"freshness", "freshness"}
        ]},
     "markets" =>
       {"batches", "game_market_stock_batches", "market_id",
-       [{"lot_id", "lot_id"}, {"quantity", "quantity_lots"}, {"expires_ms", "expires_ms"}]}
+       [
+         {"lot_id", "lot_id"},
+         {"quantity", "quantity_lots"},
+         {"expires_ms", "expires_ms"},
+         {"freshness", "freshness"}
+       ]}
   }
   # Columns the database always stores but state omits at their default, both ways.
   @defaults %{"markets" => %{"feedstock" => false, "production_credit" => 0}}
@@ -423,7 +432,13 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
         children =
           Enum.group_by(rows, &hd/1, fn [_parent | values] ->
-            fields |> Enum.map(&elem(&1, 0)) |> Enum.zip(values) |> Map.new()
+            fields
+            |> Enum.map(&elem(&1, 0))
+            |> Enum.zip(values)
+            |> Map.new()
+            |> then(fn row ->
+              if row["freshness"], do: row, else: Map.delete(row, "freshness")
+            end)
           end)
 
         Map.new(entities, fn {id, data} -> {id, Map.put(data, key, Map.get(children, id, []))} end)
@@ -576,6 +591,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   end
 
   defp column_value("replacement_paid", nil), do: 0
+  defp column_value("aging_bps", nil), do: 2500
   defp column_value("award_grace", nil), do: false
   defp column_value("space_volumes", nil), do: %{}
   defp column_value("grace_ms", nil), do: 43_200_000
@@ -692,8 +708,10 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     for {_, _, row} <- rows do
       case lots[row["lot_id"]] do
         {good, expiry} ->
-          unless expiry == row["expires_ms"] and (parent == "market_id" or good == row["good"]),
-            do: raise(ArgumentError, "Lot identity does not match cargo")
+          unless expiry == (get_in(row, ["freshness", "origin_expires_ms"]) || row["expires_ms"]) and
+                   TijaraTides.Domain.CargoRules.valid_age_row?(row) and
+                   (parent == "market_id" or good == row["good"]),
+                 do: raise(ArgumentError, "Lot identity does not match cargo")
 
         nil ->
           raise ArgumentError, "Unknown cargo lot"
@@ -707,7 +725,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
   defp insert_holdings(repo, world, parent, rows) do
     columns =
-      ~w(world_id lot_id ship_id market_id position quantity_lots unit_cost_cents warehouse_id)
+      ~w(world_id lot_id ship_id market_id position quantity_lots unit_cost_cents warehouse_id freshness)
 
     # Bind parameters are capped per statement, as they are for the parent rows above.
     rows
@@ -723,7 +741,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
             index,
             row["quantity"],
             row["unit_cost"],
-            if(parent == "warehouse_id", do: id)
+            if(parent == "warehouse_id", do: id),
+            row["freshness"]
           ]
         end)
 
@@ -738,7 +757,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
         end)
 
       repo.query!(
-        "INSERT INTO game_cargo_holdings(#{Enum.join(columns, ",")}) VALUES #{placeholders} ON CONFLICT(world_id,lot_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,ship_id=EXCLUDED.ship_id,market_id=EXCLUDED.market_id,position=EXCLUDED.position,quantity_lots=EXCLUDED.quantity_lots,unit_cost_cents=EXCLUDED.unit_cost_cents",
+        "INSERT INTO game_cargo_holdings(#{Enum.join(columns, ",")}) VALUES #{placeholders} ON CONFLICT(world_id,lot_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,ship_id=EXCLUDED.ship_id,market_id=EXCLUDED.market_id,position=EXCLUDED.position,quantity_lots=EXCLUDED.quantity_lots,unit_cost_cents=EXCLUDED.unit_cost_cents,freshness=EXCLUDED.freshness",
         values
       )
     end)

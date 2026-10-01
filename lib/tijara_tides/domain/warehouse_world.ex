@@ -370,6 +370,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
             company_id: company["id"],
             port: cmd["port"],
             storage: storage,
+            aging_bps: TijaraTides.Domain.CargoFreshness.rate("reefer", catalogue),
             good: if(storage == "liquid", do: cmd["good"]),
             blocks: cmd["blocks"],
             started_ms: state.clock_ms,
@@ -523,7 +524,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
           {state, w} =
             if side == "store" do
               {s, cargo} = ShipWorld.unload_cargo(state, ship["id"], item["id"], n)
-              {s, Warehouse.receive_cargo(w, Enum.map(cargo, &CargoRows.coerce/1))}
+              {s, receive_conditioned(w, cargo, state.clock_ms)}
             else
               {lots, next, cargo} =
                 Warehouse.release_cargo(lots(state), w, item["id"], n, minimum)
@@ -1079,7 +1080,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         |> CompanyFinanceWorld.estate_expense(w.company_id, price, "prepaid_rent")
 
       {state, cargo} = ShipWorld.unload_cargo(state, ship["id"], item["id"], quantity)
-      w = Warehouse.receive_cargo(w, Enum.map(cargo, &CargoRows.coerce/1))
+      w = receive_conditioned(w, cargo, state.clock_ms)
       w = Warehouse.protect_handling(w, get(state, "ships", ship["id"])["arrive_ms"])
 
       fee =
@@ -1185,8 +1186,19 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   def exchange_in(state, %Claim{} = order, cargo, n) do
     w = fetch(state, order.warehouse_id)
     transition = Warehouse.consume_order(w, order, n)
-    next = Warehouse.receive_cargo(w, Enum.map(cargo, &CargoRows.coerce/1))
+    next = receive_conditioned(w, cargo, state.clock_ms)
     state |> save(next) |> apply_transition(transition)
+  end
+
+  defp receive_conditioned(w, cargo, now) do
+    rate = if w.storage == "reefer", do: w.aging_bps, else: 10_000
+
+    Warehouse.receive_cargo(
+      w,
+      Enum.map(cargo, fn row ->
+        row |> CargoRows.coerce() |> TijaraTides.Domain.CargoFreshness.recondition(now, rate)
+      end)
+    )
   end
 
   defp apply_transition(state, %Transition{} = transition) do
