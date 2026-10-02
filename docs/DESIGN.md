@@ -2250,7 +2250,11 @@ lease's liquidation proceeds. The port absorbs any shortfall: do not debit other
 company cash, create an overdue balance, or trigger bankruptcy for it. Net
 proceeds to the owner cannot be negative, and clearance completes regardless of
 the shortfall. This cap does not refund charges already paid or cap unrelated
-operating obligations.
+operating obligations. If the owner collects all goods during grace without any
+sale proceeds, retain the accrued grace rent in the pool but collect zero at
+completion; the port absorbs that rent under the same proceeds cap. Ordinary
+collection handling fees and any separately paid replacement-lease charges
+remain payable under their existing rules.
 
 During the grace period, occupied space is charged at the previous lease rate.
 When liquidation begins, apply a fixed surcharge above that rate, provisionally

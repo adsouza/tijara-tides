@@ -263,6 +263,39 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     assert a.closes_ms - a.opens_ms == 10_000
   end
 
+  test "collecting all cargo during grace retains accrued rent but the proceeds cap absorbs it",
+       c do
+    s = lease(c, c.state, "collected", "a", 1) |> stock("collected", [{"lumber", 1, nil, 100}])
+    s = advance(c, s, @day + 3_600_000)
+    before = State.get(s, "companies", "aco")
+    assert WarehouseLiquidation.pool(s, "collected")["rent_due"] > 0
+    fee = TijaraTides.Domain.PortCargoMarket.handling_rate(c.catalogue["ports"]["Jakarta"])
+
+    {:ok, s, _} =
+      TijaraTides.Domain.Services.ShipLifecycle.transfer_warehouse(
+        s,
+        State.get(s, "accounts", "a"),
+        %{
+          "warehouse" => "collected",
+          "ship" => "aco:1",
+          "good" => "lumber",
+          "side" => "collect",
+          "quantity" => 1
+        },
+        c.catalogue
+      )
+
+    assert WarehouseLiquidation.pool(s, "collected")["occupied_blocks"] == 0
+    s = advance(c, s, @grace)
+    p = WarehouseLiquidation.pool(s, "collected")
+    assert p["status"] == "completed"
+    assert p["rent_due"] > 0
+    assert p["proceeds"] == 0 and p["charged"] == 0 and p["paid"] == 0
+    assert State.get(s, "companies", "aco")["cash"] == before["cash"] - fee
+    assert State.get(s, "companies", "aco")["unpaid"] == before["unpaid"]
+    assert State.get(s, "warehouses", "collected") == nil
+  end
+
   test "expiry cancels receiving orders with refund but permits sales during the snapshotted grace",
        c do
     c = %{
