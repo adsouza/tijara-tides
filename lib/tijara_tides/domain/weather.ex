@@ -33,7 +33,16 @@ defmodule TijaraTides.Domain.Weather do
     hash = :erlang.phash2({model["seed"], region, slot}, 1_000_000_000)
 
     if slot >= model["first_slot"] and rem(hash, 10_000) < model["chance_bps"] do
-      offset = if model["stagger"], do: rem(div(hash, 10_000), period - duration), else: 0
+      # Scale an independent hash to the entire available interval. Dividing the
+      # chance hash first restricted starts to the first 100 seconds of a window.
+      offset =
+        if model["stagger"] do
+          start_hash = :erlang.phash2({:storm_start, model["seed"], region, slot}, 1_000_000_000)
+          div(start_hash * (period - duration), 1_000_000_000)
+        else
+          0
+        end
+
       start = slot * period + offset
 
       %{

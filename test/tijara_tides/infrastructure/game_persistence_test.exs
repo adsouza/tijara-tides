@@ -5262,6 +5262,100 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "staggered storms survive full simulation commits, reload and repeated ticks", c do
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    cat = :sys.get_state(c.server).catalogue
+
+    cat =
+      Map.put(cat, "weather", %{
+        "period_ms" => 20_000,
+        "duration_ms" => 4000,
+        "chance_bps" => 10_000,
+        "first_slot" => 1,
+        "seed" => 1,
+        "stagger" => true
+      })
+
+    previous = Application.get_env(:tijara_tides, :weather)
+    Application.put_env(:tijara_tides, :weather, cat["weather"])
+
+    on_exit(fn ->
+      if previous,
+        do: Application.put_env(:tijara_tides, :weather, previous),
+        else: Application.delete_env(:tijara_tides, :weather)
+    end)
+
+    :sys.replace_state(c.server, &%{&1 | catalogue: cat})
+
+    {:ok, %{"company_id" => co}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "stagger-company",
+        %{
+          "action" => "company",
+          "name" => "Staggered weather",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    :ok = GameServer.connect(token, c.server)
+    id = co <> ":1"
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "stagger-sail",
+        %{
+          "action" => "sail",
+          "ship" => id,
+          "destination" => "Singapore",
+          "fuel_limit" => 100_000_000
+        },
+        c.server
+      )
+
+    original = GameServer.snapshot(token, c.server).private["ships"][id]
+
+    delayed =
+      Enum.reduce(1..6, original, fn _, before ->
+        advance(c.server, 10_000)
+        state = :sys.get_state(c.server)
+        ship = state.game.entities["ships"][id]
+        assert ship["fuel_burned"] >= before["fuel_burned"]
+        assert ship["arrive_ms"] >= before["arrive_ms"]
+        {:ok, restored} = GameStore.reload(Repo, c.world_id, state.game)
+        assert restored.entities["ships"][id] == ship
+        assert :ok = FinancialLedger.audit(Repo, c.world_id)
+        ship
+      end)
+
+    assert delayed["weather"]["delay_ms"] > 0
+    assert delayed["arrive_ms"] > original["arrive_ms"]
+    stop_supervised!(GameServer)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :stagger_replacement
+      )
+
+    :sys.replace_state(replacement, &%{&1 | catalogue: cat})
+    assert GameServer.snapshot(token, replacement).private["ships"][id] == delayed
+    :ok = GameServer.connect(token, replacement)
+    before = GameServer.snapshot(token, replacement)
+    advance(replacement, 0)
+    after_tick = GameServer.snapshot(token, replacement)
+    # The server's monotonic clock may advance a millisecond during the retry;
+    # assert the weather transition is not reapplied, rather than freezing crew cost.
+    assert after_tick.private["ships"][id]["weather"] == delayed["weather"]
+    assert after_tick.private["ships"][id]["arrive_ms"] == delayed["arrive_ms"]
+    assert after_tick.private["notices"] == before.private["notices"]
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "Unicode preset names reject before commit and preserve readiness and replay", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
     schedule = %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}

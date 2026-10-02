@@ -993,6 +993,9 @@ exchange ownership transfers still incur no physical handling time or fee.
 
 ## Regional weather and revised voyage estimates
 
+Staggered storm schedules use an independent hash scaled across the full
+available start interval, rather than clustering in the beginning of each window.
+
 Weather now uses deterministic active-world storm windows in 24 geographic
 sectors, partitioning the actual sea path at sector boundaries, including the
 dateline. Provisional tuning gives each sector a 10% storm chance per 30-minute

@@ -44,6 +44,74 @@ defmodule TijaraTides.Domain.WeatherTest do
     )
   end
 
+  test "staggered storms span the full period deterministically without changing occurrence" do
+    current = Weather.model(%{})
+    span = current["period_ms"] - current["duration_ms"]
+
+    offsets =
+      for sector <- 0..23,
+          slot <- 1..100,
+          window = Weather.window("sector:#{sector}", slot, current),
+          window != nil do
+        assert window == Weather.window("sector:#{sector}", slot, current)
+        assert window["until_ms"] - window["starts_ms"] == current["duration_ms"]
+        offset = window["starts_ms"] - slot * current["period_ms"]
+        assert offset >= 0 and offset < span
+        offset
+      end
+
+    assert length(offsets) > 100
+
+    for quarter <- 0..3 do
+      count = Enum.count(offsets, &(div(&1 * 4, span) == quarter))
+      assert count > div(length(offsets), 8)
+    end
+
+    for sector <- 0..23, slot <- 1..100 do
+      region = "sector:#{sector}"
+      chance = rem(:erlang.phash2({current["seed"], region, slot}, 1_000_000_000), 10_000)
+
+      assert is_nil(Weather.window(region, slot, current)) ==
+               chance >= current["chance_bps"]
+    end
+
+    forced = %{current | "chance_bps" => 10_000, "stagger" => false}
+    assert Weather.window("sector:0", 1, forced)["starts_ms"] == forced["period_ms"]
+    assert Weather.window("sector:0", 0, forced) == nil
+    assert Weather.window("sector:0", 1, %{forced | "chance_bps" => 0}) == nil
+  end
+
+  test "staggered forecast reconciliation preserves settled movement across ticks and replay" do
+    staggered = %{model() | "stagger" => true}
+    forecast = Weather.forecast(route(), 100_000, 15_000, 15_000, staggered)
+
+    sailing =
+      Ship.begin_voyage(
+        ship(),
+        "Singapore",
+        %{
+          "duration_ms" => 100_000,
+          "fuel" => 1000,
+          "route" => route(),
+          "weather" => forecast
+        },
+        15_000,
+        600
+      )
+
+    c = %{"weather" => staggered}
+    revised = Ship.apply_weather(sailing, route(), 100_000, 85_000, 600, c)
+    assert revised.weather["delay_ms"] > 0
+    {settled, _} = Ship.advance(revised, 100_000, 85_000, false, 600, 1000)
+    assert Ship.apply_weather(settled, route(), 100_000, 0, 600, c) == settled
+
+    intermediate = Ship.apply_weather(sailing, route(), 50_000, 35_000, 600, c)
+    {intermediate, _} = Ship.advance(intermediate, 50_000, 35_000, false, 600, 1000)
+    stepped = Ship.apply_weather(intermediate, route(), 100_000, 50_000, 600, c)
+    {stepped, _} = Ship.advance(stepped, 100_000, 50_000, false, 600, 1000)
+    assert stepped == settled
+  end
+
   test "forecast shows only known storms and path regions handle the dateline" do
     assert Weather.forecast(route(), 10_000, 15_000, 15_000, model())["delay_ms"] == 0
     known = Weather.forecast(route(), 10_000, 20_500, 20_500, model())
