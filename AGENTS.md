@@ -41,19 +41,31 @@ mix phx.server                     # run locally on port 4000
 mix precommit                      # format check, forced compile with warnings as errors, gettext check, tests
 python3 scripts/test-game-db.py    # full suite including database tests, on a disposable PostgreSQL cluster
 mix test path/to/file_test.exs     # one file (database tests are excluded without the script)
-scripts/check-local.sh             # everything the pre-push hook runs
+scripts/check-local.sh             # automatic docs-only or full local validation
+scripts/check-local.sh --full      # force all local gates
 ```
 
 Enable the tracked hooks once per clone with `git config core.hooksPath .githooks`.
 
 ## Before committing
 
-- `mix precommit` and `python3 scripts/test-game-db.py` both pass.
+- Code, tooling, policy, configuration and mixed changes require `mix precommit`
+  and `python3 scripts/test-game-db.py`. `scripts/check-local.sh --full` includes
+  both plus the remaining local gates.
+- Pure documentation changes may use `scripts/check-local.sh` instead. It selects
+  a fast path only when every outgoing commit and tracked working/index change
+  affects regular, non-executable Markdown under `docs/`, `README.md` or
+  `ARCHITECTURE.md`. It checks whitespace, generated documents and `test/docs`;
+  ordinary compilation may still occur. It skips full gameplay/database suites,
+  coverage, Gettext, desktop/Rust checks, assets and release builds. Stage new
+  documents first. Policy files such as `AGENTS.md`, unknown baselines, unusual
+  file modes, untracked files and empty change sets select full validation.
 - Compile and test output contain zero warnings. Count them; a green suite can
   still hide a warning that names a real defect.
-- Gettext: run `mix gettext.extract`, never `mix gettext.merge`, which deletes
-  translations for messages looked up at runtime. Keep the Arabic catalogue
-  complete and check it with `python3 scripts/check-gettext-catalogues.py`.
+- For runtime message changes, run `mix gettext.extract`. Never run
+  `mix gettext.merge`: it deletes translations for messages looked up at runtime.
+  Keep the Arabic catalogue complete and check it with
+  `python3 scripts/check-gettext-catalogues.py`.
 - Generated artifacts (`priv/game/catalogue.json`, `docs/ports.md`,
   `docs/ship-instructions.md`, `docs/ux-inventory.md`) come from scripts in
   `scripts/gen-*.py`. Regenerate them; never edit them by hand.
@@ -92,8 +104,13 @@ rewrap it; splicing a sentence into wrapped lines leaves ragged text.
 ## Git and safety
 
 - Commit on the current branch; create a branch only when asked.
-- Pushes require a clean checkout, and the pre-push hook runs
-  `scripts/check-local.sh`.
+- Pushes require a clean checkout. The pre-push hook gives `scripts/check-local.sh`
+  each remote ref's prior commit, so classification includes all outgoing commits,
+  including changes later reverted. New branches, non-fast-forward ranges,
+  unavailable remote commits and non-branch refs select full validation. Manual
+  checks default to the branch's upstream; `--base <commit>` can specify a known
+  range, and `--full` always runs every gate. Never use `--no-verify` for doc changes.
+- CI retains full validation for every push and pull request.
 - Local validation never touches deployed storage. Database tests use only the
   disposable cluster from `scripts/test-game-db.py`; do not point tests at
   `DATABASE_URL`.

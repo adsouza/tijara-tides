@@ -8,6 +8,16 @@ unset MIX_ENV PHX_SERVER
 export LC_ALL=C
 export PATH="/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:$PATH"
 
+scope=$(python3 scripts/validation_scope.py "$@")
+if [[ "$scope" == "docs" ]]; then
+  python3 scripts/validation_scope.py --check-whitespace "$@"
+  python3 scripts/check-generated.py --docs-only
+  mix test test/docs
+  echo "Documentation-only checks passed. Full CI validation remains enabled."
+  exit 0
+fi
+
+python3 scripts/test-validation-scope.py
 python3 scripts/test-format-staged.py
 python3 scripts/test-bump-desktop-version.py
 python3 scripts/test-publish-desktop-release.py

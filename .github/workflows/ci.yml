@@ -14,6 +14,8 @@ jobs:
             otp: '29.0.4'
     steps:
       - uses: actions/checkout@v7
+      - name: Validation scope and hook regressions
+        run: python3 scripts/test-validation-scope.py
       - name: Generated docs match their generators
         run: |
           python3 scripts/gen-ports-roster.py

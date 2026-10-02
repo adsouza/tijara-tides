@@ -1,10 +1,27 @@
 # Testing and coverage
 
 Run `scripts/check-local.sh` for the same local checks used by the pre-push hook.
-Its disposable PostgreSQL run includes all Elixir tests and line coverage. The
-check also reports desktop JavaScript helper line, branch and function coverage.
-CI runs the same commands and uploads reports as artifacts for each runtime or
-platform, including when a test or coverage threshold fails.
+It selects documentation-only checks when a known range contains exclusively
+regular, non-executable Markdown under `docs/`, `README.md` or `ARCHITECTURE.md`.
+The fast path checks whitespace, generated documents and `mix test test/docs`,
+which may compile normally. It skips forced compilation, the full gameplay and
+database suites, coverage, Gettext checks, desktop/Rust checks, asset setup and
+release builds. The Git pre-commit formatter already ignores Markdown; use this
+fast path for the required validation before committing documentation.
+
+Selection includes every outgoing commit, even changes later reverted, plus
+tracked index and working-tree changes. Manual checks use the branch's upstream;
+repeat `--base <commit>` for explicit known ranges. Stage new documents first.
+Policy files such as `AGENTS.md`, untracked files, unknown/non-ancestor baselines,
+new remote branches, non-branch pushes, unusual file modes and empty change sets
+require full validation. The pre-push hook checks each remote ref's actual prior
+commit and retains its clean-checkout requirement. Use `--full` to run all gates
+regardless of scope; do not bypass hooks with `--no-verify`.
+
+Full validation uses disposable PostgreSQL for all Elixir tests and line coverage
+and reports desktop JavaScript helper line, branch and function coverage. CI
+continues full validation on every push and pull request, uploading reports for
+each runtime or platform even when a test or coverage threshold fails.
 
 The [mutation-testing pilot](mutation-testing-pilot.md) records the bounded Muex
 experiment and its expansion across finance, trading instructions, commit/replay,
