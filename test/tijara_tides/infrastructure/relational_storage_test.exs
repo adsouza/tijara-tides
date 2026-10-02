@@ -16,8 +16,8 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
 
   setup do
     port = System.fetch_env!("TIJARA_TEST_DB_PORT") |> String.to_integer()
-    schema = "migration_" <> String.replace(Ecto.UUID.generate(), "-", "")
-    # Isolate both the old and new schemas from the gameplay integration tests.
+    database = "migration_" <> String.replace(Ecto.UUID.generate(), "-", "")
+    # Each migration replay owns a separate scratch database and dedicated Repo.
     {:ok, admin} =
       Postgrex.start_link(
         hostname: "127.0.0.1",
@@ -26,16 +26,11 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
         database: "postgres"
       )
 
-    Postgrex.query!(admin, "CREATE SCHEMA #{schema}", [])
+    Postgrex.query!(admin, "CREATE DATABASE #{database}", [])
 
     start_supervised!(
       {MigrationRepo,
-       hostname: "127.0.0.1",
-       port: port,
-       username: "postgres",
-       database: "postgres",
-       pool_size: 4,
-       parameters: [search_path: schema]}
+       hostname: "127.0.0.1", port: port, username: "postgres", database: database, pool_size: 4}
     )
 
     on_exit(fn ->
@@ -47,7 +42,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
           database: "postgres"
         )
 
-      Postgrex.query!(cleanup, "DROP SCHEMA #{schema} CASCADE", [])
+      Postgrex.query!(cleanup, "DROP DATABASE #{database} WITH (FORCE)", [])
       GenServer.stop(cleanup)
     end)
 

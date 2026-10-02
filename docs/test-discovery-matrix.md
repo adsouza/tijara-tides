@@ -187,3 +187,55 @@ Raw seed-12345 receipts and exact patches live in `cover/test-expansion/round2/`
 The focused domain selections run in under one second locally; normal full
 checks retain the line gate. These scenarios supplement existing narrow helper
 tests rather than changing production rules.
+
+## Round 3 SQL evidence and constraint inventory
+
+`Infrastructure.SqlTransitionContractsTest` is separate from the large gameplay
+persistence suite. Its 32 handoff combinations vary update/delete, existing/new
+claimants, both lexical ID orders, fixture insertion order, and zero/100-cent
+accumulation. These are typed adapter fixtures using the owning automation root;
+they prove immediate-index ordering, not departure-policy eligibility. Full-tick
+eligibility and timeout remain the Round 2 scenarios and existing server tests.
+Every valid handoff checks the active SQL row/deadline, constant cash/reservation
+and ledger audit. Two active zero-balance claims require rollback of all rows,
+revision, journal and receipt.
+
+The same module runs ordinary server borrowing/repayment through exact receipt
+replay, reload and restart with independent principal/cash/profit expectations;
+queued buy/cancel preserves committed work and progresses the next eligible ship.
+A budget CHECK violation rolls back otherwise balanced money movement. A real
+lot writer case spans the 60,000-bind limit: 8,572 rows, conserved children on
+both sides of the chunk boundary, and a late CHECK failure rolling back both
+statements. It complements the counting double rather than replacing it.
+
+| Immediate/deferred constraint | Applicable transfer and evidence |
+|---|---|
+| `game_one_departure_accumulator`, immediate partial unique | New 32-case release/claim matrix and invalid zero-balance pair |
+| Visit-budget remaining/amount CHECK; departure accumulated/required CHECK | New balanced-money rollback; existing unbacked-release persistence regression and typed model bounds |
+| Guarantee beneficiary partial unique | Existing durable sponsor approval/release/default test; rows close by status, they are not deleted by normal settlement |
+| Ship company/name unique | Existing ship-name migration and durable rename tests; no live ship-name swap command, so simultaneous swaps are excluded |
+| Lot parent FK and deferred split conservation/holding checks | New cross-chunk conserved parent/children and late rollback; existing cargo-machine-ID migration checks incompatible lineage |
+| Warehouse/order/route ownership FKs and backing checks | Existing mixed-stage liquidation rollback, linked-order unbacked release, closed bid/expired lease and market-CAS rollback tests |
+| Market version compare-and-swap | Existing stale stock/budget rollback and owner progression conflict-reload tests |
+
+Historical `RelationalStorageTest` replays now allocate a separate scratch
+database and dedicated Repo per case and drop it afterwards. The shared gameplay
+Repo schema is never rolled back. Existing fixtures exercise actual JSON-to-row
+migrations, duplicate-name repair, lot-sequence counters, guaranteed-loan links,
+cargo-machine-ID lineage, immutable postings and receipts, with reversible
+snapshots and malformed-history rejection.
+
+The existing persistence tests also retain mid-visit budget replay, mixed-stage
+liquidation recovery, manufacturing stock/budget reload, invitation quota/fencing,
+frozen legacy voyage paths, owner-visit coalescing and uncommitted-publication
+rejection. Their exact assertions were audited rather than copied into the new
+module. Failure doubles and ordinary discovery remain separate. SQL comparisons
+use the prior durable snapshot where codec omissions/defaults differ from memory.
+Raw focused/full receipts and fault patches are in `cover/test-expansion/round3/`.
+
+Sensitivity: claims-before-release fails the valid handoff commit with the named
+partial index; dropping one row only in a large lot batch reaches the final SQL
+count assertion (8,571 instead of 8,572). Restored selections pass. An unscoped
+lot-drop experiment broke world startup and is classified as setup failure, not
+an assertion kill. Focused SQL/migration checks take about six seconds locally;
+full SQL verification passes with 949 tests and 93.88% line coverage.

@@ -35,26 +35,88 @@ defmodule TijaraTides.SqlReplay do
     :ok
   end
 
-  def with_world(fun) do
+  def with_world(fun, opts \\ []) do
     world = Ecto.UUID.generate()
     child = {GameServer, world}
+
+    opts =
+      Keyword.merge(
+        [name: nil, enabled: true, world_id: world, tick_ms: 86_400_000, wall_clock: fn -> 1 end],
+        opts
+      )
 
     server =
       start_supervised!(
         Supervisor.child_spec(
-          {GameServer,
-           name: nil, enabled: true, world_id: world, tick_ms: 86_400_000, wall_clock: fn -> 1 end},
+          {GameServer, opts},
           id: child
         )
       )
 
     try do
       {:ok, code} = GameServer.seed(server)
-      fun.(%{server: server, world: world, child: child, code: code})
+      fun.(%{server: server, world: world, child: child, code: code, opts: opts})
     after
       assert :ok = stop_supervised(child)
       refute Process.alive?(server)
     end
+  end
+
+  def company(c) do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    assert {:ok, %{"company_id" => company}} =
+             TijaraTides.CompanyFixture.command(
+               token,
+               "fixture-company",
+               %{
+                 "action" => "company",
+                 "name" => "Replay company",
+                 "port" => "Jakarta",
+                 "package" => "general"
+               },
+               c.server
+             )
+
+    game = :sys.get_state(c.server).game
+    account = game.entities["companies"][company]["account_id"]
+
+    ships =
+      game.entities["ships"] |> Map.values() |> Enum.sort_by(& &1["id"]) |> Enum.map(& &1["id"])
+
+    Map.merge(c, %{token: token, company: company, account: account, ships: ships})
+  end
+
+  # Explicit fixture/adapter boundary, not a replacement for ordinary server commands.
+  def persist(c, next) do
+    before = :sys.get_state(c.server).game
+
+    prepared =
+      TijaraTides.UseCases.CommitPreparation.prepare(before, %{
+        next
+        | revision: before.revision + 1
+      })
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world, before.epoch, before, prepared)
+    accepted = TijaraTides.UseCases.CommitPreparation.accepted(prepared)
+
+    :sys.replace_state(c.server, fn state ->
+      %{
+        state
+        | game: accepted,
+          projection: TijaraTides.UseCases.WorldProjection.build(accepted, state.catalogue)
+      }
+    end)
+
+    accepted
+  end
+
+  def restart(c) do
+    assert :ok = stop_supervised(c.child)
+    refute Process.alive?(c.server)
+    server = start_supervised!(Supervisor.child_spec({GameServer, c.opts}, id: c.child))
+    assert GameServer.readiness(server) == :ready
+    %{c | server: server}
   end
 
   def command(c, token, id, command) do
@@ -77,7 +139,7 @@ defmodule TijaraTides.SqlReplay do
     restored = reload(c)
 
     for table <-
-          ~w(accounts companies ships warehouses ship_instructions route_stops route_rules exchange_orders loans markdown_presets) do
+          ~w(accounts companies ships warehouses ship_instructions route_stops route_rules exchange_orders loans markdown_presets departure_requests visit_budgets remote_links warehouse_liquidations operating_bills loan_installments guarantees) do
       rows = Map.get(expected.entities, table, %{})
       actual = Map.get(restored.entities, table, %{})
       assert Map.keys(actual) |> Enum.sort() == Map.keys(rows) |> Enum.sort(), table
