@@ -6,7 +6,10 @@ notice and SQL/browser form contracts. Round 2 adds audited full-tick lifecycle
 and adjacent-boundary scenarios. Round 3 adds SQL handoff permutations, rollback
 and chunk-boundary contracts, plus isolated historical migrations. Round 4 adds
 the shared symbolic runner, lifecycle/command properties, SQL replay and bounded
-corpus. Round 5 remains planned.
+corpus. Round 5 implements the bounded mutation audit and detection matrix,
+including new contracts for discovered gaps in earlier markets/account rules.
+See the [executed audit](mutation-audit.md) and
+[detection matrix](test-discovery-matrix.md#round-5-detection-matrix).
 Each executable round is committed after its focused and normal checks. Runtime
 matrix verification remains a CI gate; local evidence uses Elixir 1.20.4/OTP 29.1.
 
@@ -771,6 +774,10 @@ mutants per selected source and 60 per audit, one worker and a 30-second per-mut
 timeout, then measure before expanding. Curated patches remain a separate cohort.
 Cap curated audits at 12 patches per invocation with the same worker/timeout
 limits; split a larger fault catalogue across invocations and retain its evidence.
+Unmutated/restored baselines and full-applicable survivor triage are separate
+diagnostic checks with a 120-second limit. The mutant worker retains its
+30-second limit. The executed SQL triage takes about 40 seconds locally; neither
+a diagnostic timeout nor failed setup is counted as detection.
 Include relevant property tests in the explicit test selection, with stable
 seeds and bounded generation/shrinking so results can be repeated.
 

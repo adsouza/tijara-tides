@@ -1,0 +1,11 @@
+--- lib/tijara_tides/infrastructure/persistence/game_rows.ex
++++ lib/tijara_tides/infrastructure/persistence/game_rows.ex
+@@ -667,7 +667,7 @@
+         do: keys -- Map.keys(Map.get(@column_defaults, kind, %{})),
+         else: Map.get(@required, kind, [])
+ 
+-    missing = Enum.reject(required, &Map.has_key?(data, &1))
++    missing = Enum.reject(required, fn _ -> true end)
+ 
+     if missing != [],
+       do: raise(ArgumentError, "Missing fields for #{kind}: #{inspect(missing)}")

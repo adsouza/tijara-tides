@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/fleet.ex
++++ lib/tijara_tides/domain/fleet.ex
+@@ -332,7 +332,7 @@
+     with {:ok, _ship, company, estimate} <-
+            departure_check(state, account, id, destination, limit, catalogue) do
+       owner = company["id"]
+-      state = TijaraTides.Domain.AutomationWorld.release_departing_visit(state, id)
++      state = state
+ 
+       state =
+         TijaraTides.Domain.ShipWorld.depart(state, id, destination, estimate, @voyage_speedup)

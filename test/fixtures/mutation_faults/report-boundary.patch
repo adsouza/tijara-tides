@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/reporting.ex
++++ lib/tijara_tides/domain/reporting.ex
+@@ -74,7 +74,7 @@
+ 
+     state =
+       Enum.reduce(["quarter", "year"], state, fn period, state ->
+-        row = row(state, id, period, div(state.clock_ms, duration(period)))
++        row = row(state, id, period, div(max(0, state.clock_ms - 1), duration(period)))
+ 
+         row =
+           Enum.reduce(entries, row, fn {code, amount}, row ->

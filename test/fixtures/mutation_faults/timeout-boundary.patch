@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/services/departure_funding.ex
++++ lib/tijara_tides/domain/services/departure_funding.ex
+@@ -382,7 +382,7 @@
+ 
+     state =
+       Enum.reduce(requests(state, company_id), state, fn row, s ->
+-        if row["window_deadline_ms"] && row["window_deadline_ms"] <= s.clock_ms do
++        if row["window_deadline_ms"] && row["window_deadline_ms"] < s.clock_ms do
+           s
+           |> AutomationWorld.release_accumulation(row, s.clock_ms + settings["cooldown_ms"])
+           |> FinancialSettlement.settle([company_id])

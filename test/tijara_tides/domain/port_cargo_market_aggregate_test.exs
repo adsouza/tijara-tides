@@ -1,5 +1,6 @@
 defmodule TijaraTides.Domain.PortCargoMarketAggregateTest do
   use ExUnit.Case, async: true
+  use ExUnitProperties
   alias TijaraTides.Domain.PortCargoMarket, as: Market
   alias TijaraTides.Domain.PortCargoMarket.Lots
 
@@ -16,6 +17,43 @@ defmodule TijaraTides.Domain.PortCargoMarketAggregateTest do
       batches: [],
       last_production: 0
     }
+  end
+
+  property "merchant supply preserves cargo promised to other buyers" do
+    check all(
+            stock <- integer(2..100),
+            reserved <- integer(1..stock),
+            max_runs: 50,
+            max_shrinking_steps: 100
+          ) do
+      item = %{"id" => "lumber", "shelf_ms" => 0}
+      {lots, batch} = Lots.create(%Lots{clock_ms: 0}, "lumber", stock, nil)
+      market = %{supplier() | merchant: true, stock: stock, batches: [batch]}
+      free = stock - reserved
+
+      assert_raise ArgumentError, fn ->
+        Market.supply(lots, market, free + 1, 20, item, 0, %{reserved_quantity: reserved})
+      end
+
+      if free > 0 do
+        {_, remaining, cargo} =
+          Market.supply(lots, market, free, 20, item, 0, %{reserved_quantity: reserved})
+
+        assert Enum.sum(Enum.map(cargo, & &1.quantity)) == free
+        assert remaining.stock == reserved
+        assert Enum.sum(Enum.map(remaining.batches, & &1.quantity)) == reserved
+      end
+    end
+  end
+
+  test "one unit beyond an 80-unit merchant reservation is refused" do
+    item = %{"id" => "lumber", "shelf_ms" => 0}
+    {lots, batch} = Lots.create(%Lots{clock_ms: 0}, "lumber", 100, nil)
+    market = %{supplier() | merchant: true, stock: 100, batches: [batch]}
+
+    assert_raise ArgumentError, fn ->
+      Market.supply(lots, market, 21, 20, item, 0, %{reserved_quantity: 80})
+    end
   end
 
   test "supplier releases only available stock and records a permanent lot" do

@@ -1,0 +1,2848 @@
+{
+  "version": 1,
+  "source_baseline": "7e7e5f2",
+  "seed": 12345,
+  "runtime": "Elixir 1.20.4 / OTP 29.1",
+  "curated": [
+    {
+      "name": "unsafe-company",
+      "patch": "unsafe-company.patch",
+      "patch_sha256": "7938bdda5d40966c3c529470d1f7c86dfd4d71982d7e8231b1ee03a5e397e9be",
+      "source_sha256": "cb0e9f89132b5aa9c9a834ffbc7829a116c24fae49881657fca5bce0c916c2f5",
+      "initial_classification": "harness_failure",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/use_cases/command_payload_properties_test.exs"
+      ],
+      "failing_tests": [
+        "property forbidden name characters reject without committing and a corrected request succeeds (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test name table covers accepted boundaries and safely rejected values in three commands (TijaraTides.UseCases.CommandPayloadPropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/unsafe-company-fault.log"
+    },
+    {
+      "name": "preset-graphemes",
+      "patch": "preset-graphemes.patch",
+      "patch_sha256": "1034a32e8f63fa4fa2e8994d94b5d87bed482a96863522a4e12bf1d220c05144",
+      "source_sha256": "bd8d00dda3b2a61dda0417046c7152d164f5088c76c518e98c720b81a8c5f359",
+      "initial_classification": "harness_failure",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/use_cases/command_payload_properties_test.exs"
+      ],
+      "failing_tests": [
+        "property combining marks count independently of bytes and control-free name limits (TijaraTides.UseCases.CommandPayloadPropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/preset-graphemes-fault.log"
+    },
+    {
+      "name": "notice-binding",
+      "patch": "notice-binding.patch",
+      "patch_sha256": "d3a2de8db15f5b7cb510a92eda8aa395cbc52a59b8cae4f967a5a4adea38ecd9",
+      "source_sha256": "566391be5d88dd5b873071e946fbdc7f1980ec82b4be9be269ab2a4949b4f074",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/notice_inventory_test.exs"
+      ],
+      "failing_tests": [
+        "test actual lease expiry carries both rates and grace through the renderer, then clears once (TijaraTides.NoticeInventoryTest)",
+        "test current producer inventory resolves imported qualified conditional and effect codes (TijaraTides.NoticeInventoryTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/notice-binding-fault.log"
+    },
+    {
+      "name": "metadata-forwarded",
+      "patch": "metadata-forwarded.patch",
+      "patch_sha256": "270cb90174dfb39382af33813b5105b01b473fac9f61b182633b44603ec070ce",
+      "source_sha256": "22b1bef28e8914110fa6a62d51b4eccf99681af74502b23e3edcdbe82aecf2cd",
+      "initial_classification": "harness_failure",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/infrastructure/form_contracts_test.exs"
+      ],
+      "failing_tests": [
+        "test valid instruction_sell form commits its intended terms and exact replay (TijaraTides.Infrastructure.FormContractsTest)",
+        "test valid instruction_buy form commits its intended terms and exact replay (TijaraTides.Infrastructure.FormContractsTest)",
+        "property instruction_buy normalization preserves receipt identity and independently expected terms (TijaraTides.Infrastructure.FormContractsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/metadata-forwarded-fault.log"
+    },
+    {
+      "name": "raw-expiry",
+      "patch": "raw-expiry.patch",
+      "patch_sha256": "203a07c5b226706c970ac13a73534eb921dd5ef72d3bce069566c956af4ac558",
+      "source_sha256": "22b1bef28e8914110fa6a62d51b4eccf99681af74502b23e3edcdbe82aecf2cd",
+      "initial_classification": "harness_failure",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/infrastructure/form_contracts_test.exs"
+      ],
+      "failing_tests": [
+        "test valid instruction_sell form commits its intended terms and exact replay (TijaraTides.Infrastructure.FormContractsTest)",
+        "property instruction_buy normalization preserves receipt identity and independently expected terms (TijaraTides.Infrastructure.FormContractsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/raw-expiry-fault.log"
+    },
+    {
+      "name": "raw-number",
+      "patch": "raw-number.patch",
+      "patch_sha256": "979b57f286c5a3e4580d07c0de8fa2428312a1e0bf01015ebf38660060a59600",
+      "source_sha256": "22b1bef28e8914110fa6a62d51b4eccf99681af74502b23e3edcdbe82aecf2cd",
+      "initial_classification": "harness_failure",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/infrastructure/form_contracts_test.exs"
+      ],
+      "failing_tests": [
+        "test valid instruction_sell form commits its intended terms and exact replay (TijaraTides.Infrastructure.FormContractsTest)",
+        "property instruction_buy normalization preserves receipt identity and independently expected terms (TijaraTides.Infrastructure.FormContractsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/raw-number-fault.log"
+    },
+    {
+      "name": "visit-release",
+      "patch": "visit-release.patch",
+      "patch_sha256": "e42c9823964d594cb6575fe624ffc8c13f167e668aeff139ef8bf867fedf5ae6",
+      "source_sha256": "ab6ab0a9997bf15d7d1c4cdcb196d853760e5cb9768b048ad9a7e1221e13aeeb",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/route_funding_test.exs"
+      ],
+      "failing_tests": [
+        "test manual departure mid-visit releases only that visit's cash, including after pausing (TijaraTides.Domain.RouteFundingTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/visit-release-fault.log"
+    },
+    {
+      "name": "pool-cover",
+      "patch": "pool-cover.patch",
+      "patch_sha256": "e49cedeb778dab1de6ba6192afbc24cc2250308a6507bf519d1e17f2b380513d",
+      "source_sha256": "501b4cb85c7113195c007ba697a149d9c5fdad2520397c7a9fbb04e94b1633bc",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/warehouse_liquidation_test.exs"
+      ],
+      "failing_tests": [
+        "test receivership auction cover cannot revive an award lease with an active liquidation pool (TijaraTides.Domain.WarehouseLiquidationTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/pool-cover-fault.log"
+    },
+    {
+      "name": "timeout-boundary",
+      "patch": "timeout-boundary.patch",
+      "patch_sha256": "38e41624a1780209a524e89f2b6556a7b2048ec3d8514192c9c0bb26d83ddcb8",
+      "source_sha256": "dd370f5eed505fd3ba250ece37fcb622ffa62409f814dc745ad526181a5ecde3",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/route_funding_test.exs"
+      ],
+      "failing_tests": [
+        "test one oldest request accumulates, times out at a fixed deadline, and enters cooldown (TijaraTides.Domain.RouteFundingTest)",
+        "test a full tick hands a zero-balance window to the next ship exactly at timeout (TijaraTides.Domain.RouteFundingTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/timeout-boundary-fault.log"
+    },
+    {
+      "name": "spoilage-boundary",
+      "patch": "spoilage-boundary.patch",
+      "patch_sha256": "e9c0c00430d4f661f9994c8a97e2eeeee91ffd31c3e78b584c868e634396d362",
+      "source_sha256": "2fbe55d8fc554e6adfb85b84c06d48da2af0e05f4d900af997fedd645ac17e35",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/game_test.exs"
+      ],
+      "failing_tests": [
+        "test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest)",
+        "test a disclosed storm delays a command-started voyage across a cargo expiry in the full tick (TijaraTides.Domain.GameTest)",
+        "test perishable purchases retain source freshness and spoilage writes off cargo once (TijaraTides.Domain.GameTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/spoilage-boundary-fault.log"
+    },
+    {
+      "name": "guarantee-loss",
+      "patch": "guarantee-loss.patch",
+      "patch_sha256": "ee9b4ecf96159b5c3045607dd5690535186db5742ceba8d2391a47f2dbdffc05",
+      "source_sha256": "5b72926107f65f46b46995a521d03cac728c2c8a256264e182b60e9a96ebb1bc",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/guarantees_test.exs"
+      ],
+      "failing_tests": [
+        "test commands and a full unchanged tick settle beneficiary failure on sponsor books exactly once (TijaraTides.Domain.GuaranteesTest)",
+        "test the sponsor's own settlement forfeits the escrow recorded by the bankruptcy (TijaraTides.Domain.GuaranteesTest)",
+        "test settlement caps sponsor losses and refunds excess even to a bankrupt sponsor (TijaraTides.Domain.GuaranteesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/guarantee-loss-fault.log"
+    },
+    {
+      "name": "report-boundary",
+      "patch": "report-boundary.patch",
+      "patch_sha256": "20337e0cdb1f597397d802acea9c57e536e6da222837859cee781f14b4cec96d",
+      "source_sha256": "d500e925f271efcc6ff64d93ccf0d2bbd8840f7d579dd943e3ced5220c644679",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/reporting_test.exs"
+      ],
+      "failing_tests": [
+        "test events exactly at a boundary belong to the new period (TijaraTides.Domain.ReportingTest)",
+        "test independent adjacent boundary events are partitioned once and asset movements stay neutral (TijaraTides.Domain.ReportingTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-final-0/report-boundary-fault.log"
+    },
+    {
+      "name": "identity-clock",
+      "patch": "identity-clock.patch",
+      "patch_sha256": "0249fb9762eb63c17930d13616790b8a3bf13c3406667c9ef233c6b1f10530bc",
+      "source_sha256": "266b96c0bf470738215b04c5dc90c65ebe8fba3ffcdfefee4f6e93bad271908e",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/email_identity_test.exs"
+      ],
+      "failing_tests": [
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-12/identity-clock-fault.log"
+    },
+    {
+      "name": "claims-before-release",
+      "patch": "claims-before-release.patch",
+      "patch_sha256": "0d7f711eab3675d0f996115032a6a4c9bf7f29cbeea1f3f1725695d53898dd53",
+      "source_sha256": "63d231e0b6d299d574dbea7e8297aa1444c22d5c239bdc8b714e30e8f36db91c",
+      "initial_classification": "harness_failure",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/infrastructure/sql_transition_contracts_test.exs"
+      ],
+      "failing_tests": [
+        "test accumulator release precedes claims across release shape ID order insertion and zero balance (TijaraTides.Infrastructure.SqlTransitionContractsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-replay-13/claims-before-release-fault.log"
+    },
+    {
+      "name": "lost-lot-row-large-batch",
+      "patch": "lost-lot-row-large-batch.patch",
+      "patch_sha256": "bd02c3e44b9ec920319fc1f5f1e7f8a3b06a81ffb0fe5ea46cd44aa6ddad0687",
+      "source_sha256": "00a8ecc57a520c9a45ac984569294f6c9a808f834db6377356cb42d1c361e1f8",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/infrastructure/sql_transition_contracts_test.exs"
+      ],
+      "failing_tests": [
+        "test lot parent and conserved children span the bind-limit chunk and a late failure rolls both chunks back (TijaraTides.Infrastructure.SqlTransitionContractsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-12/lost-lot-row-large-batch-fault.log"
+    },
+    {
+      "name": "arbitrary-preset-id",
+      "patch": "arbitrary-preset-id.patch",
+      "patch_sha256": "79a412c9a3149580bbae8b8cee0718ecc44d80024b72b7dca38ef3412f3ba5ac",
+      "source_sha256": "bd8d00dda3b2a61dda0417046c7152d164f5088c76c518e98c720b81a8c5f359",
+      "initial_classification": "harness_failure",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/use_cases/command_payload_properties_test.exs"
+      ],
+      "failing_tests": [
+        "property preset client references cannot create identities or edit foreign identities (TijaraTides.UseCases.CommandPayloadPropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-replay-15/arbitrary-preset-id-fault.log"
+    },
+    {
+      "name": "future-weather",
+      "patch": "future-weather.patch",
+      "patch_sha256": "98f04c03a98fd6b47b4120dced8700044a57ea209c4dc21db8a399f637e9a538",
+      "source_sha256": "32c63726d60ef4e947d62f466872a5d70aa8680ac715a364b899156051bf2529",
+      "initial_classification": "survived",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/weather_test.exs"
+      ],
+      "failing_tests": [
+        "test the current storm does not disclose the next three storms on a long route (TijaraTides.Domain.WeatherTest)",
+        "property a long voyage cannot announce storms beyond its observation clock (TijaraTides.Domain.WeatherTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-replay-16/future-weather-fault.log"
+    },
+    {
+      "name": "narrow-weather-offset",
+      "patch": "narrow-weather-offset.patch",
+      "patch_sha256": "27b64d2040eee76a0db98af4f7238a7f54bc09918bacc3a43614bfd18d7fc519",
+      "source_sha256": "32c63726d60ef4e947d62f466872a5d70aa8680ac715a364b899156051bf2529",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/weather_test.exs"
+      ],
+      "failing_tests": [
+        "test staggered storms span the full period deterministically without changing occurrence (TijaraTides.Domain.WeatherTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-12/narrow-weather-offset-fault.log"
+    },
+    {
+      "name": "repeat-weather-partition",
+      "patch": "repeat-weather-partition.patch",
+      "patch_sha256": "3b89ae80c7849f4fa920be42026c6ae7d95c18b23bc133b4b9cd021343be0bc6",
+      "source_sha256": "32c63726d60ef4e947d62f466872a5d70aa8680ac715a364b899156051bf2529",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/automation_cost_test.exs",
+        "test/tijara_tides/domain/weather_test.exs"
+      ],
+      "failing_tests": [
+        "test a legacy sailing path is partitioned once, then cached across ticks and serialization (TijaraTides.Domain.AutomationCostTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-12/repeat-weather-partition-fault.log"
+    },
+    {
+      "name": "filtered-check-unfiltered-take",
+      "patch": "filtered-check-unfiltered-take.patch",
+      "patch_sha256": "7b2e7d7b91488019900e2b8b7b977e6c198622dc88c267937ca27fe796855f05",
+      "source_sha256": "bd88af8a6a2e18fde8db36ecc14b728c5829ca6a3b413aeaecc500ac11992700",
+      "initial_classification": "survived",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/warehouse_liquidation_test.exs"
+      ],
+      "failing_tests": [
+        "test forced exchange fills take fresh eligible lots and leave older cargo behind (TijaraTides.Domain.WarehouseLiquidationTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-replay-19/filtered-check-unfiltered-take-fault.log"
+    },
+    {
+      "name": "merchant-reservations",
+      "patch": "merchant-reservations.patch",
+      "patch_sha256": "72f4b0231c77634700a1f330691e18cbb4e39c97ef6090be6c65d3cbb27063f4",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "initial_classification": "survived",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/port_cargo_market_aggregate_test.exs"
+      ],
+      "failing_tests": [
+        "test one unit beyond an 80-unit merchant reservation is refused (TijaraTides.Domain.PortCargoMarketAggregateTest)",
+        "property merchant supply preserves cargo promised to other buyers (TijaraTides.Domain.PortCargoMarketAggregateTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-replay-20/merchant-reservations-fault.log"
+    },
+    {
+      "name": "permissive-charges",
+      "patch": "permissive-charges.patch",
+      "patch_sha256": "d77b504b5246e963e52d0026f69bcf19d29e14c25fb1294f749b9e782bebf9a5",
+      "source_sha256": "4112144dea528742a804ca2a5bf3f50c124ed502440224e1b910a98db03d7cba",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/reservation_models_test.exs"
+      ],
+      "failing_tests": [
+        "test completion rejects forged charges, clocks and estate classification (TijaraTides.Domain.ReservationModelsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-12/permissive-charges-fault.log"
+    },
+    {
+      "name": "required-defaults",
+      "patch": "required-defaults.patch",
+      "patch_sha256": "c55378222a077f5bdd5a136a46e6d238213892cc5692b61b4c943709fe03fa55",
+      "source_sha256": "63d231e0b6d299d574dbea7e8297aa1444c22d5c239bdc8b714e30e8f36db91c",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/infrastructure/persistence/game_rows_batching_test.exs"
+      ],
+      "failing_tests": [
+        "test fields with domain defaults must come from the domain codec, not the adapter (TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest)",
+        "test required reservation and preset fields cannot inherit defaults from other entity kinds (TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-12/required-defaults-fault.log"
+    },
+    {
+      "name": "owner-redundant-commit",
+      "patch": "owner-redundant-commit.patch",
+      "patch_sha256": "d1c6475f95e442c0dd01dad26082729206f9c32240eeaeb6a6bda482f6c61efd",
+      "source_sha256": "39bac3c596bba509c9ad0b1e737ec817abf07cf94fbec4d56f98a405c30a03b6",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/infrastructure/game_persistence_test.exs"
+      ],
+      "failing_tests": [
+        "test repeated owner visits do not commit or broadcast within the same minute (TijaraTides.Infrastructure.GamePersistenceTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-12/owner-redundant-commit-fault.log"
+    },
+    {
+      "name": "compiled-back-edge",
+      "patch": "compiled-back-edge.patch",
+      "patch_sha256": "cae6cf4e1faf331901fdd1496d3e6a73d2f48c391dbaebbca182f9fd966af2e8",
+      "source_sha256": "501b4cb85c7113195c007ba697a149d9c5fdad2520397c7a9fbb04e94b1633bc",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/docs/automation_architecture_test.exs"
+      ],
+      "failing_tests": [
+        "test ShipWorld has no transitive workflow back edge, including adapters outside the service inventory (TijaraTides.AutomationArchitectureTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-24/compiled-back-edge-fault.log"
+    },
+    {
+      "name": "lost-frozen-path",
+      "patch": "lost-frozen-path.patch",
+      "patch_sha256": "c3a46ee7efe5d900e99cc4fe4d0239fa21054f3676b16946b7c276f655c7c4f6",
+      "source_sha256": "37e126f35801ca126a80900f289b47e0f957077a6cc965777e8060dd47e0fe2f",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/infrastructure/game_persistence_test.exs",
+        "test/tijara_tides/domain/rerouting_test.exs"
+      ],
+      "failing_tests": [
+        "test turning back releases fuel and retains the current position and spent fuel (TijaraTides.Domain.ReroutingTest)",
+        "test rerouting persists the sea path and reconciles released reservations (TijaraTides.Infrastructure.GamePersistenceTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-24/lost-frozen-path-fault.log"
+    },
+    {
+      "name": "late-perishable-close",
+      "patch": "late-perishable-close.patch",
+      "patch_sha256": "897c1fe98daa8b2fda768cc865c33d05903746a6b6b3ad312a84002bf3562a1d",
+      "source_sha256": "ef69fd604cc2133e6ed0bf3460ea24588e8c90f6c303f8bfc274c7d7161cec3a",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/warehouse_liquidation_test.exs"
+      ],
+      "failing_tests": [
+        "test late ticks settle perishable liquidation at the close before aging in the buyer's storage (TijaraTides.Domain.WarehouseLiquidationTest)",
+        "test a late close preserves the promised fresh lot when an earlier lot settles unsold (TijaraTides.Domain.WarehouseLiquidationTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-24/late-perishable-close-fault.log"
+    },
+    {
+      "name": "repeat-instruction-scan",
+      "patch": "repeat-instruction-scan.patch",
+      "patch_sha256": "ac0b48964b161fe71bf1ba26ec9c869c56d552f88ea3a8a1d09bc591d66baa54",
+      "source_sha256": "dd370f5eed505fd3ba250ece37fcb622ffa62409f814dc745ad526181a5ecde3",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/automation_cost_test.exs"
+      ],
+      "failing_tests": [
+        "test funding revalidation reads the instruction table once for one or many requests (TijaraTides.Domain.AutomationCostTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-24/repeat-instruction-scan-fault.log"
+    },
+    {
+      "name": "wrong-bankruptcy-reason",
+      "patch": "wrong-bankruptcy-reason.patch",
+      "patch_sha256": "dd92ebdafeecd8372f7bc7b7eb59b35a8fb8974632fb851ceb84ec1e2470e648",
+      "source_sha256": "dd370f5eed505fd3ba250ece37fcb622ffa62409f814dc745ad526181a5ecde3",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/route_funding_test.exs"
+      ],
+      "failing_tests": [
+        "test receivership stops departure with its own reason rather than a duration error (TijaraTides.Domain.RouteFundingTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-24/wrong-bankruptcy-reason-fault.log"
+    },
+    {
+      "name": "notice-precision",
+      "patch": "notice-precision.patch",
+      "patch_sha256": "d97aeeb0e7a4c5ca478226f8711afe4493400a95cb1d0edebbed724c9d1b6f06",
+      "source_sha256": "566391be5d88dd5b873071e946fbdc7f1980ec82b4be9be269ab2a4949b4f074",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/localization_test.exs",
+        "test/tijara_tides/notice_inventory_test.exs"
+      ],
+      "failing_tests": [
+        "test weather notices format fractional minutes to one localized decimal (TijaraTides.LocalizationTest)",
+        "test current producer inventory resolves imported qualified conditional and effect codes (TijaraTides.NoticeInventoryTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-24/notice-precision-fault.log"
+    },
+    {
+      "name": "receiving-aging",
+      "patch": "receiving-aging.patch",
+      "patch_sha256": "f317cccd6cd697e74653f51d990508cac496ae7d368b577c061a8ec5073a49ea",
+      "source_sha256": "02f0e4e93561b2170cd6da2c90c589b41880dd1d679bca6d5cf3de187371efe6",
+      "initial_classification": "detected",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/cargo_freshness_test.exs"
+      ],
+      "failing_tests": [
+        "test cooling cannot revive spoiled cargo and ordinary holds accept perishables (TijaraTides.Domain.CargoFreshnessTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-24/receiving-aging-fault.log"
+    },
+    {
+      "name": "grace-rent",
+      "patch": "grace-rent.patch",
+      "patch_sha256": "a0bbde2ccc7803a947bcd6d2ac12be02b990ff90c570e0ede67c8c3ce6182aba",
+      "source_sha256": "4112144dea528742a804ca2a5bf3f50c124ed502440224e1b910a98db03d7cba",
+      "initial_classification": "survived",
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "tests": [
+        "test/tijara_tides/domain/warehouse_liquidation_test.exs",
+        "test/tijara_tides/domain/reservation_models_test.exs"
+      ],
+      "failing_tests": [
+        "test a late rent tick does not charge both grace and liquidation rates for the same time (TijaraTides.Domain.ReservationModelsTest)",
+        "property rent charges ordinary grace time once and the surcharged rate only afterwards (TijaraTides.Domain.ReservationModelsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/curated-replay-31/grace-rent-fault.log"
+    }
+  ],
+  "generated": [
+    {
+      "index": 0,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 5,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to +",
+      "patch_sha256": "a4cf5cf4d78f810c24c355040ccad0b8fbebae057db7e60e3bcda959f81fd625",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test protected funds cannot service debt; partial payments retain the original grace deadline (TijaraTides.Domain.FinanceTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test protected funds cannot service debt; partial payments retain the original grace deadline (TijaraTides.Domain.FinanceTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-00-fault.log"
+    },
+    {
+      "index": 1,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 5,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to 0 (remove)",
+      "patch_sha256": "9b9673b545890279628d2391f751271c434b726fe710836c140f5bf62e553b29",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test continuous interest is independent of tick size, not overdue before its due date, and paid on early closure (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test early repayment waives future interest and cannot farm credit increases (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history the finance view carries open loans only, and its totals are unchanged (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history repaid loans do not count against the open-loan limit (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history a repaid loan leaves the open-loan lookup but is kept as history (TijaraTides.Domain.FinanceTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test continuous interest is independent of tick size, not overdue before its due date, and paid on early closure (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test early repayment waives future interest and cannot farm credit increases (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history the finance view carries open loans only, and its totals are unchanged (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history repaid loans do not count against the open-loan limit (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history a repaid loan leaves the open-loan lookup but is kept as history (TijaraTides.Domain.FinanceTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-01-fault.log"
+    },
+    {
+      "index": 2,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 6,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "7524d295163e859c4fe0e1f25d4f3ea8753eb8babb76d3ceb2e7de5d6eecb118",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-02-fault.log"
+    },
+    {
+      "index": 3,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 6,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "b0fd8c0fb7b2dbd76a5c87e6ec42d1d6ba35b0c91dc08c75f7f8490f65cafe3e",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-03-fault.log"
+    },
+    {
+      "index": 4,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 6,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: != to ==",
+      "patch_sha256": "837338248951b0a43fcf6878b4a76e985e01c6dfea4a0e35742364e03588cf95",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recast pays accrued interest and reduces installments without extending maturity (TijaraTides.Domain.FinanceTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test continuous interest is independent of tick size, not overdue before its due date, and paid on early closure (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test early repayment waives future interest and cannot farm credit increases (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history the finance view carries open loans only, and its totals are unchanged (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history repaid loans do not count against the open-loan limit (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history a repaid loan leaves the open-loan lookup but is kept as history (TijaraTides.Domain.FinanceTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recast pays accrued interest and reduces installments without extending maturity (TijaraTides.Domain.FinanceTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test continuous interest is independent of tick size, not overdue before its due date, and paid on early closure (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test early repayment waives future interest and cannot farm credit increases (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history the finance view carries open loans only, and its totals are unchanged (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history repaid loans do not count against the open-loan limit (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history a repaid loan leaves the open-loan lookup but is kept as history (TijaraTides.Domain.FinanceTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-04-fault.log"
+    },
+    {
+      "index": 5,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 6,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: == to !=",
+      "patch_sha256": "3aa66e3dcfdb944a55fec328fa6105dc706a315d6a9528a1072b75485efc27e2",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recast pays accrued interest and reduces installments without extending maturity (TijaraTides.Domain.FinanceTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test continuous interest is independent of tick size, not overdue before its due date, and paid on early closure (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test early repayment waives future interest and cannot farm credit increases (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history the finance view carries open loans only, and its totals are unchanged (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history repaid loans do not count against the open-loan limit (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history a repaid loan leaves the open-loan lookup but is kept as history (TijaraTides.Domain.FinanceTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recast pays accrued interest and reduces installments without extending maturity (TijaraTides.Domain.FinanceTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test continuous interest is independent of tick size, not overdue before its due date, and paid on early closure (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test early repayment waives future interest and cannot farm credit increases (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history the finance view carries open loans only, and its totals are unchanged (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history repaid loans do not count against the open-loan limit (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history a repaid loan leaves the open-loan lookup but is kept as history (TijaraTides.Domain.FinanceTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-05-fault.log"
+    },
+    {
+      "index": 6,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 6,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: == to !=",
+      "patch_sha256": "e401d961e85c037b560037fb95049cd1d59722a5485151ffa9022169c7c26411",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recast pays accrued interest and reduces installments without extending maturity (TijaraTides.Domain.FinanceTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test continuous interest is independent of tick size, not overdue before its due date, and paid on early closure (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test early repayment waives future interest and cannot farm credit increases (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history the finance view carries open loans only, and its totals are unchanged (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history repaid loans do not count against the open-loan limit (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history a repaid loan leaves the open-loan lookup but is kept as history (TijaraTides.Domain.FinanceTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recast pays accrued interest and reduces installments without extending maturity (TijaraTides.Domain.FinanceTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test continuous interest is independent of tick size, not overdue before its due date, and paid on early closure (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test early repayment waives future interest and cannot farm credit increases (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history the finance view carries open loans only, and its totals are unchanged (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history repaid loans do not count against the open-loan limit (TijaraTides.Domain.FinanceTest)",
+        "test retained loan history a repaid loan leaves the open-loan lookup but is kept as history (TijaraTides.Domain.FinanceTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-06-fault.log"
+    },
+    {
+      "index": 7,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 7,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to -",
+      "patch_sha256": "0f5b905480ce566a0a721538fe1464b50c0649c820b5e8864e9c4f9819f528d8",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-07-fault.log"
+    },
+    {
+      "index": 8,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 7,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to 0 (remove)",
+      "patch_sha256": "b7eb28e2bdd77862fdb236caa8cd058d5dccc60724a5f0151398a826c6e380f5",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test protected funds cannot service debt; partial payments retain the original grace deadline (TijaraTides.Domain.FinanceTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test protected funds cannot service debt; partial payments retain the original grace deadline (TijaraTides.Domain.FinanceTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-08-fault.log"
+    },
+    {
+      "index": 9,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 7,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to -",
+      "patch_sha256": "570ea1e1b653a84778bb63016b40548413caab0d8bd848f151550b2aa7d21242",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-09-fault.log"
+    },
+    {
+      "index": 10,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 7,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to 0 (remove)",
+      "patch_sha256": "3177750cb58830c387af0bf7209f1786359337bbdb051e201c82c7c71de4a5f8",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test protected funds cannot service debt; partial payments retain the original grace deadline (TijaraTides.Domain.FinanceTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test protected funds cannot service debt; partial payments retain the original grace deadline (TijaraTides.Domain.FinanceTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-10-fault.log"
+    },
+    {
+      "index": 11,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 8,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to -",
+      "patch_sha256": "a55e15d6992f38994ee164d0b411530df0646d5aabb819fd9ac448615ba51497",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-11-fault.log"
+    },
+    {
+      "index": 12,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 8,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to 0 (remove)",
+      "patch_sha256": "c2e0e3c2c2587f4dabba3308e11cde85bdefc30fcbce25491f0660387fda9af1",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-12-fault.log"
+    },
+    {
+      "index": 13,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 9,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to -",
+      "patch_sha256": "f040cbad9ff260ce204aecabfdfe8da791fc10566896af25ccfd7827629e2092",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-13-fault.log"
+    },
+    {
+      "index": 14,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 9,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to 0 (remove)",
+      "patch_sha256": "e378b7930e4edfb432efd9f5444148e291888e3953232eb71c1d0367677c015a",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-14-fault.log"
+    },
+    {
+      "index": 15,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 13,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "68e384e8988c0b8d4a16af958dbb32f32ad82acb2d2fb58b5be238a9ea58b0a1",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test repayment includes overdue and accrued interest at the available-cash boundary (TijaraTides.Domain.LoanActionsTest)",
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-15-fault.log"
+    },
+    {
+      "index": 16,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 12,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "5652df6b8a9b38c57c9ec6ee31116668d638033c7992fe13c5debabf88bf1a8e",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-16-fault.log"
+    },
+    {
+      "index": 17,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 12,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "c6410d76bf607977abfd47725b5ea977853bafd2fc641e8008c6a619decda382",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-17-fault.log"
+    },
+    {
+      "index": 18,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 12,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "e0f04c2c3ed7247b3be8a74ad73b1cd29bea6323359895dc1c7ad45b203fe104",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-18-fault.log"
+    },
+    {
+      "index": 19,
+      "area": "finance",
+      "source": "lib/tijara_tides/domain/company_finance/loan_actions.ex",
+      "line": 12,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: > to <",
+      "patch_sha256": "409481110e2eb13630d2eaf56e3123425f5c8fd93b9b6c3dc13e1d7b7839bf3e",
+      "source_sha256": "dfaca7aca32b8b00e83f5f8ee8a4f63ffc257ed7fbe3e17d1df6f8dea20d5b1a",
+      "provenance": {
+        "origin_commit": "2d7454198cfc3fee0734dd90782f70c48e2e337e",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recast pays accrued interest and reduces installments without extending maturity (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test cash reservations and arrears consistently bound eligibility (TijaraTides.Domain.LoanActionsTest)",
+        "test repayment uses exact payoff while recast preserves interest plus a dollar of principal (TijaraTides.Domain.LoanActionsTest)",
+        "test recast pays accrued interest and reduces installments without extending maturity (TijaraTides.Domain.FinanceTest)",
+        "test recasts reject invalid amounts, protected cash, other owners and overdue loans (TijaraTides.Domain.FinanceTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/finance-19-fault.log"
+    },
+    {
+      "index": 20,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 9,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: false to true",
+      "patch_sha256": "48c7d27be4dc142eb14983b8754480bb925730a6d88585b6f3561aab8e4bb52f",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "be872fba41d08bf86fb849c41917fdebf408dde7",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test buyer cannot exceed either demand or funds; consumer purchases do not become supply (TijaraTides.Domain.PortCargoMarketAggregateTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test buyer cannot exceed either demand or funds; consumer purchases do not become supply (TijaraTides.Domain.PortCargoMarketAggregateTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-20-fault.log"
+    },
+    {
+      "index": 21,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 9,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: false to true",
+      "patch_sha256": "17cbfb9cc4f461214419d2218b625dd5250ad3885828dbbf928958924df72090",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "be872fba41d08bf86fb849c41917fdebf408dde7",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test new and decoded merchants need explicitly active warehouse backing (TijaraTides.Domain.MarketQuotePropertiesTest)",
+        "property scarcity price points scale in cents and merchant spread stays distinct (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-21/replay-fault.log"
+    },
+    {
+      "index": 22,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 18,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: * to /",
+      "patch_sha256": "2835b61e4725d4db876f689f2222439691a1fb57dfd0a2c33cdafaab6c4a2389",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test supplier quotes follow earliest expiry and minimum-life fills retain excluded lots (TijaraTides.Domain.PortCargoMarketAggregateTest)",
+        "test quote eligibility holds independently of physical stock, demand and budget (TijaraTides.Domain.MarketEligibilityTest)",
+        "test Tangier factory feedstock cannot be bought through UI limits or direct commands (TijaraTides.Domain.MarketEligibilityTest)",
+        "test every catalogue quote respects market roles and advertised supply is releasable (TijaraTides.Domain.MarketEligibilityTest)",
+        "test sale settles operating bills once with debt 1250 (TijaraTides.Domain.GameTest)",
+        "test manual purchases select stock meeting life in the receiving hold (TijaraTides.Domain.GameTest)",
+        "test market recovery is one lot per 150 seconds and preserves partial intervals (TijaraTides.Domain.GameTest)",
+        "test an unportioned sell claim releases only the matched buyer's eligible lots (TijaraTides.Domain.GradedBooksTest)",
+        "test automated sales copy a preset and release only cargo meeting its grade minimum (TijaraTides.Domain.GradedBooksTest)",
+        "test buyer minimum lifetime is checked under receiving conditions (TijaraTides.Domain.GradedBooksTest)",
+        "test market freshness expires between production boundaries (TijaraTides.Domain.GameTest)",
+        "test preset ownership and applied copies survive edits and deletion (TijaraTides.Domain.GradedBooksTest)",
+        "test sale settles operating bills once with debt 1000000 (TijaraTides.Domain.GameTest)",
+        "test complete schedules, copied basis, floors and eligibility amendments preserve atomicity (TijaraTides.Domain.GradedBooksTest)",
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)",
+        "test mixed-grade backing fills only eligible portions at their resting prices (TijaraTides.Domain.GradedBooksTest)",
+        "test invitation redemption and expiry cannot both consume and refund quota (TijaraTides.Domain.GameTest)",
+        "test spoilage cancels only expired backing and retains the other portion (TijaraTides.Domain.GradedBooksTest)",
+        "test handling completion produces one private notice per operation (TijaraTides.Domain.GameTest)",
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)",
+        "test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest)",
+        "test aging resets changed portions while unchanged and split portions retain priority (TijaraTides.Domain.GradedBooksTest)",
+        "test purchases require a route and preserve loaded voyage costs plus fleet upkeep (TijaraTides.Domain.GameTest)",
+        "test legacy voyages accelerate once while preserving progress and fuel already spent (TijaraTides.Domain.GameTest)",
+        "test a disclosed storm delays a command-started voyage across a cargo expiry in the full tick (TijaraTides.Domain.GameTest)",
+        "test perishable purchases retain source freshness and spoilage writes off cargo once (TijaraTides.Domain.GameTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test supplier quotes follow earliest expiry and minimum-life fills retain excluded lots (TijaraTides.Domain.PortCargoMarketAggregateTest)",
+        "test quote eligibility holds independently of physical stock, demand and budget (TijaraTides.Domain.MarketEligibilityTest)",
+        "test Tangier factory feedstock cannot be bought through UI limits or direct commands (TijaraTides.Domain.MarketEligibilityTest)",
+        "test every catalogue quote respects market roles and advertised supply is releasable (TijaraTides.Domain.MarketEligibilityTest)",
+        "test sale settles operating bills once with debt 1250 (TijaraTides.Domain.GameTest)",
+        "test manual purchases select stock meeting life in the receiving hold (TijaraTides.Domain.GameTest)",
+        "test market recovery is one lot per 150 seconds and preserves partial intervals (TijaraTides.Domain.GameTest)",
+        "test an unportioned sell claim releases only the matched buyer's eligible lots (TijaraTides.Domain.GradedBooksTest)",
+        "test automated sales copy a preset and release only cargo meeting its grade minimum (TijaraTides.Domain.GradedBooksTest)",
+        "test buyer minimum lifetime is checked under receiving conditions (TijaraTides.Domain.GradedBooksTest)",
+        "test market freshness expires between production boundaries (TijaraTides.Domain.GameTest)",
+        "test preset ownership and applied copies survive edits and deletion (TijaraTides.Domain.GradedBooksTest)",
+        "test sale settles operating bills once with debt 1000000 (TijaraTides.Domain.GameTest)",
+        "test complete schedules, copied basis, floors and eligibility amendments preserve atomicity (TijaraTides.Domain.GradedBooksTest)",
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)",
+        "test mixed-grade backing fills only eligible portions at their resting prices (TijaraTides.Domain.GradedBooksTest)",
+        "test invitation redemption and expiry cannot both consume and refund quota (TijaraTides.Domain.GameTest)",
+        "test spoilage cancels only expired backing and retains the other portion (TijaraTides.Domain.GradedBooksTest)",
+        "test handling completion produces one private notice per operation (TijaraTides.Domain.GameTest)",
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)",
+        "test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest)",
+        "test aging resets changed portions while unchanged and split portions retain priority (TijaraTides.Domain.GradedBooksTest)",
+        "test purchases require a route and preserve loaded voyage costs plus fleet upkeep (TijaraTides.Domain.GameTest)",
+        "test legacy voyages accelerate once while preserving progress and fuel already spent (TijaraTides.Domain.GameTest)",
+        "test a disclosed storm delays a command-started voyage across a cargo expiry in the full tick (TijaraTides.Domain.GameTest)",
+        "test perishable purchases retain source freshness and spoilage writes off cargo once (TijaraTides.Domain.GameTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-22-fault.log"
+    },
+    {
+      "index": 23,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 18,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: * to 1 (identity)",
+      "patch_sha256": "4a6ab54c1c43dce899d7de7b97e88ade7bcfb989f47d29c47fc4e3c2aef50a8f",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)",
+        "test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)",
+        "test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-23-fault.log"
+    },
+    {
+      "index": 24,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 18,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to -",
+      "patch_sha256": "01d85ad85452eca3b82c56de3ca66c75ca42da40059bc7035ad8f8aa08ff806c",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property scarcity price points scale in cents and merchant spread stays distinct (TijaraTides.Domain.MarketQuotePropertiesTest)",
+        "test ordinary scarcity endpoints remain explicit fixed counterexamples (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-24/replay-fault.log"
+    },
+    {
+      "index": 25,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 18,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to 0 (remove)",
+      "patch_sha256": "16d6bdbc02e89b86218a7ba96c51461a9b3157256b4cfdf56f127a2765cba9d4",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)",
+        "test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)",
+        "test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-25-fault.log"
+    },
+    {
+      "index": 26,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 18,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to +",
+      "patch_sha256": "c5e07ff32733e017993b7ee8f951483e723c29494de81b5b785e5575a722d501",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-26-fault.log"
+    },
+    {
+      "index": 27,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 18,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to 0 (remove)",
+      "patch_sha256": "8b9d88da526e7c9338600384c790499a545285a92af1820f9f92d8cdb5eb6068",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property scarcity price points scale in cents and merchant spread stays distinct (TijaraTides.Domain.MarketQuotePropertiesTest)",
+        "test ordinary scarcity endpoints remain explicit fixed counterexamples (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-27/replay-fault.log"
+    },
+    {
+      "index": 28,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 19,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: * to /",
+      "patch_sha256": "1c26d2ce0e90266fe9b6b050e22dd5fdd74a16bb5f934c3a5b80851d7fd3aedf",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test supplier quotes follow earliest expiry and minimum-life fills retain excluded lots (TijaraTides.Domain.PortCargoMarketAggregateTest)",
+        "test quote eligibility holds independently of physical stock, demand and budget (TijaraTides.Domain.MarketEligibilityTest)",
+        "test Tangier factory feedstock cannot be bought through UI limits or direct commands (TijaraTides.Domain.MarketEligibilityTest)",
+        "test every catalogue quote respects market roles and advertised supply is releasable (TijaraTides.Domain.MarketEligibilityTest)",
+        "test sale settles operating bills once with debt 1250 (TijaraTides.Domain.GameTest)",
+        "test manual purchases select stock meeting life in the receiving hold (TijaraTides.Domain.GameTest)",
+        "test an unportioned sell claim releases only the matched buyer's eligible lots (TijaraTides.Domain.GradedBooksTest)",
+        "test market recovery is one lot per 150 seconds and preserves partial intervals (TijaraTides.Domain.GameTest)",
+        "test automated sales copy a preset and release only cargo meeting its grade minimum (TijaraTides.Domain.GradedBooksTest)",
+        "test buyer minimum lifetime is checked under receiving conditions (TijaraTides.Domain.GradedBooksTest)",
+        "test preset ownership and applied copies survive edits and deletion (TijaraTides.Domain.GradedBooksTest)",
+        "test market freshness expires between production boundaries (TijaraTides.Domain.GameTest)",
+        "test complete schedules, copied basis, floors and eligibility amendments preserve atomicity (TijaraTides.Domain.GradedBooksTest)",
+        "test sale settles operating bills once with debt 1000000 (TijaraTides.Domain.GameTest)",
+        "test mixed-grade backing fills only eligible portions at their resting prices (TijaraTides.Domain.GradedBooksTest)",
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)",
+        "test spoilage cancels only expired backing and retains the other portion (TijaraTides.Domain.GradedBooksTest)",
+        "test invitation redemption and expiry cannot both consume and refund quota (TijaraTides.Domain.GameTest)",
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)",
+        "test handling completion produces one private notice per operation (TijaraTides.Domain.GameTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)",
+        "test aging resets changed portions while unchanged and split portions retain priority (TijaraTides.Domain.GradedBooksTest)",
+        "test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest)",
+        "test purchases require a route and preserve loaded voyage costs plus fleet upkeep (TijaraTides.Domain.GameTest)",
+        "test legacy voyages accelerate once while preserving progress and fuel already spent (TijaraTides.Domain.GameTest)",
+        "test a disclosed storm delays a command-started voyage across a cargo expiry in the full tick (TijaraTides.Domain.GameTest)",
+        "test perishable purchases retain source freshness and spoilage writes off cargo once (TijaraTides.Domain.GameTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test supplier quotes follow earliest expiry and minimum-life fills retain excluded lots (TijaraTides.Domain.PortCargoMarketAggregateTest)",
+        "test quote eligibility holds independently of physical stock, demand and budget (TijaraTides.Domain.MarketEligibilityTest)",
+        "test Tangier factory feedstock cannot be bought through UI limits or direct commands (TijaraTides.Domain.MarketEligibilityTest)",
+        "test every catalogue quote respects market roles and advertised supply is releasable (TijaraTides.Domain.MarketEligibilityTest)",
+        "test sale settles operating bills once with debt 1250 (TijaraTides.Domain.GameTest)",
+        "test manual purchases select stock meeting life in the receiving hold (TijaraTides.Domain.GameTest)",
+        "test an unportioned sell claim releases only the matched buyer's eligible lots (TijaraTides.Domain.GradedBooksTest)",
+        "test market recovery is one lot per 150 seconds and preserves partial intervals (TijaraTides.Domain.GameTest)",
+        "test automated sales copy a preset and release only cargo meeting its grade minimum (TijaraTides.Domain.GradedBooksTest)",
+        "test buyer minimum lifetime is checked under receiving conditions (TijaraTides.Domain.GradedBooksTest)",
+        "test preset ownership and applied copies survive edits and deletion (TijaraTides.Domain.GradedBooksTest)",
+        "test market freshness expires between production boundaries (TijaraTides.Domain.GameTest)",
+        "test complete schedules, copied basis, floors and eligibility amendments preserve atomicity (TijaraTides.Domain.GradedBooksTest)",
+        "test sale settles operating bills once with debt 1000000 (TijaraTides.Domain.GameTest)",
+        "test mixed-grade backing fills only eligible portions at their resting prices (TijaraTides.Domain.GradedBooksTest)",
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)",
+        "test spoilage cancels only expired backing and retains the other portion (TijaraTides.Domain.GradedBooksTest)",
+        "test invitation redemption and expiry cannot both consume and refund quota (TijaraTides.Domain.GameTest)",
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)",
+        "test handling completion produces one private notice per operation (TijaraTides.Domain.GameTest)",
+        "test buying reserves actual capacity and cannot bypass ownership, funds, limits or handling (TijaraTides.Domain.GameTest)",
+        "test aging resets changed portions while unchanged and split portions retain priority (TijaraTides.Domain.GradedBooksTest)",
+        "test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest)",
+        "test purchases require a route and preserve loaded voyage costs plus fleet upkeep (TijaraTides.Domain.GameTest)",
+        "test legacy voyages accelerate once while preserving progress and fuel already spent (TijaraTides.Domain.GameTest)",
+        "test a disclosed storm delays a command-started voyage across a cargo expiry in the full tick (TijaraTides.Domain.GameTest)",
+        "test perishable purchases retain source freshness and spoilage writes off cargo once (TijaraTides.Domain.GameTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-28-fault.log"
+    },
+    {
+      "index": 29,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 19,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: * to 1 (identity)",
+      "patch_sha256": "18d3f607d4dc705255fc838a9e56889740e488e9488462add4967be799c3d51d",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test sale settles operating bills once with debt 1250 (TijaraTides.Domain.GameTest)",
+        "test automated sales copy a preset and release only cargo meeting its grade minimum (TijaraTides.Domain.GradedBooksTest)",
+        "test sale settles operating bills once with debt 1000000 (TijaraTides.Domain.GameTest)",
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test sale settles operating bills once with debt 1250 (TijaraTides.Domain.GameTest)",
+        "test automated sales copy a preset and release only cargo meeting its grade minimum (TijaraTides.Domain.GradedBooksTest)",
+        "test sale settles operating bills once with debt 1000000 (TijaraTides.Domain.GameTest)",
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-29-fault.log"
+    },
+    {
+      "index": 30,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 19,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to +",
+      "patch_sha256": "a5fbfb03b0603c203597a12f8817e8278ca4b861fb50762a6fcdc19f678ca4bb",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property scarcity price points scale in cents and merchant spread stays distinct (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-30/replay-fault.log"
+    },
+    {
+      "index": 31,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 19,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to 0 (remove)",
+      "patch_sha256": "403efa0154d9e543411830b30047be6d999342b39e29fd2f7cc88717d224bb66",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test sale settles operating bills once with debt 1250 (TijaraTides.Domain.GameTest)",
+        "test automated sales copy a preset and release only cargo meeting its grade minimum (TijaraTides.Domain.GradedBooksTest)",
+        "test sale settles operating bills once with debt 1000000 (TijaraTides.Domain.GameTest)",
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test sale settles operating bills once with debt 1250 (TijaraTides.Domain.GameTest)",
+        "test automated sales copy a preset and release only cargo meeting its grade minimum (TijaraTides.Domain.GradedBooksTest)",
+        "test sale settles operating bills once with debt 1000000 (TijaraTides.Domain.GameTest)",
+        "test voyage arrives, reserved fuel is spent once, and other players cannot inspect cargo (TijaraTides.Domain.GameTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-31-fault.log"
+    },
+    {
+      "index": 32,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 19,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to +",
+      "patch_sha256": "4a3ed741f2de8d1a6894d29c83bf3753907bb1019a2f57f10c71065353f1d348",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "selection_miss",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [
+        "test browser can redeem, form a company, buy, sail, sell and reconnect (TijaraTides.Infrastructure.GamePersistenceTest)"
+      ],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property scarcity price points scale in cents and merchant spread stays distinct (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-32/replay-fault.log"
+    },
+    {
+      "index": 33,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 19,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to 0 (remove)",
+      "patch_sha256": "745ea6f98b03140795c4a5b33a301002d3c7de081640c8f38b6e19c8a1fa8a0a",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "74fab8c3affa0fa7b4d829d74241753e70d1d513",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property scarcity price points scale in cents and merchant spread stays distinct (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-33/replay-fault.log"
+    },
+    {
+      "index": 34,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 26,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: || to &&",
+      "patch_sha256": "967d85528d3baba621d7bf112493038130d59d918b16c0f2fe145a797a04d0b9",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "cc24abdc1b7431067259140de499933e8632eeb2",
+        "predates_automation_review_base": false
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test supplier quotes follow earliest expiry and minimum-life fills retain excluded lots (TijaraTides.Domain.PortCargoMarketAggregateTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test supplier quotes follow earliest expiry and minimum-life fills retain excluded lots (TijaraTides.Domain.PortCargoMarketAggregateTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-34-fault.log"
+    },
+    {
+      "index": 35,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 33,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "5a909baa9fbbb7bd1961db11bc18861e322975ff1904d6ea2bc3a7fb43bf3fba",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "be872fba41d08bf86fb849c41917fdebf408dde7",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test new and decoded merchants need explicitly active warehouse backing (TijaraTides.Domain.MarketQuotePropertiesTest)",
+        "property scarcity price points scale in cents and merchant spread stays distinct (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-35/replay-fault.log"
+    },
+    {
+      "index": 36,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 33,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: or to and",
+      "patch_sha256": "afff77f63fbe25e91aea68dda307d607d1c48b72b4f42d3a20ca29aaa1e7e741",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "be872fba41d08bf86fb849c41917fdebf408dde7",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test a future perishable merchant cannot fill stock held for NPC auctions (TijaraTides.Domain.GradedBooksTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/markets-36-fault.log"
+    },
+    {
+      "index": 37,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 33,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: remove not (not x to x)",
+      "patch_sha256": "45bc2213fc6dc45ddbd4e5db161b5fe17ffcd484c0b5b2ee2c20ce9900c952ab",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "be872fba41d08bf86fb849c41917fdebf408dde7",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "selection_miss",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [
+        "test minimum shelf life forms, route edits and private terms survive replay and restart (TijaraTides.Infrastructure.GamePersistenceTest)",
+        "test browser can redeem, form a company, buy, sail, sell and reconnect (TijaraTides.Infrastructure.GamePersistenceTest)",
+        "test perishable disclosures follow quantity, dispatch and underway time (TijaraTides.Infrastructure.GamePersistenceTest)",
+        "test instruction expiry UI preserves drafts, receipts and deadlines across offline restart (TijaraTides.Infrastructure.GamePersistenceTest)",
+        "test warehouse exchange fills persist atomically with escrow and anonymous depth (TijaraTides.Infrastructure.GamePersistenceTest)",
+        "test ship instructions submit through the UI, replay, settle on arrival and survive reload (TijaraTides.Infrastructure.GamePersistenceTest)"
+      ],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test new and decoded merchants need explicitly active warehouse backing (TijaraTides.Domain.MarketQuotePropertiesTest)",
+        "property scarcity price points scale in cents and merchant spread stays distinct (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-37/replay-fault.log"
+    },
+    {
+      "index": 38,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 41,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: > to <",
+      "patch_sha256": "b5763664346e06fb0d618cb81286a51baa6bbe9442bd12f9b36ee6d0a5f6b294",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "6cef87a654f956045e85a3b6ea9d0ec0bcd8da79",
+        "predates_automation_review_base": false
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property buyer capacity uses independently generated paid units and protects zero-price demand (TijaraTides.Domain.MarketQuotePropertiesTest)",
+        "test buyer budget below one priced unit cannot purchase demand (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-38/replay-fault.log"
+    },
+    {
+      "index": 39,
+      "area": "markets",
+      "source": "lib/tijara_tides/domain/port_cargo_market.ex",
+      "line": 41,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: > to >=",
+      "patch_sha256": "3eb7d14626c617a54c0ec1e8fea592d1e97f107a353845c7f7b4c258820c9c30",
+      "source_sha256": "e6bcb6d9b1b7981331e3d13a2c1fe0c0f6bef497965b0a7bd6d883b25a4aca84",
+      "provenance": {
+        "origin_commit": "6cef87a654f956045e85a3b6ea9d0ec0bcd8da79",
+        "predates_automation_review_base": false
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property buyer capacity uses independently generated paid units and protects zero-price demand (TijaraTides.Domain.MarketQuotePropertiesTest)",
+        "test buyer budget below one priced unit cannot purchase demand (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-39/replay-fault.log"
+    },
+    {
+      "index": 40,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 15,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: * to /",
+      "patch_sha256": "d6744238a884942fe1e66d54e8c059cc6920e884c90f9d3d8391fd8e1f67a39a",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "22ab33c2ad563320e15809fb472804ab4a98a875",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test company closure updates history, suspends at five, and cannot repeat (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test company closure updates history, suspends at five, and cannot repeat (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-40-fault.log"
+    },
+    {
+      "index": 41,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 15,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: * to 1 (identity)",
+      "patch_sha256": "2e0e9782b7f4b82737c5ecbd153f003c4b5df1b6a4711450df55ee4538db5cd2",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "22ab33c2ad563320e15809fb472804ab4a98a875",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test company closure updates history, suspends at five, and cannot repeat (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test company closure updates history, suspends at five, and cannot repeat (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-41-fault.log"
+    },
+    {
+      "index": 42,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 19,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: != to ==",
+      "patch_sha256": "321dcbcba7661ffab05875adaf56a6e6d838a260e7b191ed96442d981b7fbdea",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test company association is exclusive and bankruptcy history cannot be counted twice (TijaraTides.Domain.AccountAggregateTest)",
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test only a funded pledge by the original sponsor can reinstate an account (TijaraTides.Domain.AccountAggregateTest)",
+        "test company closure updates history, suspends at five, and cannot repeat (TijaraTides.Domain.AccountRootTest)",
+        "test attachment and verification enforce supplied current facts (TijaraTides.Domain.AccountRootTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property forbidden name characters reject without committing and a corrected request succeeds (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "property envelope mutations reject at their boundary and extra semantic fields can be admitted (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test unexpected rescued planner errors and halts are findings, never allowed rejections (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test sponsor must cover own debt including interest with unreserved cash (TijaraTides.Domain.GuaranteesTest)",
+        "test commands and a full unchanged tick settle beneficiary failure on sponsor books exactly once (TijaraTides.Domain.GuaranteesTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test the sponsor's own settlement forfeits the escrow recorded by the bankruptcy (TijaraTides.Domain.GuaranteesTest)",
+        "property combining marks count independently of bytes and control-free name limits (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test drawing records the guarantee on the loan without writing sponsor children (TijaraTides.Domain.GuaranteesTest)",
+        "test numeric and ownership boundaries preserve cash and corrected commands remain usable (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test name table covers accepted boundaries and safely rejected values in three commands (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test beneficiary bankruptcy records the debt without touching the sponsor's books (TijaraTides.Domain.GuaranteesTest)",
+        "test rate progression ages out but suspension persists (TijaraTides.Domain.GuaranteesTest)",
+        "property preset client references cannot create identities or edit foreign identities (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test a forfeit awaiting the sponsor's settlement is reported as pending (TijaraTides.Domain.GuaranteesTest)",
+        "test settlement caps sponsor losses and refunds excess even to a bankrupt sponsor (TijaraTides.Domain.GuaranteesTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test company association is exclusive and bankruptcy history cannot be counted twice (TijaraTides.Domain.AccountAggregateTest)",
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test only a funded pledge by the original sponsor can reinstate an account (TijaraTides.Domain.AccountAggregateTest)",
+        "test company closure updates history, suspends at five, and cannot repeat (TijaraTides.Domain.AccountRootTest)",
+        "test attachment and verification enforce supplied current facts (TijaraTides.Domain.AccountRootTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property forbidden name characters reject without committing and a corrected request succeeds (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "property envelope mutations reject at their boundary and extra semantic fields can be admitted (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test unexpected rescued planner errors and halts are findings, never allowed rejections (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test sponsor must cover own debt including interest with unreserved cash (TijaraTides.Domain.GuaranteesTest)",
+        "test commands and a full unchanged tick settle beneficiary failure on sponsor books exactly once (TijaraTides.Domain.GuaranteesTest)",
+        "test a refundable pledge pays sponsor arrears before foreclosure (TijaraTides.Domain.GuaranteesTest)",
+        "test the sponsor's own settlement forfeits the escrow recorded by the bankruptcy (TijaraTides.Domain.GuaranteesTest)",
+        "property combining marks count independently of bytes and control-free name limits (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test drawing records the guarantee on the loan without writing sponsor children (TijaraTides.Domain.GuaranteesTest)",
+        "test numeric and ownership boundaries preserve cash and corrected commands remain usable (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test pledge reinstates, caps borrowing, fixes loan rate, and releases when the sponsor settles (TijaraTides.Domain.GuaranteesTest)",
+        "test name table covers accepted boundaries and safely rejected values in three commands (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test beneficiary bankruptcy records the debt without touching the sponsor's books (TijaraTides.Domain.GuaranteesTest)",
+        "test rate progression ages out but suspension persists (TijaraTides.Domain.GuaranteesTest)",
+        "property preset client references cannot create identities or edit foreign identities (TijaraTides.UseCases.CommandPayloadPropertiesTest)",
+        "test a forfeit awaiting the sponsor's settlement is reported as pending (TijaraTides.Domain.GuaranteesTest)",
+        "test settlement caps sponsor losses and refunds excess even to a bankrupt sponsor (TijaraTides.Domain.GuaranteesTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-42-fault.log"
+    },
+    {
+      "index": 43,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 36,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "1119351ea3eece8c3c9e9a7b71557300ed7532ce547b01261b09ae845d0fdb8b",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "22ab33c2ad563320e15809fb472804ab4a98a875",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test suspension and quota type guards hold even on direct aggregate consumption (TijaraTides.Domain.AccountQuotaPropertiesTest)",
+        "property quota consumption and invitation issue enforce independent suspension and capacity limits (TijaraTides.Domain.AccountQuotaPropertiesTest)",
+        "test zero-quota invitee rejects an invitation before trying to consume it (TijaraTides.Domain.AccountQuotaPropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-43/replay-fault.log"
+    },
+    {
+      "index": 44,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 36,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "04565176d9c910ffbb58043d86b79402a9eb83a8c1718303e057bf8edb817286",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "22ab33c2ad563320e15809fb472804ab4a98a875",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test suspension and quota type guards hold even on direct aggregate consumption (TijaraTides.Domain.AccountQuotaPropertiesTest)",
+        "property quota consumption and invitation issue enforce independent suspension and capacity limits (TijaraTides.Domain.AccountQuotaPropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-44/replay-fault.log"
+    },
+    {
+      "index": 45,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 36,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: remove not (not x to x)",
+      "patch_sha256": "e4e36d21c80b44c20ef1134b2d96c5d54ab4a8fc3e980b1db236c2dd9e66840b",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "22ab33c2ad563320e15809fb472804ab4a98a875",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-45-fault.log"
+    },
+    {
+      "index": 46,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 37,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: > to <",
+      "patch_sha256": "12256c4f4d001c3a0361253fb9e07afb166ac447d0ce874bf12f274e5d8f7fcb",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "22ab33c2ad563320e15809fb472804ab4a98a875",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-46-fault.log"
+    },
+    {
+      "index": 47,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 37,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: > to >=",
+      "patch_sha256": "1d147e3fe11d62bc89ae6fe8099e20b9e8bd440a87a26e11c05d3fc1a27c19fc",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "22ab33c2ad563320e15809fb472804ab4a98a875",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property quota consumption and invitation issue enforce independent suspension and capacity limits (TijaraTides.Domain.AccountQuotaPropertiesTest)",
+        "test zero-quota invitee rejects an invitation before trying to consume it (TijaraTides.Domain.AccountQuotaPropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-47/replay-fault.log"
+    },
+    {
+      "index": 48,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 40,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to +",
+      "patch_sha256": "ed16be7394397be1248f6eb4ce0a9e2033e2a0530803f6594ff04425a44560d4",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "22ab33c2ad563320e15809fb472804ab4a98a875",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-48-fault.log"
+    },
+    {
+      "index": 49,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 40,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: - to 0 (remove)",
+      "patch_sha256": "92cd7acd16d865063df47d3d6fdd7dec20c2dc477d0a2a3ad22c6481a767896c",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "22ab33c2ad563320e15809fb472804ab4a98a875",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-49-fault.log"
+    },
+    {
+      "index": 50,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 44,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "842e18b03d7907882f09a86e70bf8a2ec875b4922ff59ba26ef2c1a05f7334e2",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-50-fault.log"
+    },
+    {
+      "index": 51,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 44,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "33750e5e3f4ccb076dbab73735c29a6e7ad2e8f3d90633f1f8b4e1adbcafa1c3",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-51-fault.log"
+    },
+    {
+      "index": 52,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 44,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: remove not (not x to x)",
+      "patch_sha256": "541804a77055cdf2a8845ebc09ed57bf5b7fce8e11a904a7b8166b2eea0f0d4a",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-52-fault.log"
+    },
+    {
+      "index": 53,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 44,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: > to <",
+      "patch_sha256": "36e89bb5af99451833fc4dfc329e5b141928fa3692b650147f5538c7c4f188a9",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-53-fault.log"
+    },
+    {
+      "index": 54,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 44,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: > to >=",
+      "patch_sha256": "05564fb0ae8f6b54ffb9a75505eae4ab360e0dc3cb92f539daaba4745cc4e241",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property quota consumption and invitation issue enforce independent suspension and capacity limits (TijaraTides.Domain.AccountQuotaPropertiesTest)",
+        "test zero-quota invitee rejects an invitation before trying to consume it (TijaraTides.Domain.AccountQuotaPropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-54/replay-fault.log"
+    },
+    {
+      "index": 55,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 44,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: < to >",
+      "patch_sha256": "b7544e6be1cc5ecffa1b1182a02a9534fe19c81511690411066ab3d4d1945cea",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test emailed invitation links atomically and cannot be redeemed as an unlinked code (TijaraTides.Domain.EmailIdentityTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)",
+        "property finance shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed route paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property liquidation shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property route shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed berths paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed liquidation paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "test fixed finance paths are replayable under four independent seeds (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property broad command exploration mixes valid commands and targeted violations (TijaraTides.UseCases.LifecycleFuzzerTest)",
+        "property berths shrinking retains the essential lifecycle (TijaraTides.UseCases.LifecycleFuzzerTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-55-fault.log"
+    },
+    {
+      "index": 56,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 44,
+      "operator": "Muex.Mutator.Comparison",
+      "description": "Comparison: < to <=",
+      "patch_sha256": "105d555cb70806367e70323008d9b717e9ae6cf45730b1a47baf088807d24559",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-56-fault.log"
+    },
+    {
+      "index": 57,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 50,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to -",
+      "patch_sha256": "5522e6497df854bb24e6e7ef2186a0c58432f6ac8dcba2f671f60bd53e39bb1c",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-57-fault.log"
+    },
+    {
+      "index": 58,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 50,
+      "operator": "Muex.Mutator.Arithmetic",
+      "description": "Arithmetic: + to 0 (remove)",
+      "patch_sha256": "6a992c9b925d33b1530e65a7a5685e93fa133a185a57c2b981d015627b84d0cf",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "09f9f941e5ccd2de4a1203742239292e81766454",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "detected",
+      "initial_failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)"
+      ],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "test stale account snapshots cannot restore spent invitation quota; expiry refunds once (TijaraTides.Domain.AccountAggregateTest)",
+        "test quota changes preserve typed account state and enforce outstanding limits (TijaraTides.Domain.AccountRootTest)",
+        "test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest)",
+        "test invitation and sign-in deadlines use separate clocks at adjacent boundaries (TijaraTides.Domain.EmailIdentityTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/generated/accounts-58-fault.log"
+    },
+    {
+      "index": 59,
+      "area": "accounts",
+      "source": "lib/tijara_tides/domain/account.ex",
+      "line": 52,
+      "operator": "Muex.Mutator.Boolean",
+      "description": "Boolean: and to or",
+      "patch_sha256": "473e59c16b4d3c09fb83e1cab2f88e0209106dff702c5b21a845a2c7212d001b",
+      "source_sha256": "331ed8f3cdc28283a1db916ec4896a402e27913f8fa3b11e2958acd37e2b4564",
+      "provenance": {
+        "origin_commit": "309522f1066ac4fc3f052d2ca55e53da4849a778",
+        "predates_automation_review_base": true
+      },
+      "initial_classification": "survived_full_applicable",
+      "initial_failing_tests": [],
+      "triage_failing_tests": [],
+      "classification": "detected",
+      "baseline_exit": 0,
+      "mutant_exit": 2,
+      "restored_exit": 0,
+      "failing_tests": [
+        "property earning invitations accepts only positive whole counts (TijaraTides.Domain.AccountQuotaPropertiesTest)",
+        "test earning refuses fractional counts even when positive (TijaraTides.Domain.AccountQuotaPropertiesTest)"
+      ],
+      "receipt": "cover/test-expansion/round5/replay-59/replay-fault.log"
+    }
+  ],
+  "named_comparison": [
+    {
+      "index": 24,
+      "named_classification": "detected",
+      "named_failing_tests": [
+        "test ordinary scarcity endpoints remain explicit fixed counterexamples (TijaraTides.Domain.MarketQuotePropertiesTest)"
+      ],
+      "baseline_exit": 0,
+      "restored_exit": 0,
+      "with_properties_classification": "detected"
+    },
+    {
+      "index": 30,
+      "named_classification": "survived",
+      "named_failing_tests": [],
+      "baseline_exit": 0,
+      "restored_exit": 0,
+      "with_properties_classification": "detected"
+    }
+  ]
+}

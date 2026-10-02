@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/warehouse_world.ex
++++ lib/tijara_tides/domain/warehouse_world.ex
+@@ -891,7 +891,7 @@
+   def estate_cover(state, id, until_ms) do
+     w = fetch(state, id)
+ 
+-    if Liquidation.active?(state, id) or
++    if false or
+          (Warehouse.covered_until(w) > until_ms and w.expires_ms > state.clock_ms) do
+       state
+     else

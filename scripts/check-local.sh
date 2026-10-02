@@ -18,6 +18,7 @@ if [[ "$scope" == "docs" ]]; then
 fi
 
 python3 scripts/test-validation-scope.py
+python3 scripts/test-mutation-audit.py
 python3 scripts/test-format-staged.py
 python3 scripts/test-bump-desktop-version.py
 python3 scripts/test-publish-desktop-release.py

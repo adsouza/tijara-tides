@@ -1,0 +1,10 @@
+--- lib/tijara_tides_web/live/game_live.ex
++++ lib/tijara_tides_web/live/game_live.ex
+@@ -772,6 +772,7 @@
+       socket,
+       params
+       |> Map.take(~w(request_id side good quantity limit budget onward preset))
++      |> Map.put("expiry_minutes", params["expiry_minutes"])
+       |> Map.put("action", "instruction")
+       |> Map.put("ship", socket.assigns.selected_ship)
+       |> Map.put(

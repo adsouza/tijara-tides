@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/services/departure_funding.ex
++++ lib/tijara_tides/domain/services/departure_funding.ex
+@@ -269,7 +269,7 @@
+       plans_by_ship = Map.new(ready_plans(state), &{&1["ship_id"], &1})
+ 
+       Enum.reduce(rows, state, fn row, s ->
+-        if request_valid?(s, row, plans_by_ship[row["ship_id"]], catalogue),
++        if request_valid?(s, row, (Map.new(ready_plans(s), &{&1["ship_id"], &1}))[row["ship_id"]] || plans_by_ship[row["ship_id"]], catalogue),
+           do: s,
+           else: AutomationWorld.abandon_request(s, row)
+       end)

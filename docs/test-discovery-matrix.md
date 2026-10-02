@@ -287,3 +287,79 @@ The focused ordinary cohort takes 3.7 seconds; SQL traces/properties take about
 in 0.8 seconds on this host. These are local measurements, not CI promises or
 measurements for the two CI runtime pairs. Raw logs are under
 `cover/test-expansion/round4/`.
+
+## Round 5 detection matrix
+
+The [audit report](mutation-audit.md) explains selection, limits, provenance and
+initial survivors. The checked-in [compact results](../test/fixtures/mutation_faults/results.json)
+record each exact patch hash, detecting test, initial classification and 0/2/0
+baseline/mutant/restoration exits. Full raw receipts are under
+`cover/test-expansion/round5/`. These are scoped sensitivity results.
+
+| Fault | Review / discovery contract | Detecting test or property (first failure; all retained in results) |
+|---|---|---|
+| `unsafe-company` | #4 / earlier naming | property forbidden name characters reject without committing and a corrected request succeeds (TijaraTides.UseCases.CommandPayloadPropertiesTest) |
+| `preset-graphemes` | #4 | property combining marks count independently of bytes and control-free name limits (TijaraTides.UseCases.CommandPayloadPropertiesTest) |
+| `notice-binding` | #8 | test actual lease expiry carries both rates and grace through the renderer, then clears once (TijaraTides.NoticeInventoryTest) |
+| `metadata-forwarded` | Instruction form escape | test valid instruction_sell form commits its intended terms and exact replay (TijaraTides.Infrastructure.FormContractsTest) |
+| `raw-expiry` | #15 / form escape | test valid instruction_sell form commits its intended terms and exact replay (TijaraTides.Infrastructure.FormContractsTest) |
+| `raw-number` | Form normalization | test valid instruction_sell form commits its intended terms and exact replay (TijaraTides.Infrastructure.FormContractsTest) |
+| `visit-release` | #1 | test manual departure mid-visit releases only that visit's cash, including after pausing (TijaraTides.Domain.RouteFundingTest) |
+| `pool-cover` | #2 | test receivership auction cover cannot revive an award lease with an active liquidation pool (TijaraTides.Domain.WarehouseLiquidationTest) |
+| `timeout-boundary` | Funding deadline | test one oldest request accumulates, times out at a fixed deadline, and enters cooldown (TijaraTides.Domain.RouteFundingTest) |
+| `spoilage-boundary` | Cargo deadline | test ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs (TijaraTides.Domain.GameTest) |
+| `guarantee-loss` | Earlier finance | test commands and a full unchanged tick settle beneficiary failure on sponsor books exactly once (TijaraTides.Domain.GuaranteesTest) |
+| `report-boundary` | Earlier reporting | test events exactly at a boundary belong to the new period (TijaraTides.Domain.ReportingTest) |
+| `identity-clock` | Earlier identity | test expired invite restores quota and expiry uses the active clock (TijaraTides.Domain.EmailIdentityTest) |
+| `claims-before-release` | #3 | test accumulator release precedes claims across release shape ID order insertion and zero balance (TijaraTides.Infrastructure.SqlTransitionContractsTest) |
+| `lost-lot-row-large-batch` | SQL chunk boundary | test lot parent and conserved children span the bind-limit chunk and a late failure rolls both chunks back (TijaraTides.Infrastructure.SqlTransitionContractsTest) |
+| `arbitrary-preset-id` | #4 | property preset client references cannot create identities or edit foreign identities (TijaraTides.UseCases.CommandPayloadPropertiesTest) |
+| `future-weather` | #10 | test the current storm does not disclose the next three storms on a long route (TijaraTides.Domain.WeatherTest) |
+| `narrow-weather-offset` | #6 | test staggered storms span the full period deterministically without changing occurrence (TijaraTides.Domain.WeatherTest) |
+| `repeat-weather-partition` | #12 | test a legacy sailing path is partitioned once, then cached across ticks and serialization (TijaraTides.Domain.AutomationCostTest) |
+| `filtered-check-unfiltered-take` | #16 | test forced exchange fills take fresh eligible lots and leave older cargo behind (TijaraTides.Domain.WarehouseLiquidationTest) |
+| `merchant-reservations` | #17 | test one unit beyond an 80-unit merchant reservation is refused (TijaraTides.Domain.PortCargoMarketAggregateTest) |
+| `permissive-charges` | #18 | test completion rejects forged charges, clocks and estate classification (TijaraTides.Domain.ReservationModelsTest) |
+| `required-defaults` | #18 | test fields with domain defaults must come from the domain codec, not the adapter (TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest) |
+| `owner-redundant-commit` | #5 | test repeated owner visits do not commit or broadcast within the same minute (TijaraTides.Infrastructure.GamePersistenceTest) |
+| `compiled-back-edge` | #9 | test ShipWorld has no transitive workflow back edge, including adapters outside the service inventory (TijaraTides.AutomationArchitectureTest) |
+| `lost-frozen-path` | #7 | test turning back releases fuel and retains the current position and spent fuel (TijaraTides.Domain.ReroutingTest) |
+| `late-perishable-close` | #11 | test late ticks settle perishable liquidation at the close before aging in the buyer's storage (TijaraTides.Domain.WarehouseLiquidationTest) |
+| `repeat-instruction-scan` | #12 | test funding revalidation reads the instruction table once for one or many requests (TijaraTides.Domain.AutomationCostTest) |
+| `wrong-bankruptcy-reason` | #13 | test receivership stops departure with its own reason rather than a duration error (TijaraTides.Domain.RouteFundingTest) |
+| `notice-precision` | #14 | test weather notices format fractional minutes to one localized decimal (TijaraTides.LocalizationTest) |
+| `receiving-aging` | Receiving-freshness decision | test cooling cannot revive spoiled cargo and ordinary holds accept perishables (TijaraTides.Domain.CargoFreshnessTest) |
+| `grace-rent` | Grace-rent decision | test a late rent tick does not charge both grace and liquidation rates for the same time (TijaraTides.Domain.ReservationModelsTest) |
+
+The generated cohort contains twenty candidates per area: finance, markets and
+accounts. Of sixty changed lines, 57 predate `5ad0399` (20 finance, 17 markets,
+20 accounts). Initial results were 45 detections, two selection misses and
+thirteen full-applicable survivors. Every survivor received an exact SQL-inclusive
+triage, a fixed counterexample/general contract and an exact detecting replay.
+The compact results link all sixty indices to their actual failed assertions,
+with provenance and initial/full-scope/replay outcomes kept distinct.
+
+| Discovery area | Deliberate evidence | Outstanding scoped exploration |
+|---|---|---|
+| Finance and guarantees | Twenty loan-action mutants; zero sponsor-loss fault | More generated interest/arrears clauses |
+| Trading and auctions | Independent price/capacity properties; eligible identity and reservation faults; late-close fault | Generated linked-order counterpart and partial-fill sequences |
+| Fleet and berths | Frozen-path fault; existing queue and committed-work scenarios plus generated family | Additional queue-admission source mutants |
+| Port economy | Existing independent recipes/credits and SQL reload assertions; merchant backing/reservation mutations | Manufacturing/participation source mutations are unselected in this cohort |
+| Accounts and identity | Quota/type/suspension/earnings properties; wrong-clock fault | More compaction and ownership clauses |
+| Reporting and queries | Shifted period fault; independently valued totals and privacy checks | Generated report/projection decisions |
+| Storage, automation and weather | Full lifecycle faults; long-voyage disclosure and independent rent properties | Broader interacting weather/handling parameter sequences |
+| Persistence and recovery | Real unique-index ordering, chunk loss and required-default faults | Further supported migration shapes and competing transfers |
+| Architecture and work | Compiled back edge, repeated scans/partitions, redundant owner commit | Validated branch/condition instrumentation remains separate |
+| Web forms and notices | Raw metadata/expiry/fingerprint faults, binding/precision inventory | Remaining variants stay explicit in the form inventory |
+
+Mutation discovery added seven properties and ten named examples. They run in
+ordinary local/CI checks; mutation generation remains opt-in. The two-candidate
+named-only comparison detects asking-price reversal with a fixed example, while
+bidding-price reversal requires the varied price property in that selection.
+No aggregate score replaces the remaining gaps listed above.
+
+Final local verification: 874 tests/properties pass in precommit, 991 pass with
+disposable PostgreSQL and 94.01% line coverage, and both browser workflows pass.
+Precommit and SQL compilation produce zero compiler warnings. Detailed runtime
+measurements and artifact paths are in the audit report; the two configured
+Elixir/OTP combinations still require CI execution.

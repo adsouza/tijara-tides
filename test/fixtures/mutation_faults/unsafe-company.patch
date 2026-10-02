@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/services/company_formation.ex
++++ lib/tijara_tides/domain/services/company_formation.ex
+@@ -20,7 +20,7 @@
+         {:error, :bankruptcy_cooldown}
+ 
+       not String.valid?(name) or name == "" or String.length(name) > 60 or
+-          String.match?(name, ~r/[\p{Cc}\p{Cf}]/u) ->
++          false ->
+         {:error, :invalid_name}
+ 
+       Enum.any?(entities(state, "companies"), fn {_, c} ->

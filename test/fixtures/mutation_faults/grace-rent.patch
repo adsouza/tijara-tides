@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/liquidation_pool.ex
++++ lib/tijara_tides/domain/liquidation_pool.ex
+@@ -59,7 +59,7 @@
+   def accrue(%__MODULE__{status: "completed"} = p, _now), do: p
+ 
+   def accrue(%__MODULE__{} = p, now) do
+-    grace = max(0, min(now, p.grace_end_ms) - p.last_ms)
++    grace = max(0, now - p.last_ms)
+     liquidating = max(0, now - max(p.last_ms, p.grace_end_ms))
+     denominator = p.duration_ms * p.original_blocks * 10_000
+ 

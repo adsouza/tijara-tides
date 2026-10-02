@@ -1,0 +1,11 @@
+--- lib/tijara_tides/localization/notifications.ex
++++ lib/tijara_tides/localization/notifications.ex
+@@ -27,7 +27,7 @@
+           {key, Localization.text(value || "")}
+ 
+         {"minutes", value} when code == "ship.weather" and is_number(value) ->
+-          {"minutes", Localization.number(value, format: "0.0")}
++          {"minutes", Localization.number(value, format: "0")}
+ 
+         {key, value} when is_number(value) ->
+           {key, Localization.number(value)}

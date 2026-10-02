@@ -125,9 +125,14 @@ must answer:
 5. What independent oracle checks the result, and which semantic fault would
    it catch?
 
-The checklist is a current review requirement. Links to the expansion's completed
-detection matrix will be added in Round 5; that does not delay its use. This
-documentation does not supply automated branch or condition measurement.
+The checklist is a current review requirement. Completed examples map its five
+questions to [input and notice contracts](test-discovery-matrix.md#round-1b-evidence),
+[resource lifetimes](test-discovery-matrix.md#round-4-executed-cohort),
+[phase and clock boundaries](test-discovery-matrix.md#round-2-audit-and-evidence),
+[SQL ordering and recovery](test-discovery-matrix.md#round-3-sql-evidence-and-constraint-inventory)
+and the [fault detection matrix](test-discovery-matrix.md#round-5-detection-matrix).
+These examples do not replace the answers for a new change or supply automated
+branch/condition measurement.
 
 ### Automated measurement acceptance criteria
 
@@ -242,3 +247,36 @@ promoting it to a checked-in regression. Runner sensitivity fixtures are labelle
 separately from confirmed production defects. See the
 [executed discovery matrix](test-discovery-matrix.md#round-4-executed-cohort) for
 milestones, exclusions and measured evidence.
+
+### Bounded mutation audit
+
+The opt-in runner applies exact curated patches only in disposable copies and
+uses Muex 0.11.2 operators in a separate tool project. The application dependency
+list and lock stay unchanged. Curated batches contain at most twelve patches;
+generated audits contain at most twenty candidates per source and sixty total.
+One worker tests each mutant with seed 12345 and a 30-second limit. Baselines,
+restoration and full-applicable survivor triage are separate checks with a
+120-second limit; they do not increase the detection count by themselves.
+
+```sh
+python3 scripts/mutation-audit.py curated --start 0 --count 12 --out cover/mutation-audit/curated-0
+python3 scripts/mutation-audit.py curated --start 12 --count 12 --out cover/mutation-audit/curated-12
+python3 scripts/mutation-audit.py curated --start 24 --count 8 --out cover/mutation-audit/curated-24
+python3 scripts/mutation-audit.py generated --out cover/mutation-audit/generated
+python3 scripts/mutation-audit.py replay --report cover/mutation-audit/generated/generated.json --start 24 --extra-test test/tijara_tides/domain/market_quote_properties_test.exs --out cover/mutation-audit/replay-24
+```
+
+Generated selection is explicit and includes indirect callers and properties;
+it bypasses Muex's dependency-selection heuristic. Exact canonical source,
+mutant source, patches, provenance, runtime and failing tests are retained.
+Canonical unmutated baselines prove AST rendering did not itself break the
+selection. A survivor receives the same source patch in the full applicable
+scope, including SQL; selection misses remain distinct from missing assertions.
+Replays verify the original source hash and exact patch hash before testing.
+
+Compile errors, fixture/startup failures, timeouts and harness failures never
+count as detections. `scripts/test-mutation-audit.py` checks that classification
+contract in local full checks and CI. Inspect each detecting assertion before
+recording it in the discovery matrix. Operator generation is deliberately
+bounded and excludes no unproven survivor as “equivalent.” The
+[mutation audit report](mutation-audit.md) records the selected sample and gaps.

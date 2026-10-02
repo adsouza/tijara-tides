@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/cargo_freshness.ex
++++ lib/tijara_tides/domain/cargo_freshness.ex
+@@ -3,7 +3,7 @@
+   @ordinary 10_000
+   def rate(storage, catalogue \\ %{}) do
+     if storage == "reefer" do
+-      rate = get_in(catalogue, ["refrigeration", "aging_bps"]) || 2500
++      rate = 10_000
+       true = is_integer(rate) and rate in 1..@ordinary
+       rate
+     else

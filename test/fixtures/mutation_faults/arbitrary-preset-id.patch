@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/markdown_preset_world.ex
++++ lib/tijara_tides/domain/markdown_preset_world.ex
+@@ -11,7 +11,7 @@
+     schedule = cmd["markdowns"]
+ 
+     cond do
+-      editing and (not is_binary(id) or is_nil(previous)) ->
++      editing and false ->
+         {:error, :exchange_freshness_invalid}
+ 
+       previous && previous["account_id"] != account["id"] ->

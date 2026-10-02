@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/services/exchange.ex
++++ lib/tijara_tides/domain/services/exchange.ex
+@@ -491,7 +491,7 @@
+ 
+           true ->
+             {s, cargo} =
+-              Liquidation.take(s, warehouse, good, n, catalogue, Enum.map(eligible, & &1.lot_id))
++              Liquidation.take(s, warehouse, good, n, catalogue, Enum.map(free, & &1.lot_id))
+ 
+             acquired = Enum.map(cargo, &CargoRows.encode(%{&1 | unit_cost: buy.price}))
+ 
