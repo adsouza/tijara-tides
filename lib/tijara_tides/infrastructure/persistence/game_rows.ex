@@ -321,6 +321,29 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     },
     "markets" => %{"feedstock" => false, "production_credit" => 0}
   }
+  # Legacy omissions are declared per entity, never inferred from a shared
+  # column name. New reservation rows otherwise require every persisted field.
+  @column_defaults Map.merge(@defaults, %{
+                     "ship_instructions" =>
+                       Map.merge(@defaults["ship_instructions"], %{"min_remaining_ms" => 0}),
+                     "route_rules" => %{"min_remaining_ms" => 0},
+                     "warehouse_liquidations" => %{"replacement_paid" => 0},
+                     "warehouses" => %{
+                       "aging_bps" => 2500,
+                       "award_grace" => false,
+                       "space_volumes" => %{},
+                       "grace_ms" => 43_200_000,
+                       "surcharge_bps" => 2500,
+                       "window_ms" => 7_200_000,
+                       "clearance_bps" => 1000
+                     },
+                     "merchant_warehouses" => %{"aging_bps" => 2500},
+                     "accounts" => %{"funding_policy" => "wait", "locale" => "en"},
+                     "ship_routes" => %{"visit_finished" => false},
+                     "notices" => %{"arguments" => %{}}
+                   })
+  @strict ~w(weather markdown_presets remote_links visit_budgets departure_requests warehouse_liquidations company_dormancy)
+
   @optional %{
     "ship_instructions" => ~w(markdowns price_floor),
     "exchange_orders" => ~w(initial_price markdowns),
@@ -542,7 +565,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     |> Enum.each(fn chunk ->
       values =
         Enum.flat_map(chunk, fn {id, _, data} ->
-          [world, id | Enum.map(fields, fn {key, _} -> column_value(key, data[key]) end)]
+          [world, id | Enum.map(fields, fn {key, _} -> column_value(kind, key, data[key]) end)]
         end)
 
       placeholders =
@@ -620,24 +643,12 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     :ok
   end
 
-  for {key, default} <- @defaults |> Map.values() |> Enum.flat_map(&Map.to_list/1) |> Enum.uniq() do
-    defp column_value(unquote(key), nil), do: unquote(Macro.escape(default))
+  for {kind, defaults} <- @column_defaults, {key, default} <- defaults do
+    defp column_value(unquote(kind), unquote(key), nil), do: unquote(Macro.escape(default))
   end
 
-  defp column_value("replacement_paid", nil), do: 0
-  defp column_value("aging_bps", nil), do: 2500
-  defp column_value("award_grace", nil), do: false
-  defp column_value("space_volumes", nil), do: %{}
-  defp column_value("grace_ms", nil), do: 43_200_000
-  defp column_value("surcharge_bps", nil), do: 2500
-  defp column_value("window_ms", nil), do: 7_200_000
-  defp column_value("clearance_bps", nil), do: 1000
-  defp column_value("funding_policy", nil), do: "wait"
-  defp column_value("visit_finished", nil), do: false
-  defp column_value("locale", nil), do: "en"
-  defp column_value("arguments", nil), do: %{}
-  defp column_value("capital_ms", value), do: Decimal.new(value)
-  defp column_value(_key, value), do: value
+  defp column_value("financial_reports", "capital_ms", value), do: Decimal.new(value)
+  defp column_value(_kind, _key, value), do: value
 
   defp validate_entity!(kind, id, _old, data) do
     if kind == "markets" and data["merchant"] and
@@ -655,6 +666,15 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
     if Map.keys(data) -- keys != [], do: raise(ArgumentError, "Unsupported fields for #{kind}")
     if "id" in keys and data["id"] != id, do: raise(ArgumentError, "Entity ID mismatch")
+
+    if kind in @strict do
+      required = keys -- Map.keys(Map.get(@column_defaults, kind, %{}))
+      missing = Enum.reject(required, &Map.has_key?(data, &1))
+
+      if missing != [],
+        do: raise(ArgumentError, "Missing fields for #{kind}: #{inspect(missing)}")
+    end
+
     :ok
   end
 

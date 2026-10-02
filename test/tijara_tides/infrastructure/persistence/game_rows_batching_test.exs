@@ -56,6 +56,99 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
     %{entities: %{"ships" => Map.new(1..count, &{"s#{&1}", ship("s#{&1}", burned)})}}
   end
 
+  test "required reservation and preset fields cannot inherit defaults from other entity kinds" do
+    before = %{entities: %{}}
+
+    w = %TijaraTides.Domain.Warehouse{
+      id: "p",
+      company_id: "c",
+      port: "Jakarta",
+      storage: "dry",
+      good: nil,
+      blocks: 1,
+      started_ms: 0,
+      expires_ms: 100,
+      rent: 10,
+      prepaid: 0,
+      protected_ms: 0
+    }
+
+    pool =
+      TijaraTides.Domain.LiquidationPool.new(w, 1, 0)
+      |> TijaraTides.Domain.LiquidationPool.Rows.encode()
+
+    rows = [
+      {"markdown_presets",
+       %{"id" => "p", "account_id" => "a", "name" => "Preset", "markdowns" => %{}},
+       "price_floor"},
+      {"warehouse_liquidations", Map.delete(pool, "surcharge_bps"), "surcharge_bps"},
+      {"warehouse_liquidations", Map.delete(pool, "charged"), "charged"},
+      {"visit_budgets",
+       %{
+         "id" => "p",
+         "company_id" => "c",
+         "ship_id" => "s",
+         "stop_id" => nil,
+         "port" => "Jakarta",
+         "amount" => 0,
+         "remaining" => 0,
+         "strict" => true,
+         "skip" => false
+       }, "visit"}
+    ]
+
+    for {kind, row, missing} <- rows do
+      changed = State.put(before, kind, "p", row)
+
+      error =
+        assert_raise ArgumentError, fn ->
+          GameRows.write(CountingRepo, "world", before, changed)
+        end
+
+      assert error.message =~ "Missing fields for #{kind}"
+      assert error.message =~ missing
+      assert statements() == []
+    end
+  end
+
+  test "legacy defaults remain scoped to their owning entity" do
+    before = %{entities: %{}}
+
+    account = %{
+      "id" => "a",
+      "company_id" => nil,
+      "inviter" => nil,
+      "bankruptcies" => 0,
+      "suspended_ms" => nil,
+      "email" => nil,
+      "invite_quota" => 0,
+      "created_ms" => 0
+    }
+
+    GameRows.write(CountingRepo, "world", before, State.put(before, "accounts", "a", account))
+    [{statement, params}] = statements()
+    assert statement =~ "game_accounts"
+    assert "wait" in params
+    assert "en" in params
+
+    preset = %{
+      "id" => "p",
+      "account_id" => "a",
+      "name" => "Preset",
+      "markdowns" => %{},
+      "price_floor" => 0
+    }
+
+    GameRows.write(
+      CountingRepo,
+      "world",
+      before,
+      State.put(before, "markdown_presets", "p", preset)
+    )
+
+    assert length(statements()) == 1
+  end
+
   test "updating many rows of one kind issues one statement" do
     before = world(50, 0)
 
