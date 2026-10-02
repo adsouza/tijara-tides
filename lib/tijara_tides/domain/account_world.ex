@@ -5,12 +5,6 @@ defmodule TijaraTides.Domain.AccountWorld do
   @invite_ms 3 * 86_400_000
 
   alias TijaraTides.Domain.Account
-  defdelegate advance_dormancy(state, wall_ms, catalogue), to: __MODULE__.Dormancy, as: :advance
-
-  defdelegate advance_owner_dormancy(state, account, wall_ms, catalogue),
-    to: __MODULE__.Dormancy,
-    as: :advance_for
-
   defdelegate owner_visit(state, account, wall_ms), to: __MODULE__.Dormancy, as: :visit
   alias TijaraTides.Domain.Account.{Rows, BankruptcyRows, BankruptcyEvent}
   @doc "Reconstitute identity history supplied by the persistence read-through port."

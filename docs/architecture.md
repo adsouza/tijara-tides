@@ -920,14 +920,18 @@ encodes the unchanged company schema; existing child codecs stay at the adapter
 boundary. No database or transaction-boundary migration is involved.
 
 Expired leases use `WarehouseLiquidationWorld` for durable accounting transitions
-and `Services.WarehouseLiquidation` for sales coordination. Warehouse allocation,
-cargo and claims remain owned by `WarehouseWorld`; standing fills remain owned
-by `Exchange`/`OrderBookWorld`, and auction terms/results by `AuctionWorld`.
-Reservation freshness is reconstructed from the auction's immutable expiry.
-The pure warehouse model computes virtual FEFO allocations before releasing
-actual batches, so cancelled lower-grade lots cannot consume stock promised to
-another auction. Proceeds use existing reserved cash until the pool completes;
-all stages share the existing `CommitExecutor` transaction and ledger checks.
+and `Services.WarehouseLiquidation` for sales coordination.
+`Services.WarehouseLeases` runs the warehouse tick phase: each lease's term in
+`WarehouseWorld`, then liquidation preparation, spoilage or receivership
+clearance, then sales. It also prepares the pool before pricing an award
+replacement. Warehouse allocation, cargo and claims remain owned by
+`WarehouseWorld`; standing fills remain owned by `Exchange`/`OrderBookWorld`, and
+auction terms/results by `AuctionWorld`. Reservation freshness is reconstructed
+from the auction's immutable expiry. The pure warehouse model computes virtual
+FEFO allocations before releasing actual batches, so cancelled lower-grade lots
+cannot consume stock promised to another auction. Proceeds use existing reserved
+cash until the pool completes; all stages share the existing `CommitExecutor`
+transaction and ledger checks.
 
 ## Automation reservation ownership
 
@@ -1015,10 +1019,12 @@ Architecture guards cover exclusive writes to weather and markdown-preset rows,
 as well as account, ship, market, warehouse, exchange, auction, liquidation and
 automation ownership. Compiled dependency checks constrain Fleet, LinkedOrders,
 Exchange and settlement hooks to their lower-level service dependencies, and
-check the targeted orchestration graph for cycles. Pure reservation models
-cannot call project adapters, codecs or workflows. These are focused dependency
-rules within the existing world transaction, not a claim that every domain
-module forms an independent aggregate or that the entire domain graph is acyclic.
+check the targeted orchestration graph for cycles. Pure reservation models cannot
+call project adapters, codecs or workflows, and no `*World` root calls a
+coordinator service: lease liquidation runs from `Services.WarehouseLeases`, and
+dormant closure from `Services.Bankruptcy`. These are focused dependency rules
+within the existing world transaction, not a claim that every domain module forms
+an independent aggregate or that the entire domain graph is acyclic.
 
 `Services.ShipLifecycle` coordinates linked-order handover and release of funding
 before ship admission or disposal. `ShipWorld` owns only ship transitions and

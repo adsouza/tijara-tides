@@ -118,7 +118,7 @@ defmodule TijaraTides.Domain.Commands do
         TijaraTides.Domain.WarehouseWorld.cancel_reservation(state, account, id)
 
       %{"action" => "warehouse_replace"} ->
-        TijaraTides.Domain.WarehouseWorld.replace_award(
+        TijaraTides.Domain.Services.WarehouseLeases.replace_award(
           state,
           account,
           command,

@@ -25,23 +25,23 @@ defmodule TijaraTides.Domain.AccountWorld.Dormancy do
         warned = Dormancy.warn(old, now, settings)
         acc = put(acc, "company_dormancy", company["id"], Dormancy.to_row(warned))
 
-        acc =
-          if old.warned_ms == nil and warned.warned_ms != nil,
-            do: warning(acc, company, account, warned),
-            else: acc
-
-        if Dormancy.due?(warned, now) do
-          {:ok, acc, _} =
-            TijaraTides.Domain.Services.Bankruptcy.bankrupt(acc, account, "dormant", now)
-
-          acc
-        else
-          acc
-        end
+        if old.warned_ms == nil and warned.warned_ms != nil,
+          do: warning(acc, company, account, warned),
+          else: acc
       else
         acc
       end
     end)
+  end
+
+  @doc "Accounts whose live company has passed its closure deadline; receivership closes them."
+  def due(state, accounts, now) do
+    for account <- Enum.sort_by(accounts, & &1["id"]),
+        company = get(state, "companies", account["company_id"]),
+        company && company["bankruptcy_ms"] == nil,
+        row = get(state, "company_dormancy", company["id"]),
+        row && Dormancy.due?(Dormancy.from_row(row), now),
+        do: account
   end
 
   def visit(state, account, now) do

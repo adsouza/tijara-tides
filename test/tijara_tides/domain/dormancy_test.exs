@@ -23,7 +23,7 @@ defmodule TijaraTides.Domain.DormancyTest do
         catalogue
       )
 
-    state = AccountWorld.advance_dormancy(state, 0, catalogue)
+    state = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 0, catalogue)
     {state, catalogue}
   end
 
@@ -35,7 +35,7 @@ defmodule TijaraTides.Domain.DormancyTest do
     assert State.get(changed, "company_dormancy", "company")["last_visit_ms"] == 60_000
     assert AccountWorld.owner_visit(changed, account, 60_001) == changed
     assert AccountWorld.owner_visit(changed, account, 1) == changed
-    warned = AccountWorld.advance_dormancy(state, 100, catalogue)
+    warned = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 100, catalogue)
     returned = AccountWorld.owner_visit(warned, account, 101)
     assert State.get(returned, "company_dormancy", "company")["warned_ms"] == nil
     assert State.get(returned, "company_dormancy", "company")["last_visit_ms"] == 101
@@ -50,15 +50,15 @@ defmodule TijaraTides.Domain.DormancyTest do
         "last_action_ms" => 100
       })
 
-    assert AccountWorld.advance_dormancy(state, 99, catalogue) == state
-    warned = AccountWorld.advance_dormancy(state, 100, catalogue)
+    assert TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 99, catalogue) == state
+    warned = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 100, catalogue)
     assert warned.clock_ms == 0
     assert State.get(warned, "company_dormancy", "company")["closes_ms"] == 300
     assert State.get(warned, "notices", "dormancy:company")["code"] == "company.dormancy_warning"
     assert State.entities(warned, "email_requests") == %{}
     revised = Map.put(catalogue, "dormancy", %{"absence_ms" => 1, "warning_ms" => 1})
-    assert AccountWorld.advance_dormancy(warned, 299, revised) == warned
-    closed = AccountWorld.advance_dormancy(warned, 300, revised)
+    assert TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(warned, 299, revised) == warned
+    closed = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(warned, 300, revised)
     assert State.get(closed, "accounts", "owner")["company_id"] == nil
     assert State.get(closed, "accounts", "owner")["bankruptcies"] == 0
     assert AccountWorld.counted(closed, State.get(closed, "accounts", "owner")) == 0
@@ -69,14 +69,16 @@ defmodule TijaraTides.Domain.DormancyTest do
     assert Visibility.public(closed, catalogue)["companies"]["company"]["closure_reason"] ==
              "dormant"
 
-    assert AccountWorld.advance_dormancy(closed, 9999, catalogue) == closed
+    assert TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(closed, 9999, catalogue) ==
+             closed
+
     assert TijaraTides.Domain.ChangeSet.assert_complete!(state, closed) == :ok
   end
 
   test "an authenticated return cancels notice and queued email, including stale delivery acknowledgements" do
     {state, catalogue} = fixture()
     state = AccountWorld.verify_email(state, "owner", "owner@example.com", "session", 9999)
-    warned = AccountWorld.advance_dormancy(state, 100, catalogue)
+    warned = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 100, catalogue)
     email = State.get(warned, "email_requests", "dormancy:company:100")
     assert email["delivery"] == "pending"
 
@@ -96,7 +98,7 @@ defmodule TijaraTides.Domain.DormancyTest do
     assert State.get(returned, "email_requests", email["id"])["delivery"] == "ignored"
     assert EmailIdentity.delivered(returned, email) == returned
     assert EmailIdentity.delivery_failed(returned, email, 300) == returned
-    next = AccountWorld.advance_dormancy(returned, 399, catalogue)
+    next = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(returned, 399, catalogue)
     assert State.get(next, "email_requests", "dormancy:company:399")["delivery"] == "pending"
     assert State.get(next, "company_dormancy", "company")["closes_ms"] == 599
   end
@@ -104,11 +106,17 @@ defmodule TijaraTides.Domain.DormancyTest do
   test "legacy worlds start a fresh baseline; resumed warnings close without advancing the world clock" do
     {state, catalogue} = fixture()
     legacy = State.delete(state, "company_dormancy", "company")
-    restored = AccountWorld.advance_dormancy(legacy, 1_000_000, catalogue)
+
+    restored =
+      TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(legacy, 1_000_000, catalogue)
+
     assert State.get(restored, "company_dormancy", "company")["last_visit_ms"] == 1_000_000
     assert State.get(restored, "company_dormancy", "company")["warned_ms"] == nil
-    warned = AccountWorld.advance_dormancy(restored, 1_000_100, catalogue)
-    closed = AccountWorld.advance_dormancy(warned, 2_000_000, catalogue)
+
+    warned =
+      TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(restored, 1_000_100, catalogue)
+
+    closed = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(warned, 2_000_000, catalogue)
     assert closed.clock_ms == 0
     assert State.get(closed, "company_dormancy", "company")["closed_ms"] == 2_000_000
     assert State.get(closed, "companies", "company")["bankruptcy_ms"] == 0
@@ -120,7 +128,7 @@ defmodule TijaraTides.Domain.DormancyTest do
   test "ordinary bankruptcy during absence cancels obsolete warnings and still counts normally" do
     {state, catalogue} = fixture()
     state = AccountWorld.verify_email(state, "owner", "owner@example.com", "session", 9999)
-    warned = AccountWorld.advance_dormancy(state, 100, catalogue)
+    warned = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 100, catalogue)
 
     {:ok, bankrupt, _} =
       TijaraTides.Domain.Services.Bankruptcy.bankrupt(
@@ -134,7 +142,9 @@ defmodule TijaraTides.Domain.DormancyTest do
     assert State.get(bankrupt, "company_dormancy", "company")["closes_ms"] == nil
     assert State.get(bankrupt, "email_requests", "dormancy:company:100")["delivery"] == "ignored"
     assert State.get(bankrupt, "notices", "dormancy:company") == nil
-    assert AccountWorld.advance_dormancy(bankrupt, 300, catalogue) == bankrupt
+
+    assert TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(bankrupt, 300, catalogue) ==
+             bankrupt
 
     assert Visibility.public(bankrupt, catalogue)["companies"]["company"]["closure_reason"] ==
              "bankruptcy"
@@ -150,8 +160,8 @@ defmodule TijaraTides.Domain.DormancyTest do
       ])
 
     state =
-      AccountWorld.advance_dormancy(state, 100, catalogue)
-      |> AccountWorld.advance_dormancy(300, catalogue)
+      TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 100, catalogue)
+      |> TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(300, catalogue)
 
     closed = Estates.advance(state, catalogue)
     assert State.get(closed, "companies", "company")["cash"] == 0
@@ -206,8 +216,8 @@ defmodule TijaraTides.Domain.DormancyTest do
     assert map_size(State.entities(state, "ship_routes")) == 1
 
     closed =
-      AccountWorld.advance_dormancy(state, 100, catalogue)
-      |> AccountWorld.advance_dormancy(300, catalogue)
+      TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 100, catalogue)
+      |> TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(300, catalogue)
 
     assert State.entities(closed, "ship_routes") == %{}
     assert State.entities(closed, "route_stops") == %{}
@@ -270,8 +280,8 @@ defmodule TijaraTides.Domain.DormancyTest do
       )
 
     closed =
-      AccountWorld.advance_dormancy(state, 100, catalogue)
-      |> AccountWorld.advance_dormancy(300, catalogue)
+      TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 100, catalogue)
+      |> TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(300, catalogue)
 
     record = State.get(closed, "company_dormancy", "company")
     assert record["guarantee_id"] == "pledge"

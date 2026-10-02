@@ -9,7 +9,7 @@ defmodule TijaraTides.UseCases.GameCommands do
 
   def execute(state, account, command, context) do
     state =
-      TijaraTides.Domain.AccountWorld.advance_owner_dormancy(
+      TijaraTides.Domain.Services.Bankruptcy.advance_owner_dormancy(
         state,
         account,
         Map.get(context, :wall_ms),

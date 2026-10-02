@@ -5003,7 +5003,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     next =
       %{next | clock_ms: w["expires_ms"] + 43_200_000, revision: before.revision + 1}
-      |> WarehouseWorld.advance(cat)
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(cat)
 
     assert WarehouseLiquidation.pool(next, "a-pool")["proceeds"] == 20_000
     [a] = Enum.filter(AuctionWorld.all(next), &(&1.liquidation_id == "a-pool"))
@@ -5060,7 +5060,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         %{restored | clock_ms: a.closes_ms, revision: restored.revision + 1},
         cat
       )
-      |> WarehouseWorld.advance(cat)
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(cat)
 
     p = WarehouseLiquidation.pool(settled, "a-pool")
     assert p["status"] == "completed"
@@ -5072,7 +5072,10 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert State.get(final, "warehouses", "a-pool") == nil
     assert State.get(final, "companies", seller["company_id"])["reserved"] == 0
     assert AuctionWorld.fetch(final, a.id).status == "unsold"
-    repeated = Auctions.reconcile(final, cat) |> WarehouseWorld.advance(cat)
+
+    repeated =
+      Auctions.reconcile(final, cat) |> TijaraTides.Domain.Services.WarehouseLeases.advance(cat)
+
     assert repeated.entities == final.entities
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
   end
@@ -5258,7 +5261,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
           "batches" => []
       })
 
-    next = WarehouseWorld.advance(%{next | clock_ms: grace}, cat)
+    next = TijaraTides.Domain.Services.WarehouseLeases.advance(%{next | clock_ms: grace}, cat)
     [a] = Enum.filter(AuctionWorld.all(next), &(&1.liquidation_id == w["id"]))
 
     {:ok, next, _} =
@@ -6091,7 +6094,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     next =
       %{next | revision: before.revision + 1, clock_ms: w["expires_ms"] + 3_600_000}
-      |> WarehouseWorld.advance(cat)
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(cat)
 
     assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
     assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)

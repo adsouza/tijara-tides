@@ -127,7 +127,11 @@ defmodule TijaraTides.Domain.WonCargoGraceTest do
 
   test "late settlement gives only the won lot a new grace deadline", c do
     {s, _} = allocation(c, 10_000)
-    s = %{s | clock_ms: @day + 43_200_000} |> WarehouseWorld.advance(c.catalogue)
+
+    s =
+      %{s | clock_ms: @day + 43_200_000}
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
+
     assert WarehouseLiquidation.pool(s, "original")["status"] == "liquidating"
     assert WarehouseLiquidation.pool(s, "original")["grace_end_ms"] == @day + 43_200_000
     assert WarehouseLiquidation.pool(s, "award:lot")["status"] == "grace"
@@ -140,7 +144,11 @@ defmodule TijaraTides.Domain.WonCargoGraceTest do
   test "replacement preserves cargo and group footprint, pays grace charges, and allows a later ordinary expiry",
        c do
     {s, won} = allocation(c, 10_000)
-    s = %{s | clock_ms: @day + 43_200_000} |> WarehouseWorld.advance(c.catalogue)
+
+    s =
+      %{s | clock_ms: @day + 43_200_000}
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
+
     original = WarehouseLiquidation.pool(s, "original")
     offer = WarehouseWorld.replacement_quote(s, "award:lot", 1, c.catalogue)
     assert offer.blocks == 1
@@ -174,7 +182,11 @@ defmodule TijaraTides.Domain.WonCargoGraceTest do
     assert WarehouseLiquidation.pool(replaced, "original") == original
     assert WarehouseWorld.used(replaced, "Jakarta", "dry") == 1
     t = State.get(replaced, "warehouses", "replacement")["expires_ms"]
-    expired = %{replaced | clock_ms: t} |> WarehouseWorld.advance(c.catalogue)
+
+    expired =
+      %{replaced | clock_ms: t}
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
+
     assert WarehouseLiquidation.pool(expired, "replacement")["status"] == "grace"
   end
 
@@ -182,7 +194,11 @@ defmodule TijaraTides.Domain.WonCargoGraceTest do
        c do
     {s, _} = allocation(c)
     assert WarehouseWorld.replacement_quote(s, "award:lot", 1, c.catalogue) == nil
-    s = %{s | clock_ms: @day + 1000} |> WarehouseWorld.advance(c.catalogue)
+
+    s =
+      %{s | clock_ms: @day + 1000}
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
+
     offer = WarehouseWorld.replacement_quote(s, "award:lot", 1, c.catalogue)
     cmd = %{"warehouse" => "award:lot", "days" => 1, "price" => offer.rent}
     company = State.get(s, "companies", "aco")
@@ -243,7 +259,7 @@ defmodule TijaraTides.Domain.WonCargoGraceTest do
       )
 
     assert State.get(s, "warehouses", "award:lot")["expires_ms"] == 2 * @day
-    s = %{s | clock_ms: @day} |> WarehouseWorld.advance(c.catalogue)
+    s = %{s | clock_ms: @day} |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
     assert State.get(s, "warehouses", "award:lot")["expires_ms"] == 2 * @day
     assert State.get(s, "warehouses", "award:lot")["prepaid"] == 0
     assert WarehouseLiquidation.pool(s, "award:lot") == nil
@@ -270,7 +286,9 @@ defmodule TijaraTides.Domain.WonCargoGraceTest do
         c.catalogue
       )
 
-    s = %{s | clock_ms: @day + 1000} |> WarehouseWorld.advance(c.catalogue)
+    s =
+      %{s | clock_ms: @day + 1000}
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
 
     {:ok, s, _} =
       TijaraTides.Domain.Services.Auctions.consign(

@@ -35,7 +35,7 @@ defmodule TijaraTides.Domain.Simulation do
       estates: &TijaraTides.Domain.Services.Estates.advance(&1, catalogue),
       auctions: &TijaraTides.Domain.Services.Auctions.advance(&1, catalogue),
       merchant_warehouses: &TijaraTides.Domain.MerchantWarehouseWorld.advance(&1, catalogue),
-      warehouses: &TijaraTides.Domain.WarehouseWorld.advance(&1, catalogue),
+      warehouses: &TijaraTides.Domain.Services.WarehouseLeases.advance(&1, catalogue),
       # After warehouse pruning, so orders follow pruned claims; before finance, so
       # expired buy orders return their cash before payments are taken.
       exchange_reconcile: &TijaraTides.Domain.Services.Exchange.reconcile/1,

@@ -2,6 +2,7 @@ defmodule TijaraTides.AutomationArchitectureTest do
   use ExUnit.Case, async: true
 
   alias TijaraTides.Domain.{
+    AccountWorld,
     ShipWorld,
     WarehouseWorld,
     AutomationWorld,
@@ -66,7 +67,7 @@ defmodule TijaraTides.AutomationArchitectureTest do
           {RemoteOrderSettlement, []},
           {LiquidationSettlement, []},
           {ShipWorld, []},
-          {ShipLifecycle, [LinkedOrders]}
+          {ShipLifecycle, [LinkedOrders, LiquidationSettlement]}
         ] do
       assert service_dependencies(module) -- allowed == [],
              "#{inspect(module)} calls a higher-level service: #{inspect(service_dependencies(module) -- allowed)}"
@@ -121,7 +122,7 @@ defmodule TijaraTides.AutomationArchitectureTest do
     sweeps = [
       {Exchange, :reconcile, 1},
       {TijaraTides.Domain.Services.Auctions, :reconcile, 2},
-      {WarehouseWorld, :advance, 2}
+      {TijaraTides.Domain.Services.WarehouseLeases, :advance, 2}
     ]
 
     {:ok, modules} = :application.get_key(:tijara_tides, :modules)
@@ -146,6 +147,30 @@ defmodule TijaraTides.AutomationArchitectureTest do
     refute Enum.any?(commands, fn {_, function, _} ->
              function |> Atom.to_string() |> String.contains?("reconcile")
            end)
+  end
+
+  test "world roots never call up into coordinator services" do
+    {:ok, modules} = :application.get_key(:tijara_tides, :modules)
+
+    roots =
+      for module <- modules,
+          name = Atom.to_string(module),
+          String.starts_with?(name, "Elixir.TijaraTides.Domain."),
+          not String.contains?(name, ".Services."),
+          Regex.match?(~r/World(\.|$)/, name),
+          do: module
+
+    assert WarehouseWorld in roots and AccountWorld.Dormancy in roots
+
+    for root <- roots do
+      services =
+        Enum.filter(
+          dependencies(root),
+          &String.starts_with?(Atom.to_string(&1), "Elixir.TijaraTides.Domain.Services.")
+        )
+
+      assert services == [], "#{inspect(root)} calls coordinator services #{inspect(services)}"
+    end
   end
 
   test "reservation models cannot call world adapters, row codecs or workflows" do

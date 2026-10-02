@@ -1,7 +1,7 @@
 defmodule TijaraTides.Domain.Services.ShipLifecycle do
   @moduledoc "Coordinate ship admission and disposal with linked orders and funding reservations."
   alias TijaraTides.Domain.{Ship, ShipWorld, AutomationWorld, WarehouseWorld}
-  alias TijaraTides.Domain.Services.LinkedOrders
+  alias TijaraTides.Domain.Services.{LinkedOrders, LiquidationSettlement}
 
   def cancel_automation(state, ship),
     do:
@@ -28,7 +28,10 @@ defmodule TijaraTides.Domain.Services.ShipLifecycle do
   def transfer_warehouse(state, account, command, catalogue, admission \\ :normal) do
     with {:ok, changed, reply} <-
            WarehouseWorld.transfer(state, account, command, catalogue, admission) do
-      {:ok, LinkedOrders.handover(changed, command["ship"]), reply}
+      {:ok,
+       changed
+       |> LiquidationSettlement.refresh(command["warehouse"], catalogue)
+       |> LinkedOrders.handover(command["ship"]), reply}
     end
   end
 end

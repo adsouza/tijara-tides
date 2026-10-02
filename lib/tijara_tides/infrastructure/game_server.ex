@@ -168,7 +168,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
                       store(state),
                       fn current ->
                         current
-                        |> TijaraTides.Domain.AccountWorld.advance_dormancy(
+                        |> TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(
                           state.wall_clock.(),
                           state.catalogue
                         )

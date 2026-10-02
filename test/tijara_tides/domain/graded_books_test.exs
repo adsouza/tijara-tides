@@ -284,7 +284,7 @@ defmodule TijaraTides.Domain.GradedBooksTest do
 
     s =
       %{s | clock_ms: 100}
-      |> WarehouseWorld.advance(c.catalogue)
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
       |> Exchange.reconcile()
       |> Exchange.advance(c.catalogue)
 

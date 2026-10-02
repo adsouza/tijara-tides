@@ -1,5 +1,5 @@
 defmodule TijaraTides.Domain.WarehouseWorld do
-  alias TijaraTides.Domain.Services.WarehouseLiquidation, as: Liquidation
+  alias TijaraTides.Domain.WarehouseLiquidationWorld, as: Liquidation
   alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.PortBerthsWorld
   alias TijaraTides.Domain.Ship.CargoRows
@@ -232,8 +232,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         {:error, :price_changed}
 
       true ->
-        candidate = Liquidation.prepare(state, w, catalogue)
-        p = Liquidation.pool(candidate, w.id)
+        # `Services.WarehouseLeases` brings the pool's accrual up to the clock first.
+        p = Liquidation.pool(state, w.id)
         charges = p["rent_due"] + p["handling_due"]
 
         if p["status"] != "grace" do
@@ -258,8 +258,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
             }
 
             changed =
-              candidate
-              |> TijaraTides.Domain.WarehouseLiquidationWorld.replace(w.id, charges)
+              state
+              |> Liquidation.replace(w.id, charges)
               |> save(next)
               |> relocate_award(w.id, next.id)
               |> CompanyFinanceWorld.post(w.company_id, "warehouse_replacement", [
@@ -572,7 +572,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
               %{ship: ship["id"], good: item["id"]}
             )
 
-          {:ok, Liquidation.refresh(state, w.id, catalogue), %{}}
+          {:ok, state, %{}}
       end
     else
       _ -> {:error, :warehouse_invalid}
@@ -598,79 +598,82 @@ defmodule TijaraTides.Domain.WarehouseWorld do
      ]), w}
   end
 
-  def advance(state, catalogue) do
-    state = synchronize_awards(state)
+  @doc "Award leases follow their parent lease's coverage before any term advances."
+  def synchronize(state), do: synchronize_awards(state)
 
-    Enum.reduce(Enum.sort(Map.keys(entities(state, "warehouses"))), state, fn id, state ->
-      row = get(state, "warehouses", id)
-      {state, w} = roll_term(state, load(state, row))
-      {state, w} = accrue(state, w)
-      {state, w} = prepare_renewal(state, w)
-      state = prune_reservations(state, w, catalogue)
+  @doc "Rent, renewal, time-ended claims and the expiry notice for one lease."
+  def advance_term(state, id, catalogue) do
+    row = get(state, "warehouses", id)
+    {state, w} = roll_term(state, load(state, row))
+    {state, w} = accrue(state, w)
+    {state, w} = prepare_renewal(state, w)
+    state = prune_reservations(state, w, catalogue)
 
-      state =
-        if row["prepaid"] > 0 and w.prepaid == 0 and w.next_days == nil do
-          TijaraTides.Domain.Notices.notice(
-            state,
-            get(state, "companies", w.company_id)["account_id"],
-            "warehouse:" <> w.id,
-            {"warehouse.expired",
-             %{
-               "port" => w.port,
-               "minutes" => div(w.grace_ms, 60_000),
-               "grace_rate" =>
-                 div(w.rent * @day, max(1, (w.expires_ms - w.started_ms) * w.blocks)),
-               "liquidation_rate" =>
-                 div(
-                   w.rent * @day * (10_000 + w.surcharge_bps),
-                   max(1, (w.expires_ms - w.started_ms) * w.blocks * 10_000)
-                 )
-             }}
-          )
-        else
-          state
-        end
-
-      state = Liquidation.prepare(state, w, catalogue)
-      {w, lost} = Warehouse.spoil(w, state.clock_ms)
-
-      state =
-        if lost > 0,
-          do:
-            CompanyFinanceWorld.post(state, w.company_id, "warehouse_spoilage", [
-              {"inventory", -lost},
-              {"spoilage_expense", lost}
-            ]),
-          else: state
-
-      bankrupt = get(state, "companies", w.company_id)["bankruptcy_ms"] != nil
-
-      if settlement =
-           if(bankrupt and not Liquidation.active?(state, w.id),
-             do: Warehouse.clearance(w, state.clock_ms, true, catalogue)
-           ) do
-        %{cost: cost, value: value, charges: charges} = settlement
-
-        state
-        |> TijaraTides.Domain.Notices.notice(
+    state =
+      if row["prepaid"] > 0 and w.prepaid == 0 and w.next_days == nil do
+        TijaraTides.Domain.Notices.notice(
+          state,
           get(state, "companies", w.company_id)["account_id"],
           "warehouse:" <> w.id,
-          {"warehouse.cleared", %{"port" => w.port, "refund" => value - charges}}
+          {"warehouse.expired",
+           %{
+             "port" => w.port,
+             "minutes" => div(w.grace_ms, 60_000),
+             "grace_rate" => div(w.rent * @day, max(1, (w.expires_ms - w.started_ms) * w.blocks)),
+             "liquidation_rate" =>
+               div(
+                 w.rent * @day * (10_000 + w.surcharge_bps),
+                 max(1, (w.expires_ms - w.started_ms) * w.blocks * 10_000)
+               )
+           }}
         )
-        |> clear_reservations(w)
-        |> delete("warehouses", w.id)
-        |> CompanyFinanceWorld.post(w.company_id, "warehouse_clearance", [
-          {"inventory", -cost},
-          {"cost_of_goods", cost},
-          {"sales_revenue", -value},
-          {"cash_available", value - charges},
-          {"rent_expense", charges + w.prepaid + w.next_rent},
-          {"prepaid_rent", -w.prepaid - w.next_rent}
-        ])
       else
-        state |> save(w) |> Liquidation.advance(w.id, catalogue)
+        state
       end
-    end)
+
+    save(state, w)
+  end
+
+  @doc "Spoilage, then receivership clearance of a lease that is not being liquidated."
+  def settle_term(state, id, catalogue) do
+    {w, lost} = Warehouse.spoil(fetch(state, id), state.clock_ms)
+
+    state =
+      if lost > 0,
+        do:
+          CompanyFinanceWorld.post(state, w.company_id, "warehouse_spoilage", [
+            {"inventory", -lost},
+            {"spoilage_expense", lost}
+          ]),
+        else: state
+
+    bankrupt = get(state, "companies", w.company_id)["bankruptcy_ms"] != nil
+
+    if settlement =
+         if(bankrupt and not Liquidation.active?(state, w.id),
+           do: Warehouse.clearance(w, state.clock_ms, true, catalogue)
+         ) do
+      %{cost: cost, value: value, charges: charges} = settlement
+
+      state
+      |> TijaraTides.Domain.Notices.notice(
+        get(state, "companies", w.company_id)["account_id"],
+        "warehouse:" <> w.id,
+        {"warehouse.cleared", %{"port" => w.port, "refund" => value - charges}}
+      )
+      |> clear_reservations(w)
+      |> delete("warehouses", w.id)
+      |> CompanyFinanceWorld.post(w.company_id, "warehouse_clearance", [
+        {"inventory", -cost},
+        {"cost_of_goods", cost},
+        {"sales_revenue", -value},
+        {"cash_available", value - charges},
+        {"rent_expense", charges + w.prepaid + w.next_rent},
+        {"prepaid_rent", -w.prepaid - w.next_rent}
+      ])
+    else
+      save(state, w)
+    end
   end
 
   alias TijaraTides.Domain.Warehouse.Reservation
@@ -1229,7 +1232,10 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   def liquidation_out(state, id, good, n, lot_ids \\ nil) do
     w = fetch(state, id)
 
-    unless Liquidation.active?(state, id) and n <= Liquidation.available(state, id, good),
+    available =
+      Enum.sum(for b <- Warehouse.unreserved_cargo(w, good, state.clock_ms), do: b.quantity)
+
+    unless Liquidation.active?(state, id) and n <= available,
       do: raise(ArgumentError, "Liquidation exceeds unreserved cargo")
 
     {lots, next, cargo} = Warehouse.release_free_cargo(lots(state), w, good, n, lot_ids)

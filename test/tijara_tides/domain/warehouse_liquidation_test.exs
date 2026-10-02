@@ -112,7 +112,8 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     s
   end
 
-  defp advance(c, s, clock), do: WarehouseWorld.advance(%{s | clock_ms: clock}, c.catalogue)
+  defp advance(c, s, clock),
+    do: TijaraTides.Domain.Services.WarehouseLeases.advance(%{s | clock_ms: clock}, c.catalogue)
 
   defp auctions(s, warehouse),
     do: Enum.filter(AuctionWorld.all(s), &(&1.liquidation_id == warehouse))
@@ -120,7 +121,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
   defp close(c, s, clock),
     do:
       Auctions.reconcile(%{s | clock_ms: clock}, c.catalogue)
-      |> WarehouseWorld.advance(c.catalogue)
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
 
   test "late ticks settle perishable liquidation at the close before aging in the buyer's storage",
        c do
@@ -422,7 +423,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
           %{s | clock_ms: clock}
           |> Estates.advance(c.catalogue)
           |> Auctions.reconcile(c.catalogue)
-          |> WarehouseWorld.advance(c.catalogue)
+          |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
 
         assert State.get(next, "warehouses", "award:won")["expires_ms"] == @day
 

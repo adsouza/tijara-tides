@@ -55,7 +55,12 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
   defp execute(game, {:visit, session}, context) do
     with {:ok, account} <- Authentication.required(game, session, context.wall_ms) do
       changed =
-        AccountWorld.advance_owner_dormancy(game, account, context.wall_ms, context.catalogue)
+        TijaraTides.Domain.Services.Bankruptcy.advance_owner_dormancy(
+          game,
+          account,
+          context.wall_ms,
+          context.catalogue
+        )
 
       {:ok, account} = Authentication.required(changed, session, context.wall_ms)
       changed = AccountWorld.owner_visit(changed, account, context.wall_ms)
@@ -64,13 +69,21 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
   end
 
   defp execute(game, :dormancy_check, context) do
-    changed = AccountWorld.advance_dormancy(game, context.wall_ms, context.catalogue)
+    changed =
+      TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(
+        game,
+        context.wall_ms,
+        context.catalogue
+      )
+
     if changed == game, do: {:replay, %{}}, else: {:ok, changed, %{}}
   end
 
   defp execute(game, {:advance, elapsed}, context) do
     wall = Map.get(context, :wall_ms)
-    absent = AccountWorld.advance_dormancy(game, wall, context.catalogue)
+
+    absent =
+      TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(game, wall, context.catalogue)
 
     scale =
       if is_integer(wall),
@@ -113,7 +126,12 @@ defmodule TijaraTides.UseCases.LifecycleCommands do
       {:ok, account} = Authentication.required(changed, device, context.wall_ms)
 
       changed =
-        AccountWorld.advance_owner_dormancy(changed, account, context.wall_ms, context.catalogue)
+        TijaraTides.Domain.Services.Bankruptcy.advance_owner_dormancy(
+          changed,
+          account,
+          context.wall_ms,
+          context.catalogue
+        )
 
       {:ok, account} = Authentication.required(changed, device, context.wall_ms)
       {:ok, AccountWorld.owner_visit(changed, account, context.wall_ms), result}
