@@ -167,6 +167,12 @@ modules, not that facade. These responsibilities can guide future bounded-contex
 design, but trading and fleet are not independent contexts: they currently
 participate in shared synchronous invariants.
 
+Company names retain their 60-grapheme limit and hull names their 80-grapheme
+limit. Both reject malformed UTF-8 and Unicode control/format characters before
+commit. Preset names use the SQL constraint's 80-code-point limit. Browser
+command handlers select semantic fields before parsing, so untouched-input
+metadata cannot change admission or durable receipt fingerprints.
+
 ## Authentication and authorization
 
 `UseCases.Authentication` is the shared session boundary for commands, query entry

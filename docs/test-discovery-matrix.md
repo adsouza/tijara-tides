@@ -42,7 +42,7 @@ must be recorded per command, including earlier commands outside the initial
 four families. Undeclared command variants fail inventory completeness.
 Classify web forms separately: application command coverage bypasses `GameLive`.
 Round 1b adds twelve valid form variants, two normalization properties (five SQL
-cases each) and two bounded Chromium workflows. These are proposed cohorts;
+cases each) and two bounded Chromium workflows. These cohorts are implemented;
 the existing instruction regression uses raw events, not browser JavaScript.
 Other form variants require named evidence or scoped exclusions and follow-ups.
 
@@ -117,3 +117,44 @@ full `mix precommit` and disposable PostgreSQL coverage pass. The existing two
 CI runtime pairs remain unchanged; their results are not claimed from this
 local Elixir 1.20.4/OTP 29.1 run. Raw local receipts are under
 `cover/test-expansion/round1a/`; CI continues uploading `cover/`.
+
+## Round 1b evidence
+
+`CommandPayloadPropertiesTest` has four properties (50 cases, 100 shrink steps)
+and independent name, numeric and identity tables through `GameCommands.run/6`.
+Unsafe company names and malformed UTF-8 hull names exposed latent admission
+gaps; the domain now rejects them before a receipt or commit. Foreign existing
+presets and unknown client IDs reject with the declared freshness error. A
+rescued planner exception is explicitly a finding, never an allowed rejection.
+
+`FormContractsTest` covers twelve instruction/exchange/route/finance variants and
+two normalization properties (five fresh SQL worlds, 20 shrink steps each). It
+checks independently expected persisted terms, exact replay, equivalent numeric
+formatting, ready owners, SQL reload and failure cleanup. Each replay owns its
+server inside `try/after`. The exchange handler now forwards only semantic fields.
+The static form inventory classifies all 19 submit events; other variants remain
+explicit exclusions. Sequence generators are marked planned until Round 4.
+
+`BrowserContractsTest` runs two actual Chromium workflows: instruction buy/sell,
+and exchange buy/sell/amend/cancel. It checks effects via SQL as well as captured
+field names. LiveView 1.2.11 emits untouched `_unused_*` markers on changes and
+marks inputs used before submission; disabled inputs are omitted. The raw tests
+retain metadata-heavy submissions as a defensive contract. Browser tests have
+their own runner/tag and are not selected by the ordinary database suite.
+
+`NoticeInventoryTest` checks all 30 extracted producer codes against required
+bindings and both locales, recognizes literal structured effects and rejects
+unresolved dynamic producers. Checked forwarding seams remain explicit. Real
+lease expiry/clearance and funding wait/timeout/departure transitions supplement
+the synthetic renderer table; the table does not claim all producer paths ran.
+Legacy notice coverage remains separate in `LocalizationTest`.
+
+Six deliberate faults fail their intended selections and the restored baselines
+pass: unsafe company input, preset grapheme counting, missing `grace_rate`, raw
+instruction metadata, retained UI expiry and raw numeric fingerprints. Seed 12345
+shrinks unsafe input to company/`a\0b`/empty prefix and preset count to 41.
+The SQL normalization faults fail the valid-submission/receipt assertions rather
+than passing on unchanged revision after a rejection. Patches, selections and
+raw receipts are retained under `cover/test-expansion/round1b/`. CI uploads
+coverage and browser evidence after both suites. The pinned Chromium workflows
+take about five seconds locally; runtime-pair checks remain in CI.

@@ -285,7 +285,9 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event("exchange", params, socket) do
     command =
       params
-      |> Map.drop(["_target", "minutes", "clear_expiry", "markdown_mode", "freshness_minutes"])
+      |> Map.take(
+        ~w(action request_id order warehouse good side quantity price price_floor min_grade min_remaining_ms expires_ms markdowns preset rebase)
+      )
       |> Map.update("quantity", nil, &report_number/1)
       |> Map.update("price", nil, &exchange_price/1)
       |> Map.update("price_floor", nil, &exchange_price/1)

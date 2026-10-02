@@ -40,11 +40,14 @@ and operation counts. The bounded
 [gameplay mutation audit](mutation-testing-pilot.md#gameplay-review-regression-audit--2026-10-01)
 checks four deliberately broken behaviors. Broader shrinking and generated
 state-machine infrastructure remains follow-up work.
-Round 1b also specifies valid web-form contracts, normalization properties and
-two real-browser workflows. `LiveViewTest` does not execute browser JavaScript;
+Round 1b implements twelve valid web-form variants, two normalization properties
+and two real-browser workflows. `LiveViewTest` does not execute browser JavaScript;
 SQL-backed form tests alone do not prove serializer coverage. The instruction
-metadata/replay regression is implemented; the broader form inventory, properties
-and Chromium cohort remain proposed in the expansion plan.
+metadata/replay regression, checked form inventory, payload properties and
+Chromium cohort are implemented. Run `python3 scripts/test-browser.py` after
+`MIX_ENV="test" mix assets.build`; it starts its own disposable database and HTTP
+server. Install Chromium with `npx playwright install chromium`. Browser artifacts
+under `cover/browser-contracts/` contain field names only.
 
 For a focused coverage run:
 

@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 
 # Never let local validation connect to production storage.
 unset DATABASE_URL DATABASE_URL_POOLED TIJARA_LOCAL_DB_PORT TIJARA_TEST_DB_PORT
-unset MIX_ENV PHX_SERVER
+unset MIX_ENV PHX_SERVER TIJARA_BROWSER_TEST_PORT
 export LC_ALL=C
 export PATH="/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:$PATH"
 
@@ -32,11 +32,14 @@ python3 scripts/check-gettext-catalogues.py
 mkdir -p cover
 python3 scripts/test-game-db.py --cover | tee cover/elixir-summary.txt
 npm ci
+npx playwright install chromium
+mix assets.setup
+MIX_ENV="test" mix assets.build
+python3 scripts/test-browser.py
 npm run desktop:coverage | tee cover/desktop-summary.txt
 python3 scripts/check-desktop-versions.py
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml --locked
-mix assets.setup
 MIX_ENV=prod mix release --overwrite
 echo "Local pre-push checks passed. Docker, platform packaging, and the runtime matrix remain in CI."

@@ -1,7 +1,8 @@
 # Proposed test expansion
 
 Status: Round 0 is documented. Round 1a is implemented with seven bounded codec
-properties and independent structural/legacy tables. Rounds 1b–5 remain planned.
+properties and independent structural/legacy tables. Round 1b adds payload,
+notice and SQL/browser form contracts. Rounds 2–5 remain planned.
 Each executable round is committed after its focused and normal checks. Runtime
 matrix verification remains a CI gate; local evidence uses Elixir 1.20.4/OTP 29.1.
 
@@ -258,9 +259,10 @@ Record which boundary each case exercises; a fake store cannot prove SQL safety.
 ### Valid browser-form contracts
 
 Test legitimate submissions as well as malformed input. `LiveViewTest`'s form
-helper collects form values but does not run the browser serializer, which adds
-`_unused_*` markers for untouched, non-hidden inputs. Domain/application command
-fuzzing bypasses that conversion entirely. The instruction field-count regression
+helper collects form values but does not run the browser serializer. LiveView
+1.2.11 emits `_unused_*` markers on changes; submission marks inputs used first.
+Keep metadata-heavy raw submissions as a defensive admission contract.
+Domain/application command fuzzing bypasses that conversion entirely. The instruction field-count regression
 is a seed for this broader boundary, not its scope limit.
 
 Inventory each command-producing form's submit event, variants, enabled fields,
@@ -671,7 +673,7 @@ adding properties. Per-property caps alone do not bound an unlimited property
 inventory.
 Round 1b's three web cohorts are additional bounded work, separate from ordinary
 payload properties and Round 4 SQL traces. Record their runtime before adding
-form variants or browser workflows. Their implementation remains proposed.
+form variants or browser workflows.
 
 The command fuzzer adds one mandatory broad sequence property: 20 cases, at most
 30 actions and 100 shrink steps per failure in the ordinary suite. It reuses
