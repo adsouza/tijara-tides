@@ -28,7 +28,8 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             else: TijaraTides.Domain.PortBerthsWorld.available?(state, ship, catalogue)
 
         if available do
-          changed = TijaraTides.Domain.ShipWorld.admit_handling(changed, trade.ship_id)
+          changed =
+            TijaraTides.Domain.Services.ShipLifecycle.admit_handling(changed, trade.ship_id)
 
           {:ok, changed, reply}
         else

@@ -185,7 +185,7 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
   defp execute_fill(state, account, trade, warehouse, catalogue, admission) do
     state = TijaraTides.Domain.Services.LinkedOrders.handover(state, trade.ship_id)
 
-    case WarehouseWorld.transfer(
+    case TijaraTides.Domain.Services.ShipLifecycle.transfer_warehouse(
            state,
            account,
            %{

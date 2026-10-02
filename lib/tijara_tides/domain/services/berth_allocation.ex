@@ -115,7 +115,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
         Enum.reduce(decisions, acc, fn {id, decision}, next ->
           case decision do
             :grant ->
-              ShipWorld.grant_berth(next, id)
+              TijaraTides.Domain.Services.ShipLifecycle.grant_berth(next, id)
 
             :release ->
               ShipWorld.release_berth(next, id)

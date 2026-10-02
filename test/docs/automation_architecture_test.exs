@@ -1,8 +1,19 @@
 defmodule TijaraTides.AutomationArchitectureTest do
   use ExUnit.Case, async: true
-  alias TijaraTides.Domain.{Fleet, LiquidationPool, VisitBudget, DepartureRequest, RemoteLink}
+
+  alias TijaraTides.Domain.{
+    ShipWorld,
+    WarehouseWorld,
+    AutomationWorld,
+    Fleet,
+    LiquidationPool,
+    VisitBudget,
+    DepartureRequest,
+    RemoteLink
+  }
 
   alias TijaraTides.Domain.Services.{
+    ShipLifecycle,
     RouteEditing,
     DepartureFunding,
     LinkedOrders,
@@ -14,6 +25,7 @@ defmodule TijaraTides.AutomationArchitectureTest do
   }
 
   @orchestration [
+    ShipLifecycle,
     RouteEditing,
     DepartureFunding,
     LinkedOrders,
@@ -21,7 +33,11 @@ defmodule TijaraTides.AutomationArchitectureTest do
     RemoteOrderSettlement,
     LiquidationSettlement,
     WarehouseLiquidation,
-    Fleet
+    Fleet,
+    ShipWorld,
+    ShipWorld.RoutePlans,
+    ShipWorld.VisitOrders,
+    AutomationWorld
   ]
 
   # Compiled references resolve aliases, imports, delegates and remote captures;
@@ -43,12 +59,14 @@ defmodule TijaraTides.AutomationArchitectureTest do
 
   test "automation dependencies point from coordinators to settlement operations" do
     for {module, allowed} <- [
-          {Fleet, [FinancialSettlement]},
+          {Fleet, [FinancialSettlement, ShipLifecycle]},
           {DepartureFunding, [FinancialSettlement, LinkedOrders]},
           {LinkedOrders, [Exchange]},
           {Exchange, [RemoteOrderSettlement, LiquidationSettlement]},
           {RemoteOrderSettlement, []},
-          {LiquidationSettlement, []}
+          {LiquidationSettlement, []},
+          {ShipWorld, []},
+          {ShipLifecycle, [LinkedOrders]}
         ] do
       assert service_dependencies(module) -- allowed == [],
              "#{inspect(module)} calls a higher-level service: #{inspect(service_dependencies(module) -- allowed)}"
@@ -64,9 +82,34 @@ defmodule TijaraTides.AutomationArchitectureTest do
     assert DepartureFunding in graph[RouteEditing]
     assert LinkedOrders in graph[RouteEditing]
     assert Fleet in graph[DepartureFunding]
+    assert ShipWorld.RoutePlans in graph[LinkedOrders]
+    assert LinkedOrders in graph[ShipLifecycle]
     assert RemoteOrderSettlement in graph[Exchange]
 
     for module <- @orchestration, do: acyclic!(module, graph, [])
+  end
+
+  test "ShipWorld has no transitive workflow back edge, including adapters outside the service inventory" do
+    reachable = project_dependencies(ShipWorld, MapSet.new())
+    refute ShipWorld in reachable
+    refute Fleet in dependencies(WarehouseWorld)
+  end
+
+  defp project_dependencies(module, visited), do: walk_dependencies([module], visited, [])
+  defp walk_dependencies([], _visited, edges), do: Enum.uniq(edges)
+
+  defp walk_dependencies([module | rest], visited, edges) do
+    if module in visited do
+      walk_dependencies(rest, visited, edges)
+    else
+      direct =
+        Enum.filter(
+          dependencies(module),
+          &String.starts_with?(Atom.to_string(&1), "Elixir.TijaraTides.Domain.")
+        )
+
+      walk_dependencies(direct ++ rest, MapSet.put(visited, module), direct ++ edges)
+    end
   end
 
   defp acyclic!(module, graph, path) do

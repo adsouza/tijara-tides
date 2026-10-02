@@ -126,7 +126,12 @@ defmodule TijaraTides.Domain.Commands do
         TijaraTides.Domain.WarehouseWorld.release(state, account, id, blocks, catalogue)
 
       %{"action" => "warehouse_transfer"} ->
-        TijaraTides.Domain.WarehouseWorld.transfer(state, account, command, catalogue)
+        TijaraTides.Domain.Services.ShipLifecycle.transfer_warehouse(
+          state,
+          account,
+          command,
+          catalogue
+        )
 
       %{"action" => "cancel_berth_trade", "ship" => id} ->
         TijaraTides.Domain.Services.BerthAllocation.cancel(state, account, id)

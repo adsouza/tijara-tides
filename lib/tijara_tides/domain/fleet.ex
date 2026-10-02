@@ -65,7 +65,7 @@ defmodule TijaraTides.Domain.Fleet do
 
         state =
           state
-          |> TijaraTides.Domain.ShipWorld.retire(id)
+          |> TijaraTides.Domain.Services.ShipLifecycle.retire(id)
           |> CompanyFinanceWorld.post(
             company["id"],
             "ship_sale",
@@ -98,14 +98,7 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  def progress(ship, clock) do
-    TijaraTides.Domain.Weather.motion(
-      ship["depart_ms"],
-      ship["arrive_ms"],
-      ship["weather"],
-      clock
-    ) / TijaraTides.Domain.Weather.duration(ship["depart_ms"], ship["arrive_ms"], ship["weather"])
-  end
+  defdelegate progress(ship, clock), to: TijaraTides.Domain.VoyageNavigation
 
   defdelegate classes(), to: TijaraTides.Domain.ShipClass, as: :all
 
@@ -177,22 +170,9 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  def validate_ship_name(state, name, except_id \\ nil) do
-    name = if is_binary(name), do: String.trim(name), else: ""
-
-    cond do
-      name == "" or String.length(name) > 80 or String.match?(name, ~r/[\p{Cc}\p{Cf}]/u) ->
-        {:error, :ship_name_invalid}
-
-      Enum.any?(entities(state, "ships"), fn {id, ship} ->
-        id != except_id and ship["name"] == name
-      end) ->
-        {:error, :ship_name_taken}
-
-      true ->
-        {:ok, name}
-    end
-  end
+  defdelegate validate_ship_name(state, name, except_id \\ nil),
+    to: TijaraTides.Domain.ShipWorld.Names,
+    as: :validate
 
   defp next_ship_name(state, company_name) do
     names = MapSet.new(entities(state, "ships"), fn {_, ship} -> ship["name"] end)
@@ -348,6 +328,7 @@ defmodule TijaraTides.Domain.Fleet do
     with {:ok, _ship, company, estimate} <-
            departure_check(state, account, id, destination, limit, catalogue) do
       owner = company["id"]
+      state = TijaraTides.Domain.AutomationWorld.release_departing_visit(state, id)
 
       state =
         TijaraTides.Domain.ShipWorld.depart(state, id, destination, estimate, @voyage_speedup)

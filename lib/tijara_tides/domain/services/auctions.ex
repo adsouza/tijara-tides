@@ -1,7 +1,6 @@
 defmodule TijaraTides.Domain.Services.Auctions do
   alias TijaraTides.Domain.Services.WarehouseLiquidation, as: Liquidation
   alias TijaraTides.Domain.Services.Estates
-  alias TijaraTides.Domain.ShipWorld
   alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.Ship.CargoRows
@@ -400,7 +399,11 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
             s =
               s
-              |> ShipWorld.acquire(a.ship_id, winner.company_id, price)
+              |> TijaraTides.Domain.Services.ShipLifecycle.acquire(
+                a.ship_id,
+                winner.company_id,
+                price
+              )
               |> CompanyFinanceWorld.post(a.company_id, "estate_ship_sale", [
                 {"fleet", -ship["book_value"]},
                 {"receivership", ship["book_value"]}

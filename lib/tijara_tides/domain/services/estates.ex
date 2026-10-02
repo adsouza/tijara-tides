@@ -204,7 +204,7 @@ defmodule TijaraTides.Domain.Services.Estates do
     ship = get(s, "ships", a.ship_id)
 
     s
-    |> ShipWorld.retire(a.ship_id)
+    |> TijaraTides.Domain.Services.ShipLifecycle.retire(a.ship_id)
     |> CompanyFinanceWorld.post(a.company_id, "estate_ship_disposal", [
       {"fleet", -ship["book_value"]},
       {"receivership", ship["book_value"]}

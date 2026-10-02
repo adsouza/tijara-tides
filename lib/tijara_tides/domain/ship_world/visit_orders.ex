@@ -255,7 +255,7 @@ defmodule TijaraTides.Domain.ShipWorld.VisitOrders do
            else: state
       end)
 
-    TijaraTides.Domain.ShipWorld.RoutePlans.departed(state, ship_id, destination)
+    state
   end
 
   def wait_for_departure(state, id, reason),

@@ -258,10 +258,11 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
 
     stop =
       if route,
-        do: Enum.at(TijaraTides.Domain.ShipWorld.route_stops(state, ship_id), route["cursor"])
+        do:
+          Enum.at(TijaraTides.Domain.ShipWorld.RoutePlans.stops(state, ship_id), route["cursor"])
 
     if stop && not route["visit_finished"],
-      do: close_at(state, ship_id, ship["port"], "handed_over", false, stop["id"]),
+      do: close_at(state, ship_id, ship["port"], "handed_over", false, stop.id),
       else: state
   end
 

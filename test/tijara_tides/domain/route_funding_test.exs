@@ -268,7 +268,7 @@ defmodule TijaraTides.Domain.RouteFundingTest do
   test "berth handover releases unfilled reservations exactly once without buying cargo", c do
     s = link(c, c.s)
     before = cash(s)
-    s = ShipWorld.grant_berth(s, "co:1")
+    s = TijaraTides.Domain.Services.ShipLifecycle.grant_berth(s, "co:1")
     assert cash(s) == before + 500
     assert State.get(s, "remote_links", "rule")["status"] == "handed_over"
     assert State.entities(s, "exchange_orders") == %{}
@@ -584,7 +584,7 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     }
 
     s = AutomationWorld.reserve_visit(s, spec, 1, false)
-    s = ShipWorld.grant_berth(s, "co:1")
+    s = TijaraTides.Domain.Services.ShipLifecycle.grant_berth(s, "co:1")
     m = State.get(s, "markets", "Jakarta|lumber")
     s = State.put(s, "markets", "Jakarta|lumber", %{m | "stock" => 10})
     s = AutomatedVisits.advance(s, c.cat)
@@ -718,7 +718,9 @@ defmodule TijaraTides.Domain.RouteFundingTest do
   end
 
   test "visit completion rearms one new circuit and does not replay its reservations", c do
-    s = link(c, c.s) |> prepare(c) |> ShipWorld.grant_berth("co:1")
+    s =
+      link(c, c.s) |> prepare(c) |> TijaraTides.Domain.Services.ShipLifecycle.grant_berth("co:1")
+
     s = ShipWorld.cancel_visit_order(s, "route:rule", "Cancelled by player", c.cat)
     s = DepartureFunding.finish_visits(s, c.cat)
     l = State.get(s, "remote_links", "rule")

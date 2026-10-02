@@ -17,13 +17,23 @@ defmodule TijaraTides.Domain.VoyageNavigation do
       ship["voyage_path"] ||
         get_in(catalogue, ["routes", ship["port"] <> "|" <> ship["destination"], "coordinates"])
 
+  def progress(ship, clock) do
+    TijaraTides.Domain.Weather.motion(
+      ship["depart_ms"],
+      ship["arrive_ms"],
+      ship["weather"],
+      clock
+    ) /
+      TijaraTides.Domain.Weather.duration(ship["depart_ms"], ship["arrive_ms"], ship["weather"])
+  end
+
   def split(ship, clock, catalogue) do
     coords = path(ship, catalogue) |> Enum.map(&normalize/1)
     legs = Enum.chunk_every(coords, 2, 1, :discard)
 
     target =
       Enum.sum(Enum.map(legs, fn [a, b] -> distance(a, b) end)) *
-        TijaraTides.Domain.Fleet.progress(ship, clock)
+        progress(ship, clock)
 
     Enum.reduce_while(
       legs,

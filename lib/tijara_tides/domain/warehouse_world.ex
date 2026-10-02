@@ -582,8 +582,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   def cleaning_cost(ship, item), do: Warehouse.cleaning_cost(ship["last_liquid"], item)
 
   defp fits?(ship, item, n, catalogue) do
-    used = TijaraTides.Domain.Fleet.capacity(ship, catalogue)
-    class = TijaraTides.Domain.Fleet.classes()[ship["class"]]
+    used = TijaraTides.Domain.Ship.capacity(TijaraTides.Domain.Ship.Rows.decode(ship), catalogue)
+    class = TijaraTides.Domain.ShipClass.all()[ship["class"]]
 
     used.weight + n * item["weight_kg"] <= class["weight"] and
       used.volume + n * item["volume_l"] <= class["volume"]

@@ -83,6 +83,12 @@ defmodule TijaraTides.Domain.AutomationWorld do
   defp store_request(state, model),
     do: State.put(state, "departure_requests", model.id, DepartureRequest.Rows.encode(model))
 
+  @doc "Release only the outgoing visit; an independently funded inbound visit remains reserved."
+  def release_departing_visit(state, id) do
+    ship = State.get(state, "ships", id)
+    if row = budget(state, ship, ship["port"]), do: release_visit(state, row), else: state
+  end
+
   def budget(state, ship, port) do
     State.owned(state, "visit_budgets", "company_id", ship["company_id"])
     |> Enum.find(

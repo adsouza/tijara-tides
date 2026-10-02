@@ -993,3 +993,23 @@ check the targeted orchestration graph for cycles. Pure reservation models
 cannot call project adapters, codecs or workflows. These are focused dependency
 rules within the existing world transaction, not a claim that every domain
 module forms an independent aggregate or that the entire domain graph is acyclic.
+
+`Services.ShipLifecycle` coordinates linked-order handover and release of funding
+before ship admission or disposal. `ShipWorld` owns only ship transitions and
+its route/visit adapters; it never invokes funding or order workflows. Warehouse
+transfers update physical holdings first, then the coordinating service closes
+remote demand in that same candidate. Route departure coordinates VisitOrders
+and RoutePlans in ShipWorld, so the visit adapter does not call back into routes.
+Compiled cycle guards include ShipWorld, its route/visit adapters
+and AutomationWorld as well as the coordinating services.
+
+A separate transitive check follows all compiled domain dependencies reachable
+from ShipWorld, including adapters outside the service inventory, and rejects
+any path back into ShipWorld. WarehouseWorld's existing maintenance facade
+still coordinates liquidation; this focused change does not assert acyclicity
+of that separate warehouse orchestration graph.
+
+Fleet releases the outgoing visit's funding only after departure validation and
+before advancing the ship's route cursor. RoutePlans contains no Finance or
+Automation adapter callback. VoyageNavigation owns progress calculations and
+calls the pure weather timeline, so geometry helpers do not call back into Fleet.
