@@ -3,7 +3,8 @@ defmodule TijaraTides.Domain.FundingTransitionsTest do
   # tick phase sweeps the world afterwards. `revalidate` must then find nothing to do.
   use ExUnit.Case, async: true
 
-  alias TijaraTides.Domain.{Commands, CompanyFinanceWorld, Game, ShipWorld, Simulation, State}
+  alias TijaraTides.Domain.{Commands, CompanyFinanceWorld, Fleet, Game, ShipWorld}
+  alias TijaraTides.Domain.{Simulation, State}
   alias TijaraTides.Domain.Services.{DepartureFunding, RouteEditing}
 
   setup do
@@ -61,6 +62,11 @@ defmodule TijaraTides.Domain.FundingTransitionsTest do
   end
 
   defp reserved(s), do: State.get(s, "companies", "co")["reserved"]
+
+  defp fuel(c, s) do
+    q = Fleet.voyage_quote(State.get(s, "ships", "co:1"), "Singapore", c.cat, s.clock_ms)
+    q["fuel"] + q["canal_fees"]
+  end
 
   defp settled!(s, c) do
     assert DepartureFunding.revalidate(s, ["co:1"], c.cat) == s
@@ -152,10 +158,19 @@ defmodule TijaraTides.Domain.FundingTransitionsTest do
       %{s: s, cat: cat}
     end
 
-    test "is abandoned by the policy change itself", c do
+    test "is re-priced by a policy change, keeping its waiting age and accumulation", c do
+      before = State.get(c.s, "departure_requests", "co:1")
       s = command(c, c.s, %{"action" => "funding_policy", "policy" => "reduced"})
-      assert State.entities(s, "departure_requests") == %{}
-      assert reserved(s) == 0
+      request = State.get(s, "departure_requests", "co:1")
+
+      assert request["policy"] == "reduced"
+      assert request["required"] == fuel(c, s)
+      assert request["required"] < before["required"]
+
+      assert Map.take(request, ~w(accumulated blocked_ms window_deadline_ms)) ==
+               Map.take(before, ~w(accumulated blocked_ms window_deadline_ms))
+
+      assert reserved(s) == reserved(c.s)
       settled!(s, c)
     end
 
@@ -165,6 +180,45 @@ defmodule TijaraTides.Domain.FundingTransitionsTest do
       assert State.get(s, "departure_requests", "co:1") == nil
       settled!(s, c)
     end
+  end
+
+  test "re-pricing returns accumulation beyond the new requirement", c do
+    cat =
+      Map.put(c.cat, "departure_funding", %{
+        "wait_ms" => 100,
+        "window_ms" => 50,
+        "cooldown_ms" => 200
+      })
+
+    s =
+      route(c, c.s)
+      |> then(&edit(c, &1, "start", %{"operation" => "start", "auto_depart" => true}))
+      |> then(&budget(c, &1, %{"stop" => "co:1:b", "amount" => 1000}))
+      |> ShipWorld.prepare_visits(cat)
+
+    s = free(s, fuel(c, s) + 500)
+
+    s =
+      DepartureFunding.advance(s, cat)
+      |> Map.put(:clock_ms, 100)
+      |> DepartureFunding.advance(cat)
+
+    assert State.get(s, "departure_requests", "co:1")["accumulated"] == fuel(c, s) + 500
+
+    {:ok, s, _} =
+      Commands.execute(s, c.a, %{"action" => "funding_policy", "policy" => "reduced"}, %{
+        id: "policy",
+        catalogue: cat
+      })
+
+    request = State.get(s, "departure_requests", "co:1")
+    assert request["accumulated"] == request["required"]
+    assert request["required"] == fuel(c, s)
+    assert reserved(s) == fuel(c, s)
+
+    s = DepartureFunding.advance(s, cat)
+    assert State.get(s, "ships", "co:1")["status"] == "sailing"
+    assert State.get(s, "departure_requests", "co:1") == nil
   end
 
   test "a route wait timing out releases that stop's budget in the same phase", c do

@@ -883,8 +883,11 @@ notify (default), Sail with a reduced budget, or Skip purchases. Each policy
 fully funds fuel and canal fees. Reduced budgets remain strict at arrival; Skip
 still permits deliveries and owned-stock collection. Affordable departures are
 allocated by original waiting age, with stable ship-ID ties; an expensive older
-request does not block an affordable younger one. Blocked/resumed notices are
-coalesced. Reservations and departure share the authoritative atomic operation.
+request does not block an affordable younger one. A policy change re-prices
+waiting requests in place: waiting age and window deadlines are kept, and
+accumulated cash above the new requirement is returned. Blocked/resumed notices
+are coalesced. Reservations and departure share the authoritative atomic
+operation.
 
 After 30 active-world minutes, the oldest eligible request may accumulate cash
 for a fixed 10-minute window. Only one ship per company accumulates. Arrears and

@@ -965,9 +965,10 @@ manual claims, and route edits release the claims of removed stops.
 `DepartureFunding` coordinates each ship transition with funding consequences:
 route edits, budgets, sailing, rerouting, onward changes, instruction
 cancellation and expiry, and wait timeouts. It revalidates budgets and departure
-requests only for the ships whose rows that transition declared changed. A
-policy change revalidates the company's requests. Readiness also depends on
-handling, berths and pending orders, so allocation rechecks a request when it
+requests only for the ships whose rows that transition declared changed. A policy
+change re-prices the company's waiting requests in place, keeping their waiting
+age and returning accumulation above the new requirement. Readiness also depends
+on handling, berths and pending orders, so allocation rechecks a request when it
 uses it.
 
 Sell-order portions are derived from the warehouse FEFO allocation. The order

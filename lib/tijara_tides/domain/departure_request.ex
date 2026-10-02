@@ -33,6 +33,17 @@ defmodule TijaraTides.Domain.DepartureRequest do
     }
   end
 
+  @doc "New terms keep waiting age and deadline; accumulation above the new requirement is returned."
+  def reprice(%__MODULE__{} = request, policy, required) do
+    unless is_integer(required) and required >= 0,
+      do: raise(ArgumentError, "Invalid departure requirement")
+
+    kept = min(request.accumulated, required)
+
+    {%{request | policy: policy, required: required, accumulated: kept},
+     request.accumulated - kept}
+  end
+
   def release(%__MODULE__{} = request, cooldown),
     do: %{request | accumulated: 0, window_deadline_ms: nil, cooldown_ms: cooldown}
 end

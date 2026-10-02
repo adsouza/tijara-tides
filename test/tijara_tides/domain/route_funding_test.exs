@@ -564,7 +564,8 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     assert State.entities(s, "departure_requests") == %{}
   end
 
-  test "policy changes and route removal release accumulated and visit cash", c do
+  test "policy changes re-price accumulated requests and route removal releases visit cash",
+       c do
     cat =
       Map.put(c.cat, "departure_funding", %{
         "wait_ms" => 100,
@@ -578,12 +579,15 @@ defmodule TijaraTides.Domain.RouteFundingTest do
       DepartureFunding.advance(s, cat) |> Map.put(:clock_ms, 100) |> DepartureFunding.advance(cat)
 
     s = policy(c, s, "reduced")
-    assert State.entities(s, "departure_requests") == %{} and cash(s) == 100
+    request = State.get(s, "departure_requests", "co:1")
+    assert request["policy"] == "reduced" and request["required"] == fuel_required(c, s)
+    assert request["accumulated"] == 100 and cash(s) == 0
     s = free(s, fuel_required(c, s) + 1000) |> DepartureFunding.advance(cat)
     assert State.get(s, "visit_budgets", "co:1:b")["remaining"] == 1000
     s = edit(c, s, "delete", "co:1", %{"operation" => "delete"})
     assert State.entities(s, "visit_budgets") == %{}
-    assert cash(s) == 1000
+    # The kept accumulation paid 100 of the fuel that the top-up would otherwise have.
+    assert cash(s) == 1100
   end
 
   test "strict arrival budget does not spend sale proceeds or released linked-order cash", c do

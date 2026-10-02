@@ -1745,21 +1745,23 @@ from unreserved cash. Otherwise release its accumulated cash at the deadline,
 pay overdue obligations first, and run the normal oldest-affordable departure
 allocation before another accumulation attempt. Apply a configured retry
 cooldown to accumulation attempts so released cash is not immediately captured
-again; ordinary affordable departures remain eligible during that cooldown.
-The initial configurable durations are 30 active-world minutes before
-accumulation, a 10-minute window, and a 30-minute retry cooldown.
-Preserve the ship's original waiting age. Notify the player when accumulation
-times out. Window and cooldown durations follow the world-clock policy and
-remain tuning parameters. Accumulated reservations also release under the normal
-rules if the player changes the plan or the policy. Departure requirements
-follow the player's current global policy. When the global Skip purchases policy
-is triggered for a visit, cancel the unfilled remainder of remote buy orders
-linked to that visit and release their unused cash and warehouse-capacity
-reservations. Notify the player of the cancellation. Completed fills remain
-owned and reserved for collection because the ship still visits that stop. Do
-not cancel unrelated warehouse orders. Apply the cancellation once for that
-visit; cash it releases does not silently reverse the decision to skip
-purchases. Fully fund fuel before departure.
+again; ordinary affordable departures remain eligible during that cooldown. The
+initial configurable durations are 30 active-world minutes before accumulation,
+a 10-minute window, and a 30-minute retry cooldown. Preserve the ship's original
+waiting age. Notify the player when accumulation times out. Window and cooldown
+durations follow the world-clock policy and remain tuning parameters.
+Accumulated reservations also release under the normal rules if the player
+changes the plan. A policy change re-prices each waiting request in place: it
+keeps its waiting age and any window deadline, holds accumulated cash up to the
+new requirement and returns the excess. Departure requirements follow the
+player's current global policy. When the global Skip purchases policy is
+triggered for a visit, cancel the unfilled remainder of remote buy orders linked
+to that visit and release their unused cash and warehouse-capacity reservations.
+Notify the player of the cancellation. Completed fills remain owned and reserved
+for collection because the ship still visits that stop. Do not cancel unrelated
+warehouse orders. Apply the cancellation once for that visit; cash it releases
+does not silently reverse the decision to skip purchases. Fully fund fuel before
+departure.
 
 Remote buy orders may optionally be linked to a particular ship collection stop.
 Filled goods from a linked order count toward that stop's loading target and are

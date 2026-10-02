@@ -57,6 +57,22 @@ defmodule TijaraTides.Domain.ReservationModelsTest do
     assert DepartureRequest.Rows.decode(DepartureRequest.Rows.encode(released)) == released
   end
 
+  test "re-pricing keeps waiting age and deadline and returns only the excess accumulation" do
+    held = DepartureRequest.new(spec(), "wait", 100, 10) |> DepartureRequest.accumulate(70, 20)
+
+    {cheaper, released} = DepartureRequest.reprice(held, "reduced", 40)
+
+    assert {cheaper.policy, cheaper.required, cheaper.accumulated, released} ==
+             {"reduced", 40, 40, 30}
+
+    assert {cheaper.blocked_ms, cheaper.window_deadline_ms} == {10, 20}
+
+    {dearer, nothing} = DepartureRequest.reprice(cheaper, "wait", 100)
+    assert {dearer.required, dearer.accumulated, nothing} == {100, 40, 0}
+    assert DepartureRequest.Rows.decode(DepartureRequest.Rows.encode(dearer)) == dearer
+    assert_raise ArgumentError, fn -> DepartureRequest.reprice(held, "wait", -1) end
+  end
+
   test "rent and mixed-denominator clearance retain exact remainders through row round trips" do
     whole = LiquidationPool.accrue(pool(), 41)
 

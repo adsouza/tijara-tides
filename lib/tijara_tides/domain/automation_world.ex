@@ -69,6 +69,15 @@ defmodule TijaraTides.Domain.AutomationWorld do
     |> store_request(DepartureRequest.release(request, cooldown))
   end
 
+  def reprice_request(state, row, policy, required) do
+    {model, released} =
+      DepartureRequest.reprice(DepartureRequest.Rows.decode(row), policy, required)
+
+    state
+    |> move_cash(model.company_id, -released, "departure_accumulation_release")
+    |> store_request(model)
+  end
+
   def abandon_request(state, row),
     do: state |> release_accumulation(row) |> State.delete("departure_requests", row["id"])
 

@@ -6904,8 +6904,19 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
                c.server
              )
 
-    assert GameServer.snapshot(token, c.server).private["account"]["funding_policy"] == "reduced"
-    assert GameServer.snapshot(token, c.server).private["departure_requests"] == %{}
+    private = GameServer.snapshot(token, c.server).private
+    assert private["account"]["funding_policy"] == "reduced"
+
+    # Re-priced in place: waiting age and deadline survive, the excess is returned.
+    assert %{"policy" => "reduced", "required" => required, "accumulated" => required} =
+             repriced = private["departure_requests"][request["id"]]
+
+    assert required < request["required"]
+
+    assert Map.take(repriced, ~w(blocked_ms window_deadline_ms)) ==
+             Map.take(request, ~w(blocked_ms window_deadline_ms))
+
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
     Application.put_env(:tijara_tides, :game_server, c.server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
     conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => token})

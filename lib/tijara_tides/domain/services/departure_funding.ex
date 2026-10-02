@@ -276,27 +276,50 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
   end
 
   defp request_valid?(s, row, plan, catalogue) do
+    company = State.get(s, "companies", row["company_id"])
+    account = State.get(s, "accounts", company["account_id"])
+
+    case departure_terms(s, row, plan, catalogue) do
+      nil ->
+        false
+
+      {current, quote} ->
+        row["policy"] == (account["funding_policy"] || "wait") &&
+          row["required"] == requirement(quote, current, row["policy"])
+    end
+  end
+
+  # The request still describes the ship's next departure, whatever its price.
+  defp departure_terms(s, row, plan, catalogue) do
     ship = State.get(s, "ships", row["ship_id"])
     company = State.get(s, "companies", row["company_id"])
-    account = company && State.get(s, "accounts", company["account_id"])
     current = if ship && plan, do: spec(s, ship, plan["onward"])
     quote = if ship && plan, do: Fleet.voyage_quote(ship, plan["onward"], catalogue, s.clock_ms)
 
-    current && quote && company["bankruptcy_ms"] == nil &&
-      row["destination"] == current.port && row["stop_id"] == current.stop_id &&
-      row["visit"] == current.visit && row["configured"] == current.configured &&
-      row["policy"] == (account["funding_policy"] || "wait") &&
-      row["required"] == requirement(quote, current, row["policy"])
+    if current && quote && company["bankruptcy_ms"] == nil &&
+         row["destination"] == current.port && row["stop_id"] == current.stop_id &&
+         row["visit"] == current.visit && row["configured"] == current.configured,
+       do: {current, quote}
   end
 
-  @doc "A policy change re-prices nothing in place: waiting requests restart under the new policy."
+  @doc "A policy change re-prices waiting requests in place, keeping their waiting age."
   def set_policy(state, account, policy, catalogue) do
     with {:ok, changed, reply} <- AccountWorld.set_funding_policy(state, account, policy) do
-      ships =
-        for row <- State.owned(changed, "departure_requests", "company_id", account["company_id"]),
-            do: row["ship_id"]
+      rows = State.owned(changed, "departure_requests", "company_id", account["company_id"])
+      plans_by_ship = Map.new(ready_plans(changed), &{&1["ship_id"], &1})
 
-      {:ok, revalidate_requests(changed, ships, catalogue), reply}
+      changed =
+        Enum.reduce(Enum.sort_by(rows, & &1["id"]), changed, fn row, s ->
+          case departure_terms(s, row, plans_by_ship[row["ship_id"]], catalogue) do
+            nil ->
+              AutomationWorld.abandon_request(s, row)
+
+            {current, quote} ->
+              AutomationWorld.reprice_request(s, row, policy, requirement(quote, current, policy))
+          end
+        end)
+
+      {:ok, changed, reply}
     end
   end
 
