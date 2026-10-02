@@ -20,6 +20,7 @@ All expansion work below is planned unless explicitly recorded as completed.
 | Storage, automation and weather | Route funding, warehouse liquidation, freshness and weather regression suites | Full phase collisions with explicit visit identities, receiver conditions, close times and known-weather cutoffs; preserve disclosed/frozen facts | Leak a visit budget, revive a pool or reveal future weather | 1–5; two generated families |
 | Persistence and recovery | `game_persistence_test.exs`: ownership/restart and funding handoffs; `game_server_failures_test.exs`: rejected tick preserves prior clock/projection | Earlier finance and queue traces with valid historical fixtures; compare independent row/ledger expectations after replay, fencing and rollback | Default a required current field or publish an uncommitted projection | 1, 3–5 |
 | Architecture and work bounds | `automation_architecture_test.exs`: compiled paths; `automation_cost_test.exs`: cached partitioning and instruction reads | Relevant root/dependency inventory, planted forbidden edge, independent population growth, commit/broadcast counts and fresh-VM test execution | Miss a back edge, rescan a collection or depend on prior module loading | 0, 2, 5 |
+| Web form admission | `game_persistence_test.exs`: raw instruction buy/sell metadata and normalized-duration replay | Checked form/variant inventory; valid submissions with optional/hidden/disabled/untouched fields; independently expected persisted effects; actual browser serializer agreement | Forward browser metadata, retain converted UI-only fields or fingerprint raw formatting | 1b, 5 |
 
 Test filenames in the first seven rows refer to `test/tijara_tides/domain/`.
 Persistence/recovery tests are under `test/tijara_tides/infrastructure/`;
@@ -39,6 +40,11 @@ entry points; Round 4 supplies one broad sequence property, selected SQL replay
 and the corpus. Generators/exclusions, progress milestones and expected errors
 must be recorded per command, including earlier commands outside the initial
 four families. Undeclared command variants fail inventory completeness.
+Classify web forms separately: application command coverage bypasses `GameLive`.
+Round 1b adds twelve valid form variants, two normalization properties (five SQL
+cases each) and two bounded Chromium workflows. These are proposed cohorts;
+the existing instruction regression uses raw events, not browser JavaScript.
+Other form variants require named evidence or scoped exclusions and follow-ups.
 
 ## Review findings as regression seeds
 
@@ -67,6 +73,7 @@ planned rounds rather than treating the historical bug list as the discovery lim
 | #18 Charges/estate and global defaults | `reservation_models_test.exs`, `persistence/game_rows_batching_test.exs` | Independent monetary splits; required fields, types and per-entity legacy omissions |
 | Grace-rent decision | `warehouse_liquidation_test.exs` | Explicit accrued rent versus collected charges, including zero proceeds |
 | Receiving-freshness decision | `cargo_freshness_test.exs`, `graded_books_test.exs`, `game_persistence_test.exs` | Equivalent eligibility under receiving conditions across purchase/collection paths |
+| Instruction form field-count escape | `game_persistence_test.exs` | Valid web-form normalization across established commands; real browser metadata, optional fields and stable receipt fingerprints |
 
 The persistence file above is under `test/tijara_tides/infrastructure/`; the batching
 file is relative to that directory. Other unqualified filenames are domain tests

@@ -54,6 +54,8 @@ fault-detection evidence is added in Round 5.
 Include a command-generator inventory and its supported entry points, expected
 errors, milestones and exclusions. Discovery must expose ungenerated commands
 instead of treating a successful fuzz run as whole-command coverage.
+Also inventory command-producing web forms and their variants: a command covered
+below `GameLive` does not prove that its browser submission is normalized safely.
 
 | Area and existing test foundations | Discovery targets |
 |---|---|
@@ -118,6 +120,7 @@ version rather than assuming the tool fixes the pilot's observed selection miss.
 | Property family | Generated variation | Oracle |
 |---|---|---|
 | Validation and ownership | Constructed valid names, injected forbidden characters, boundary lengths, typed references and account ownership | Expected admission/error from the declared contract; unchanged protected state on rejection |
+| Browser-form admission | Valid form variants, untouched-input metadata, optional/hidden/disabled fields and equivalent numeric formatting | Intended persisted effect; equivalent submissions replay the same receipt; no UI-only fields reach the command envelope |
 | Row codecs | Valid typed budgets, requests and pools, including optional fields and boundary values | Decode/encode preserves semantic fields; hand-authored row expectations prevent two matching codec mistakes from passing |
 | Budget conservation | Valid reserve/consume/resize/release sequences | Initial allocation plus net adjustments equals purchases plus released and remaining funds; visit identity stays correct |
 | Funding lifecycle | Waiting ages, available cash, policies, zero/partial windows and deadline offsets | One active accumulator; fixed deadline; no double reservation; oldest eligible allocation under fixture rules |
@@ -252,6 +255,60 @@ envelopes against their own declared response rather than assuming they reach
 application validation. Use selected raw LiveView events for transport parsing.
 Record which boundary each case exercises; a fake store cannot prove SQL safety.
 
+### Valid browser-form contracts
+
+Test legitimate submissions as well as malformed input. `LiveViewTest`'s form
+helper collects form values but does not run the browser serializer, which adds
+`_unused_*` markers for untouched, non-hidden inputs. Domain/application command
+fuzzing bypasses that conversion entirely. The instruction field-count regression
+is a seed for this broader boundary, not its scope limit.
+
+Inventory each command-producing form's submit event, variants, enabled fields,
+hidden inputs, optional blanks, disabled omissions, UI-only fields, conversions
+and receipt boundary. Check literal `phx-submit` declarations against the inventory;
+dynamic declarations and command-producing events without forms need explicit
+entries or exclusions. Record a named valid-submission test or a scoped exclusion
+with its reason and follow-up round for every variant. Newly unclassified forms
+fail inventory completeness. Share command identities and expected effects with
+the fuzzer specifications, retaining a distinct web-event adapter.
+
+Start with twelve valid-submission cases: instruction buy/sell; exchange
+place/amend buy/sell; route add/update rule buy/sell; and borrowing/recasting.
+Each case uses independently valid prerequisites and at most four submissions
+covering its relevant optional fields, hidden defaults, disabled omissions and
+untouched-input metadata. Submit representative raw events through `GameLive`
+and the real command admission boundary. Assert the intended persisted business
+effect and exact receipt replay, not merely a live process or the absence of an
+internal error. A field-count rejection of a declared valid submission is a
+failure, even though the same rejection is correct for an oversized API command.
+
+Add two SQL-backed normalization properties, initially instruction and exchange
+forms. Vary permitted browser metadata and equivalent numeric/minute formatting
+while holding intended business inputs and request identity fixed. The baseline
+must succeed; equivalent submissions must replay its receipt without another
+effect, revision or extended deadline. Assert independently expected stored
+amounts/durations too; agreement between two uses of the same faulty normalizer
+is insufficient. Keep malformed semantic input in the separate rejection cohort.
+Use five cases and twenty shrink steps per property, at most two submissions per
+replay. Allocate a fresh world and server for every case and shrink attempt, with
+cleanup in `after`, as required by Round 4's SQL replay rules.
+
+Add two serial headless Chromium workflows using a pinned browser runner:
+instruction buy/sell and exchange place/amend/cancel. Limit each to twelve
+command submissions and sixty seconds. Drive actual controls, leave optional
+fields untouched and exercise disabled-field omissions. Capture serialized field
+shapes to check the raw-event fixtures against the actual LiveView client; the
+fixtures must not be derived from the production command builder. Require the
+expected persisted effect through disposable PostgreSQL. Use fresh browser
+contexts/worlds and guaranteed server/browser cleanup; never use the local
+playtest or deployed database. Add the runner and browser installation to local
+and CI checks in Round 1b; missing browser setup must fail, not silently skip.
+Record replayable input choices and sanitized serialization evidence without
+session tokens or invitation credentials. Broader browser coverage remains
+explicitly excluded until measured, rather than implied by SQL/LiveView tests.
+
+### Rejections and notification contracts
+
 For ordinary fuzz cases, unexpected raises, exits/throws, `:command_failed`,
 `:internal_error`, storage failures or an unexpected halt/unavailable owner fail
 the test. The workflow can rescue a planning exception into `:command_failed`,
@@ -316,6 +373,13 @@ shrink steps per failure. They share the Round 1 input-property cohort rather th
 adding a duplicate cohort. A deliberately rescued planner exception is detected
 as a fuzz failure, and a malformed payload's safe rejection permits the next
 valid command to succeed.
+The form inventory classifies every discovered submit event and variant. The
+twelve initial valid cases persist their intended effects; normalization
+properties preserve receipt identity and independently expected terms. Both
+browser workflows prove that raw-event fixtures reflect real serialization.
+Deliberately forwarding `_unused_*` fields, retaining a converted UI-only expiry
+field, or including raw numeric formatting in the fingerprint must fail the
+intended contract. Restore each fault and confirm the same selection passes.
 
 ## Round 2: Deterministic lifecycle interaction tests
 
@@ -473,9 +537,11 @@ The fast semantic backend executes `GameCommands.execute/4` and `Game.advance/3`
 with explicit fixture accounts, catalogue, command context and a bounded test
 lot allocator. It checks pure effects but does not claim authentication,
 durable replay, SQL constraint or publication coverage. Payload/envelope and
-receipt cases use the Round 1b `GameCommands.run/6` test-port backend. Selected
-traces also run through an isolated `GameServer.command/4` SQL backend, committing
-and reloading at checkpoints and exercising receipt replay and restart.
+receipt cases use the Round 1b `GameCommands.run/6` test-port backend. Selected web
+contracts instead enter through `GameLive` and the Round 1b browser runner;
+application/server command traces cannot claim browser serialization coverage.
+Selected traces also run through an isolated `GameServer.command/4` SQL backend,
+committing and reloading at checkpoints and exercising receipt replay and restart.
 Never implement a second game engine or bypass command reconciliation by calling
 individual mutation helpers inside the exploration loop.
 
@@ -589,6 +655,9 @@ Keep fixed traces and shrinkable properties as separate mandatory cohorts:
 | New fixed lifecycle traces | Local `:rand`, fixed seeds | 4 traces per selected family (4 families) | 60 | None | Ordinary domain |
 | Fixed SQL lifecycle traces | Local `:rand`, fixed seeds | 2 traces per selected family (4 families) | 25 | None | Database |
 | Input/codec properties (Round 1, including up to 4 fuzz payload properties) | StreamData/ExUnitProperties | 50 per property | Not an action sequence | 100 per failing case | Ordinary |
+| Valid form contracts (Round 1b) | Raw LiveView events, fixed examples | 12 variants | 4 submissions | None | Database |
+| Form normalization properties (Round 1b) | StreamData/ExUnitProperties | 5 per property (2 properties) | 2 submissions | 20 per failing case | Database |
+| Browser serialization smoke (Round 1b) | Pinned Chromium runner | 2 workflows | 12 command submissions | None; 60 seconds per workflow | Browser with disposable database |
 | Lifecycle properties | StreamData/ExUnitProperties | 20 per property | 30 | 100 per failing case | Ordinary domain |
 | SQL lifecycle properties | StreamData/ExUnitProperties | 5 per property | 15 | 20 per failing case | Database |
 | Broad command exploration (1 property) | StreamData/ExUnitProperties | 20 total | 30 | 100 per failing case | Ordinary |
@@ -600,6 +669,9 @@ selected family: four of each. The discovery matrix records the selected
 input/codec property count before implementation; measure that cohort before
 adding properties. Per-property caps alone do not bound an unlimited property
 inventory.
+Round 1b's three web cohorts are additional bounded work, separate from ordinary
+payload properties and Round 4 SQL traces. Record their runtime before adding
+form variants or browser workflows. Their implementation remains proposed.
 
 The command fuzzer adds one mandatory broad sequence property: 20 cases, at most
 30 actions and 100 shrink steps per failure in the ordinary suite. It reuses

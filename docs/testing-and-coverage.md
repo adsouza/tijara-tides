@@ -23,6 +23,11 @@ and operation counts. The bounded
 [gameplay mutation audit](mutation-testing-pilot.md#gameplay-review-regression-audit--2026-10-01)
 checks four deliberately broken behaviors. Broader shrinking and generated
 state-machine infrastructure remains follow-up work.
+Round 1b also specifies valid web-form contracts, normalization properties and
+two real-browser workflows. `LiveViewTest` does not execute browser JavaScript;
+SQL-backed form tests alone do not prove serializer coverage. The instruction
+metadata/replay regression is implemented; the broader form inventory, properties
+and Chromium cohort remain proposed in the expansion plan.
 
 For a focused coverage run:
 
@@ -152,7 +157,7 @@ fill after its blocking condition clears.
 | Minimum shelf life | Numeric bounds and defaults, exact qualifying boundary, wait without cash/cargo movement, later replenishment, partial fills, earliest qualifying expiry, retained excluded lots/cost/split lineage, reservation protection, owned-stock berth admission, qualifying cargo aboard, maximum targets waiting and immutable current-visit snapshots |
 | Departure and privacy | Cancel waiting remainders and incompatible plans; owner-only visibility |
 
-The database/browser integration test additionally exercises UI submission and
+The database/LiveView integration test additionally exercises UI submission and
 preserved drafts, command replay, cancellation, automatic arrival settlement,
 SQL reload and a single financial posting after restart.
 The instruction-expiry integration case covers optional/invalid form input,
