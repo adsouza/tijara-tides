@@ -905,6 +905,11 @@ receivership, database reload, command replay and rollback.
 
 ## Owner absence and dormant closure
 
+Owner interactions coalesce into at most one ordinary dormancy visit per wall
+minute. Gameplay commands include the visit in their own commit; rapid form
+events do not cause separate writes and broadcasts. Returns during a warning
+cancel that warning immediately, even within the throttling interval.
+
 Dormancy uses durable wall-clock timestamps per company, separate from economic
 activity. The default absence interval is 30 real days followed by 7 real days of
 advance warning. `TIJARA_DORMANCY_ABSENCE_DAYS` and

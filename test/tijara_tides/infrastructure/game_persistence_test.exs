@@ -123,6 +123,44 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
            ).rows == [["valid-after-error"]]
   end
 
+  test "repeated owner visits do not commit or broadcast within the same minute", c do
+    {:ok, wall} = Agent.start_link(fn -> 0 end)
+
+    :sys.replace_state(c.server, fn state ->
+      %{state | wall_clock: fn -> Agent.get(wall, & &1) end}
+    end)
+
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "visit-company",
+        %{
+          "action" => "company",
+          "name" => "Visit throttle"
+        },
+        c.server
+      )
+
+    GameServer.subscribe()
+    original = :sys.get_state(c.server).game.revision
+
+    for now <- 1..20 do
+      Agent.update(wall, fn _ -> now end)
+      assert :ok = GameServer.visit(token, c.server)
+    end
+
+    assert :sys.get_state(c.server).game.revision == original
+    refute_receive {:game_changed, _}
+    Agent.update(wall, fn _ -> 60_000 end)
+    assert :ok = GameServer.visit(token, c.server)
+    assert :sys.get_state(c.server).game.revision == original + 1
+    assert_receive {:game_changed, _}
+    assert :ok = GameServer.visit(token, c.server)
+    refute_receive {:game_changed, _}
+  end
+
   test "dormancy persists while idle, ignores snapshot and connection heartbeats, and survives restart",
        c do
     {:ok, wall} = Agent.start_link(fn -> 0 end)

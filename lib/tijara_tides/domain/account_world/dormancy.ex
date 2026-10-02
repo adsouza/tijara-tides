@@ -51,7 +51,7 @@ defmodule TijaraTides.Domain.AccountWorld.Dormancy do
       old = record(state, company, now)
 
       if old.warned_ms != nil or get(state, "company_dormancy", company["id"]) == nil or
-           now > old.last_visit_ms do
+           now - old.last_visit_ms >= 60_000 do
         state =
           put(state, "company_dormancy", company["id"], Dormancy.to_row(Dormancy.visit(old, now)))
 

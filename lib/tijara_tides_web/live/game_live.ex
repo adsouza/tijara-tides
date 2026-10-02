@@ -27,6 +27,7 @@ defmodule TijaraTidesWeb.GameLive do
         heartbeat_pending: false,
         owner_visit_pending: false,
         owner_visit_running: false,
+        owner_visit_queued_ms: nil,
         preferred_locale: if(session["locale_explicit"], do: session["locale"]),
         browser_id: session["player_id"],
         page_title: gettext("Your shipping company"),
@@ -101,8 +102,21 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_info(_message, socket), do: {:noreply, socket}
 
   defp queue_owner_visit(socket) do
-    unless socket.assigns.owner_visit_pending, do: send(self(), :owner_visit)
-    assign(socket, owner_visit_pending: true)
+    now = System.monotonic_time(:millisecond)
+    previous = socket.assigns.owner_visit_queued_ms
+
+    warned =
+      Enum.any?(
+        Map.get(socket.assigns, :system_notices, []),
+        &(&1["code"] == "company.dormancy_warning")
+      )
+
+    if warned or previous == nil or now - previous >= 60_000 do
+      unless socket.assigns.owner_visit_pending, do: send(self(), :owner_visit)
+      assign(socket, owner_visit_pending: true, owner_visit_queued_ms: now)
+    else
+      socket
+    end
   end
 
   defp background_refresh(%{assigns: %{refresh_running: true}} = socket),

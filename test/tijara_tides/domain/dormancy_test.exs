@@ -27,6 +27,20 @@ defmodule TijaraTides.Domain.DormancyTest do
     {state, catalogue}
   end
 
+  test "owner visits coalesce within a minute while warnings still cancel immediately" do
+    {state, catalogue} = fixture()
+    account = State.get(state, "accounts", "owner")
+    assert AccountWorld.owner_visit(state, account, 59_999) == state
+    changed = AccountWorld.owner_visit(state, account, 60_000)
+    assert State.get(changed, "company_dormancy", "company")["last_visit_ms"] == 60_000
+    assert AccountWorld.owner_visit(changed, account, 60_001) == changed
+    assert AccountWorld.owner_visit(changed, account, 1) == changed
+    warned = AccountWorld.advance_dormancy(state, 100, catalogue)
+    returned = AccountWorld.owner_visit(warned, account, 101)
+    assert State.get(returned, "company_dormancy", "company")["warned_ms"] == nil
+    assert State.get(returned, "company_dormancy", "company")["last_visit_ms"] == 101
+  end
+
   test "warning uses wall time, snapshots a full notice period and never counts economic automation" do
     {state, catalogue} = fixture()
 
