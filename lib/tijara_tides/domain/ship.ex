@@ -314,6 +314,8 @@ defmodule TijaraTides.Domain.Ship do
         catalogue
       ) do
     ship = retime_voyage(ship, now - elapsed, speedup)
+    path = ship.voyage_path || route["coordinates"]
+    route = Map.put(route, "coordinates", path)
     model = (ship.weather && ship.weather["model"]) || TijaraTides.Domain.Weather.model(catalogue)
     duration = TijaraTides.Domain.Weather.duration(ship.depart_ms, ship.arrive_ms, ship.weather)
     since = (ship.weather && ship.weather["since_ms"]) || now - elapsed
@@ -337,7 +339,7 @@ defmodule TijaraTides.Domain.Ship do
     unless previous_motion == next_motion,
       do: raise(ArgumentError, "Weather cannot rewrite settled voyage movement")
 
-    %{ship | weather: weather, arrive_ms: arrival}
+    %{ship | weather: weather, arrive_ms: arrival, voyage_path: path}
   end
 
   def cargo_available(%__MODULE__{cargo: cargo}, good),

@@ -1016,6 +1016,8 @@ per-voyage pause timeline and current regional warnings persist in migration
 `20261001000004_add_weather_delays.exs`. Repeating ticks and restarts reconstruct
 the same timeline. Legacy voyages acquire weather only from their first observed
 weather tick, preserving previously travelled distance and fuel consumption.
+That first tick persists the reconstructed sea path; later catalogue geometry
+changes cannot rewrite the voyage's accepted movement.
 
 Actual movement, map markers, diversion starting points, fuel settlement, crew
 estimates and cargo arrival/unloading freshness all use the same pause timeline.

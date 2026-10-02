@@ -185,13 +185,16 @@ defmodule TijaraTides.Domain.WeatherTest do
   end
 
   test "legacy voyages acquire weather prospectively without replaying historical storms" do
-    legacy = %{voyage() | weather: nil, last_cost_ms: 20_500, fuel_burned: 550}
+    legacy = %{voyage() | weather: nil, voyage_path: nil, last_cost_ms: 20_500, fuel_burned: 550}
     c = %{"weather" => model()}
     next = Ship.apply_weather(legacy, route(), 20_500, 0, 600, c)
     assert next.weather["since_ms"] == 20_500
     assert next.weather["delay_ms"] == 500
     assert Fleet.progress(Ship.Rows.encode(next), 20_500) == 0.55
     assert next.fuel_burned == 550
+    assert next.voyage_path == route()["coordinates"]
+    changed = %{route() | "coordinates" => [[-10, -10], [-9, -10]]}
+    assert Ship.apply_weather(next, changed, 20_500, 0, 600, c) == next
   end
 
   test "storms affect only regions crossed and timing preserves the exact cost settlement" do

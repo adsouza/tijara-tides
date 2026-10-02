@@ -5394,6 +5394,74 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "legacy voyages save their first reconstructed path before catalogue geometry changes",
+       c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => co}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "legacy-company",
+        %{
+          "action" => "company",
+          "name" => "Legacy voyage",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    :ok = GameServer.connect(token, c.server)
+    id = co <> ":1"
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "legacy-sail",
+        %{
+          "action" => "sail",
+          "ship" => id,
+          "destination" => "Singapore",
+          "fuel_limit" => 100_000_000
+        },
+        c.server
+      )
+
+    :sys.replace_state(c.server, fn state ->
+      row = state.game.entities["ships"][id] |> Map.delete("voyage_path") |> Map.delete("weather")
+      changed = TijaraTides.Domain.State.put(state.game, "ships", id, row)
+
+      changed =
+        TijaraTides.UseCases.CommitPreparation.prepare(state.game, %{
+          changed
+          | revision: changed.revision + 1
+        })
+
+      {:ok, :ok} = GameStore.commit(Repo, c.world_id, state.game.epoch, state.game, changed)
+      %{state | game: TijaraTides.UseCases.CommitPreparation.accepted(changed)}
+    end)
+
+    original_path =
+      :sys.get_state(c.server).catalogue["routes"]["Jakarta|Singapore"]["coordinates"]
+
+    advance(c.server, 10_000)
+    state = :sys.get_state(c.server)
+    assert state.game.entities["ships"][id]["voyage_path"] == original_path
+    {:ok, loaded} = GameStore.reload(Repo, c.world_id, state.game)
+    assert loaded.entities["ships"][id]["voyage_path"] == original_path
+
+    :sys.replace_state(c.server, fn state ->
+      put_in(state.catalogue["routes"]["Jakarta|Singapore"]["coordinates"], [
+        [-10, -10],
+        [-9, -10]
+      ])
+    end)
+
+    advance(c.server, 10_000)
+    assert :sys.get_state(c.server).game.entities["ships"][id]["voyage_path"] == original_path
+    assert :ok = TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "Unicode preset names reject before commit and preserve readiness and replay", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
     schedule = %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
