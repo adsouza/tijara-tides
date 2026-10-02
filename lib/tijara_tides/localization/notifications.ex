@@ -26,6 +26,9 @@ defmodule TijaraTides.Localization.Notifications do
         {key, value} when key in ["reason", "side", "port", "destination"] ->
           {key, Localization.text(value || "")}
 
+        {"minutes", value} when code == "ship.weather" and is_number(value) ->
+          {"minutes", Localization.number(value, format: "0.0")}
+
         {key, value} when is_number(value) ->
           {key, Localization.number(value)}
 

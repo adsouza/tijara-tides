@@ -11,27 +11,27 @@
 msgid ""
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:182
+#: lib/tijara_tides/localization/notifications.ex:185
 #, elixir-autogen, elixir-format
 msgid "%{company} is in bankruptcy. Its assets remain in receivership. A replacement company becomes available after 20 active-world minutes."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:215
+#: lib/tijara_tides/localization/notifications.ex:218
 #, elixir-autogen, elixir-format
 msgid "%{reason}"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:161
+#: lib/tijara_tides/localization/notifications.ex:164
 #, elixir-autogen, elixir-format
 msgid "%{ship} at %{port}: %{side} %{cargo}, %{filled}/%{quantity} lots filled. %{reason}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:154
+#: lib/tijara_tides/localization/notifications.ex:157
 #, elixir-autogen, elixir-format
 msgid "%{ship} automatically departed %{port} for %{destination}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:157
+#: lib/tijara_tides/localization/notifications.ex:160
 #, elixir-autogen, elixir-format
 msgid "%{ship}: automatic departure to %{destination} paused. %{reason}."
 msgstr ""
@@ -192,7 +192,7 @@ msgstr ""
 msgid "Account suspended"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:116
+#: lib/tijara_tides/localization/notifications.ex:119
 #, elixir-autogen, elixir-format
 msgid "Account suspended after five recent bankruptcies. Your original sponsor must pledge at least $50,000 to reinstate you."
 msgstr ""
@@ -238,7 +238,7 @@ msgstr ""
 msgid "After the final stop, return to %{value1}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:168
+#: lib/tijara_tides/localization/notifications.ex:171
 #, elixir-autogen, elixir-format
 msgid "All overdue payments have been cleared. The bankruptcy grace period has ended."
 msgstr ""
@@ -248,7 +248,7 @@ msgstr ""
 msgid "An active sell instruction already exists for this cargo. Cancel it before adding another."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:123
+#: lib/tijara_tides/localization/notifications.ex:126
 #, elixir-autogen, elixir-format
 msgid "An invitee is suspended and needs your cash-backed guarantee. Review sponsor guarantees in the account menu."
 msgstr ""
@@ -931,7 +931,7 @@ msgstr ""
 msgid "No ships with this status."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:224
+#: lib/tijara_tides/localization/notifications.ex:227
 #, elixir-autogen, elixir-format
 msgid "Notification unavailable"
 msgstr ""
@@ -971,7 +971,7 @@ msgstr ""
 msgid "Pause route"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:175
+#: lib/tijara_tides/localization/notifications.ex:178
 #, elixir-autogen, elixir-format
 msgid "Payments overdue. Clear all arrears within %{minutes} active-world minutes to avoid bankruptcy."
 msgstr ""
@@ -1552,12 +1552,12 @@ msgstr ""
 msgid "Your fleet"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:210
+#: lib/tijara_tides/localization/notifications.ex:213
 #, elixir-autogen, elixir-format
 msgid "Your guarantee has settled: %{loss} forfeited and %{refund} returned to the sponsoring company."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:129
+#: lib/tijara_tides/localization/notifications.ex:132
 #, elixir-autogen, elixir-format
 msgid "Your invitation was accepted. Company formation is pending."
 msgstr ""
@@ -1567,12 +1567,12 @@ msgstr ""
 msgid "Your invitee has gone bankrupt. %{value1} of this %{value2} guarantee will be forfeited and %{value3} returned, the next time your company settles."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:134
+#: lib/tijara_tides/localization/notifications.ex:137
 #, elixir-autogen, elixir-format
 msgid "Your invitee now runs %{company}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:203
+#: lib/tijara_tides/localization/notifications.ex:206
 #, elixir-autogen, elixir-format
 msgid "Your sponsor has funded a guarantee. Your account is reinstated; the bankruptcy restart cooldown still applies."
 msgstr ""
@@ -3304,12 +3304,12 @@ msgstr ""
 msgid "Waiting for a berth"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:111
+#: lib/tijara_tides/localization/notifications.ex:114
 #, elixir-autogen, elixir-format
 msgid "%{ship} finished loading at %{port}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:112
+#: lib/tijara_tides/localization/notifications.ex:115
 #, elixir-autogen, elixir-format
 msgid "%{ship} finished unloading at %{port}."
 msgstr ""
@@ -3376,7 +3376,7 @@ msgstr ""
 msgid "Lease expires in %{minutes} mins"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:51
+#: lib/tijara_tides/localization/notifications.ex:54
 #, elixir-autogen, elixir-format
 msgid "Liquid storage"
 msgstr ""
@@ -3391,12 +3391,12 @@ msgstr ""
 msgid "Not enough warehouse capacity is available."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:49
+#: lib/tijara_tides/localization/notifications.ex:52
 #, elixir-autogen, elixir-format
 msgid "Ordinary storage"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:50
+#: lib/tijara_tides/localization/notifications.ex:53
 #, elixir-autogen, elixir-format
 msgid "Refrigerated storage"
 msgstr ""
@@ -3431,12 +3431,12 @@ msgstr ""
 msgid "Warehouses"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:102
+#: lib/tijara_tides/localization/notifications.ex:105
 #, elixir-autogen, elixir-format
 msgid "Warehouse cargo at %{port} was cleared. Net proceeds: %{refund}."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:96
+#: lib/tijara_tides/localization/notifications.ex:99
 #, elixir-autogen, elixir-format
 msgid "Your warehouse lease at %{port} expired. Collect its cargo within 12 active-world hours."
 msgstr ""
@@ -3476,7 +3476,7 @@ msgstr ""
 msgid "%{days} days"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:82
+#: lib/tijara_tides/localization/notifications.ex:85
 #, elixir-autogen, elixir-format
 msgid "A warehouse reservation at %{port} was reduced or released because its cargo, ship, stop or lease is no longer available."
 msgstr ""
@@ -3592,7 +3592,7 @@ msgstr ""
 msgid "Unlinked"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:78
+#: lib/tijara_tides/localization/notifications.ex:81
 #, elixir-autogen, elixir-format
 msgid "Warehouse renewal is now available at %{port}."
 msgstr ""
@@ -3607,7 +3607,7 @@ msgstr ""
 msgid "Amend order"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:72
+#: lib/tijara_tides/localization/notifications.ex:75
 #, elixir-autogen, elixir-format
 msgid "An exchange order at %{port} was cancelled because its backing or validity expired."
 msgstr ""
@@ -3978,7 +3978,7 @@ msgstr ""
 msgid "You do not have enough unreserved cargo in that warehouse to cover that quantity."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:55
+#: lib/tijara_tides/localization/notifications.ex:58
 #, elixir-autogen, elixir-format
 msgid "You won %{quantity} lots of %{cargo} for %{price}. Delivered to %{port} %{storage} %{warehouse}."
 msgstr ""
@@ -4024,12 +4024,12 @@ msgstr ""
 msgid "Ship"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:65
+#: lib/tijara_tides/localization/notifications.ex:68
 #, elixir-autogen, elixir-format
 msgid "The auction at %{port} has settled. See Cargo and ship auctions for the result."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:61
+#: lib/tijara_tides/localization/notifications.ex:64
 #, elixir-autogen, elixir-format
 msgid "You won %{ship} for %{price}. The ship is ready at %{port}."
 msgstr ""
@@ -4292,7 +4292,7 @@ msgstr ""
 msgid "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:132
+#: lib/tijara_tides/localization/notifications.ex:135
 #, elixir-autogen, elixir-format
 msgid "You earned a new invitation. Open the account menu to send it."
 msgstr ""
@@ -4347,7 +4347,7 @@ msgstr ""
 msgid "Rows rank by estimated net profit on the next voyage, then distance. Tankers rank by combined profit including the best profitable loaded onward voyage. Suggested mixes share hold space and available cash, and include cargo aboard. Profit deducts recorded cargo cost, purchase and sale handling, fuel, canals, cleaning, crew costs for this ship. Maintenance and fleet upkeep are reserved for affordability but maintenance is excluded from profit. These are approximate suggestions, not orders or a guaranteed optimal mix. Prices, demand and buyer funds may change; berth delays, new cargo spoilage and queued orders are excluded. With a queued trade, estimates use only cargo already aboard. Return and other-port symbols do not affect ranking; tanker onward estimates may include a return or another destination. Symbols still show individual cargo ROI before voyage costs: squares for cargo aboard, circles for purchases, green outbound, yellow return and orange for the best ROI to another reachable port. Orange symbols appear only when no return opportunity exists in the same cell; they compare loading at the candidate destination for ports other than the current port, and hover or focus names the best onward port. Skulls mean negative ROI; hollow symbols mean zero or unavailable ROI. Hover or focus for details."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:219
+#: lib/tijara_tides/localization/notifications.ex:222
 #, elixir-autogen, elixir-format
 msgid "%{ship} at %{port}: maximum wait elapsed. Unfilled route targets were cancelled; committed handling will finish before departure."
 msgstr ""
@@ -4476,12 +4476,12 @@ msgstr ""
 msgid "Waiting for cargo meeting the minimum remaining shelf life"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:196
+#: lib/tijara_tides/localization/notifications.ex:199
 #, elixir-autogen, elixir-format
 msgid "%{company} closed for owner absence. Its assets are in receivership and cannot be restored. Your bankruptcy count is unchanged."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:189
+#: lib/tijara_tides/localization/notifications.ex:192
 #, elixir-autogen, elixir-format
 msgid "%{company} will close for owner absence at %{deadline}. Return to the game before this deadline to keep it. Automated trading does not reset absence."
 msgstr ""
@@ -4547,12 +4547,12 @@ msgstr ""
 msgid "Warehouse liquidation"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:89
+#: lib/tijara_tides/localization/notifications.ex:92
 #, elixir-autogen, elixir-format
 msgid "Your warehouse lease at %{port} expired. Sale or collection grace: %{minutes} active-world minutes. Storage per occupied block per day: %{grace_rate} during grace; %{liquidation_rate} during liquidation. Charges are capped by this lease's proceeds."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:137
+#: lib/tijara_tides/localization/notifications.ex:140
 #, elixir-autogen, elixir-format
 msgid "%{ship}: funding accumulation timed out; reserved cash was released."
 msgstr ""
@@ -4592,7 +4592,7 @@ msgstr ""
 msgid "Linked orders support fixed targets for bulk commodities, mass consumer products and scrap. Fills stay reserved for this ship; the remaining order ends at berth."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:141
+#: lib/tijara_tides/localization/notifications.ex:144
 #, elixir-autogen, elixir-format
 msgid "Linked purchases at %{port} could not reserve cash or warehouse space for the next circuit."
 msgstr ""
@@ -4694,7 +4694,7 @@ msgstr ""
 msgid "Waiting for fuel and the configured purchase budget"
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:148
+#: lib/tijara_tides/localization/notifications.ex:151
 #, elixir-autogen, elixir-format
 msgid "%{ship} at %{port}: cancelled %{quantity} linked lots of %{cargo}, releasing %{refund} and their warehouse space. %{filled} purchased lots remain stored. %{reason}."
 msgstr ""
@@ -4881,7 +4881,7 @@ msgstr ""
 msgid "Weather added %{minutes} min to this voyage's arrival estimate."
 msgstr ""
 
-#: lib/tijara_tides/localization/notifications.ex:106
+#: lib/tijara_tides/localization/notifications.ex:109
 #, elixir-autogen, elixir-format
 msgid "Weather revised %{ship}'s arrival at %{destination}; total weather delay %{minutes} min."
 msgstr ""

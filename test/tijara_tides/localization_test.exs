@@ -91,6 +91,24 @@ defmodule TijaraTides.LocalizationTest do
     end
   end
 
+  test "weather notices format fractional minutes to one localized decimal" do
+    notice = %{
+      "code" => "ship.weather",
+      "arguments" => %{
+        "ship" => "Vessel",
+        "destination" => "Jakarta",
+        "minutes" => 59_000 / 60_000
+      }
+    }
+
+    for {locale, expected} <- [{"en", "1.0"}, {"ar", "١٫٠"}] do
+      text = Localization.with_locale(locale, fn -> Notifications.render(notice, %{}) end)
+      assert text =~ expected
+      refute text =~ "983333"
+      assert notice["arguments"]["minutes"] == 59_000 / 60_000
+    end
+  end
+
   test "display minutes use localized digits while preserving one decimal place" do
     Localization.with_locale("en", fn ->
       assert Presentation.minutes(1_230_000) == "20.5"
