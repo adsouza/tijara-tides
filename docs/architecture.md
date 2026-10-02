@@ -1005,7 +1005,10 @@ Route editor warehouse options are prepared per stop and cargo by
 `ShipPlanningQueries`, using `Warehouse.receiving_allowed?` with the committed
 world clock. Command-side link validation uses that same predicate; award-only,
 expired, foreign, wrong-port and incompatible storage never become receiving
-options merely because a component renders their rows.
+options merely because a component renders their rows. Warehouse transfer and
+reservation offers likewise come from `Warehouse.transfer_limits` and
+`Warehouse.reservation_limit`, the limits the transfer and reserve commands
+enforce, so an offered quantity never exceeds what those commands accept.
 
 `LiquidationPool`, `VisitBudget`, `DepartureRequest` and `RemoteLink` are pure
 typed models. They own accrual, exact clearance remainders, reservation resizing

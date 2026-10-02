@@ -111,7 +111,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
     end
   end
 
-  test "legacy defaults remain scoped to their owning entity" do
+  test "fields with domain defaults must come from the domain codec, not the adapter" do
     before = %{entities: %{}}
 
     account = %{
@@ -125,7 +125,17 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
       "created_ms" => 0
     }
 
-    GameRows.write(CountingRepo, "world", before, State.put(before, "accounts", "a", account))
+    error =
+      assert_raise ArgumentError, fn ->
+        GameRows.write(CountingRepo, "world", before, State.put(before, "accounts", "a", account))
+      end
+
+    assert error.message =~ ~s(Missing fields for accounts: ["funding_policy", "locale"])
+    assert statements() == []
+
+    # The account codec writes these itself, and rejects rows without them.
+    encoded = Map.merge(account, %{"funding_policy" => "wait", "locale" => "en"})
+    GameRows.write(CountingRepo, "world", before, State.put(before, "accounts", "a", encoded))
     [{statement, params}] = statements()
     assert statement =~ "game_accounts"
     assert "wait" in params

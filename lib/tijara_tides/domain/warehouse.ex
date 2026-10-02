@@ -102,6 +102,62 @@ defmodule TijaraTides.Domain.Warehouse do
   def fresh_stock(w, good, clock),
     do: Enum.sum(for b <- w.cargo, b.good == good, fresh?(b, clock), do: b.quantity)
 
+  @doc "Most lots a new reservation of this kind may claim; reserve/4 and read models share it."
+  def reservation_limit(%__MODULE__{} = w, "stock", item, now, _catalogue),
+    do: max(0, fresh_stock(w, item["id"], now) - reserved_quantity(w, "stock", item["id"]))
+
+  def reservation_limit(%__MODULE__{} = w, "capacity", item, _now, catalogue),
+    do: free_lots(w, catalogue, reserved_volume(w, catalogue), item)
+
+  @doc """
+  Most lots one transfer may move under each limit. The transfer command rejects a
+  larger quantity with the error for the limit it exceeds; read models offer the
+  smallest. `terms` supplies the ship and company facts this model does not own.
+  """
+  def transfer_limits(%__MODULE__{} = w, "store", item, terms),
+    do: %{
+      stock: terms.aboard,
+      space:
+        free_lots(
+          w,
+          terms.catalogue,
+          reserved_volume(w, terms.catalogue, terms.ship_id, item["id"]),
+          item
+        ),
+      cash: div(max(0, terms.cash), max(1, terms.handling))
+    }
+
+  def transfer_limits(%__MODULE__{} = w, "collect", item, terms) do
+    qualifying =
+      Enum.sum(
+        for b <- w.cargo,
+            b.good == item["id"],
+            TijaraTides.Domain.CargoRules.qualifies_batch?(
+              b,
+              terms.now,
+              terms.minimum,
+              terms.hold_rate
+            ),
+            do: b.quantity
+      )
+
+    %{
+      stock: max(0, qualifying - reserved_quantity(w, "stock", item["id"], terms.ship_id)),
+      hold: terms.hold_lots,
+      cash: div(max(0, terms.cash - terms.cleaning), max(1, terms.handling))
+    }
+  end
+
+  defp free_lots(w, catalogue, reserved, item),
+    do:
+      max(
+        0,
+        div(
+          w.blocks * block_litres() - volume(w, catalogue) - w.external_volume - reserved,
+          item["volume_l"]
+        )
+      )
+
   def accrue(%__MODULE__{award_grace: true} = w, _now), do: {w, 0}
 
   def accrue(%__MODULE__{} = w, now) do
@@ -516,14 +572,11 @@ defmodule TijaraTides.Domain.Warehouse do
       length(w.reservations) >= 100 ->
         {:error, :warehouse_capacity}
 
-      r.kind == "stock" and
-          r.quantity + reserved_quantity(w, r.kind, r.good) > fresh_stock(w, r.good, now) ->
+      r.kind == "stock" and r.quantity > reservation_limit(w, "stock", item, now, catalogue) ->
         {:error, :insufficient_cargo}
 
       r.kind == "capacity" and
-          volume(w, catalogue) + w.external_volume + reserved_volume(w, catalogue) +
-            r.quantity * item["volume_l"] >
-            w.blocks * block_litres() ->
+          r.quantity > reservation_limit(w, "capacity", item, now, catalogue) ->
         {:error, :warehouse_capacity}
 
       true ->

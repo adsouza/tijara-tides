@@ -450,33 +450,22 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       company = get(state, "companies", owner)
 
       cleaning = if side == "collect", do: cleaning_cost(ship, item), else: 0
+      handling = TijaraTides.Domain.PortCargoMarket.handling_rate(catalogue["ports"][w.port])
+      fee = cleaning + n * handling
 
-      fee =
-        cleaning +
-          n * TijaraTides.Domain.PortCargoMarket.handling_rate(catalogue["ports"][w.port])
-
-      # Collection offers only unspoiled lots, so take/4 must walk that same list: given the
-      # whole manifest it matches on good alone and drains expired batches the count excluded.
-      {fresh, _stale} =
-        Enum.split_with(
-          w.cargo,
-          &CargoRules.qualifies_batch?(
-            &1,
-            state.clock_ms,
-            minimum,
-            CargoRules.hold_rate(ship, catalogue)
-          )
-        )
-
-      available =
-        if side == "store",
-          do: ShipWorld.cargo_available(state, ship["id"], item["id"]),
-          else:
-            max(
-              0,
-              Enum.sum(for b <- fresh, b.good == item["id"], do: b.quantity) -
-                reserved_quantity(state, w, "stock", item["id"], ship["id"])
-            )
+      limits =
+        Warehouse.transfer_limits(w, side, item, %{
+          now: state.clock_ms,
+          ship_id: ship["id"],
+          aboard: ShipWorld.cargo_available(state, ship["id"], item["id"]),
+          minimum: minimum,
+          hold_rate: CargoRules.hold_rate(ship, catalogue),
+          hold_lots: hold_lots(ship, item, catalogue),
+          cash: if(company["unpaid"] > 0, do: 0, else: company["cash"] - company["reserved"]),
+          cleaning: cleaning,
+          handling: handling,
+          catalogue: catalogue
+        })
 
       cond do
         company["bankruptcy_ms"] != nil ->
@@ -494,19 +483,16 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         not compatible?(w, item) or not CargoRules.compatible_cargo?(ship, item) ->
           {:error, :incompatible_cargo}
 
-        available < n ->
+        limits.stock < n ->
           {:error, :insufficient_cargo}
 
-        side == "store" and
-            volume(w, catalogue) + w.external_volume +
-              reserved_volume(state, w, catalogue, ship["id"], item["id"]) +
-              n * item["volume_l"] > w.blocks * block_litres() ->
+        side == "store" and limits.space < n ->
           {:error, :warehouse_capacity}
 
-        side == "collect" and not fits?(ship, item, n, catalogue) ->
+        side == "collect" and limits.hold < n ->
           {:error, :capacity_exceeded}
 
-        company["cash"] - company["reserved"] < fee or company["unpaid"] > 0 ->
+        limits.cash < n ->
           {:error, :insufficient_cash}
 
         admission != :validate and not PortBerthsWorld.available?(state, ship, catalogue) ->
@@ -577,12 +563,18 @@ defmodule TijaraTides.Domain.WarehouseWorld do
 
   def cleaning_cost(ship, item), do: Warehouse.cleaning_cost(ship["last_liquid"], item)
 
-  defp fits?(ship, item, n, catalogue) do
+  @doc "Lots of this good the ship's hold can still take, by weight and by volume."
+  def hold_lots(ship, item, catalogue) do
     used = TijaraTides.Domain.Ship.capacity(TijaraTides.Domain.Ship.Rows.decode(ship), catalogue)
     class = TijaraTides.Domain.ShipClass.all()[ship["class"]]
 
-    used.weight + n * item["weight_kg"] <= class["weight"] and
-      used.volume + n * item["volume_l"] <= class["volume"]
+    max(
+      0,
+      min(
+        div(class["weight"] - used.weight, item["weight_kg"]),
+        div(class["volume"] - used.volume, item["volume_l"])
+      )
+    )
   end
 
   defp accrue(state, w) do

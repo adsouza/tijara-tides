@@ -323,25 +323,20 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   }
   # Legacy omissions are declared per entity, never inferred from a shared
   # column name. New reservation rows otherwise require every persisted field.
-  @column_defaults Map.merge(@defaults, %{
-                     "ship_instructions" =>
-                       Map.merge(@defaults["ship_instructions"], %{"min_remaining_ms" => 0}),
-                     "route_rules" => %{"min_remaining_ms" => 0},
-                     "warehouse_liquidations" => %{"replacement_paid" => 0},
-                     "warehouses" => %{
-                       "aging_bps" => 2500,
-                       "award_grace" => false,
-                       "space_volumes" => %{},
-                       "grace_ms" => 43_200_000,
-                       "surcharge_bps" => 2500,
-                       "window_ms" => 7_200_000,
-                       "clearance_bps" => 1000
-                     },
-                     "merchant_warehouses" => %{"aging_bps" => 2500},
-                     "accounts" => %{"funding_policy" => "wait", "locale" => "en"},
-                     "ship_routes" => %{"visit_finished" => false},
-                     "notices" => %{"arguments" => %{}}
-                   })
+  @column_defaults @defaults
+  # Fields whose defaults are domain terms (lease grace, surcharges, aging rates,
+  # account policy). Domain codecs always write them; the adapter never invents them.
+  @required %{
+    "ship_instructions" => ~w(min_remaining_ms),
+    "route_rules" => ~w(min_remaining_ms),
+    "warehouse_liquidations" => ~w(replacement_paid),
+    "warehouses" =>
+      ~w(aging_bps award_grace space_volumes grace_ms surcharge_bps window_ms clearance_bps),
+    "merchant_warehouses" => ~w(aging_bps),
+    "accounts" => ~w(funding_policy locale),
+    "ship_routes" => ~w(visit_finished),
+    "notices" => ~w(arguments)
+  }
   @strict ~w(weather markdown_presets remote_links visit_budgets departure_requests warehouse_liquidations company_dormancy)
 
   @optional %{
@@ -667,13 +662,15 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     if Map.keys(data) -- keys != [], do: raise(ArgumentError, "Unsupported fields for #{kind}")
     if "id" in keys and data["id"] != id, do: raise(ArgumentError, "Entity ID mismatch")
 
-    if kind in @strict do
-      required = keys -- Map.keys(Map.get(@column_defaults, kind, %{}))
-      missing = Enum.reject(required, &Map.has_key?(data, &1))
+    required =
+      if kind in @strict,
+        do: keys -- Map.keys(Map.get(@column_defaults, kind, %{})),
+        else: Map.get(@required, kind, [])
 
-      if missing != [],
-        do: raise(ArgumentError, "Missing fields for #{kind}: #{inspect(missing)}")
-    end
+    missing = Enum.reject(required, &Map.has_key?(data, &1))
+
+    if missing != [],
+      do: raise(ArgumentError, "Missing fields for #{kind}: #{inspect(missing)}")
 
     :ok
   end
