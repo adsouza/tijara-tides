@@ -9,7 +9,8 @@ defmodule TijaraTides.Domain.Ship do
   alias __MODULE__.CargoBatch
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
-  @fields ~w(acquired_ms acquisition_value planned_destination voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
+  @wage_period_ms 120_000
+  @fields ~w(acquired_ms acquisition_value planned_destination weather voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
 
@@ -34,9 +35,24 @@ defmodule TijaraTides.Domain.Ship do
            end),
            do: raise(ArgumentError, "Purchased cargo is incompatible with the ship")
 
+    rate = TijaraTides.Domain.CargoFreshness.rate(ShipClass.all()[ship.class]["hold"], catalogue)
+
+    cargo =
+      Enum.map(
+        cargo,
+        &TijaraTides.Domain.CargoFreshness.recondition(&1, now, rate, catalogue["goods"][&1.good])
+      )
+
     next = %{ship | cargo: ship.cargo ++ cargo}
     capacity!(next, catalogue)
-    quantity = Enum.sum(Enum.map(cargo, & &1.quantity))
+
+    handling =
+      cargo
+      |> Enum.group_by(& &1.good)
+      |> Enum.map(fn {good, bs} ->
+        CargoRules.handling_ms(Enum.sum(Enum.map(bs, & &1.quantity)), ship.port, good, catalogue)
+      end)
+      |> Enum.sum()
 
     last =
       if ShipClass.all()[ship.class]["hold"] == "liquid",
@@ -46,7 +62,7 @@ defmodule TijaraTides.Domain.Ship do
     %{
       next
       | status: "loading",
-        arrive_ms: now + CargoRules.handling_ms(quantity) + if(cleaning > 0, do: 60_000, else: 0),
+        arrive_ms: now + CargoRules.loading_ms(handling, cleaning),
         last_liquid: last
     }
   end
@@ -58,20 +74,28 @@ defmodule TijaraTides.Domain.Ship do
     {%{ship | cargo: remaining}, discarded}
   end
 
-  def record_sale(%Lots{} = lots, %__MODULE__{} = ship, good, quantity) do
+  def record_sale(
+        %Lots{} = lots,
+        %__MODULE__{} = ship,
+        good,
+        quantity,
+        lot_ids \\ nil,
+        catalogue \\ %{}
+      ) do
     docked!(ship)
 
     unless is_integer(quantity) and quantity > 0 and quantity <= aboard(ship, good),
       do: raise(ArgumentError, "Sale requires a positive integer quantity available aboard")
 
-    {lots, sold, remaining} =
-      CargoBatch.take(lots, ship.cargo, quantity, good)
+    {eligible, others} = Enum.split_with(ship.cargo, &(is_nil(lot_ids) or &1.lot_id in lot_ids))
+    {lots, sold, remaining} = CargoBatch.take(lots, eligible, quantity, good)
+    remaining = remaining ++ others
 
     next = %{
       ship
       | cargo: remaining,
         status: "unloading",
-        arrive_ms: lots.clock_ms + CargoRules.handling_ms(quantity)
+        arrive_ms: lots.clock_ms + CargoRules.handling_ms(quantity, ship.port, good, catalogue)
     }
 
     {lots, next, sold}
@@ -95,7 +119,8 @@ defmodule TijaraTides.Domain.Ship do
         pending_quantity: nil,
         pending_limit: nil,
         pending_destination: nil,
-        voyage_path: nil,
+        voyage_path: estimate["route"]["coordinates"],
+        weather: estimate["weather"],
         paid_canals:
           Enum.reduce(estimate["route"]["passages"] || [], 0, fn p, n ->
             Bitwise.bor(n, __MODULE__.canal_bit(p))
@@ -145,7 +170,8 @@ defmodule TijaraTides.Domain.Ship do
         berth_queued_ms: arrived_at,
         berth_granted_ms: nil,
         arrive_ms: nil,
-        depart_ms: nil
+        depart_ms: nil,
+        weather: nil
     }
   end
 
@@ -165,15 +191,24 @@ defmodule TijaraTides.Domain.Ship do
 
     moving_ms =
       if ship.status == "sailing",
-        do: max(0, min(now, end_ms) - ship.last_cost_ms),
+        do:
+          max(
+            0,
+            TijaraTides.Domain.Weather.motion(ship.depart_ms, end_ms, ship.weather, now) -
+              TijaraTides.Domain.Weather.motion(
+                ship.depart_ms,
+                end_ms,
+                ship.weather,
+                ship.last_cost_ms
+              )
+          ),
         else: 0
 
     idle_ms = now - ship.last_cost_ms - moving_ms
 
-    crew_numerator =
-      ship.crew_remainder + moving_ms * class["crew"] * 2 + idle_ms * class["crew"]
+    crew_numerator = crew_numerator(class["crew"], moving_ms, idle_ms, ship.crew_remainder)
 
-    crew = if not bankrupt, do: div(crew_numerator, 120_000), else: 0
+    crew = if not bankrupt, do: div(crew_numerator, @wage_period_ms), else: 0
 
     maintenance =
       if not bankrupt,
@@ -194,8 +229,14 @@ defmodule TijaraTides.Domain.Ship do
             min(
               ship.fuel_total,
               div(
-                ship.fuel_total * max(0, now - ship.depart_ms),
-                ship.arrive_ms - ship.depart_ms
+                ship.fuel_total *
+                  TijaraTides.Domain.Weather.motion(
+                    ship.depart_ms,
+                    ship.arrive_ms,
+                    ship.weather,
+                    now
+                  ),
+                TijaraTides.Domain.Weather.duration(ship.depart_ms, ship.arrive_ms, ship.weather)
               )
             )
           ),
@@ -212,7 +253,7 @@ defmodule TijaraTides.Domain.Ship do
       ship
       | fuel_burned: fuel_burned,
         last_cost_ms: now,
-        crew_remainder: rem(crew_numerator, 120_000),
+        crew_remainder: rem(crew_numerator, @wage_period_ms),
         cargo: cargo
     }
 
@@ -245,7 +286,7 @@ defmodule TijaraTides.Domain.Ship do
   defp retime_voyage(%__MODULE__{status: "sailing"} = ship, clock, speedup) do
     previous = ship.voyage_speedup || 60
 
-    if previous == speedup do
+    if previous == speedup or ship.weather != nil do
       ship
     else
       ship
@@ -262,6 +303,81 @@ defmodule TijaraTides.Domain.Ship do
   end
 
   defp retime_voyage(ship, _clock, _speedup), do: ship
+
+  @doc "Reconcile known weather without altering motion or fuel already settled."
+  def apply_weather(
+        %__MODULE__{status: "sailing"} = ship,
+        route,
+        now,
+        elapsed,
+        speedup,
+        catalogue
+      ) do
+    ship = retime_voyage(ship, now - elapsed, speedup)
+    path = ship.voyage_path || route["coordinates"]
+    route = Map.put(route, "coordinates", path)
+    model = (ship.weather && ship.weather["model"]) || TijaraTides.Domain.Weather.model(catalogue)
+    duration = TijaraTides.Domain.Weather.duration(ship.depart_ms, ship.arrive_ms, ship.weather)
+    since = (ship.weather && ship.weather["since_ms"]) || now - elapsed
+
+    weather =
+      TijaraTides.Domain.Weather.forecast(
+        route,
+        duration,
+        ship.depart_ms,
+        now,
+        model,
+        since,
+        ship.weather && ship.weather["segments"]
+      )
+
+    arrival = ship.depart_ms + duration + weather["delay_ms"]
+
+    previous_motion =
+      TijaraTides.Domain.Weather.motion(
+        ship.depart_ms,
+        ship.arrive_ms,
+        ship.weather,
+        ship.last_cost_ms
+      )
+
+    next_motion =
+      TijaraTides.Domain.Weather.motion(ship.depart_ms, arrival, weather, ship.last_cost_ms)
+
+    unless previous_motion == next_motion,
+      do: raise(ArgumentError, "Weather cannot rewrite settled voyage movement")
+
+    %{ship | weather: weather, arrive_ms: arrival, voyage_path: path}
+  end
+
+  @doc "Crew wage units owed: sailing costs twice the idle rate; every wage period costs one unit."
+  def crew_numerator(crew, moving_ms, idle_ms, remainder),
+    do: remainder + moving_ms * crew * 2 + idle_ms * crew
+
+  @doc "Crew wages for a ship row over a window, rounded up; estimates and funding share it."
+  def crew_estimate(ship, moving_ms, idle_ms) do
+    crew = ShipClass.all()[ship["class"]]["crew"]
+
+    div(
+      crew_numerator(crew, moving_ms, idle_ms, ship["crew_remainder"]) + @wage_period_ms - 1,
+      @wage_period_ms
+    )
+  end
+
+  @doc "Whether a ship row can take a new manual trade now; berths and read models share it."
+  def trade_admission(ship, side) do
+    cond do
+      ship["pending_side"] ->
+        {:error, :berth_order_pending}
+
+      ship["status"] in ["loading", "unloading"] and side == "buy" and
+          ShipClass.all()[ship["class"]]["hold"] == "liquid" ->
+        {:error, :tanker_purchase_handling}
+
+      true ->
+        :ok
+    end
+  end
 
   def cargo_available(%__MODULE__{cargo: cargo}, good),
     do: Enum.sum(for batch <- cargo, batch.good == good, do: batch.quantity)
@@ -325,7 +441,8 @@ defmodule TijaraTides.Domain.Ship do
         depart_ms: now,
         arrive_ms: now + quote["duration_ms"],
         fuel_total: quote["fuel"],
-        fuel_burned: 0
+        fuel_burned: 0,
+        weather: quote["weather"]
     }
   end
 

@@ -8,8 +8,31 @@ defmodule TijaraTides.UseCases.GameCommands do
   alias TijaraTides.UseCases.{Authentication, CommandRequest, CommitExecutor}
 
   def execute(state, account, command, context) do
+    state =
+      TijaraTides.Domain.Services.Bankruptcy.advance_owner_dormancy(
+        state,
+        account,
+        Map.get(context, :wall_ms),
+        context.catalogue
+      )
+
+    account = TijaraTides.Domain.ReadState.get(state, "accounts", account["id"])
+
     case Commands.execute(state, account, command, context) do
       {:ok, changed, reply} ->
+        changed =
+          case Map.get(context, :wall_ms) do
+            nil ->
+              changed
+
+            wall ->
+              TijaraTides.Domain.AccountWorld.owner_visit(
+                changed,
+                TijaraTides.Domain.ReadState.get(changed, "accounts", account["id"]),
+                wall
+              )
+          end
+
         {:ok,
          TijaraTides.Domain.ParticipationWorld.observe(
            state,
@@ -90,10 +113,17 @@ defmodule TijaraTides.UseCases.GameCommands do
 
   defp validate_payload(payload) do
     cond do
-      not is_map(payload) -> {:error, :invalid_command_payload}
-      map_size(payload) > 12 -> {:error, :too_many_command_fields}
-      byte_size(:erlang.term_to_binary(payload)) > 4096 -> {:error, :command_payload_too_large}
-      true -> :ok
+      not is_map(payload) ->
+        {:error, :invalid_command_payload}
+
+      map_size(payload) > if(payload["action"] == "route", do: 13, else: 12) ->
+        {:error, :too_many_command_fields}
+
+      byte_size(:erlang.term_to_binary(payload)) > 4096 ->
+        {:error, :command_payload_too_large}
+
+      true ->
+        :ok
     end
   end
 end

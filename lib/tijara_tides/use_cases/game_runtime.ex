@@ -7,6 +7,7 @@ defmodule TijaraTides.UseCases.GameRuntime do
   @callback preview(session(), String.t(), String.t()) :: map() | nil | {:error, term()}
   @callback command(session(), String.t(), map()) :: result()
   @callback connect(session()) :: :ok | {:error, term()}
+  @callback visit(session()) :: :ok | {:error, term()}
   @callback subscribe() :: :ok | {:error, term()}
   @callback definitions() :: map()
   @callback request_id() :: String.t()

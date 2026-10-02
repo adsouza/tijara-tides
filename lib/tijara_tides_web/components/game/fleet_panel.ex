@@ -50,6 +50,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
           class="my-6 rounded-xl border border-slate-700 p-5"
         >
           <% inspected = @view.public["ships"][@inspected_ship] %>
+          <.weather_notice ship={inspected} clock={@view.public["clock_ms"]} />
           <div class="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
@@ -82,7 +83,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               :if={@view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil}
               class="mt-3 rounded border border-red-900 bg-red-950/40 p-2 text-sm text-red-300"
             >
-              {gettext("Company in bankruptcy — assets in receivership")}
+              {if @view.public["companies"][inspected["company_id"]]["closure_reason"] == "dormant",
+                do: gettext("Company closed for dormancy — assets in receivership"),
+                else: gettext("Company in bankruptcy — assets in receivership")}
             </p>
             <div class="mt-3 border-t border-slate-700 pt-3">
               <p class="mb-1 text-xs text-slate-400">
@@ -168,6 +171,79 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             </.form>
           </details>
 
+          <.form
+            for={%{}}
+            id="departure-funding-policy"
+            phx-hook="ExchangeDraft"
+            phx-submit="funding-policy"
+            class="mb-3 flex flex-wrap items-end gap-2 text-sm"
+          >
+            <input type="hidden" name="request_id" value={@request_id} />
+            <label>
+              {gettext("Automatic departure funding policy")}
+              <select name="policy" class="block rounded bg-slate-800 p-2">
+                <option
+                  value="wait"
+                  selected={(@view.private["account"]["funding_policy"] || "wait") == "wait"}
+                >
+                  {gettext("Wait and notify")}
+                </option>
+                <option
+                  value="reduced"
+                  selected={@view.private["account"]["funding_policy"] == "reduced"}
+                >
+                  {gettext("Sail with a reduced budget")}
+                </option>
+                <option value="skip" selected={@view.private["account"]["funding_policy"] == "skip"}>
+                  {gettext("Skip purchases")}
+                </option>
+              </select>
+            </label>
+            <button class="rounded border px-3 py-2">{gettext("Save policy")}</button>
+          </.form>
+          <details
+            id="departure-funding-help"
+            phx-mounted={JS.ignore_attributes("open")}
+            class="mb-3 text-sm text-slate-400"
+          >
+            <summary class="cursor-pointer">{gettext("How these policies work")}</summary>
+            <p class="my-2">
+              {gettext(
+                "Choose what happens when fuel and canal fees can be funded, but the full configured purchase budget cannot."
+              )}
+            </p>
+            <dl class="space-y-2">
+              <div>
+                <dt class="font-semibold">{gettext("Wait and notify")}</dt>
+                <dd>
+                  {gettext(
+                    "Keep the ship in port until fuel, canal fees and the full purchase budget are available. This preserves the planned buying capacity, but delays deliveries. The ship retries automatically; you are notified when it is blocked and when it departs."
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt class="font-semibold">{gettext("Sail with a reduced budget")}</dt>
+                <dd>
+                  {gettext(
+                    "Fund fuel and canal fees, then reserve the remaining cash for purchases, up to the configured budget. The ship keeps moving, but may buy less or nothing. Its purchase budget is not automatically topped up at arrival."
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt class="font-semibold">{gettext("Skip purchases")}</dt>
+                <dd>
+                  {gettext(
+                    "Fund fuel and canal fees and sail without new purchases for that visit. This preserves cash and avoids waiting for a purchase budget, but leaves buying targets unfilled. Unfilled remote buy orders linked to the visit are cancelled; completed fills remain available for collection."
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <p class="my-2">
+              {gettext(
+                "This policy applies to all automatic departures. Fuel is always fully funded. Reduced budgets stay strict at arrival; skipped visits can still deliver and collect owned cargo."
+              )}
+            </p>
+          </details>
           <form id="fleet-filter" phx-change="fleet-status" class="mb-3 text-sm">
             <label for="fleet-status">{gettext("Ship status")}</label>
             <select
@@ -238,6 +314,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   value1: minutes(max(0, s["arrive_ms"] - @view.public["clock_ms"]))
                 )}
               </p>
+              <.weather_notice ship={s} clock={@view.public["clock_ms"]} />
             </button>
           </div>
           <div :if={@ship} class="mt-2 rounded-xl bg-slate-900 px-5 pt-2 pb-5">
@@ -545,6 +622,11 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               ><.emoji symbol="⛵" />{if @ship["status"] == "sailing",
                 do: gettext("Confirm reroute"),
                 else: gettext("Reserve fuel and sail")}</button>
+              <p :if={(@preview["weather_delay_ms"] || 0) > 0} class="text-xs text-amber-300">
+                {gettext("Known weather delay: %{minutes} min; included in this estimate.",
+                  minutes: minutes(@preview["weather_delay_ms"])
+                )}
+              </p>
               <.voyage_freshness
                 id={"preview-freshness-" <> @ship["id"]}
                 estimates={@preview["freshness"]}
@@ -692,6 +774,58 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   value={instruction.budget}
                   class="block w-full rounded bg-slate-800 p-2 disabled:cursor-not-allowed disabled:opacity-50"
                 /></label>
+                <label>{gettext("Minimum shelf life (minutes; buys only)")}<input
+                  name="freshness_minutes"
+                  aria-label={gettext("Minimum remaining shelf life")}
+                  type="number"
+                  min="0"
+                  max="43200"
+                  step="1"
+                  disabled={instruction.side == "sell"}
+                  value={instruction_value(@instruction_drafts, @ship, "freshness_minutes", "")}
+                  class="block w-full rounded bg-slate-800 p-2 disabled:opacity-40"
+                /></label>
+                <p class="self-center text-xs text-slate-400">
+                  {gettext(
+                    "Checked at purchase or collection, in active-world time. Blank accepts any unspoiled cargo."
+                  )}
+                </p>
+                <label :if={instruction.side == "sell"}>
+                  {gettext("Markdown preset (optional)")}
+                  <select name="preset" class="block w-full rounded bg-slate-800 p-2">
+                    <option value="">{gettext("Off")}</option>
+                    <option
+                      :for={
+                        preset <-
+                          Enum.sort_by(
+                            Map.values(@view.private["markdown_presets"] || %{}),
+                            & &1["name"]
+                          )
+                      }
+                      value={preset["id"]}
+                      selected={
+                        instruction_value(@instruction_drafts, @ship, "preset", "") == preset["id"]
+                      }
+                    >
+                      {preset["name"]}
+                    </option>
+                  </select>
+                </label>
+                <label>{gettext("Expires after (active minutes; optional)")}<input
+                  name="expiry_minutes"
+                  aria-label={gettext("Instruction expiry minutes")}
+                  type="number"
+                  min="1"
+                  max="43200"
+                  step="1"
+                  value={instruction_value(@instruction_drafts, @ship, "expiry_minutes", "")}
+                  class="block w-full rounded bg-slate-800 p-2"
+                /></label>
+                <p class="self-center text-xs text-slate-400">
+                  {gettext(
+                    "Blank means no expiry. Starts when added; pauses while the world is offline."
+                  )}
+                </p>
                 <input
                   type="hidden"
                   name="onward"
@@ -748,6 +882,16 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   )}
                 </p>
                 <p>{l10n(order["status"])} · {l10n(order["reason"] || "")}</p>
+                <p :if={order["min_remaining_ms"] && order["min_remaining_ms"] > 0}>
+                  {gettext("Minimum remaining shelf life: %{minutes} min",
+                    minutes: display_number(div(order["min_remaining_ms"], 60_000))
+                  )}
+                </p>
+                <p :if={order["expires_ms"] && order["status"] in ["planned", "waiting"]}>
+                  {gettext("Expiry remaining: %{time} of active-world time (hours:minutes:seconds).",
+                    time: active_countdown(order["expires_ms"] - @view.public["clock_ms"])
+                  )}
+                </p>
                 <button
                   :if={order["status"] in ["planned", "waiting"]}
                   phx-click="cancel-instruction"
@@ -848,12 +992,51 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 >{gettext("Save onward destination")}</button>
               </.form>
             </details>
+            <div
+              :for={{_, plan} <- @view.private["visit_plans"] || %{}}
+              :if={plan["ship_id"] == @ship["id"] && !@view.private["ship_routes"][@ship["id"]]}
+              class="mt-3 text-sm"
+            >
+              <.form
+                for={%{}}
+                id={"visit-budget-" <> plan["id"]}
+                phx-hook="ExchangeDraft"
+                phx-submit="visit-budget"
+                class="flex flex-wrap items-end gap-2"
+              >
+                <input type="hidden" name="port" value={plan["port"]} />
+                <input type="hidden" name="request_id" value={@request_id} />
+                <label>
+                  {gettext("Advance purchase budget at %{port} ($, optional)",
+                    port: l10n(plan["port"])
+                  )}
+                  <input
+                    name="amount"
+                    type="number"
+                    min="0"
+                    max="10000000000"
+                    step="0.01"
+                    value={if plan["advance_budget"], do: plan["advance_budget"] / 100, else: ""}
+                    class="block rounded bg-slate-800 p-2"
+                  />
+                </label>
+                <button class="rounded border px-3 py-2">{gettext("Save budget")}</button>
+              </.form>
+            </div>
             <TijaraTidesWeb.ShipRouteEditor.panel
               ship={@ship}
-              model={GameQueries.route_editor(@view.private, @ship, @definitions.catalogue)}
+              model={
+                GameQueries.route_editor(
+                  @view.private,
+                  @ship,
+                  @definitions.catalogue,
+                  @view.public["clock_ms"]
+                )
+              }
               catalogue={@definitions.catalogue}
               drafts={@route_drafts}
               request_id={@request_id}
+              clock={@view.public["clock_ms"]}
             />
           </div>
         </section>

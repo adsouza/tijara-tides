@@ -1,4 +1,8 @@
-# Domain boundaries and command/query architecture
+# Architecture
+
+Tijara Tides combines a compiler-enforced layered architecture, a pure domain
+model, OTP state ownership, PubSub delivery, a thin LiveView UI, and automated
+checks.
 
 Tijara Tides is a modular monolith with a pure domain, a transport-independent
 application layer, PostgreSQL adapters, and Phoenix LiveView presentation. One
@@ -6,6 +10,129 @@ GenServer remains the authoritative writer for each running world. The world is
 the current transaction boundary; the modules below are responsibility boundaries,
 not independently deployed services. Account, Ship, CompanyFinance and
 PortCargoMarket have explicit aggregate roots; their changes commit in the shared world transaction.
+
+## Layers
+
+```text
+Browser / native webview
+  → TijaraTidesWeb.GameLive and GameSessionController
+  → UseCases.Game → UseCases.GameRuntime (application-owned runtime port)
+Infrastructure.GameRuntime implements UseCases.GameRuntime
+  → Infrastructure.GameServer (transport and world ownership)
+  → UseCases.GameCommands / LifecycleCommands (command workflows)
+  → Domain.Commands → Domain.Account / Domain.Trading / Domain.Fleet
+
+UseCases.GameCommands / LifecycleCommands
+  → UseCases.CommitExecutor → UseCases.CommandStore (persistence port)
+Infrastructure.Persistence.CommandStore implements UseCases.CommandStore
+  → Infrastructure.Persistence.GameStore (atomic PostgreSQL transaction)
+
+TijaraTidesWeb.GameLive → UseCases.GameQueries (pure read calculations)
+Infrastructure.GameServer → UseCases.WorldProjection (committed public cache)
+```
+
+The application depends on the persistence port; the infrastructure adapter
+implements it. Application code has no dependency on the PostgreSQL adapter.
+`Domain.Game` is a compatibility facade, not a home for new rules.
+
+`boundary` enforces dependencies during compilation. The domain purity test
+inspects BEAM imports for process and framework calls. Domain operations receive
+explicit time, identifiers, and static catalogue data; they perform no I/O.
+`Domain.ReadState` exposes reads across the boundary; `Domain.State` mutators
+remain internal, with no generic mutation delegates on the public facade.
+Infrastructure owns PostgreSQL, credential hashing, scheduling, and publication.
+`WorldServer` tracks temporary browser presence for authenticated play views;
+the home page subscribes to its public count without registering itself.
+Play views attach by browser guest identity after an authenticated snapshot,
+detach when authentication is lost, and are removed on process termination.
+This roster remains separate from durable gameplay state.
+
+## Ownership and synchronization
+
+One `GameServer` owns the durable ocean world. Startup increments a database
+ownership epoch, restores entities and the committed simulation clock, and leaves
+progression paused until an authenticated client connects. Five-second ticks
+continue while the server stays awake after disconnect. Restart adds no elapsed
+wall time. Database failures stop progression and commands rather than producing
+uncommitted results.
+
+PostgreSQL stores typed relational tables for accounts, companies, ships,
+markets, sessions, invitations, and notices. Ship cargo and perishable market
+stock use permanent lot identities and separate ordered location rows; foreign keys enforce ownership and catalogue
+references. `GameRows` maps these records to the pure domain model. Each
+transaction locks the world row, verifies the owner epoch, writes changed
+columns and batches, and records the account/request fingerprint and result.
+Only variable command-result receipts retain JSONB. Pure domain operations emit
+balanced journal events and new lot identities alongside state changes. The
+same transaction persists these, verifies ledger reconciliation, and writes the
+receipt. Pending events are cleared after commit; historical journals and lot
+lineage stay in PostgreSQL rather than accumulating in world-process memory.
+Startup audits ledger totals before serving gameplay. The active identity cache
+omits expired sessions and completed invitation/email history; lifecycle commands
+restore relevant durable records through the command-store port for retries.
+A superseded process cannot commit. Same-request retries replay the committed
+result; a changed payload under the same request ID is rejected. Publication and
+acknowledgement follow commit. Keep one server instance; fencing is overlap
+protection, not a multi-instance availability mechanism.
+
+Accounts outlive browser connections. Invitations are single-use and only their
+hashes are stored. A signed, HTTP-only cookie carries an opaque random device
+credential; server-side session lookup and expiry authorize every command. The
+anonymous invitation form pre-issues that private credential before any
+redemption mutation. Redemption retries match both the invitation's account and
+the existing device session, without creating another account or extending its
+expiry. A revoked session cannot be recreated by retrying the invitation.
+
+Pre-issuing moves that credential into the browser before it authorizes
+anything, so its exposure begins at the form rather than at the redemption
+response. The window is longer, not the capability: the value is inert until an
+invitation is redeemed with it, it travels in the same signed, HTTP-only,
+SameSite=Lax cookie as the session it becomes, and reading it before redemption
+grants what reading it afterwards would. Minting on POST would shorten that
+window and restore the unrecoverable lost-response failure pre-issuing exists to
+prevent.
+
+Public projections omit balances and cargo. PubSub announces revisions only;
+subscribers fetch their own authorized projection. Static route and map data are
+versioned assets. Email identity linking is implemented; Google linking remains
+unimplemented. Financial report pages use the application report-query port, with
+owner filtering and bounded pagination in PostgreSQL. Only current report
+accumulators occupy world memory. Commit preparation and query consistency are
+described under [command execution](#command-execution-and-atomicity) and [query
+responsibilities](#query-responsibilities-and-consistency).
+
+When enabled, Repo and Readiness start before Telemetry, PubSub, WorldServer,
+GameServer, and Endpoint under `rest_for_one`. Owner crashes restart Endpoint so
+clients reconnect. Storage failure leaves gameplay unavailable and `/statusz`
+unhealthy; restart after repairing the failure. Configured storage is migrated before the supervision tree starts; migration
+failure prevents startup.
+
+See [implementation scope](IMPLEMENTATION.md) and
+[database operations](database.md) for playtest rules and verification.
+
+## Runtime and deployment choices
+
+- One world runs, started under the application supervisor. A dynamic registry
+  of worlds is unnecessary until multiple worlds become a requirement.
+- Players cannot manually pause, reset, or stop the shared world. Future
+  simulation continues while the server remains awake, including the idle
+  interval after the last player disconnects. Hosting suspension or outages
+  pause it globally; it resumes without catch-up when a player returns.
+- Both the browser and the Tauri desktop client connect to the remote server;
+  there is no local authoritative simulation. The desktop client bundles only a
+  connection screen, uses native Rust menus for recovery, and grants remote pages
+  no native APIs. See [desktop packaging](desktop.md) for macOS, .deb, and
+  Flatpak details.
+- Persistence commits individual entity changes with command receipts and a
+  fenced shared-world clock; it never snapshots the whole world.
+
+## Verification overview
+
+Tests cover the original guest lobby, company and trade rules, privacy, voyage
+bounds, concurrent invitation redemption, retry conflicts, transaction rollback,
+ownership fencing, restart recovery, and a complete LiveView trade journey.
+CI checks both supported Elixir/OTP pairs, disposable PostgreSQL integration,
+generated catalogue consistency, assets, and a production release.
 
 ## Responsibilities
 
@@ -21,7 +148,7 @@ PortCargoMarket have explicit aggregate roots; their changes commit in the share
 | Accounting | `Domain.CompanyFinance`, `Domain.Journal`, persistence ledger adapter | Balanced integer-cent entries; durable ledger and entity balances committed together and reconciled. |
 | Financial accumulation | `Domain.Reporting`, `UseCases.CommitPreparation` | Integer capital-time integration and accounting categories; apply pending journal events before commit, clear only after success. |
 | Visibility | `Domain.Visibility` | Public ships never expose cargo, balances, credentials or private instructions; owner projections require authentication. |
-| Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, settle finance before and after fleet operations, then market recovery, ship instructions and invitation expiry in the established order; commit all phases together. |
+| Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, reconcile weather before movement and settle finance before and after fleet operations, then market recovery, ship instructions and invitation expiry in the established order; commit all phases together. |
 
 `Domain.ReadState` exports only reads for application projections.
 `Domain.State` is unexported internal state-access machinery, not a general
@@ -145,9 +272,13 @@ together. No successful command acknowledgement or revision publication precedes
 that commit.
 
 Invalid or expired sessions return `:invalid_session`; non-map payloads return
-`:invalid_command_payload`, payloads over 12 keys return
+`:invalid_command_payload`, payloads over 12 keys (13 for route commands) return
 `:too_many_command_fields`, and payloads over 4096 encoded bytes return
 `:command_payload_too_large`. These validation errors do not touch persistence.
+The next-port instruction form builds a command from an explicit list of fields;
+LiveView's `_unused_*` metadata and raw minute inputs stay at the web boundary.
+Only converted freshness and expiry durations enter the command or its receipt
+fingerprint.
 
 A business rejection leaves the current state available and unchanged. An unrecoverable commit
 failure stops normal world operation; an unexpected storage or domain exception
@@ -222,19 +353,80 @@ and summaries remain atomically committed; this is CQRS, not event sourcing.
 
 ## Change and verification rules
 
-- Domain code cannot depend on processes, storage, transport or wall-clock access;
-  the strict `Boundary` configuration enforces dependency separation.
+New code follows Clean Architecture, domain-driven design and command–query
+separation as practised here. The rules below are requirements, not preferences.
+Where a test enforces a rule it is named; a change that needs an exception updates
+this section and the guard in the same commit, with the reason.
+
+### Dependency direction (Clean Architecture)
+
+- Domain code cannot depend on processes, storage, transport, logging or
+  wall-clock access; operations receive time, identifiers and catalogue data. The
+  strict `Boundary` configuration and the domain purity test enforce this.
 - Application workflows depend on domain rules and persistence ports, not Ecto
   or Phoenix. Infrastructure implements those ports.
+- Web code calls use cases only, never `Domain` modules. LiveView owns selection,
+  formatting and layout, not game rules.
+
+### Aggregates and invariants (DDD)
+
+- Every table has one owning root. Only that module writes its rows, through
+  named transitions; `test/docs/market_aggregate_boundary_test.exs` and the other
+  boundary tests list the owners. A new table adds its owner there.
+- Rules live in pure typed models (`Warehouse`, `VisitBudget`, `LiquidationPool`
+  and similar). They never call `State`, `ReadState`, row codecs or world modules.
+- `*World` roots never call `Services.*`. Coordinators in `Services` sequence
+  roots; a root may call another root's reads and hooks without forming a cycle.
+  `test/docs/automation_architecture_test.exs` enforces this and the
+  coordinator dependency lists.
+- A lower layer inside an aggregate receives loaded entities instead of calling
+  back into its root, as `WarehouseWorld.Claims` does.
+- A transition releases everything it invalidates (claims, orders, bids, budgets,
+  requests) in the same candidate. Never add a reconcile sweep to command
+  dispatch; tick passes check only clock-driven conditions. In test builds
+  `TijaraTides.SettledCheck` verifies this after every command and tick; extend
+  it when you add a transition-owned invariant.
+- A root rereads the facts that decide a transition; it does not trust a value
+  its caller computed. Mutations are explicit puts and deletes recorded in the
+  `ChangeSet`; nothing infers a deletion from absence.
+- Consequences that depend on what a transition touched read the declared
+  `ChangeSet`, not a scan of the world (`DepartureFunding.settle_ships`,
+  `OrderBookWorld.synchronize_changed`).
+
+### Commands and queries
+
+- Commands change state and return a minimal reply. Queries never write, and they
+  read projections, not `State`.
+- Queries format and select. A rule a query needs (a maximum quantity, a price,
+  a fee, a duration, an eligibility check) is the pure domain function the
+  command enforces, called from both sides. Add a contract test showing the
+  offered value is accepted and one more is refused, as
+  `test/tijara_tides/use_cases/warehouse_offers_test.exs` does.
+
+### Cross-cutting concerns
+
+- Logging, telemetry, authentication and failure policy live in
+  `OperationBoundary`, `Observation` and `Authentication`, not in domain code.
+- A raise or database constraint reachable from a tick or commit pauses the whole
+  world. Validate player input in the domain with the same measure the
+  constraint uses (for example code points, not graphemes), and keep invariant
+  assertions that would halt a world in test-only seams.
+
+### Persistence
+
+- Domain row codecs write complete rows. The adapter maps representation only; it
+  never invents a domain value. Add a field with a domain default to the adapter's
+  required list rather than giving it a fallback.
 - Preserve command fingerprints and durable receipt results across refactors.
-- Put economic estimates beside the domain rules they reuse or in pure query
-  projections; presentation formats the result.
+
+### Verification
+
 - Prove atomicity, replay, failure behavior and privacy with tests, not only module
   naming. Existing PostgreSQL tests cover conservation, rollback, owner fencing,
   restart recovery and request replay. Workflow tests inject both replay paths and
   commit failures; browser tests cover the query-driven UI.
-- This refactor needs no SQL migration, data reset or gameplay rebalance. Existing
-  startup ownership fencing and deployment procedures remain applicable.
+- When adding a guard or an oracle, delete one real behavior it protects and check
+  that a test fails. A check that no test drives is not protection.
 
 ## Single-visit ship instructions
 
@@ -918,3 +1110,143 @@ Cross-account credit facts, projections and sponsor guarantee workflows remain
 in CompanyFinanceWorld and CompanyFinanceWorld.Guarantees. CompanyFinance.Rows
 encodes the unchanged company schema; existing child codecs stay at the adapter
 boundary. No database or transaction-boundary migration is involved.
+
+Expired leases use `WarehouseLiquidationWorld` for durable accounting transitions
+and `Services.WarehouseLiquidation` for sales coordination.
+`Services.WarehouseLeases` runs the warehouse tick phase: each lease's term in
+`WarehouseWorld`, then liquidation preparation, spoilage or receivership
+clearance, then sales. It also prepares the pool before pricing an award
+replacement. Warehouse allocation and cargo remain owned by `WarehouseWorld`, and
+claims by its lower layer `WarehouseWorld.Claims`, which receives loaded leases
+and never calls back into the root; standing fills remain owned by
+`Exchange`/`OrderBookWorld`, and auction terms/results by `AuctionWorld`.
+Reservation freshness is reconstructed from the auction's immutable expiry. The
+pure warehouse model computes virtual FEFO allocations before releasing actual
+batches, so cancelled lower-grade lots cannot consume stock promised to another
+auction. Proceeds use existing reserved cash until the pool completes; all stages
+share the existing `CommitExecutor` transaction and ledger checks.
+
+## Automation reservation ownership
+
+`AutomationWorld` owns linked-order cycle records, visit budget reservations and
+departure funding requests. `LinkedOrders` coordinates route targets with the
+OrderBook and Warehouse roots: remote fills become exclusive ship stock claims,
+berth handover closes the standing remainder, and target edits update both
+backing and the uncommitted visit atomically. Warehouse cargo stays owned after
+a claim is released. The service never writes another root's rows directly.
+
+`RouteEditing` coordinates route edits, linked demand and visit funding; the Ship
+world adapter applies only the route transition. Command dispatch calls
+`DepartureFunding.manual_sail` to reserve configured visit budgets before the
+lower-level `Fleet.sail` operation. Fleet never invokes the funding coordinator.
+`LinkedOrders` invokes Exchange to manage demand; Exchange invokes only the
+lower-level `RemoteOrderSettlement` eligibility and claim hooks. Similarly,
+`LiquidationSettlement` owns occupancy and sale hooks used by Exchange, while the
+liquidation coordinator owns cancellation, sale sequencing and completion.
+These hooks apply synchronously to the same candidate, before its atomic commit.
+
+`DepartureFunding` coordinates Finance, Fleet and Automation roots. It checks
+current requirements, settles arrears, allocates affordable requests in waiting
+order, and atomically converts one bounded accumulation into ordinary voyage
+and purchase reservations. The Account root owns the global policy; the Ship
+root owns configured stop budgets and completion of each route visit. Commands
+and ticks use these same transitions. The ledger verifier and SQL transaction
+validate the final combined candidate before publication.
+
+### Transition-owned releases
+
+A transition releases what it invalidates in the same candidate; commands do not
+sweep the world afterwards. Receivership withdraws the company's standing orders,
+open bids and non-auction warehouse claims. Ship disposal releases the ship's
+manual claims, and route edits release the claims of removed stops.
+`DepartureFunding` coordinates each ship transition with funding consequences:
+route edits, budgets, sailing, rerouting, onward changes, instruction
+cancellation and expiry, and wait timeouts. It revalidates budgets and departure
+requests only for the ships whose rows that transition declared changed. A policy
+change re-prices the company's waiting requests in place, keeping their waiting
+age and returning accumulation above the new requirement. Readiness also depends
+on handling, berths and pending orders, so allocation rechecks a request when it
+uses it.
+
+Sell-order portions are derived from the warehouse FEFO allocation. The order
+book re-derives them from the warehouse and claim changes that a command or fill
+declares, for any owner, in the same transaction. The remaining tick passes
+check only clock-driven conditions: order expiry and freshness decay, auction
+closes, lease expiry and spoilage. They no longer re-check ownership, stops,
+orders, bids or receivership. An architecture test keeps reconcile sweeps out of
+command dispatch. In test builds, `TijaraTides.SettledCheck` runs after every
+command and tick through a compile-time seam and fails when a transition leaves
+state that it should have released. Other builds compile the seam out, so the
+check cannot halt a world.
+
+
+### Weather and voyage pauses
+
+`WeatherWorld` owns at most one durable current storm row per geographic sector.
+The pure `Weather` model derives deterministic windows and partitions supplied
+sea geometry. `Services.WeatherDelays` reconciles warnings and calls the named
+`ShipWorld.apply_weather` transition before fleet cost settlement. Only the
+Ship root changes accepted path, forecast and arrival terms. Its pause timeline
+is the shared authority for navigation, fuel and crew settlement; read-side
+helpers use that same motion function. Ship rows snapshot the weather model,
+and legacy voyages activate it prospectively, preventing historical weather
+from rewriting completed movement. All weather and fleet changes commit with
+the world clock in the existing atomic tick transaction.
+
+Route editor warehouse options are prepared per stop and cargo by
+`ShipPlanningQueries`, using `Warehouse.receiving_allowed?` with the committed
+world clock. Command-side link validation uses that same predicate; award-only,
+expired, foreign, wrong-port and incompatible storage never become receiving
+options merely because a component renders their rows. Warehouse transfer and
+reservation offers likewise come from `Warehouse.transfer_limits` and
+`Warehouse.reservation_limit`, the limits the transfer and reserve commands
+enforce, so an offered quantity never exceeds what those commands accept. Trade
+offers and voyage plans follow the same rule: `Trading.purchase_limits`,
+`Trading.purchasing_terms` and `Trading.purchase_shortfall` (with the visit
+budget found by `Trading.current_budget`), `Trading.voyage_requirement`,
+`Trading.purchased_cargo`, `Ship.trade_admission`,
+`PortCargoMarket.sale_capacity` and `sale_proceeds`, `CargoRules.loading_ms`
+and `cleaning_cost`, and `Ship.crew_estimate` are called by both the commands
+and the queries. Contract tests in `test/tijara_tides/use_cases/` check that an
+offered or planned quantity is accepted and one more is refused, and that a
+planned sale still succeeds on arrival.
+
+`LiquidationPool`, `VisitBudget`, `DepartureRequest` and `RemoteLink` are pure
+typed models. They own accrual, exact clearance remainders, reservation resizing
+and consumption, accumulation deadlines, and named lifecycle transitions.
+Their separate `Rows` codecs preserve the existing durable string-keyed format.
+`WarehouseLiquidationWorld` and `AutomationWorld` hydrate models, supply clocks
+and other-root facts, store transitions, and coordinate journal postings. The
+models contain no world lookup, row codec, finance posting or workflow dependency;
+no schema change or new transaction boundary is introduced.
+
+Architecture guards cover exclusive writes to weather and markdown-preset rows,
+as well as account, ship, market, warehouse, exchange, auction, liquidation and
+automation ownership. Compiled dependency checks constrain Fleet, LinkedOrders,
+Exchange and settlement hooks to their lower-level service dependencies, and
+check the targeted orchestration graph for cycles. Pure reservation models cannot
+call project adapters, codecs or workflows, and no `*World` root calls a
+coordinator service: lease liquidation runs from `Services.WarehouseLeases`, and
+dormant closure from `Services.Bankruptcy`. These are focused dependency rules
+within the existing world transaction, not a claim that every domain module forms
+an independent aggregate or that the entire domain graph is acyclic.
+
+`Services.ShipLifecycle` coordinates linked-order handover and release of funding
+before ship admission or disposal. `ShipWorld` owns only ship transitions and
+its route/visit adapters; it never invokes funding or order workflows. Warehouse
+transfers update physical holdings first, then the coordinating service closes
+remote demand in that same candidate. Route departure coordinates VisitOrders
+and RoutePlans in ShipWorld, so the visit adapter does not call back into routes.
+Compiled cycle guards include ShipWorld, its route/visit adapters
+and AutomationWorld as well as the coordinating services.
+
+A separate transitive check follows all compiled domain dependencies reachable
+from ShipWorld, including adapters outside the service inventory, and rejects
+any path back into ShipWorld. WarehouseWorld's existing maintenance facade
+still coordinates liquidation; this focused change does not assert acyclicity
+of that separate warehouse orchestration graph.
+
+Fleet releases the outgoing visit's funding only after departure validation and
+before advancing the ship's route cursor. RoutePlans contains no Finance or
+Automation adapter callback. VoyageNavigation owns progress calculations and
+calls the pure weather timeline, so geometry helpers do not call back into Fleet.

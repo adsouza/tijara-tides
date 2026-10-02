@@ -60,6 +60,7 @@ defmodule TijaraTides.Localization.Names do
   def translate("Supply"), do: gettext("Supply")
   def translate("Demand"), do: gettext("Demand")
   def translate("Completing loading targets"), do: gettext("Completing loading targets")
+  def translate("Maximum wait elapsed"), do: gettext("Maximum wait elapsed")
   def translate("Waiting for a berth"), do: gettext("Waiting for a berth")
   def translate("Waiting for the limit price"), do: gettext("Waiting for the limit price")
 
@@ -77,6 +78,8 @@ defmodule TijaraTides.Localization.Names do
 
   def translate("No sea route is available to the onward destination"),
     do: gettext("No sea route is available to the onward destination")
+
+  def translate("Company is in receivership"), do: gettext("Company is in receivership")
 
   def translate("The onward voyage exceeds the maximum duration"),
     do: gettext("The onward voyage exceeds the maximum duration")
@@ -140,6 +143,10 @@ defmodule TijaraTides.Localization.Names do
 
   def translate("Awaiting arrival and a berth"), do: gettext("Awaiting arrival and a berth")
   def translate("Cancelled by player"), do: gettext("Cancelled by player")
+  def translate("Instruction expired"), do: gettext("Instruction expired")
+
+  def translate("Waiting for cargo meeting the minimum remaining shelf life"),
+    do: gettext("Waiting for cargo meeting the minimum remaining shelf life")
 
   def translate("Cancelled remainder on departure"),
     do: gettext("Cancelled remainder on departure")
@@ -147,5 +154,15 @@ defmodule TijaraTides.Localization.Names do
   def translate("Strait of Hormuz"), do: gettext("Strait of Hormuz")
   def translate("Northern Frangistan"), do: gettext("Northern Frangistan")
   def translate("Pearl River Delta"), do: gettext("Pearl River Delta")
+
+  def translate("Waiting for fuel and the configured purchase budget"),
+    do: gettext("Waiting for fuel and the configured purchase budget")
+
+  def translate("Purchases skipped for this visit"),
+    do: gettext("Purchases skipped for this visit")
+
+  def translate("Handed over at berth"), do: gettext("Handed over at berth")
+  def translate("Visit finished"), do: gettext("Visit finished")
+  def translate("Collection stop or link removed"), do: gettext("Collection stop or link removed")
   def translate(value), do: TijaraTides.Localization.Ports.translate(value)
 end

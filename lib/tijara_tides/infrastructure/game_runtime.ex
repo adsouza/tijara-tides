@@ -22,6 +22,9 @@ defmodule TijaraTides.Infrastructure.GameRuntime do
   def connect(token), do: GameServer.connect(token)
 
   @impl true
+  def visit(token), do: GameServer.visit(token)
+
+  @impl true
   def subscribe(), do: GameServer.subscribe()
 
   @impl true

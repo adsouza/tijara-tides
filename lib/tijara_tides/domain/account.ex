@@ -3,9 +3,18 @@ defmodule TijaraTides.Domain.Account do
   alias __MODULE__.{BankruptcyEvent, EmailIdentity}
 
   @fields ~w(id company_id inviter bankruptcies suspended_ms email invite_quota created_ms locale)a
-  defstruct @fields ++ [sessions: [], invitations: [], email_requests: [], bankruptcy_events: []]
+  defstruct @fields ++
+              [
+                funding_policy: "wait",
+                sessions: [],
+                invitations: [],
+                email_requests: [],
+                bankruptcy_events: []
+              ]
+
   @history_ms 112 * 86_400_000
   def history_ms, do: @history_ms
+  defdelegate dormancy_settings(catalogue), to: __MODULE__.Dormancy, as: :settings
 
   def suspended?(%__MODULE__{suspended_ms: value}), do: value != nil
 
@@ -104,6 +113,19 @@ defmodule TijaraTides.Domain.Account do
 
     %{account | suspended_ms: nil}
   end
+
+  def detach_dormant(%__MODULE__{} = account, company_id) do
+    unless account.company_id == company_id,
+      do: raise(ArgumentError, "Dormancy must detach the account's own company")
+
+    %{account | company_id: nil}
+  end
+
+  def set_funding_policy(%__MODULE__{} = account, policy)
+      when policy in ["wait", "reduced", "skip"],
+      do: {:ok, %{account | funding_policy: policy}}
+
+  def set_funding_policy(%__MODULE__{}, _), do: {:error, :funding_policy_invalid}
 
   def set_locale(%__MODULE__{} = account, locale) when locale in ["en", "ar"],
     do: {:ok, %{account | locale: locale}}

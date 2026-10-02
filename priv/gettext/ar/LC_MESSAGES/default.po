@@ -175,9 +175,6 @@ msgstr "متاح في مرحلة لاحقة من تطوير السوق"
 msgid "Available invitations: %{value1}"
 msgstr "الدعوات المتاحة: %{value1}"
 
-msgid "Available invitations: 0"
-msgstr "الدعوات المتاحة: 0"
-
 msgid "Average capital employed"
 msgstr "متوسط رأس المال المستخدم"
 
@@ -795,9 +792,6 @@ msgstr "الحالة"
 
 msgid "Stop after this visit"
 msgstr "التوقف بعد هذه الزيارة"
-
-msgid "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Removing the current or next stop returns the route to draft; committed voyages and handling finish. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. No cash is earmarked. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
-msgstr "تُنفذ المحطات بالترتيب وتتكرر. تسري تعديلات البضائع عند تشغيل مرحلتها التالية؛ وتحتفظ أوامر الزيارة القائمة بشروطها. تُعيد إزالة المحطة الحالية أو التالية المسار إلى المسودة؛ وتكتمل الرحلات والمناولة الملتزم بها. ابدأ عند المحطة الأولى أو أثناء الإبحار إليها. ينتهي تفريغ المبيعات قبل بدء المشتريات. يشمل هدف التحميل البضاعة الموجودة على المتن؛ ويُعاد ضبط سقف الشراء الاختياري كل زيارة. دون سقف، تُستخدم السيولة المتاحة مع الاحتفاظ باحتياطي الرحلة. الأسعار لكل دفعة دون المناولة؛ وتشمل الحدود المناولة والتنظيف. لا يُحجز نقد مسبقاً. تنتظر الأهداف الثابتة حتى التنفيذ أو الإلغاء. يتوقف الشراء الأقصى عند بلوغ السعة أو المخزون أو النقد أو السقف المتاح. يبيع خيار بيع كل الحمولة ما يسمح به الطلب وأموال المشترين، ثم يتابع مع البضاعة غير المباعة. تبقى حدود الأسعار ملزمة بالانتظار. بعد انتهاء المبيعات، يلغي امتلاء العنبر أي نقص تحميل متبقٍ. يوقف تعليق المسار التجارة الجديدة والإبحار التلقائي؛ وتكتمل الرحلات والمناولة الملتزم بها."
 
 msgid "Supply is available stock; demand is capped by current buyer funds, in whole lots · prices per lot, before handling · updated live. Cargo choices show the highest available bid and lowest available ask; — means no market on that side. Select a port to inspect its market."
 msgstr "العرض هو المخزون المتاح؛ والطلب محدود بأموال المشتري الحالية بدفعات كاملة · الأسعار لكل دفعة قبل المناولة · تحديث مباشر. تعرض خيارات البضائع أعلى سعر شراء وأقل سعر بيع متاحين؛ وتعني — عدم وجود سوق في ذلك الجانب. اختر ميناءً لفحص سوقه."
@@ -2028,9 +2022,6 @@ msgstr "الوحدات المراد إخلاؤها"
 msgid "Collect"
 msgstr "تحميل من المستودع"
 
-msgid "Expired: collection only during the 12-hour grace period."
-msgstr "انتهى الإيجار: يسمح بالسحب فقط خلال مهلة السماح البالغة ١٢ ساعة."
-
 msgid "Lease"
 msgstr "استئجار"
 
@@ -2057,9 +2048,6 @@ msgstr "تخزين مبرد"
 
 msgid "Release space"
 msgstr "إخلاء مساحة"
-
-msgid "Releasing empty capacity refunds half its unused rent. After expiry, collect cargo within 12 active-world hours. Remaining goods are cleared at half reference value and never for more than they cost; grace rent is capped at proceeds. Perishables continue aging. Liquid storage is dedicated to one cargo type."
-msgstr "يُسترد نصف الإيجار غير المستهلك عند إخلاء مساحة فارغة. بعد انتهاء العقد، اسحب البضائع خلال ١٢ ساعة من وقت العالم النشط. تُصفّى البضائع المتبقية بنصف القيمة المرجعية ودون تجاوز تكلفتها، ولا يتجاوز إيجار المهلة العائدات. تستمر صلاحية الأغذية في التناقص. يُخصص تخزين السوائل لنوع واحد من البضائع."
 
 msgid "Storage terms"
 msgstr "شروط التخزين"
@@ -2358,8 +2346,6 @@ msgstr "يُخصص تخزين السوائل لنوع واحد من البضائ
 msgid "This warehouse can store any combination of the listed cargo types."
 msgstr "يمكن لهذا المستودع تخزين أي مزيج من أنواع البضائع المدرجة."
 
-msgid "non-perishable solid goods"
-msgstr "بضائع صلبة غير قابلة للتلف"
 
 msgid "Browse open, upcoming and recently settled auctions. Select a port to bid; compatible warehouse space is required. Reserves are for the whole lot. Times use active-world time."
 msgstr "تصفح المزادات المفتوحة والقادمة والمنتهية حديثًا. اختر ميناءً للمزايدة؛ يلزم توفر مساحة تخزين مناسبة. الأسعار الاحتياطية للشحنة كاملة. الأوقات محسوبة بوقت العالم النشط."
@@ -2587,29 +2573,401 @@ msgid "Onward to %{port}"
 msgstr "المتابعة إلى %{port}"
 
 #, elixir-autogen, elixir-format
-msgid "Next invitation in %{time} of active-world time (hours:minutes:seconds), if your company stays active and solvent."
-msgstr "دعوتك التالية بعد %{time} من وقت العالم النشط (ساعات:دقائق:ثوانٍ)، إذا واصلت شركتك النشاط والوفاء بالتزاماتها المالية."
-
-#, elixir-autogen, elixir-format
 msgid "Invitation earning is paused while your account is suspended."
 msgstr "توقّف اكتساب الدعوات مؤقتًا أثناء تعليق حسابك."
-
-#, elixir-autogen, elixir-format
-msgid "Form a company and complete an economic action worth at least $100. A new invitation takes two days of active, solvent operation."
-msgstr "أنشئ شركة وأكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل. يستغرق اكتساب دعوة جديدة يومين من النشاط مع الوفاء بالالتزامات المالية."
-
-#, elixir-autogen, elixir-format
-msgid "Clear unpaid bills and loan arrears to resume earning. A new invitation takes two days of active, solvent operation."
-msgstr "سدّد الفواتير غير المدفوعة ومتأخرات القروض لاستئناف اكتساب الدعوات. يستغرق اكتساب دعوة جديدة يومين من النشاط مع الوفاء بالالتزامات المالية."
 
 #, elixir-autogen, elixir-format
 msgid "Invitation earning resumes when an outstanding invitation is accepted. Unused invitations return on expiry."
 msgstr "يُستأنف اكتساب الدعوات عندما تُقبل دعوة معلّقة. تعود الدعوات غير المستخدمة عند انتهاء صلاحيتها."
 
 #, elixir-autogen, elixir-format
-msgid "Complete an economic action worth at least $100 to start earning. A new invitation takes two days of active, solvent operation."
-msgstr "أكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل لبدء اكتساب الدعوات. يستغرق اكتساب دعوة جديدة يومين من النشاط مع الوفاء بالالتزامات المالية."
-
-#, elixir-autogen, elixir-format
 msgid "An unused invitation returns in %{time} of active-world time (hours:minutes:seconds), unless accepted first."
 msgstr "تعود دعوة غير مستخدمة بعد %{time} من وقت العالم النشط (ساعات:دقائق:ثوانٍ)، ما لم تُقبل قبل ذلك."
+
+msgid "%{ship} at %{port}: maximum wait elapsed. Unfilled route targets were cancelled; committed handling will finish before departure."
+msgstr "%{ship} في %{port}: انتهى الحد الأقصى للانتظار. أُلغيت أهداف المسار غير المكتملة؛ ستكتمل المناولة الملتزم بها قبل الإبحار."
+
+msgid "%{side} %{cargo}: %{filled}/%{quantity} lots filled; remainder cancelled."
+msgstr "%{side} %{cargo}: تم تنفيذ %{filled}/%{quantity} من الدفعات؛ أُلغي الباقي."
+
+msgid "Blank means unlimited waiting. The limit runs from arrival, including queues and handling, and pauses only with the world. At timeout, unfilled targets are cancelled; committed handling finishes before departure. Changes apply to visits that have not arrived yet; the current visit keeps its saved deadline."
+msgstr "ترك الحقل فارغاً يعني انتظاراً غير محدود. يبدأ الحد عند الوصول ويشمل الطوابير والمناولة، ولا يتوقف إلا بتوقف العالم. عند انتهاء المدة تُلغى الأهداف غير المكتملة وتكتمل المناولة الملتزم بها قبل الإبحار. تسري التغييرات على الزيارات التي لم تصل بعد؛ تحتفظ الزيارة الحالية بموعدها النهائي المحفوظ."
+
+msgid "Choose a maximum wait from 1 minute to 30 days, or leave it blank for unlimited waiting."
+msgstr "اختر حداً أقصى للانتظار من دقيقة واحدة إلى 30 يوماً، أو اترك الحقل فارغاً لانتظار غير محدود."
+
+msgid "Last timed-out visit: %{port}"
+msgstr "آخر زيارة انتهت مدة انتظارها: %{port}"
+
+msgid "Maximum wait (minutes, optional)"
+msgstr "الحد الأقصى للانتظار (بالدقائق، اختياري)"
+
+msgid "Maximum wait elapsed"
+msgstr "انتهى الحد الأقصى للانتظار"
+
+msgid "Maximum wait remaining: %{time} of active-world time (hours:minutes:seconds)."
+msgstr "المتبقي من الحد الأقصى للانتظار: %{time} من وقت العالم النشط (ساعات:دقائق:ثوانٍ)."
+
+msgid "Save wait limit"
+msgstr "حفظ حد الانتظار"
+
+msgid "Unlimited"
+msgstr "غير محدود"
+
+msgid "Wait limit"
+msgstr "حد الانتظار"
+
+msgid "· %{minutes} min"
+msgstr "· %{minutes} دقيقة"
+
+msgid "· Unlimited"
+msgstr "· غير محدود"
+
+msgid "Expires after (active minutes; optional)"
+msgstr "تنتهي الصلاحية بعد (دقائق نشطة؛ اختياري)"
+
+msgid "Instruction expiry minutes"
+msgstr "مدة صلاحية التعليمات بالدقائق"
+
+msgid "Blank means no expiry. Starts when added; pauses while the world is offline."
+msgstr "ترك الحقل فارغاً يعني عدم انتهاء الصلاحية. تبدأ المدة عند الإضافة وتتوقف أثناء توقف العالم."
+
+msgid "Expiry remaining: %{time} of active-world time (hours:minutes:seconds)."
+msgstr "المتبقي من الصلاحية: %{time} من وقت العالم النشط (ساعات:دقائق:ثوانٍ)."
+
+msgid "Choose an expiry from 1 minute to 30 days, or leave it blank for no expiry."
+msgstr "اختر مدة صلاحية من دقيقة واحدة إلى 30 يوماً، أو اترك الحقل فارغاً لعدم انتهاء الصلاحية."
+
+msgid "Instruction expired"
+msgstr "انتهت صلاحية التعليمات"
+
+msgid "Minimum shelf life (minutes; buys only)"
+msgstr "الحد الأدنى لمدة الصلاحية (بالدقائق؛ للمشتريات فقط)"
+
+msgid "Minimum remaining shelf life"
+msgstr "الحد الأدنى لمدة الصلاحية المتبقية"
+
+msgid "Checked at purchase or collection, in active-world time. Blank accepts any unspoiled cargo."
+msgstr "يُتحقق منه عند الشراء أو الاستلام، وفق وقت العالم النشط. ترك الحقل فارغاً يقبل أي حمولة غير تالفة."
+
+msgid "Minimum remaining shelf life: %{minutes} min"
+msgstr "الحد الأدنى لمدة الصلاحية المتبقية: %{minutes} دقيقة"
+
+msgid "Choose a minimum shelf life from 0 to 43,200 minutes for buys, or leave it blank."
+msgstr "اختر حداً أدنى لمدة الصلاحية من 0 إلى 43,200 دقيقة للمشتريات، أو اترك الحقل فارغاً."
+
+msgid "Waiting for cargo meeting the minimum remaining shelf life"
+msgstr "بانتظار حمولة تستوفي الحد الأدنى لمدة الصلاحية المتبقية"
+
+#, elixir-autogen, elixir-format
+msgid "%{company} closed for owner absence. Its assets are in receivership and cannot be restored. Your bankruptcy count is unchanged."
+msgstr "أُغلقت %{company} بسبب غياب مالكها. أصولها تحت التصفية ولا يمكن استعادتها. لم يتغير عدد حالات إفلاسك."
+
+#, elixir-autogen, elixir-format
+msgid "%{company} will close for owner absence at %{deadline}. Return to the game before this deadline to keep it. Automated trading does not reset absence."
+msgstr "ستُغلق %{company} بسبب غياب مالكها في %{deadline}. عُد إلى اللعبة قبل هذا الموعد للحفاظ عليها. التداول الآلي لا يعيد ضبط مدة الغياب."
+
+#, elixir-autogen, elixir-format
+msgid "After %{days} days without an authenticated visit, your company receives %{warning} days' warning before closure. Returning before closure cancels it; automated trading and unattended refreshes do not. Dormant closure does not increase your bankruptcy count."
+msgstr "بعد %{days} يومًا دون زيارة موثقة، تتلقى شركتك إنذارًا قبل الإغلاق بمدة %{warning} يومًا. العودة قبل الإغلاق تلغيه، أما التداول الآلي والتحديثات التلقائية فلا تلغيه. الإغلاق بسبب الغياب لا يزيد عدد حالات إفلاسك."
+
+#, elixir-autogen, elixir-format
+msgid "Company closed for dormancy — assets in receivership"
+msgstr "أُغلقت الشركة بسبب الغياب — الأصول تحت التصفية"
+
+#, elixir-autogen, elixir-format
+msgid "Without a verified email, closure warnings can reach you only in the app. Losing this device session also ends access permanently. An unread warning does not postpone closure."
+msgstr "دون بريد إلكتروني موثّق، لا تصلك إنذارات الإغلاق إلا داخل التطبيق. فقدان جلسة هذا الجهاز ينهي الوصول نهائيًا أيضًا. عدم قراءة الإنذار لا يؤجل الإغلاق."
+
+#, elixir-autogen, elixir-format
+msgid "Your Tijara Tides company closure warning"
+msgstr "إنذار بإغلاق شركتك في أمواج التجارة"
+
+#, elixir-autogen, elixir-format
+msgid "Your company will close for owner absence at %{deadline}. Sign in and return to the game before this deadline to cancel closure:\n\n%{url}\n\nAutomated routes and unattended session refreshes do not reset absence. After closure, assets enter receivership and cannot be restored. Dormant closure does not increase your bankruptcy count."
+msgstr "ستُغلق شركتك بسبب غياب مالكها في %{deadline}. سجّل الدخول وعُد إلى اللعبة قبل هذا الموعد لإلغاء الإغلاق:\n\n%{url}\n\nالمسارات الآلية وتحديثات الجلسة التلقائية لا تعيد ضبط مدة الغياب. بعد الإغلاق، تدخل الأصول في التصفية ولا يمكن استعادتها. الإغلاق بسبب الغياب لا يزيد عدد حالات إفلاسك."
+
+msgid "Expired: collection grace ends in %{minutes} mins."
+msgstr "انتهى الإيجار: تنتهي مهلة الاستلام بعد %{minutes} دقيقة."
+
+msgid "Liquidating: local buy orders, auctions, then clearance."
+msgstr "جارٍ التصفية: طلبات الشراء المحلية، ثم المزادات، ثم البيع النهائي."
+
+msgid "Liquidation rent: previous rate plus %{percent}%; charges are capped by this lease's proceeds."
+msgstr "إيجار التصفية: السعر السابق مضافًا إليه %{percent}٪؛ لا تتجاوز الرسوم حصيلة هذا الإيجار."
+
+msgid "Proceeds held: %{proceeds}. Accrued storage and handling: %{charges}."
+msgstr "الحصيلة المحجوزة: %{proceeds}. رسوم التخزين والمناولة المستحقة: %{charges}."
+
+msgid "Projected remaining shelf life at close: %{time}"
+msgstr "مدة الصلاحية المتوقعة المتبقية عند الإغلاق: %{time}"
+
+msgid "Releasing empty capacity refunds half its unused rent. After expiry, cargo may be sold or collected during the disclosed grace period. Remaining goods fill local buy orders, enter auctions, then clear at 10% of reference value, reduced by remaining shelf life. Perishables keep aging; those unable to survive a full two-hour auction clear immediately. Storage and handling charges never exceed the proceeds of that lease. Liquid storage is dedicated to one cargo type."
+msgstr "يُرد نصف الإيجار غير المستخدم عند تحرير السعة الفارغة. بعد انتهاء الإيجار، يمكن بيع البضائع أو استلامها خلال فترة السماح المعلنة. تُباع البضائع المتبقية لطلبات الشراء المحلية، ثم في المزادات، ثم تُصفّى بنسبة 10٪ من القيمة المرجعية مع تخفيض يتناسب مع الصلاحية المتبقية. تستمر البضائع القابلة للتلف في التقادم؛ وتُصفّى فورًا إن لم تكن ستظل صالحة حتى نهاية مزاد كامل مدته ساعتان. لا تتجاوز رسوم التخزين والمناولة حصيلة ذلك الإيجار. يُخصص تخزين السوائل لنوع واحد من البضائع."
+
+msgid "Warehouse liquidation"
+msgstr "تصفية المستودع"
+
+msgid "Your warehouse lease at %{port} expired. Sale or collection grace: %{minutes} active-world minutes. Storage per occupied block per day: %{grace_rate} during grace; %{liquidation_rate} during liquidation. Charges are capped by this lease's proceeds."
+msgstr "انتهى إيجار مستودعك في %{port}. مهلة البيع أو الاستلام: %{minutes} دقيقة من وقت العالم النشط. سعر التخزين لكل وحدة مشغولة يوميًا: %{grace_rate} خلال المهلة؛ و%{liquidation_rate} خلال التصفية. لا تتجاوز الرسوم حصيلة هذا الإيجار."
+
+
+msgid "%{ship}: funding accumulation timed out; reserved cash was released."
+msgstr "%{ship}: انتهت مهلة تجميع التمويل؛ وأُفرج عن النقد المحجوز."
+
+msgid "Advance purchase budget ($, optional)"
+msgstr "ميزانية شراء مسبقة ($، اختيارية)"
+
+msgid "Advance purchase budget at %{port} ($, optional)"
+msgstr "ميزانية شراء مسبقة في %{port} ($، اختيارية)"
+
+msgid "Automatic departure funding policy"
+msgstr "سياسة تمويل الإبحار التلقائي"
+
+msgid "How these policies work"
+msgstr "كيف تعمل هذه السياسات"
+
+msgid "Choose what happens when fuel and canal fees can be funded, but the full configured purchase budget cannot."
+msgstr "اختر ما يحدث عندما يتوفر تمويل الوقود ورسوم القنوات، ولا يتوفر كامل ميزانية الشراء المحددة."
+
+msgid "Keep the ship in port until fuel, canal fees and the full purchase budget are available. This preserves the planned buying capacity, but delays deliveries. The ship retries automatically; you are notified when it is blocked and when it departs."
+msgstr "أبقِ السفينة في الميناء حتى يتوفر تمويل الوقود ورسوم القنوات وكامل ميزانية الشراء. يحافظ ذلك على القدرة الشرائية المخطط لها، لكنه يؤخر تسليم البضائع. تعيد السفينة المحاولة تلقائياً؛ ويصلك إشعار عندما يتعذر إبحارها وعندما تبحر."
+
+msgid "Fund fuel and canal fees, then reserve the remaining cash for purchases, up to the configured budget. The ship keeps moving, but may buy less or nothing. Its purchase budget is not automatically topped up at arrival."
+msgstr "موّل الوقود ورسوم القنوات، ثم احجز النقد المتبقي للمشتريات بما لا يتجاوز الميزانية المحددة. تواصل السفينة رحلتها، لكنها قد تشتري كمية أقل أو لا تشتري شيئاً. لا تُزاد ميزانية الشراء تلقائياً عند الوصول."
+
+msgid "Fund fuel and canal fees and sail without new purchases for that visit. This preserves cash and avoids waiting for a purchase budget, but leaves buying targets unfilled. Unfilled remote buy orders linked to the visit are cancelled; completed fills remain available for collection."
+msgstr "موّل الوقود ورسوم القنوات وأبحر دون مشتريات جديدة خلال هذه الزيارة. يحافظ ذلك على النقد ويجنب الانتظار لتوفير ميزانية شراء، لكنه يترك أهداف الشراء غير مكتملة. تُلغى الأجزاء غير المنفذة من أوامر الشراء البعيدة المرتبطة بالزيارة؛ وتبقى المشتريات المنفذة متاحة للاستلام."
+
+msgid "Choose a valid departure funding policy."
+msgstr "اختر سياسة تمويل إبحار صالحة."
+
+msgid "Departure funding: $%{held} accumulated of $%{required}"
+msgstr "تمويل الإبحار: جُمّع $%{held} من $%{required}"
+
+msgid "Edit linked demand through its route cargo target."
+msgstr "عدّل الطلب المرتبط عبر هدف البضاعة في المسار."
+
+msgid "Linked orders support fixed targets for bulk commodities, mass consumer products and scrap. Fills stay reserved for this ship; the remaining order ends at berth."
+msgstr "تدعم الأوامر المرتبطة أهدافاً ثابتة للسلع السائبة والمنتجات الاستهلاكية والخردة. تبقى المشتريات محجوزة لهذه السفينة؛ وينتهي باقي الطلب عند الرصيف."
+
+msgid "Linked purchases at %{port} could not reserve cash or warehouse space for the next circuit."
+msgstr "تعذر حجز النقد أو مساحة المخزن للمشتريات المرتبطة في %{port} للدورة التالية."
+
+msgid "Linked purchases require a fixed buy target, an exchange-supported cargo and your active warehouse at this stop."
+msgstr "تتطلب المشتريات المرتبطة هدف شراء ثابتاً وبضاعة تدعمها البورصة ومخزناً سارياً تملكه في هذه المحطة."
+
+msgid "Linked remote purchases"
+msgstr "مشتريات بعيدة مرتبطة"
+
+msgid "No linked order"
+msgstr "دون أمر مرتبط"
+
+msgid "Purchases skipped for this visit"
+msgstr "تُجاوزت المشتريات لهذه الزيارة"
+
+msgid "Remote purchase warehouse (optional)"
+msgstr "مخزن الشراء البعيد (اختياري)"
+
+msgid "Reserved for this visit: $%{amount}"
+msgstr "المحجوز لهذه الزيارة: $%{amount}"
+
+msgid "Sail with a reduced budget"
+msgstr "الإبحار بميزانية مخفضة"
+
+msgid "Save budget"
+msgstr "حفظ الميزانية"
+
+msgid "Save policy"
+msgstr "حفظ السياسة"
+
+msgid "Skip purchases"
+msgstr "تجاوز المشتريات"
+
+msgid "Stops run in order and repeat. Cargo edits apply when that stage next runs; existing visit orders keep their terms. Removing the current or next stop returns the route to draft; committed voyages and handling finish. Start at the first stop, or while sailing there. Sales finish unloading before purchases begin. A load target includes cargo already aboard; an optional purchase cap resets each visit. With no cap, purchases use available cash while keeping the voyage reserve. Prices are per lot, excluding handling; caps include handling and cleaning. An optional advance budget reserves cash before sailing toward its stop and stays a strict purchase limit. Linked remote purchases reserve their own cash and warehouse space. Fixed targets wait until filled or cancelled. Buy maximum stops at available capacity, stock, cash, or the purchase cap. Sell all aboard sells what current demand and buyer funds permit, then continues with unsold cargo aboard. Price limits still wait. Once sales finish, a full hold cancels any remaining loading shortfall. Pausing stops new trades and automatic departures; committed voyages and handling finish."
+msgstr "تُنفذ المحطات بالترتيب وتتكرر. تسري تعديلات البضائع عند تشغيل مرحلتها التالية؛ وتحتفظ أوامر الزيارة القائمة بشروطها. تُعيد إزالة المحطة الحالية أو التالية المسار إلى المسودة؛ وتكتمل الرحلات والمناولة الملتزم بها. ابدأ عند المحطة الأولى أو أثناء الإبحار إليها. ينتهي تفريغ المبيعات قبل بدء المشتريات. يشمل هدف التحميل البضاعة الموجودة على المتن؛ ويُعاد ضبط سقف الشراء الاختياري كل زيارة. دون سقف، تُستخدم السيولة المتاحة مع الاحتفاظ باحتياطي الرحلة. الأسعار لكل دفعة دون المناولة؛ وتشمل الحدود المناولة والتنظيف. تحجز الميزانية المسبقة الاختيارية نقداً قبل الإبحار إلى محطتها وتبقى سقفاً صارماً للشراء. تحجز المشتريات البعيدة المرتبطة نقدها ومساحة المخزن بشكل منفصل. تنتظر الأهداف الثابتة حتى التنفيذ أو الإلغاء. يتوقف الشراء الأقصى عند بلوغ السعة أو المخزون أو النقد أو السقف المتاح. يبيع خيار بيع كل الحمولة ما يسمح به الطلب وأموال المشترين، ثم يتابع مع البضاعة غير المباعة. تبقى حدود الأسعار ملزمة بالانتظار. بعد انتهاء المبيعات، يلغي امتلاء العنبر أي نقص تحميل متبقٍ. يوقف تعليق المسار التجارة الجديدة والإبحار التلقائي؛ وتكتمل الرحلات والمناولة الملتزم بها."
+
+msgid "The budget cannot be lower than spending already committed."
+msgstr "لا يمكن أن تقل الميزانية عن الإنفاق الملتزم به مسبقاً."
+
+msgid "This policy applies to all automatic departures. Fuel is always fully funded. Reduced budgets stay strict at arrival; skipped visits can still deliver and collect owned cargo."
+msgstr "تسري هذه السياسة على جميع رحلات الإبحار التلقائي. يُموّل الوقود كاملاً دائماً. تبقى الميزانيات المخفضة حدوداً صارمة عند الوصول؛ ويمكن للزيارات التي تتجاوز الشراء تسليم البضاعة المملوكة وجمعها."
+
+msgid "Use available cash"
+msgstr "استخدام النقد المتاح"
+
+msgid "Wait and notify"
+msgstr "الانتظار والإخطار"
+
+msgid "Warehouse %{number}"
+msgstr "المخزن %{number}"
+
+msgid "· %{filled} lots purchased; %{remaining} lots open"
+msgstr "· اشتريت %{filled} دفعة؛ وبقيت %{remaining} دفعة مطلوبة"
+
+msgid "· accumulation remaining: %{time}"
+msgstr "· المتبقي من مهلة التجميع: %{time}"
+
+msgid "Waiting for fuel and the configured purchase budget"
+msgstr "بانتظار تمويل الوقود وميزانية الشراء المحددة"
+
+msgid "%{ship} at %{port}: cancelled %{quantity} linked lots of %{cargo}, releasing %{refund} and their warehouse space. %{filled} purchased lots remain stored. %{reason}."
+msgstr "%{ship} في %{port}: أُلغي طلب %{quantity} دفعة مرتبطة من %{cargo} وأُفرج عن %{refund} ومساحة تخزينها. تبقى %{filled} دفعة مشتراة في المخزن. %{reason}."
+
+msgid "Collection stop or link removed"
+msgstr "أُزيلت محطة الجمع أو رابط الشراء"
+
+msgid "Handed over at berth"
+msgstr "سُلّم إلى تعليمات السفينة عند الرصيف"
+
+msgid "Visit finished"
+msgstr "انتهت الزيارة"
+
+msgid "Replace occupied storage: %{days} days · %{price}, plus accrued grace charges"
+msgstr "استبدال التخزين المشغول: %{days} أيام · %{price}، بالإضافة إلى رسوم المهلة المستحقة"
+
+msgid "Won cargo has its own storage grace. No new cargo can enter this allocation."
+msgstr "للبضائع المكتسبة بالمزاد مهلة تخزين مستقلة. لا يمكن إدخال بضائع جديدة إلى هذه المساحة."
+
+msgid "Won-cargo replacement is available only during its grace period, after handling finishes."
+msgstr "يمكن استبدال تخزين البضائع المكتسبة بالمزاد خلال مهلتها فقط، بعد انتهاء المناولة."
+
+msgid "Remaining under current storage: %{minutes} mins"
+msgstr "المدة المتبقية في ظروف التخزين الحالية: %{minutes} دقائق"
+
+
+msgid "solid goods, including perishables"
+msgstr "البضائع الصلبة، بما فيها البضائع القابلة للتلف"
+
+msgid "%{minutes} mins remaining"
+msgstr "متبقي %{minutes} دقيقة"
+
+msgid "Absolute price floor ($)"
+msgstr "الحد الأدنى المطلق للسعر ($)"
+
+msgid "Any grade"
+msgstr "أي درجة"
+
+msgid "At least %{minutes} mins"
+msgstr "على الأقل %{minutes} دقيقة"
+
+msgid "Automatic markdowns"
+msgstr "تخفيضات تلقائية"
+
+msgid "Choose a valid freshness requirement or a complete markdown schedule with a percentage for every grade."
+msgstr "اختر شرط نضارة صالحاً أو جدول تخفيضات كاملاً بنسبة لكل درجة."
+
+msgid "Clearance (below 25%)"
+msgstr "تصفية (أقل من 25%)"
+
+msgid "Delete preset"
+msgstr "حذف الإعداد المحفوظ"
+
+msgid "Fair (25–50%)"
+msgstr "مقبول (25–50%)"
+
+msgid "Fresh (75–100%)"
+msgstr "طازج (75–100%)"
+
+msgid "Freshness"
+msgstr "النضارة"
+
+msgid "Good (50–75%)"
+msgstr "جيد (50–75%)"
+
+msgid "Keep applied settings"
+msgstr "إبقاء الإعدادات المطبقة"
+
+msgid "Markdown basis: %{price}. Preset edits do not change these applied settings."
+msgstr "أساس التخفيض: %{price}. تعديل الإعداد المحفوظ لا يغير هذه الإعدادات المطبقة."
+
+msgid "Markdown preset (optional)"
+msgstr "إعداد تخفيض محفوظ (اختياري)"
+
+msgid "Markdown presets"
+msgstr "إعدادات التخفيض المحفوظة"
+
+msgid "Minimum freshness grade"
+msgstr "الحد الأدنى لدرجة النضارة"
+
+msgid "Minimum remaining life (minutes)"
+msgstr "الحد الأدنى للصلاحية المتبقية (دقائق)"
+
+msgid "Preset name"
+msgstr "اسم الإعداد المحفوظ"
+
+msgid "Rebase percentages on the new asking price"
+msgstr "إعادة احتساب النسب على سعر الطلب الجديد"
+
+msgid "Save percentages for every grade. Apply a preset explicitly to copy its settings; editing or deleting it leaves active orders unchanged."
+msgstr "احفظ نسبة لكل درجة. طبّق الإعداد المحفوظ لنسخ إعداداته؛ تعديله أو حذفه لا يغير الأوامر النشطة."
+
+msgid "Save preset"
+msgstr "حفظ الإعداد"
+
+msgid "Use percentages below"
+msgstr "استخدام النسب أدناه"
+
+msgid "Estimated handling: %{minutes} min"
+msgstr "وقت المناولة المقدر: %{minutes} دقيقة"
+
+msgid "Handling time for 100 lots: ordinary %{ordinary} min, perishables %{perishable} min, scrap %{scrap} min, liquids %{liquid} min."
+msgstr "وقت مناولة 100 دفعة: البضائع العادية %{ordinary} دقيقة، القابلة للتلف %{perishable} دقيقة، الخردة %{scrap} دقيقة، السوائل %{liquid} دقيقة."
+
+msgid "Regional storm: %{minutes} min remaining. Voyage estimates include known weather delays."
+msgstr "عاصفة إقليمية: متبقي %{minutes} دقيقة. تقديرات الرحلات تشمل تأخيرات الطقس المعروفة."
+
+msgid "Waiting for regional weather: %{minutes} min. Fuel use is paused; cargo continues aging."
+msgstr "انتظار تحسن الطقس الإقليمي: %{minutes} دقيقة. استهلاك الوقود متوقف والبضائع تواصل تقادمها."
+
+msgid "Weather added %{minutes} min to this voyage's arrival estimate."
+msgstr "أضاف الطقس %{minutes} دقيقة إلى وقت الوصول المقدر لهذه الرحلة."
+
+msgid "Weather revised %{ship}'s arrival at %{destination}; total weather delay %{minutes} min."
+msgstr "غيّر الطقس وقت وصول %{ship} إلى %{destination}؛ مجموع تأخير الطقس %{minutes} دقيقة."
+
+msgid "Known weather delay: %{minutes} min; included in this estimate."
+msgstr "تأخير الطقس المعروف: %{minutes} دقيقة؛ مشمول في هذا التقدير."
+
+msgid "Company is in receivership"
+msgstr "الشركة تحت الحراسة القضائية"
+
+#, elixir-autogen, elixir-format
+msgid "Next invitation"
+msgstr "الدعوة التالية"
+
+#, elixir-autogen, elixir-format
+msgid "Active-world time remaining (hours:minutes:seconds)"
+msgstr "وقت العالم النشط المتبقي (ساعات:دقائق:ثوانٍ)"
+
+#, elixir-autogen, elixir-format
+msgid "Earning"
+msgstr "جارٍ اكتساب الدعوة"
+
+#, elixir-autogen, elixir-format
+msgid "Not earning yet"
+msgstr "لم يبدأ اكتساب الدعوة بعد"
+
+#, elixir-autogen, elixir-format
+msgid "Paused"
+msgstr "متوقف مؤقتًا"
+
+#, elixir-autogen, elixir-format
+msgid "Hours:minutes:seconds of active-world time. Pauses while the world is stopped."
+msgstr "ساعات:دقائق:ثوانٍ من وقت العالم النشط. يتوقف العد التنازلي أثناء توقف العالم."
+
+#, elixir-autogen, elixir-format
+msgid "Counts down while your company stays active and solvent."
+msgstr "يتناقص الوقت ما دامت شركتك نشطة وتفي بالتزاماتها المالية."
+
+#, elixir-autogen, elixir-format
+msgid "Form a company and complete an economic action worth at least $100 to start earning."
+msgstr "أنشئ شركة وأكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل لبدء اكتساب الدعوات."
+
+#, elixir-autogen, elixir-format
+msgid "Clear unpaid bills and loan arrears to resume earning. Progress restarts from two days."
+msgstr "سدّد الفواتير غير المدفوعة ومتأخرات القروض لاستئناف اكتساب الدعوات. يبدأ العد مجددًا من يومين."
+
+#, elixir-autogen, elixir-format
+msgid "Complete an economic action worth at least $100 to start earning."
+msgstr "أكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل لبدء اكتساب الدعوات."

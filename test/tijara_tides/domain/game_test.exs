@@ -338,7 +338,7 @@ defmodule TijaraTides.Domain.GameTest do
     goods = GameCatalogue.all()["goods"]
     ship = fn class -> %{"class" => class, "cargo" => []} end
     assert Game.compatible_cargo?(ship.("freighter"), goods["lumber"])
-    refute Game.compatible_cargo?(ship.("freighter"), goods["fruit"])
+    assert Game.compatible_cargo?(ship.("freighter"), goods["fruit"])
     refute Game.compatible_cargo?(ship.("freighter"), goods["crude_oil"])
     assert Game.compatible_cargo?(ship.("reefer"), goods["fruit"])
     assert Game.compatible_cargo?(ship.("reefer"), goods["lumber"])
@@ -646,6 +646,7 @@ defmodule TijaraTides.Domain.GameTest do
     legacy =
       ship
       |> Map.delete("voyage_speedup")
+      |> Map.delete("weather")
       |> Map.merge(%{
         "depart_ms" => 0,
         "arrive_ms" => 100_000,
@@ -705,10 +706,43 @@ defmodule TijaraTides.Domain.GameTest do
     }
 
     assert {:ok, bought, _} = Game.execute(state, account, command, %{}, catalogue)
-    assert hd(Game.get(bought, "ships", ship["id"])["cargo"])["expires_ms"] == expiry
+    lot = hd(Game.get(bought, "ships", ship["id"])["cargo"])
+    assert lot["freshness"]["origin_expires_ms"] == expiry
+    assert lot["expires_ms"] == bought.clock_ms + 4 * (expiry - bought.clock_ms)
+    expiry = lot["expires_ms"]
     expired = Game.advance(bought, expiry - bought.clock_ms, catalogue)
     assert Game.get(expired, "ships", ship["id"])["cargo"] == []
     assert Game.advance(expired, 0, catalogue) == expired
+  end
+
+  test "manual purchases select stock meeting life in the receiving hold" do
+    {state, account, cat} = setup_game()
+    ship = Game.get(state, "ships", "company:1") |> Map.put("class", "reefer")
+    state = TijaraTides.Domain.State.put(state, "ships", ship["id"], ship)
+    expiry = hd(Game.get(state, "markets", "Jakarta|fruit")["batches"])["expires_ms"]
+
+    trade = %TijaraTides.Domain.Trade{
+      side: "buy",
+      ship_id: ship["id"],
+      good: "fruit",
+      quantity: 2,
+      limit: 1_000_000,
+      destination: "Singapore",
+      min_remaining_ms: expiry * 4
+    }
+
+    assert {:error, :insufficient_fresh_cargo} =
+             TijaraTides.Domain.Services.TradeSettlement.check(
+               state,
+               account,
+               %{trade | min_remaining_ms: expiry * 4 + 1},
+               cat
+             )
+
+    assert {:ok, bought, _} =
+             TijaraTides.Domain.Services.TradeSettlement.check(state, account, trade, cat)
+
+    assert hd(Game.get(bought, "ships", ship["id"])["cargo"])["expires_ms"] == expiry * 4
   end
 
   test "market recovery is one lot per 150 seconds and preserves partial intervals" do
@@ -746,7 +780,15 @@ defmodule TijaraTides.Domain.GameTest do
   test "market freshness expires between production boundaries" do
     {state, _, catalogue} = setup_game()
     market = Game.get(state, "markets", "Jakarta|fruit")
-    market = %{market | "batches" => Enum.map(market["batches"], &%{&1 | "expires_ms" => 1})}
+
+    market = %{
+      market
+      | "batches" =>
+          Enum.map(market["batches"], fn row ->
+            row |> Map.delete("freshness") |> Map.put("expires_ms", 1)
+          end)
+    }
+
     state = TijaraTides.Domain.State.put(state, "markets", "Jakarta|fruit", market)
     state = Game.advance(state, 1, catalogue)
     assert Game.get(state, "markets", "Jakarta|fruit")["stock"] == 0

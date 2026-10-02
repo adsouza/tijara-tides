@@ -41,18 +41,26 @@ defmodule TijaraTides.Domain.CargoLots do
             {state, taken ++ [batch], left, need - amount}
 
           true ->
-            {state, part} = create(state, good, amount, batch["expires_ms"], batch["lot_id"])
+            {state, part} =
+              create(
+                state,
+                good,
+                amount,
+                get_in(batch, ["freshness", "origin_expires_ms"]) || batch["expires_ms"],
+                batch["lot_id"]
+              )
 
             {state, rest} =
               create(
                 state,
                 good,
                 batch["quantity"] - amount,
-                batch["expires_ms"],
+                get_in(batch, ["freshness", "origin_expires_ms"]) || batch["expires_ms"],
                 batch["lot_id"]
               )
 
-            {state, taken ++ [Map.merge(batch, part)], left ++ [Map.merge(batch, rest)],
+            {state, taken ++ [Map.merge(batch, %{part | "expires_ms" => batch["expires_ms"]})],
+             left ++ [Map.merge(batch, %{rest | "expires_ms" => batch["expires_ms"]})],
              need - amount}
         end
       end)

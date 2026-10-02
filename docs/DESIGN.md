@@ -139,11 +139,14 @@ retroactive awards. Earned invitation entitlements belong to the inviter and
 cannot be transferred between accounts.
 Each earned grant notifies its owner and points them to the account menu to send
 the invitation. The notice commits with the grant and is not repeated by retries.
-When no invitations are available, the account menu shows the remaining
-active-world earning time or the action needed to resume earning, and the earliest
-unused invitation expiry, before email verification. Earning estimates assume
-continued active, solvent operation; expiry estimates assume the invitation
-remains unused. World pauses preserve both countdowns.
+The account menu always shows a prominent hours:minutes:seconds countdown to the
+next earned invitation, including before email verification and while available
+invitations remain. Show whether it is earning, not yet earning or paused, with
+the action needed to start or resume. Blocked states show the full two-day earning
+requirement rather than a running deadline. Also show the earliest unused
+invitation expiry. Earning estimates assume continued active, solvent operation;
+expiry estimates assume the invitation remains unused. World pauses preserve
+both countdowns.
 The resulting invite codes can be shared with prospective players. Invitations
 expire if unused, and each account holds only a small number
 outstanding, so they cannot be hoarded and released as a coordinated wave of
@@ -908,7 +911,9 @@ perishables without slowing spoilage. Buyers can require a minimum remaining
 shelf life as well as a maximum price. Freshness grades use shared percentage
 bands of shelf life remaining across perishables. Always show estimated real
 time remaining under current storage conditions as well; buyers can specify a
-minimum remaining lifetime appropriate to their planned voyage. Refrigeration
+minimum remaining lifetime appropriate to their planned voyage. At settlement,
+check this minimum under the receiving warehouse or ship hold conditions,
+including purchases and collections; do not use the source storage rate. Refrigeration
 changes aging speed rather than resetting batch age. Exact grade thresholds,
 aging rates, and shelf lives remain tuning decisions.
 
@@ -1506,8 +1511,9 @@ assignment. Repeating routes now extend this execution path with private ordered
 per-visit cargo targets, pause/resume and stop-after-visit controls. The editor
 sits in a collapsed Repeating route disclosure in the Ships panel and preserves
 its open state across live updates. Automatic departure remains off by default.
-Warehouse collection, remote exchange orders, optional expiry and maximum-wait
-controls remain later extensions. See IMPLEMENTATION.md for the bounded
+Warehouse collection, repeating-stop maximum waits and optional individual
+instruction expiry are implemented. Remote exchange orders remain a later extension.
+See IMPLEMENTATION.md for the bounded
 playtest route editor and its lifecycle.
 
 The Ships panel shows a next-port instruction editor with the voyage
@@ -1546,7 +1552,7 @@ On arrival, suggest the saved onward destination in the voyage controls when no
 other destination is selected. Provide a per-visit automatic-departure checkbox,
 off by default, saved together with the onward destination. When enabled, depart
 only after every cargo order for that visit is filled or explicitly cancelled
-and all committed loading and unloading finish. Unfilled orders wait indefinitely;
+and all committed loading and unloading finish. Unfilled orders wait indefinitely unless expired;
 a full hold leaves the order waiting rather than automatically cancelling it.
 An empty visit can depart automatically as soon as the ship is docked.
 
@@ -1570,6 +1576,31 @@ Departing cancels waiting remainders and plans for a different destination, with
 a shortfall notification. Display active instructions before recent completed
 or cancelled ones. Instructions and their prices are visible only to the owning
 company. Their progress persists atomically with the trade and financial ledger.
+
+Each next-port instruction may have an optional expiry duration, entered as
+1–43,200 active-world minutes. Blank means no expiry, including for legacy
+instructions. The deadline starts when the instruction is accepted and persists
+through voyages, berth queues, handling and restarts. Offline time does not
+consume it. At the inclusive deadline, cancel only the unfilled remainder before
+berth admission or new fills. Keep completed trades, cargo, spending and committed
+handling intact, retain the cancelled instruction in the current journey's
+history, and coalesce its expiry notice. Expiry preserves the saved onward plan;
+configured automatic departure still waits for all other active orders and
+committed handling. Replaying the creation request never extends the deadline.
+Repeating-route targets use their stop's maximum wait instead.
+
+The playtest's next-port buys and repeating-route load targets support a minimum
+remaining lifetime at settlement, in active-world minutes (0–43,200; blank means
+any unspoiled cargo). Within each source, choose earliest-expiring qualifying
+stock first, preserving cost, lot identity and expiry. Count only qualifying
+cargo aboard toward a fixed load target, while all cargo occupies capacity.
+When stock fails the requirement, wait and retry without settling a trade or
+spending money. Partially filled instructions retain their committed progress
+and remaining terms. Editing a route template changes future materializations;
+existing visit orders keep their snapshot. This minimum is not a guarantee of
+freshness after loading, travel or unloading; those projected times remain
+estimates. Freshness grades, standing-order buyer terms and freshness-aware
+reservation replacement remain later extensions.
 
 Players can give each destination instructions to sell up to a quantity above a
 minimum price, buy up to a quantity below a maximum price with a spending cap,
@@ -1717,19 +1748,29 @@ from unreserved cash. Otherwise release its accumulated cash at the deadline,
 pay overdue obligations first, and run the normal oldest-affordable departure
 allocation before another accumulation attempt. Apply a configured retry
 cooldown to accumulation attempts so released cash is not immediately captured
-again; ordinary affordable departures remain eligible during that cooldown.
-Preserve the ship's original waiting age. Notify the player when accumulation
-times out. Window and cooldown durations follow the world-clock policy and
-remain tuning parameters. Accumulated reservations also release under the normal
-rules if the player changes the plan or the policy. Departure requirements
-follow the player's current global policy. When the global Skip purchases policy
-is triggered for a visit, cancel the unfilled remainder of remote buy orders
-linked to that visit and release their unused cash and warehouse-capacity
-reservations. Notify the player of the cancellation. Completed fills remain
-owned and reserved for collection because the ship still visits that stop. Do
-not cancel unrelated warehouse orders. Apply the cancellation once for that
-visit; cash it releases does not silently reverse the decision to skip
-purchases. Fully fund fuel before departure.
+again; ordinary affordable departures remain eligible during that cooldown. The
+initial configurable durations are 30 active-world minutes before accumulation,
+a 10-minute window, and a 30-minute retry cooldown. Preserve the ship's original
+waiting age. Notify the player when accumulation times out. Window and cooldown
+durations follow the world-clock policy and remain tuning parameters.
+Accumulated reservations also release under the normal rules if the player
+changes the plan. A policy change re-prices each waiting request in place: it
+keeps its waiting age and any window deadline, holds accumulated cash up to the
+new requirement and returns the excess. Departure requirements follow the
+player's current global policy. When the global Skip purchases policy is
+triggered for a visit, cancel the unfilled remainder of remote buy orders linked
+to that visit and release their unused cash and warehouse-capacity reservations.
+Notify the player of the cancellation. Completed fills remain owned and reserved
+for collection because the ship still visits that stop. Do not cancel unrelated
+warehouse orders. Apply the cancellation once for that visit; cash it releases
+does not silently reverse the decision to skip purchases. Fully fund fuel before
+departure.
+
+The fleet's policy selector has a collapsed disclosure explaining the trade-offs
+between waiting for the full budget, departing with a strict reduced budget and
+skipping new purchases. Include the global scope, full fuel funding and owned
+cargo delivery/collection guidance inside that disclosure. Preserve its open
+state through live updates.
 
 Remote buy orders may optionally be linked to a particular ship collection stop.
 Filled goods from a linked order count toward that stop's loading target and are
@@ -2220,7 +2261,11 @@ lease's liquidation proceeds. The port absorbs any shortfall: do not debit other
 company cash, create an overdue balance, or trigger bankruptcy for it. Net
 proceeds to the owner cannot be negative, and clearance completes regardless of
 the shortfall. This cap does not refund charges already paid or cap unrelated
-operating obligations.
+operating obligations. If the owner collects all goods during grace without any
+sale proceeds, retain the accrued grace rent in the pool but collect zero at
+completion; the port absorbs that rent under the same proceeds cap. Ordinary
+collection handling fees and any separately paid replacement-lease charges
+remain payable under their existing rules.
 
 During the grace period, occupied space is charged at the previous lease rate.
 When liquidation begins, apply a fixed surcharge above that rate, provisionally
@@ -2244,7 +2289,9 @@ values rather than recent local trade prices or the owner's purchase cost.
 Expired perishables receive no payment and are discarded. Cleared goods leave
 port storage, releasing capacity instead of accumulating in a new simulated
 warehouse. Credit proceeds through the normal liquidation accounting after
-outstanding charges; freshness adjustment details remain open. Ordinary lease
+outstanding charges. The agreed clearance freshness multiplier is the remaining
+configured shelf-life fraction, bounded between zero and one; expired goods
+receive zero. Ordinary lease
 liquidation returns net proceeds to its owner; bankruptcy liquidation does not.
 If the owner becomes bankrupt during lease liquidation, continue the existing
 process and auctions without restarting them. Net proceeds not yet paid to the
@@ -2572,14 +2619,14 @@ alongside the goods.
 ## 15. Implementation boundary and invariants
 
 The first playable milestone implements invitation-based device accounts,
-persistent companies, manual immediate trades, and timed sea voyages.
-The home page shows a live Players online count of signed-in browsers with
-the play page open. Multiple play tabs in one browser count once; home-page
-visitors and spectators do not count. Closing the last play tab or signing out
-removes that browser from the count. Do not show connection counts or a world
-identifier on the home page. Presence is temporary and is not persisted. See
+persistent companies, manual immediate trades, and timed sea voyages. The home
+page shows a live Players online count of signed-in browsers with the play page
+open. Multiple play tabs in one browser count once; home-page visitors and
+spectators do not count. Closing the last play tab or signing out removes that
+browser from the count. Do not show connection counts or a world identifier on
+the home page. Presence is temporary and is not persisted. See
 [IMPLEMENTATION.md](IMPLEMENTATION.md) for the precise feature boundary and
-provisional market rules, and [ARCHITECTURE.md](../ARCHITECTURE.md) for storage,
+provisional market rules, and [architecture.md](architecture.md) for storage,
 authority, recovery, and command idempotency. This design remains the target for
 subsequent milestones, including identity linking and the full economy.
 

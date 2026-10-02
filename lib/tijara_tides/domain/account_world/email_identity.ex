@@ -6,19 +6,27 @@ defmodule TijaraTides.Domain.AccountWorld.EmailIdentity do
 
   def delivered(state, row) do
     current = get(state, "email_requests", row["id"])
-    put(state, "email_requests", current["id"], %{current | "delivery" => "sent"})
+
+    if current["delivery"] == "pending",
+      do: put(state, "email_requests", current["id"], %{current | "delivery" => "sent"}),
+      else: state
   end
 
   def delivery_failed(state, row, wall_ms) do
     row = get(state, "email_requests", row["id"])
-    attempts = row["attempts"] + 1
 
-    put(state, "email_requests", row["id"], %{
-      row
-      | "attempts" => attempts,
-        "retry_ms" => wall_ms + min(3_600_000, 30_000 * Integer.pow(2, min(attempts, 7))),
-        "delivery" => if(attempts >= 8, do: "failed", else: "pending")
-    })
+    if row["delivery"] == "pending" do
+      attempts = row["attempts"] + 1
+
+      put(state, "email_requests", row["id"], %{
+        row
+        | "attempts" => attempts,
+          "retry_ms" => wall_ms + min(3_600_000, 30_000 * Integer.pow(2, min(attempts, 7))),
+          "delivery" => if(attempts >= 8, do: "failed", else: "pending")
+      })
+    else
+      state
+    end
   end
 
   defdelegate normalize(value), to: TijaraTides.Domain.Account.EmailIdentity
@@ -92,6 +100,9 @@ defmodule TijaraTides.Domain.AccountWorld.EmailIdentity do
 
     cond do
       is_nil(row) ->
+        {:error, :email_link_invalid}
+
+      row["purpose"] == "dormancy" ->
         {:error, :email_link_invalid}
 
       row["used_session"] == session ->

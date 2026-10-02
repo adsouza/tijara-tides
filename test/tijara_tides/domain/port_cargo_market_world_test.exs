@@ -25,6 +25,59 @@ defmodule TijaraTides.Domain.PortCargoMarketWorldTest do
     }
   end
 
+  test "perishable merchant quotes and release exclude reserved quantities without splitting virtual parents" do
+    state = world({:local, 1})
+    row = state.entities["markets"]["p|fruit"]
+
+    state =
+      TijaraTides.Domain.State.put(state, "markets", "p|fruit", %{row | "merchant" => true})
+      |> TijaraTides.Domain.State.put("merchant_warehouses", "p|fruit", %{
+        "id" => "p|fruit",
+        "port" => "p",
+        "good" => "fruit",
+        "storage" => "reefer",
+        "blocks" => 1,
+        "capacity" => 500,
+        "expires_ms" => 1000
+      })
+
+    item = %{"id" => "fruit", "shelf_ms" => 100, "reference_cents" => 20, "manual" => true}
+    cat = %{"goods" => %{"fruit" => item}, "ports" => %{"p" => %{}}}
+
+    for reserved <- [0, 1, 6, 10, 11] do
+      s =
+        TijaraTides.Domain.State.put(state, "auctions", "held", %{
+          "company_id" => nil,
+          "status" => "scheduled",
+          "port" => "p",
+          "good" => "fruit",
+          "quantity" => reserved
+        })
+
+      q = PortCargoMarketWorld.quote(s, cat, "p", "fruit")
+      assert Enum.sum(for b <- q["freshness_batches"], do: b["quantity"]) == q["stock"]
+      assert q["stock"] == max(0, 10 - reserved)
+      assert PortCargoMarketWorld.quotes(s, cat)["p|fruit"] == q
+
+      if q["stock"] > 0 do
+        {next, cargo} = PortCargoMarketWorld.release_stock(s, "p", "fruit", q["stock"], 20, item)
+        assert Enum.sum(for b <- cargo, do: b["quantity"]) == q["stock"]
+        assert next.entities["markets"]["p|fruit"]["stock"] == min(10, reserved)
+        assert PortCargoMarketWorld.quote(next, cat, "p", "fruit")["stock"] == 0
+
+        if reserved > 0 do
+          children = tl(next.new_lots)
+          assert Enum.sum(for lot <- children, do: lot["quantity"]) == 10
+          assert Enum.all?(children, &(&1["parent_lot_id"] == "parent"))
+        end
+      end
+
+      assert_raise ArgumentError, fn ->
+        PortCargoMarketWorld.release_stock(s, "p", "fruit", q["stock"] + 1, 20, item)
+      end
+    end
+  end
+
   test "adapter preserves row shape, allocation order, lineage and declared changes" do
     state = world(["part", "rest", "unused"])
     row = state.entities["markets"]["p|fruit"]
@@ -36,7 +89,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorldTest do
         "shelf_ms" => 100
       })
 
-    assert cargo == %{
+    assert Map.delete(cargo, "freshness") == %{
              "lot_id" => "part",
              "quantity" => 4,
              "expires_ms" => 100,

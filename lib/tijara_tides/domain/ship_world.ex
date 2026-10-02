@@ -13,7 +13,7 @@ defmodule TijaraTides.Domain.ShipWorld do
          company["account_id"] != account["id"] or company["bankruptcy_ms"] != nil do
       {:error, :ship_not_owned}
     else
-      with {:ok, name} <- TijaraTides.Domain.Fleet.validate_ship_name(state, name, id) do
+      with {:ok, name} <- TijaraTides.Domain.ShipWorld.Names.validate(state, name, id) do
         {:ok, store(state, Ship.rename(Rows.decode(ship), name)), %{}}
       end
     end
@@ -62,13 +62,23 @@ defmodule TijaraTides.Domain.ShipWorld do
 
   defdelegate pause_diverted_route(state, id), to: RoutePlans, as: :divert
 
-  defdelegate edit_route(state, account, params, context), to: RoutePlans, as: :execute
+  defdelegate edit_route(state, account, params, context),
+    to: RoutePlans,
+    as: :execute
+
+  defdelegate set_advance_budget(state, id, stop?, amount), to: RoutePlans
+  defdelegate finish_route_visit(state, ship), to: RoutePlans, as: :finish_current_visit
 
   def route_stops(state, ship),
     do: RoutePlans.stops(state, ship) |> Enum.map(&Ship.RouteStop.to_row/1)
 
   defdelegate automation_enabled?(state, ship), to: RoutePlans, as: :executable?
-  defdelegate prepare_visits(state, catalogue), to: RoutePlans, as: :advance
+
+  def prepare_visits(state, catalogue),
+    do: state |> VisitOrders.expire(catalogue) |> RoutePlans.advance(catalogue)
+
+  defdelegate expire_instructions(state, catalogue), to: VisitOrders, as: :expire
+  defdelegate expire_route_waits(state, catalogue), to: RoutePlans, as: :expire_waits
   defdelegate route_departed(state, ship, destination), to: RoutePlans, as: :departed
 
   defdelegate add_instruction(state, account, params, context),
@@ -82,9 +92,11 @@ defmodule TijaraTides.Domain.ShipWorld do
     to: VisitOrders,
     as: :cancel
 
-  defdelegate consume_departure(state, ship, destination, catalogue),
-    to: VisitOrders,
-    as: :depart
+  def consume_departure(state, ship, destination, catalogue),
+    do:
+      state
+      |> VisitOrders.depart(ship, destination, catalogue)
+      |> RoutePlans.departed(ship, destination)
 
   defdelegate visit_onwards(state, ship, port), to: VisitOrders
   defdelegate wait_for_departure(state, id, reason), to: VisitOrders
@@ -137,13 +149,14 @@ defmodule TijaraTides.Domain.ShipWorld do
     {store(state, ship), Enum.map(discarded, &CargoRows.encode/1)}
   end
 
-  def unload_cargo(state, id, good, quantity) do
+  def unload_cargo(state, id, good, quantity, lot_ids \\ nil, catalogue \\ %{}) do
     lots = %Lots{
       clock_ms: state.clock_ms,
       lot_allocation: Map.get(state, :lot_allocation, {:local, 1})
     }
 
-    {lots, ship, sold} = Ship.record_sale(lots, hull(state, id), good, quantity)
+    {lots, ship, sold} =
+      Ship.record_sale(lots, hull(state, id), good, quantity, lot_ids, catalogue)
 
     state =
       if lots.new_lots == [] do
@@ -169,11 +182,27 @@ defmodule TijaraTides.Domain.ShipWorld do
   def reroute(state, id, destination, quote, paid),
     do: store(state, Ship.reroute(hull(state, id), destination, quote, paid, state.clock_ms))
 
-  def advance_hull(state, id, elapsed, bankrupt, speedup, book_value) do
-    {ship, effects} =
-      Ship.advance(hull(state, id), state.clock_ms, elapsed, bankrupt, speedup, book_value)
+  def apply_weather(state, id, catalogue, elapsed, speedup) do
+    ship = hull(state, id)
+    row = TijaraTides.Domain.Ship.Rows.encode(ship)
+    route = %{"coordinates" => TijaraTides.Domain.VoyageNavigation.path(row, catalogue)}
+    store(state, Ship.apply_weather(ship, route, state.clock_ms, elapsed, speedup, catalogue))
+  end
 
-    {store(state, ship), effects}
+  def advance_hull(state, id, elapsed, bankrupt, speedup, book_value) do
+    before = hull(state, id)
+
+    {ship, effects} =
+      Ship.advance(before, state.clock_ms, elapsed, bankrupt, speedup, book_value)
+
+    state = store(state, ship)
+
+    state =
+      if before.status == "sailing" and ship.status == "docked",
+        do: RoutePlans.arrived(state, id, ship.berth_queued_ms),
+        else: state
+
+    {state, effects}
   end
 
   def request_berth(state, id) do

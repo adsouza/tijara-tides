@@ -1,16 +1,29 @@
 defmodule TijaraTides.Domain.Warehouse.Rows do
-  @moduledoc "Codec for the unchanged lease and cargo rows."
+  @moduledoc "Codec for lease terms, snapshotted expiry settings and cargo rows."
   alias TijaraTides.Domain.Warehouse
   alias TijaraTides.Domain.Ship.CargoRows
 
   @fields ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms)a
   @renewal_defaults [
+    aging_bps: 2500,
+    source_lease_id: nil,
+    space_group: nil,
+    space_volumes: %{},
+    award_id: nil,
+    award_grace: false,
+    grace_rent: nil,
+    grace_blocks: nil,
+    grace_duration_ms: nil,
     display_number: 1,
     renewal_rate: nil,
     next_rent: 0,
     next_days: nil,
     auto_days: nil,
-    auto_cap: nil
+    auto_cap: nil,
+    grace_ms: 43_200_000,
+    surcharge_bps: 2500,
+    window_ms: 7_200_000,
+    clearance_bps: 1000
   ]
   def decode(row) do
     unknown =

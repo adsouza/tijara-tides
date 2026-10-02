@@ -14,12 +14,8 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
       ship && ship["company_id"] != account["company_id"] ->
         {:error, :invalid_trade}
 
-      ship && ship["pending_side"] ->
-        {:error, :berth_order_pending}
-
-      ship && ship["status"] in ["loading", "unloading"] && trade.side == "buy" &&
-          TijaraTides.Domain.Fleet.classes()[ship["class"]]["hold"] == "liquid" ->
-        {:error, :tanker_purchase_handling}
+      ship && TijaraTides.Domain.Ship.trade_admission(ship, trade.side) != :ok ->
+        TijaraTides.Domain.Ship.trade_admission(ship, trade.side)
 
       ship && ship["status"] in ["loading", "unloading"] ->
         # Cargo and cash already reflect the committed handling operation. Validate
@@ -115,7 +111,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
         Enum.reduce(decisions, acc, fn {id, decision}, next ->
           case decision do
             :grant ->
-              ShipWorld.grant_berth(next, id)
+              TijaraTides.Domain.Services.ShipLifecycle.grant_berth(next, id)
 
             :release ->
               ShipWorld.release_berth(next, id)
@@ -233,6 +229,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
             good: &1["good"],
             quantity: 1,
             limit: &1["limit"],
+            min_remaining_ms: Map.get(&1, "min_remaining_ms", 0),
             destination: &1["onward"]
           }
         )
@@ -242,7 +239,17 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
       (trades == [] ||
          Enum.any?(
            trades,
-           &(TradeSettlement.validate(state, account, &1, catalogue) == :ok)
+           fn trade ->
+             if ship["pending_side"],
+               do: TradeSettlement.validate(state, account, trade, catalogue) == :ok,
+               else:
+                 TijaraTides.Domain.Services.AutomatedVisits.validate(
+                   state,
+                   account,
+                   trade,
+                   catalogue
+                 ) == :ok
+           end
          ))
   end
 

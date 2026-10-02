@@ -1,7 +1,7 @@
 defmodule TijaraTides.Domain.Ship.CargoRows do
   @moduledoc "Cargo row codec shared by existing world adapters."
   alias TijaraTides.Domain.Ship.CargoBatch
-  @fields ~w(good quantity lot_id expires_ms unit_cost)a
+  @fields ~w(good quantity lot_id expires_ms unit_cost freshness)a
 
   @doc "Accept either representation where a collection's element type is not known."
   def coerce(%CargoBatch{} = batch), do: batch
@@ -19,12 +19,15 @@ defmodule TijaraTides.Domain.Ship.CargoRows do
 
     unless is_binary(batch.good) and is_integer(batch.quantity) and batch.quantity > 0 and
              is_integer(batch.unit_cost) and batch.unit_cost >= 0 and
-             (batch.expires_ms == nil or is_integer(batch.expires_ms)),
+             (batch.expires_ms == nil or is_integer(batch.expires_ms)) and
+             TijaraTides.Domain.CargoFreshness.valid?(batch),
            do: raise(ArgumentError, "Invalid cargo batch")
 
     batch
   end
 
   def encode(%CargoBatch{} = batch),
-    do: Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(batch, &1)})
+    do:
+      Map.new(@fields, &{Atom.to_string(&1), Map.fetch!(batch, &1)})
+      |> then(fn row -> if batch.freshness, do: row, else: Map.delete(row, "freshness") end)
 end

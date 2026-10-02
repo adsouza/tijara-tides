@@ -36,6 +36,77 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
 
   defp put(state, kind, id, row), do: State.put(state, kind, id, row)
 
+  @doc "Update an uncommitted linked loading target and its current instruction together."
+  def reconcile_linked_target(state, rule, catalogue) do
+    route = get(state, "ship_routes", rule["ship_id"])
+    stop = get(state, "route_stops", rule["stop_id"])
+    ship = get(state, "ships", rule["ship_id"])
+
+    if route && stop && route.cursor == stop.position && route.phase == "buying" &&
+         not route.visit_finished && not route.wait_timed_out do
+      order = get(state, "ship_instructions", "route:" <> rule["id"])
+
+      next =
+        Enum.at(stops(state, ship["id"]), rem(route.cursor + 1, length(stops(state, ship["id"]))))
+
+      aboard =
+        Enum.sum(
+          for b <- ship["cargo"],
+              b["good"] == rule["good"],
+              CargoRules.qualifies?(b["expires_ms"], state.clock_ms, rule["min_remaining_ms"]),
+              do: b["quantity"]
+        )
+
+      cond do
+        order && (order["good"] != rule["good"] && order["filled"] > 0) ->
+          {:error, :route_stop_committed}
+
+        order && rule["budget"] != nil && rule["budget"] < order["spent"] ->
+          {:error, :instruction_budget_invalid}
+
+        order ->
+          quantity = order["filled"] + max(0, rule["quantity"] - aboard)
+
+          if quantity > 10_000 do
+            {:error, :instruction_quantity_invalid}
+          else
+            changed = %{
+              order
+              | "quantity" => max(1, quantity),
+                "limit" => rule["limit"],
+                "budget" => rule["budget"],
+                "min_remaining_ms" => rule["min_remaining_ms"],
+                "good" => rule["good"],
+                "status" => if(quantity <= order["filled"], do: "filled", else: "planned"),
+                "reason" => "Route visit target"
+            }
+
+            {:ok, put(state, "ship_instructions", order["id"], changed)}
+          end
+
+        true ->
+          {:ok, materialize(state, ship, stop, next, "buy", catalogue, true)}
+      end
+    else
+      {:ok, state}
+    end
+  end
+
+  def finish_current_visit(state, ship_id) do
+    route = get(state, "ship_routes", ship_id)
+    put(state, "ship_routes", ship_id, %{route | visit_finished: true})
+  end
+
+  def set_advance_budget(state, id, true, amount) do
+    stop = get(state, "route_stops", id)
+    put(state, "route_stops", id, %{stop | advance_budget: amount})
+  end
+
+  def set_advance_budget(state, id, false, amount) do
+    plan = get(state, "visit_plans", id)
+    put(state, "visit_plans", id, %{plan | advance_budget: amount})
+  end
+
   def load(state, ship_id) do
     %TijaraTides.Domain.Ship.RoutePlan{
       header: get(state, "ship_routes", ship_id),
@@ -160,9 +231,18 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
           p["limit"] not in 0..1_000_000_000_000 ->
         {:error, :instruction_quantity_invalid}
 
+      p["linked_warehouse_id"] not in [nil, ""] and
+          (not is_binary(p["linked_warehouse_id"]) or p["side"] != "buy" or
+             Map.get(p, "quantity_mode", "fixed") != "fixed" or p["limit"] == 0) ->
+        {:error, :linked_order_invalid}
+
       p["side"] == "buy" and not is_nil(p["budget"]) and
           (not is_integer(p["budget"]) or p["budget"] not in 1..1_000_000_000_000) ->
         {:error, :instruction_budget_invalid}
+
+      not CargoRules.valid_remaining?(Map.get(p, "min_remaining_ms", 0)) or
+          (p["side"] != "buy" and Map.get(p, "min_remaining_ms", 0) != 0) ->
+        {:error, :instruction_freshness_invalid}
 
       length(rules) >= 20 or
           Enum.any?(rules, &(&1.side == p["side"] and &1.good == p["good"])) ->
@@ -178,11 +258,31 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
             "ship_id" => ship["id"],
             "company_id" => ship["company_id"],
             "stop_id" => stop.id,
-            "budget" => if(p["side"] == "buy", do: p["budget"])
+            "budget" => if(p["side"] == "buy", do: p["budget"]),
+            "linked_warehouse_id" =>
+              if(p["linked_warehouse_id"] in [nil, ""], do: nil, else: p["linked_warehouse_id"]),
+            "min_remaining_ms" => Map.get(p, "min_remaining_ms", 0)
           })
           |> RouteTarget.from_row()
 
         {:ok, put(state, "route_rules", rule.id, rule), %{}}
+    end
+  end
+
+  defp edit(state, ship, %{"operation" => "set_wait", "stop" => id} = p, _context) do
+    stop = get(state, "route_stops", id)
+    wait = p["max_wait_ms"]
+
+    cond do
+      is_nil(stop) or stop.ship_id != ship["id"] ->
+        {:error, :route_port_invalid}
+
+      not is_nil(wait) and
+          (not is_integer(wait) or wait < 1 or wait > RouteStop.max_wait_ms()) ->
+        {:error, :route_wait_invalid}
+
+      true ->
+        {:ok, put(state, "route_stops", id, %{stop | max_wait_ms: wait}), %{}}
     end
   end
 
@@ -229,6 +329,10 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
               | status: "draft",
                 cursor: 0,
                 phase: "arrival",
+                visit_finished: false,
+                visit_arrived_ms: nil,
+                wait_deadline_ms: nil,
+                wait_timed_out: false,
                 stop_after: false,
                 reason: "Add stops and cargo targets, then start the route"
             })
@@ -283,8 +387,10 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
                | status: "running",
                  auto_depart: Map.get(p, "auto_depart", true),
                  stop_after: false,
-                 reason: "Following route"
-             }), %{}}
+                 reason:
+                   if(route.wait_timed_out, do: "Maximum wait elapsed", else: "Following route")
+             })
+             |> arrived(ship["id"], state.clock_ms), %{}}
         end
 
       operation == "pause" ->
@@ -343,11 +449,122 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
   end
 
   def advance(state, catalogue) do
+    state = expire_waits(state, catalogue)
+
     entities(state, "ship_routes")
     |> Enum.sort_by(&elem(&1, 0))
     |> Enum.reduce(state, fn {id, _}, acc ->
       prepare(acc, get(acc, "ship_routes", id), catalogue)
     end)
+  end
+
+  # Capture the arrival before berth retries or handling can replace its timestamp.
+  # The stop's configured limit is a template; this deadline belongs to this visit.
+  def arrived(state, ship_id, arrived_ms) do
+    route = get(state, "ship_routes", ship_id)
+    ship = get(state, "ships", ship_id)
+    stop = if route, do: Enum.at(stops(state, ship_id), route.cursor)
+
+    if route && route.status != "draft" && is_nil(route.visit_arrived_ms) && stop && ship &&
+         ship["status"] != "sailing" && ship["port"] == stop.port do
+      put(state, "ship_routes", route.id, %{
+        route
+        | visit_arrived_ms: arrived_ms,
+          wait_deadline_ms: if(stop.max_wait_ms, do: arrived_ms + stop.max_wait_ms)
+      })
+    else
+      state
+    end
+  end
+
+  def expire_waits(state, catalogue) do
+    entities(state, "ship_routes")
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.reduce(state, fn {id, _}, acc ->
+      acc = arrived(acc, id, acc.clock_ms)
+      route = get(acc, "ship_routes", id)
+
+      if route.status != "draft" and not route.wait_timed_out and
+           not is_nil(route.wait_deadline_ms) and acc.clock_ms >= route.wait_deadline_ms and
+           (route.phase != "buying" or pending?(acc, id)) do
+        expire_visit(acc, route, catalogue)
+      else
+        acc
+      end
+    end)
+  end
+
+  defp expire_visit(state, route, catalogue) do
+    ship = get(state, "ships", route.ship_id)
+    stops = stops(state, route.ship_id)
+    stop = Enum.at(stops, route.cursor)
+    next = Enum.at(stops, rem(route.cursor + 1, length(stops)))
+
+    # Record unstarted targets as cancelled shortfalls, without starting their
+    # phase or any trade. Materialized orders keep their original terms/progress.
+    sides =
+      case route.phase do
+        "arrival" -> ["sell", "buy"]
+        "selling" -> ["buy"]
+        "buying" -> []
+      end
+
+    state =
+      Enum.reduce(sides, state, fn side, acc ->
+        materialize(acc, ship, stop, next, side, catalogue, true)
+      end)
+
+    open_orders =
+      entities(state, "ship_instructions")
+      |> Enum.filter(fn {_, o} ->
+        o["ship_id"] == route.ship_id and String.starts_with?(o["id"], "route:") and
+          o["status"] in @open
+      end)
+      |> Enum.sort_by(&elem(&1, 0))
+
+    if open_orders == [] do
+      state
+    else
+      finish_expired_visit(state, route, ship, stop, open_orders, catalogue)
+    end
+  end
+
+  defp finish_expired_visit(state, route, ship, stop, open_orders, catalogue) do
+    state =
+      Enum.reduce(open_orders, state, fn {id, _}, acc ->
+        TijaraTides.Domain.ShipWorld.VisitOrders.cancel_visit_order(
+          acc,
+          id,
+          "Maximum wait elapsed",
+          catalogue
+        )
+      end)
+
+    state
+    |> put("ship_routes", route.id, %{
+      route
+      | phase: "buying",
+        wait_timed_out: true,
+        reason: "Maximum wait elapsed"
+    })
+    |> Notices.notice(
+      get(state, "companies", route.company_id)["account_id"],
+      "route-timeout:" <> route.id,
+      {"route.wait_expired",
+       %{
+         "ship" => ship["name"],
+         "ship_id" => ship["id"],
+         "port" => stop.port,
+         "shortfalls" =>
+           entities(state, "ship_instructions")
+           |> Map.values()
+           |> Enum.filter(
+             &(&1["ship_id"] == ship["id"] and &1["reason"] == "Maximum wait elapsed")
+           )
+           |> Enum.sort_by(& &1["id"])
+           |> Enum.map(&Map.take(&1, ~w(good side quantity filled)))
+       }}
+    )
   end
 
   defp prepare(state, %RouteHeader{status: "running"} = route, catalogue) do
@@ -425,11 +642,21 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
         o["ship_id"] == ship and o["status"] in @open
       end)
 
-  defp materialize(state, ship, stop, next, side, catalogue) do
+  defp materialize(state, ship, stop, next, side, catalogue, only_missing \\ false) do
     rules(state, stop.id)
     |> Enum.filter(&(&1.side == side))
+    |> Enum.reject(fn rule ->
+      only_missing and not is_nil(get(state, "ship_instructions", "route:" <> rule.id))
+    end)
     |> Enum.reduce(state, fn rule, acc ->
-      aboard = Enum.sum(for b <- ship["cargo"], b["good"] == rule.good, do: b["quantity"])
+      aboard =
+        Enum.sum(
+          for b <- ship["cargo"],
+              b["good"] == rule.good,
+              side != "buy" or
+                CargoRules.qualifies?(b["expires_ms"], state.clock_ms, rule.min_remaining_ms),
+              do: b["quantity"]
+        )
 
       item = catalogue["goods"][rule.good]
       class = TijaraTides.Domain.ShipClass.all()[ship["class"]]
@@ -467,6 +694,7 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
           "filled" => 0,
           "limit" => rule.limit,
           "budget" => rule.budget,
+          "min_remaining_ms" => rule.min_remaining_ms,
           "spent" => 0,
           "onward" => if(side == "buy", do: next.port),
           "status" => "planned",
@@ -501,12 +729,24 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
             route
             | cursor: index,
               visit: route.visit + 1,
-              phase: "arrival"
+              phase: "arrival",
+              visit_finished: false,
+              visit_arrived_ms: nil,
+              wait_deadline_ms: nil,
+              wait_timed_out: false,
+              reason: if(route.wait_timed_out, do: "Following route", else: route.reason)
           })
         else
           pause(
             state,
-            %{route | phase: "arrival"},
+            %{
+              route
+              | phase: "arrival",
+                visit_finished: false,
+                visit_arrived_ms: nil,
+                wait_deadline_ms: nil,
+                wait_timed_out: false
+            },
             "Off route; return to the selected stop before resuming"
           )
           |> clear_visit(ship_id)

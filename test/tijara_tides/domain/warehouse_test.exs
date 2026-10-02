@@ -82,6 +82,187 @@ defmodule TijaraTides.Domain.WarehouseTest do
     ])
   end
 
+  test "collection and source selection use custom receiving hold conditions in both directions",
+       c do
+    cat = put_in(c.catalogue, ["refrigeration", "aging_bps"], 5000)
+    state = put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")
+    state = lease(c, state) |> then(&stock(&1, "lease", [{"fruit", 2, 30_000}]))
+    ship = Game.get(state, "ships", "company:1")
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 60_000, cat).id == "lease"
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 60_001, cat) == nil
+
+    cmd = %{
+      "warehouse" => "lease",
+      "ship" => ship["id"],
+      "good" => "fruit",
+      "quantity" => 1,
+      "side" => "collect",
+      "min_remaining_ms" => 60_000
+    }
+
+    {:ok, loaded, _} = WarehouseWorld.transfer(state, c.account, cmd, cat)
+    assert hd(Game.get(loaded, "ships", ship["id"])["cargo"])["expires_ms"] == 60_000
+
+    w = WarehouseWorld.fetch(state, "lease")
+    cold = Enum.map(w.cargo, &TijaraTides.Domain.CargoFreshness.recondition(&1, 0, 2500))
+
+    state =
+      TijaraTides.Domain.State.put(
+        state,
+        "warehouses",
+        "lease",
+        Warehouse.Rows.encode(%{w | cargo: cold})
+      )
+
+    state = put_in(state, [:entities, "ships", "company:1", "class"], "freighter")
+    ship = Game.get(state, "ships", "company:1")
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 30_001, cat) == nil
+
+    assert {:error, :insufficient_cargo} =
+             WarehouseWorld.transfer(state, c.account, %{cmd | "min_remaining_ms" => 30_001}, cat)
+
+    {:ok, loaded, _} =
+      WarehouseWorld.transfer(state, c.account, %{cmd | "min_remaining_ms" => 30_000}, cat)
+
+    assert hd(Game.get(loaded, "ships", ship["id"])["cargo"])["expires_ms"] == 30_000
+  end
+
+  test "collection selects earliest qualifying life, preserves excluded lots and acquisition costs",
+       c do
+    state = put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")
+    state = lease(c, state, 10, "reefer")
+
+    state =
+      stock(state, "lease", [{"fruit", 2, 120_000}, {"fruit", 3, 59_999}, {"fruit", 2, 60_000}])
+
+    command = %{
+      "warehouse" => "lease",
+      "ship" => "company:1",
+      "good" => "fruit",
+      "quantity" => 3,
+      "side" => "collect",
+      "min_remaining_ms" => 240_000
+    }
+
+    {:ok, loaded, _} = WarehouseWorld.transfer(state, c.account, command, c.catalogue)
+    cargo = Game.get(loaded, "ships", "company:1")["cargo"]
+    assert Enum.map(cargo, & &1["freshness"]["origin_expires_ms"]) == [60_000, 120_000]
+    assert Enum.all?(cargo, &(&1["unit_cost"] == 100))
+    remaining = Game.get(loaded, "warehouses", "lease")["cargo"]
+    assert Enum.sum(for b <- remaining, do: b["quantity"]) == 4
+    assert Enum.any?(remaining, &(&1["expires_ms"] == 59_999 and &1["quantity"] == 3))
+    assert Enum.any?(remaining, &(&1["expires_ms"] == 120_000 and &1["quantity"] == 1))
+
+    original =
+      Game.get(state, "warehouses", "lease")["cargo"] |> Enum.find(&(&1["expires_ms"] == 120_000))
+
+    child = Enum.find(cargo, &(&1["freshness"]["origin_expires_ms"] == 120_000))
+
+    assert Enum.find(loaded.new_lots, &(&1["id"] == child["lot_id"]))["parent_lot_id"] ==
+             original["lot_id"]
+  end
+
+  test "freshness-limited collection cannot consume other ships' reserved quantity", c do
+    state = put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")
+    ship = Game.get(state, "ships", "company:1")
+
+    state =
+      TijaraTides.Domain.State.put(state, "ships", "company:2", %{ship | "id" => "company:2"})
+
+    state =
+      lease(c, state, 10, "reefer")
+      |> then(&stock(&1, "lease", [{"fruit", 5, 59_999}, {"fruit", 2, 60_000}]))
+
+    {:ok, state, _} =
+      WarehouseWorld.reserve(
+        state,
+        c.account,
+        %{
+          "warehouse" => "lease",
+          "ship" => "company:2",
+          "good" => "fruit",
+          "kind" => "stock",
+          "quantity" => 2
+        },
+        "other-claim",
+        c.catalogue
+      )
+
+    command = %{
+      "warehouse" => "lease",
+      "ship" => "company:1",
+      "good" => "fruit",
+      "quantity" => 1,
+      "side" => "collect",
+      "min_remaining_ms" => 240_000
+    }
+
+    assert {:error, :insufficient_cargo} =
+             WarehouseWorld.transfer(state, c.account, command, c.catalogue)
+
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 240_000) == nil
+    assert Game.get(state, "warehouse_reservations", "other-claim")["quantity"] == 2
+    assert Game.get(state, "ships", "company:1")["cargo"] == []
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 0).id == "lease"
+  end
+
+  test "berth viability uses qualifying owned stock even when market cargo is too old", c do
+    state = put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")
+    state = lease(c, state, 10, "reefer") |> then(&stock(&1, "lease", [{"fruit", 3, 3_600_000}]))
+    market = Game.get(state, "markets", "Jakarta|fruit")
+
+    state =
+      TijaraTides.Domain.State.put(state, "markets", "Jakarta|fruit", %{
+        market
+        | "stock" => 0,
+          "batches" => []
+      })
+
+    order = %{
+      "id" => "fresh",
+      "ship_id" => "company:1",
+      "company_id" => "company",
+      "port" => "Jakarta",
+      "side" => "buy",
+      "good" => "fruit",
+      "quantity_mode" => "fixed",
+      "quantity" => 2,
+      "filled" => 0,
+      "limit" => 100_000,
+      "budget" => 1,
+      "spent" => 0,
+      "onward" => "Singapore",
+      "status" => "planned",
+      "reason" => "Route visit target",
+      "created_ms" => 0,
+      "min_remaining_ms" => 3_600_000
+    }
+
+    state = TijaraTides.Domain.State.put(state, "ship_instructions", "fresh", order)
+
+    state =
+      TijaraTides.Domain.BerthFixture.update(state, "company:1", %{
+        berth_granted_ms: nil,
+        berth_queued_ms: 0
+      })
+
+    admitted = TijaraTides.Domain.Services.BerthAllocation.advance(state, c.catalogue)
+    assert Game.get(admitted, "ships", "company:1")["berth_granted_ms"] == 0
+    filled = TijaraTides.Domain.ShipInstructions.advance(admitted, c.catalogue)
+    assert Game.get(filled, "ship_instructions", "fresh")["filled"] == 2
+    assert Game.get(filled, "ship_instructions", "fresh")["spent"] == 0
+
+    assert Enum.all?(
+             Game.get(filled, "ships", "company:1")["cargo"],
+             &(&1["freshness"]["origin_expires_ms"] == 3_600_000 and &1["unit_cost"] == 100)
+           )
+
+    assert Game.get(filled, "markets", "Jakarta|fruit")["stock"] == 0
+
+    assert Enum.sum(for b <- Game.get(filled, "warehouses", "lease")["cargo"], do: b["quantity"]) ==
+             1
+  end
+
   defp stocked(c) do
     state = lease(c, c.state)
     {state, batch} = CargoLots.create(state, "lumber", 10, nil)
@@ -140,12 +321,23 @@ defmodule TijaraTides.Domain.WarehouseTest do
     assert Game.get(state, "companies", "company")["profit"] ==
              Game.get(c.state, "companies", "company")["profit"]
 
-    state = WarehouseWorld.advance(%{state | clock_ms: 43_200_000}, c.catalogue)
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 43_200_000},
+        c.catalogue
+      )
+
     assert Game.get(state, "warehouses", "lease")["prepaid"] == div(rent, 2)
     {:ok, state, reply} = WarehouseWorld.release(state, c.account, "lease", 5, c.catalogue)
     assert reply["refund"] > 0
     assert Game.get(state, "warehouses", "lease")["blocks"] == 5
-    state = WarehouseWorld.advance(%{state | clock_ms: 86_400_000}, c.catalogue)
+
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 86_400_000},
+        c.catalogue
+      )
+
     assert Game.get(state, "warehouses", "lease")["prepaid"] == 0
   end
 
@@ -176,15 +368,30 @@ defmodule TijaraTides.Domain.WarehouseTest do
              Game.get(state, "warehouses", "lease")
   end
 
-  test "expiry forbids deposits and clears remaining stock after grace", c do
+  test "expiry forbids deposits and keeps remaining stock allocated for auctions", c do
     state = stocked(c)
     {:ok, state, _} = transfer(c, state, "store", 4)
     state = Game.advance(state, 2000, c.catalogue)
-    state = WarehouseWorld.advance(%{state | clock_ms: 86_400_000}, c.catalogue)
+
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 86_400_000},
+        c.catalogue
+      )
+
     assert {:error, :warehouse_expired} = transfer(c, state, "store", 1)
     assert {:ok, _, _} = transfer(c, state, "collect", 1)
-    state = WarehouseWorld.advance(%{state | clock_ms: 129_600_000}, c.catalogue)
-    assert Game.get(state, "warehouses", "lease") == nil
+
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 129_600_000},
+        c.catalogue
+      )
+
+    assert Game.get(state, "warehouses", "lease")["blocks"] > 0
+
+    assert TijaraTides.Domain.State.get(state, "warehouse_liquidations", "lease")["status"] ==
+             "liquidating"
   end
 
   test "ownership and berth availability are checked before moving cargo", c do
@@ -240,7 +447,11 @@ defmodule TijaraTides.Domain.WarehouseTest do
     before = profit.(state)
     held = prepaid.(state)
 
-    state = WarehouseWorld.advance(%{state | clock_ms: 50_000}, c.catalogue)
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 50_000},
+        c.catalogue
+      )
 
     assert Enum.map(Game.get(state, "warehouses", "lease")["cargo"], & &1["quantity"]) == [6]
     assert profit.(state) == before - 400 - (held - prepaid.(state))
@@ -248,7 +459,13 @@ defmodule TijaraTides.Domain.WarehouseTest do
     # A tick with nothing expiring moves profit by rent alone.
     steady = profit.(state)
     held = prepaid.(state)
-    state = WarehouseWorld.advance(%{state | clock_ms: 60_000}, c.catalogue)
+
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 60_000},
+        c.catalogue
+      )
+
     assert profit.(state) == steady - (held - prepaid.(state))
   end
 
@@ -337,35 +554,37 @@ defmodule TijaraTides.Domain.WarehouseTest do
     assert {:ok, _, _} = WarehouseWorld.release(state, c.account, "lease", 5, c.catalogue)
   end
 
-  test "clearance never pays out more than the abandoned cargo cost", c do
-    state = lease(c, c.state)
-    # Half reference for lumber is 12,500 a lot, well above the 100 a lot actually paid.
-    state = stock(state, "lease", [{"lumber", 4, nil}])
-    cash = Game.get(state, "companies", "company")["cash"]
-
-    state = WarehouseWorld.advance(%{state | clock_ms: 129_600_000}, c.catalogue)
-
-    assert Game.get(state, "warehouses", "lease") == nil
-    proceeds = Game.get(state, "companies", "company")["cash"] - cash
-    assert proceeds <= 400
-  end
-
-  test "mixing expensive and cheap batches cannot lift cheap-stock clearance proceeds", c do
-    state = lease(c, c.state) |> stock("lease", [{"lumber", 1, nil}, {"lumber", 1, nil}])
-    row = Game.get(state, "warehouses", "lease")
-    [cheap, expensive] = row["cargo"]
-    row = Map.put(row, "cargo", [cheap, Map.put(expensive, "unit_cost", 50_000)])
-    state = TijaraTides.Domain.State.put(state, "warehouses", "lease", row)
+  test "fallback uses reference value independently of purchase cost", c do
+    state = lease(c, c.state) |> stock("lease", [{"lumber", 4, nil}])
 
     state =
-      CompanyFinanceWorld.post(state, "company", "purchase", [
-        {"inventory", 49_900},
-        {"cash_available", -49_900}
-      ])
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 129_600_000},
+        c.catalogue
+      )
 
-    cash = Game.get(state, "companies", "company")["cash"]
-    state = WarehouseWorld.advance(%{state | clock_ms: 129_600_000}, c.catalogue)
-    assert Game.get(state, "companies", "company")["cash"] - cash <= 12_600
+    auction =
+      Enum.find_value(TijaraTides.Domain.State.entities(state, "auctions"), fn {_, a} ->
+        if a["liquidation_id"] == "lease", do: a
+      end)
+
+    market = Game.get(state, "markets", "Jakarta|lumber")
+
+    state =
+      TijaraTides.Domain.State.put(state, "markets", "Jakarta|lumber", %{market | "demand" => 0})
+
+    state =
+      TijaraTides.Domain.Services.Auctions.reconcile(
+        %{state | clock_ms: auction["closes_ms"]},
+        c.catalogue
+      )
+
+    state = TijaraTides.Domain.Services.WarehouseLeases.advance(state, c.catalogue)
+    pool = Game.get(state, "warehouse_liquidations", "lease")
+    assert pool["proceeds"] == div(4 * c.catalogue["goods"]["lumber"]["reference_cents"], 10)
+    assert pool["proceeds"] > 400
+    assert pool["charged"] + pool["paid"] == pool["proceeds"]
+    assert Game.get(state, "warehouses", "lease") == nil
   end
 
   defp reserve(c, state, kind, quantity, id \\ "r", ship \\ "company:1", extra \\ %{}) do
@@ -428,13 +647,26 @@ defmodule TijaraTides.Domain.WarehouseTest do
     state = lease(c, c.state) |> stock("lease", [{"lumber", 10, nil}])
     {:ok, state, _} = reserve(c, state, "stock", 4, "stock")
     {:ok, state, _} = reserve(c, state, "capacity", 1, "space")
-    state = WarehouseWorld.advance(%{state | clock_ms: 86_400_000}, c.catalogue)
+
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 86_400_000},
+        c.catalogue
+      )
+
     assert Game.get(state, "warehouse_reservations", "space") == nil
     assert Game.get(state, "warehouse_reservations", "stock")["quantity"] == 4
     {:ok, state, _} = transfer(c, state, "collect", 4)
     assert Game.get(state, "warehouse_reservations", "stock") == nil
-    state = WarehouseWorld.advance(%{state | clock_ms: 129_600_000}, c.catalogue)
-    assert Game.get(state, "warehouses", "lease") == nil
+
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 129_600_000},
+        c.catalogue
+      )
+
+    assert Game.get(state, "warehouses", "lease")["blocks"] > 0
+    assert Game.get(state, "warehouse_liquidations", "lease")["status"] == "liquidating"
   end
 
   test "spoiled stock and removed collection stops release reservations", c do
@@ -449,10 +681,13 @@ defmodule TijaraTides.Domain.WarehouseTest do
       })
 
     {:ok, state, _} = reserve(c, state, "stock", 6, "stock", "company:1", %{"stop_id" => "stop"})
-    state = WarehouseWorld.advance(%{state | clock_ms: 2000}, c.catalogue)
+
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(%{state | clock_ms: 2000}, c.catalogue)
+
     assert Game.get(state, "warehouse_reservations", "stock")["quantity"] == 2
     state = TijaraTides.Domain.State.delete(state, "route_stops", "stop")
-    state = WarehouseWorld.reconcile_reservations(state, c.catalogue, "company")
+    state = WarehouseWorld.release_stop_claims(state, "company", ["stop"])
     assert Game.get(state, "warehouse_reservations", "stock") == nil
   end
 
@@ -483,12 +718,24 @@ defmodule TijaraTides.Domain.WarehouseTest do
     state = lease(c, c.state)
     cmd = %{"warehouse" => "lease", "days" => 3, "price" => 3000}
     assert {:error, :warehouse_renewal_closed} = WarehouseWorld.renew(state, c.account, cmd)
-    state = WarehouseWorld.advance(%{state | clock_ms: 64_800_000}, c.catalogue)
+
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 64_800_000},
+        c.catalogue
+      )
+
     w = Warehouse.Rows.decode(Game.get(state, "warehouses", "lease"))
     assert w.renewal_rate == Warehouse.quote(0, "dry", 10, 1)
     # Pool demand increases, but this tenant's offer remains fixed.
     state = lease(c, state, 500, "dry", nil, "other-lease")
-    state = WarehouseWorld.advance(%{state | clock_ms: 65_000_000}, c.catalogue)
+
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 65_000_000},
+        c.catalogue
+      )
+
     assert Game.get(state, "warehouses", "lease")["renewal_rate"] == w.renewal_rate
     prepaid = Game.get(state, "warehouses", "lease")["prepaid"]
 
@@ -506,7 +753,12 @@ defmodule TijaraTides.Domain.WarehouseTest do
     assert {:error, :warehouse_occupied} =
              WarehouseWorld.release(state, c.account, "lease", 1, c.catalogue)
 
-    state = WarehouseWorld.advance(%{state | clock_ms: 86_400_000}, c.catalogue)
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 86_400_000},
+        c.catalogue
+      )
+
     row = Game.get(state, "warehouses", "lease")
     assert row["started_ms"] == 86_400_000
     assert row["expires_ms"] == 4 * 86_400_000
@@ -526,7 +778,12 @@ defmodule TijaraTides.Domain.WarehouseTest do
         "price" => 0
       })
 
-    state = WarehouseWorld.advance(%{state | clock_ms: 64_800_000}, c.catalogue)
+    state =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(
+        %{state | clock_ms: 64_800_000},
+        c.catalogue
+      )
+
     refute Game.get(state, "warehouses", "lease")["next_days"]
     company = Game.get(state, "companies", "company")
     state = TijaraTides.Domain.State.put(state, "companies", "company", %{company | "cash" => 0})
@@ -540,10 +797,10 @@ defmodule TijaraTides.Domain.WarehouseTest do
 
     refute Game.get(state, "warehouses", "lease")["next_days"]
     state = TijaraTides.Domain.State.put(state, "companies", "company", company)
-    state = WarehouseWorld.advance(state, c.catalogue)
+    state = TijaraTides.Domain.Services.WarehouseLeases.advance(state, c.catalogue)
     assert Game.get(state, "warehouses", "lease")["next_days"] == 1
     cash = Game.get(state, "companies", "company")["cash"]
-    state = WarehouseWorld.advance(state, c.catalogue)
+    state = TijaraTides.Domain.Services.WarehouseLeases.advance(state, c.catalogue)
     assert Game.get(state, "companies", "company")["cash"] == cash
 
     assert {:error, :warehouse_renewal_closed} =

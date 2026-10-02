@@ -1,11 +1,11 @@
 defmodule TijaraTides.Domain.Services.Auctions do
+  alias TijaraTides.Domain.Services.WarehouseLiquidation, as: Liquidation
   alias TijaraTides.Domain.Services.Estates
-  alias TijaraTides.Domain.ShipWorld
   alias TijaraTides.Domain.CompanyFinanceWorld
   alias TijaraTides.Domain.WarehouseWorld
   alias TijaraTides.Domain.Ship.CargoRows
   alias TijaraTides.Domain.PortCargoMarketWorld
-  @moduledoc "Atomic luxury-auction scheduling, escrow and second-price settlement."
+  @moduledoc "Atomic cargo and asset auction scheduling, escrow and second-price settlement."
   @open_limit 50
   @doc "Open listings one company may hold, whether it consigns them or a receiver does."
   def open_limit, do: @open_limit
@@ -46,7 +46,9 @@ defmodule TijaraTides.Domain.Services.Auctions do
         good: a.good,
         quantity: a.quantity,
         side: "sell",
-        closes_ms: a.closes_ms
+        closes_ms: a.closes_ms,
+        liquidation: a.liquidation_id != nil,
+        expires_ms: a.expires_ms
       )
 
   def bid_claim(a, b),
@@ -102,7 +104,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
   def revise(s, account, cmd, cat) do
     a = AuctionWorld.fetch(s, cmd["auction"])
 
-    if a && AuctionWorld.open?(a) && s.clock_ms < a.opens_ms &&
+    if a && a.liquidation_id == nil && AuctionWorld.open?(a) && s.clock_ms < a.opens_ms &&
          a.company_id == account["company_id"] &&
          live?(s, a.company_id) && quantity?(cmd["quantity"]) && amount?(cmd["price"]) do
       revised = AuctionWorld.revise(s, a.id, cmd["quantity"], cmd["price"])
@@ -123,7 +125,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
   def withdraw_lot(s, account, id) do
     a = AuctionWorld.fetch(s, id)
 
-    if a && AuctionWorld.open?(a) && a.company_id == account["company_id"] &&
+    if a && a.liquidation_id == nil && AuctionWorld.open?(a) &&
+         a.company_id == account["company_id"] &&
          s.clock_ms < a.opens_ms,
        do: {:ok, cancel(s, a), %{}},
        else: {:error, :auction_locked}
@@ -170,6 +173,17 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
   defp accept_prepared_bid(s, previous, proposed),
     do: AuctionWorld.replace_bid(s, previous, proposed)
+
+  @doc "Receivership withdraws the company's open bids and returns their escrow and space."
+  def release_company_bids(s, company_id) do
+    Enum.reduce(AuctionWorld.company_bids(s, company_id), s, fn b, s ->
+      a = AuctionWorld.fetch(s, b.auction_id)
+
+      if a && AuctionWorld.open?(a),
+        do: s |> release_bid(a, b) |> AuctionWorld.invalidate_bid(b),
+        else: s
+    end)
+  end
 
   def withdraw_bid(s, account, id) do
     a = AuctionWorld.fetch(s, id)
@@ -222,49 +236,29 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
   def reconcile(s, cat), do: sweep(s, cat, AuctionWorld.all(s))
 
-  @doc "Post-command sweep: the acting company's own lots and the ones it has bid on."
-  def reconcile(s, _cat, nil), do: s
-
-  def reconcile(s, cat, company_id) do
-    mine = AuctionWorld.company_auctions(s, company_id)
-
-    bid_on =
-      for b <- AuctionWorld.company_bids(s, company_id),
-          a = AuctionWorld.fetch(s, b.auction_id),
-          do: a
-
-    sweep(s, cat, Enum.uniq_by(mine ++ bid_on, & &1.id))
-  end
-
   defp sweep(s, cat, auctions) do
     s =
       Enum.reduce(
         auctions |> Enum.filter(&AuctionWorld.open?/1) |> Enum.sort_by(&{&1.closes_ms, &1.id}),
         s,
         fn a, s ->
-          s =
-            if (Estates.estate?(s, a.company_id) and a.warehouse_id) &&
-                 get(s, "warehouses", a.warehouse_id),
-               do: WarehouseWorld.estate_cover(s, a.warehouse_id, a.closes_ms),
-               else: s
+          # A late tick settles liquidation sales at their disclosed close. The
+          # buyer's storage then ages that cargo through the remaining tick.
+          settlement =
+            if a.liquidation_id && a.expires_ms && s.clock_ms >= a.closes_ms,
+              do: %{s | clock_ms: a.closes_ms},
+              else: s
 
+          # Receivership withdraws bids itself, and closing re-checks every bid.
           cond do
-            a.company_id &&
-                (not seller_backed?(s, a) or
-                   (not live?(s, a.company_id) and s.clock_ms < a.opens_ms and
-                      not Estates.estate?(s, a.company_id))) ->
+            a.company_id && not seller_backed?(settlement, a) ->
               cancel(s, a)
 
             s.clock_ms >= a.closes_ms ->
-              close(s, a, cat)
+              close(settlement, a, cat) |> Map.put(:clock_ms, s.clock_ms)
 
             true ->
-              Enum.reduce(AuctionWorld.bids(s, a.id), s, fn b, s ->
-                if not live?(s, b.company_id) or
-                     not backed_bid?(s, a, b),
-                   do: s |> release_bid(a, b) |> AuctionWorld.invalidate_bid(b),
-                   else: s
-              end)
+              s
           end
         end
       )
@@ -377,6 +371,7 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
       s =
         cond do
+          a.liquidation_id -> Liquidation.unsold(s, a, cat)
           a.ship_id -> Estates.dispose_ship(s, a)
           Estates.estate?(s, a.company_id) -> Estates.dispose_cargo(s, a)
           a.company_id -> WarehouseWorld.release_trade(s, claim(a))
@@ -395,7 +390,11 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
             s =
               s
-              |> ShipWorld.acquire(a.ship_id, winner.company_id, price)
+              |> TijaraTides.Domain.Services.ShipLifecycle.acquire(
+                a.ship_id,
+                winner.company_id,
+                price
+              )
               |> CompanyFinanceWorld.post(a.company_id, "estate_ship_sale", [
                 {"fleet", -ship["book_value"]},
                 {"receivership", ship["book_value"]}
@@ -407,6 +406,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
             {s, batches} = WarehouseWorld.exchange_out(s, claim(a), a.quantity)
             cost = Enum.sum(Enum.map(batches, &(&1.quantity * &1.unit_cost)))
 
+            s = Liquidation.refresh(s, a.warehouse_id, cat)
+
             entries =
               if Estates.estate?(s, a.company_id),
                 do: [{"inventory", -cost}, {"receivership", cost}],
@@ -417,7 +418,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
                   {"cash_available", price}
                 ]
 
-            s = CompanyFinanceWorld.post(s, a.company_id, "auction_sale", entries)
+            s =
+              if a.liquidation_id,
+                do: Liquidation.record_sale(s, a.liquidation_id, batches, price),
+                else: CompanyFinanceWorld.post(s, a.company_id, "auction_sale", entries)
 
             {s, batches}
 
@@ -443,7 +447,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
               s
             else
               {s, cargo} = reprice(s, cargo, a, price)
-              WarehouseWorld.exchange_in(s, bid_claim(a, winner), cargo, a.quantity)
+
+              s
+              |> WarehouseWorld.exchange_in(bid_claim(a, winner), cargo, a.quantity)
+              |> WarehouseWorld.award_storage(winner.warehouse_id, a.id, cargo, cat)
             end
 
           s
@@ -472,7 +479,8 @@ defmodule TijaraTides.Domain.Services.Auctions do
       s = AuctionWorld.record_simulated_bids(s, a.id, Enum.filter(bids, &(&1.kind == :simulated)))
       s = AuctionWorld.close_sold(s, a.id, price, winner)
 
-      delivered = get(s, "warehouses", winner.warehouse_id)
+      delivered =
+        get(s, "warehouses", "award:" <> a.id) || get(s, "warehouses", winner.warehouse_id)
 
       Enum.reduce(
         Enum.uniq([a.company_id | Enum.map(eligible, & &1.company_id)]),
@@ -522,7 +530,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
       ship["cargo"] == []
   end
 
-  defp seller_backed?(s, a), do: WarehouseWorld.order_backed?(s, claim(a))
+  defp seller_backed?(s, a),
+    do:
+      (is_nil(a.expires_ms) or a.expires_ms > s.clock_ms) and
+        WarehouseWorld.order_backed?(s, claim(a))
 
   defp suppliable?(_s, %{company_id: owner}) when not is_nil(owner), do: true
 

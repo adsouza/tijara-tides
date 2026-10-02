@@ -5,7 +5,10 @@ defmodule TijaraTides.Domain.Commands do
   import TijaraTides.Domain.AccountWorld, only: [issue_invite: 3]
   import TijaraTides.Domain.Services.CompanyFormation, only: [create_company: 4]
   alias TijaraTides.Domain.{Trade}
-  import TijaraTides.Domain.Fleet, only: [sail: 6]
+
+  # Test builds verify that each command released what it invalidated. The check is
+  # compiled out elsewhere, so it can never halt a production world.
+  @settled_check Application.compile_env(:tijara_tides, :settled_check)
 
   def execute(state, account, command, context, catalogue),
     do: execute(state, account, command, Map.put(context, :catalogue, catalogue))
@@ -14,6 +17,19 @@ defmodule TijaraTides.Domain.Commands do
     do: TijaraTides.Domain.AccountWorld.set_locale(state, account, locale)
 
   def execute(state, account, command, context) do
+    with {:ok, changed, reply} <- apply_command(state, account, command, context) do
+      {:ok, settled(state, changed, context.catalogue, command["action"]), reply}
+    end
+  end
+
+  if @settled_check do
+    defp settled(before, changed, catalogue, action),
+      do: apply(@settled_check, :assert_settled!, [before, changed, catalogue, action])
+  else
+    defp settled(_before, changed, _catalogue, _action), do: changed
+  end
+
+  defp apply_command(state, account, command, context) do
     before = state
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
     current_account = TijaraTides.Domain.State.get(state, "accounts", account["id"]) || account
@@ -23,17 +39,10 @@ defmodule TijaraTides.Domain.Commands do
     else
       case dispatch(state, account, command, context) do
         {:ok, changed, reply} ->
+          # Transitions release what they invalidate. What remains is derived: sell
+          # portions follow the warehouse changes this command declared, for any owner.
           {:ok,
-           TijaraTides.Domain.WarehouseWorld.reconcile_reservations(
-             changed,
-             context.catalogue,
-             account["company_id"]
-           )
-           |> TijaraTides.Domain.Services.Exchange.reconcile(account["company_id"])
-           |> TijaraTides.Domain.Services.Auctions.reconcile(
-             context.catalogue,
-             account["company_id"]
-           )
+           TijaraTides.Domain.OrderBookWorld.synchronize_changed(before, changed)
            |> then(
              &TijaraTides.Domain.AccountWorld.InvitationAccrual.observe(
                before,
@@ -74,6 +83,12 @@ defmodule TijaraTides.Domain.Commands do
       %{"action" => "auction_withdraw_bid", "auction" => id} ->
         TijaraTides.Domain.Services.Auctions.withdraw_bid(state, account, id)
 
+      %{"action" => "markdown_preset_save"} ->
+        TijaraTides.Domain.MarkdownPresetWorld.save(state, account, command, context.id)
+
+      %{"action" => "markdown_preset_delete", "preset" => id} ->
+        TijaraTides.Domain.MarkdownPresetWorld.delete(state, account, id)
+
       %{"action" => "exchange_place"} ->
         TijaraTides.Domain.Services.Exchange.place(state, account, command, context.id, catalogue)
 
@@ -87,13 +102,29 @@ defmodule TijaraTides.Domain.Commands do
         ShipWorld.plan_destination(state, account, id, destination, catalogue)
 
       %{"action" => "reroute", "ship" => id, "destination" => destination, "fuel_limit" => limit} ->
-        TijaraTides.Domain.Fleet.reroute(state, account, id, destination, limit, catalogue)
+        TijaraTides.Domain.Services.DepartureFunding.reroute(
+          state,
+          account,
+          id,
+          destination,
+          limit,
+          catalogue
+        )
 
       %{"action" => "warehouse_reserve"} ->
         TijaraTides.Domain.WarehouseWorld.reserve(state, account, command, context.id, catalogue)
 
       %{"action" => "warehouse_cancel_reservation", "reservation" => id} ->
         TijaraTides.Domain.WarehouseWorld.cancel_reservation(state, account, id)
+
+      %{"action" => "warehouse_replace"} ->
+        TijaraTides.Domain.Services.WarehouseLeases.replace_award(
+          state,
+          account,
+          command,
+          context.id,
+          catalogue
+        )
 
       %{"action" => "warehouse_extend"} ->
         TijaraTides.Domain.WarehouseWorld.renew(state, account, command, true)
@@ -111,13 +142,29 @@ defmodule TijaraTides.Domain.Commands do
         TijaraTides.Domain.WarehouseWorld.release(state, account, id, blocks, catalogue)
 
       %{"action" => "warehouse_transfer"} ->
-        TijaraTides.Domain.WarehouseWorld.transfer(state, account, command, catalogue)
+        TijaraTides.Domain.Services.ShipLifecycle.transfer_warehouse(
+          state,
+          account,
+          command,
+          catalogue
+        )
 
       %{"action" => "cancel_berth_trade", "ship" => id} ->
         TijaraTides.Domain.Services.BerthAllocation.cancel(state, account, id)
 
+      %{"action" => "funding_policy", "policy" => policy} ->
+        TijaraTides.Domain.Services.DepartureFunding.set_policy(state, account, policy, catalogue)
+
+      %{"action" => "visit_budget"} ->
+        TijaraTides.Domain.Services.DepartureFunding.configure_visit(
+          state,
+          account,
+          command,
+          catalogue
+        )
+
       %{"action" => "route"} ->
-        ShipWorld.edit_route(state, account, command, context)
+        TijaraTides.Domain.Services.RouteEditing.execute(state, account, command, context)
 
       %{"action" => "guarantee", "account" => id, "amount" => amount} ->
         TijaraTides.Domain.Guarantees.pledge(state, account, id, amount, context.id)
@@ -138,7 +185,7 @@ defmodule TijaraTides.Domain.Commands do
         TijaraTides.Domain.Services.Bankruptcy.bankrupt(state, account)
 
       %{"action" => "instruction_onward", "ship" => ship, "port" => port, "onward" => onward} ->
-        ShipWorld.change_onward(
+        TijaraTides.Domain.Services.DepartureFunding.change_onward(
           state,
           account,
           ship,
@@ -152,7 +199,12 @@ defmodule TijaraTides.Domain.Commands do
         ShipWorld.add_instruction(state, account, command, context)
 
       %{"action" => "cancel_instruction", "instruction" => id} ->
-        ShipWorld.cancel_instruction(state, account, id, catalogue)
+        TijaraTides.Domain.Services.DepartureFunding.cancel_instruction(
+          state,
+          account,
+          id,
+          catalogue
+        )
 
       %{"action" => "company", "name" => name} ->
         create_company(state, account, name, context)
@@ -202,7 +254,14 @@ defmodule TijaraTides.Domain.Commands do
         )
 
       %{"action" => "sail", "ship" => id, "destination" => destination, "fuel_limit" => limit} ->
-        sail(state, account, id, destination, limit, catalogue)
+        TijaraTides.Domain.Services.DepartureFunding.manual_sail(
+          state,
+          account,
+          id,
+          destination,
+          limit,
+          catalogue
+        )
 
       _ ->
         {:error, :unsupported_command}

@@ -1,14 +1,44 @@
 defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
+    "weather" => Enum.map(~w(id window_id starts_ms until_ms), &{&1, &1}),
+    "markdown_presets" => Enum.map(~w(id account_id name markdowns price_floor), &{&1, &1}),
+    "remote_links" =>
+      Enum.map(
+        ~w(id company_id ship_id stop_id good warehouse_id port order_id generation filled status),
+        &{&1, &1}
+      ),
+    "visit_budgets" =>
+      Enum.map(
+        ~w(id company_id ship_id stop_id port amount remaining strict skip visit),
+        &{&1, &1}
+      ),
+    "departure_requests" =>
+      Enum.map(
+        ~w(id company_id ship_id destination stop_id visit configured policy required blocked_ms accumulated window_deadline_ms cooldown_ms),
+        &{&1, &1}
+      ),
+    "warehouse_liquidations" =>
+      Enum.map(
+        ~w(id company_id port status expires_ms grace_end_ms last_ms original_blocks occupied_blocks rent duration_ms surcharge_bps window_ms clearance_bps handling_rate rent_due rent_remainder handling_due clearance_remainders proceeds charged paid sunk completed_ms replacement_paid),
+        &{&1, &1}
+      ),
+    "company_dormancy" =>
+      Enum.map(
+        ~w(id company_id account_id last_visit_ms warned_ms closes_ms closed_ms guarantee_id guaranteed_debt),
+        &{&1, &1}
+      ),
     "merchant_warehouses" =>
-      Enum.map(~w(id port good storage blocks capacity expires_ms protected_ms), &{&1, &1}),
+      Enum.map(
+        ~w(id port good storage blocks capacity expires_ms protected_ms aging_bps),
+        &{&1, &1}
+      ),
     "company_activity" => Enum.map(~w(company_id last_action_ms), &{&1, &1}),
     "invitation_progress" =>
       Enum.map(~w(account_id company_id checked_ms active_until_ms progress_ms), &{&1, &1}),
     "auctions" =>
       Enum.map(
-        ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed ship_id),
+        ~w(id company_id warehouse_id port good quantity reserve opens_ms closes_ms status price winner_id valuation_seed ship_id liquidation_id expires_ms),
         &{&1, &1}
       ),
     "auction_bids" =>
@@ -18,7 +48,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ),
     "exchange_orders" =>
       Enum.map(
-        ~w(id company_id warehouse_id port good side quantity price priority_ms priority_seq expires_ms),
+        ~w(id company_id warehouse_id port good side quantity price priority_ms priority_seq expires_ms min_grade min_remaining_ms initial_price markdowns price_floor portions),
         &{&1, &1}
       ),
     "exchange_trades" => Enum.map(~w(id port good quantity price clock_ms sequence), &{&1, &1}),
@@ -29,7 +59,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ),
     "warehouses" =>
       Enum.map(
-        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms display_number renewal_rate next_rent next_days auto_days auto_cap),
+        ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms source_lease_id space_group space_volumes award_id award_grace grace_rent grace_blocks grace_duration_ms aging_bps display_number renewal_rate next_rent next_days auto_days auto_cap grace_ms surcharge_bps window_ms clearance_bps),
         &{&1, &1}
       ),
     "reporting_accounts" => Enum.map(~w(id capital since_ms at_ms), &{&1, &1}),
@@ -109,17 +139,21 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "ship_routes" =>
       Enum.map(
-        ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason),
+        ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason visit_arrived_ms wait_deadline_ms wait_timed_out visit_finished),
         &{&1, &1}
       ),
     "route_stops" => [
+      {"advance_budget", "advance_budget"},
       {"id", "id"},
       {"ship_id", "ship_id"},
       {"company_id", "company_id"},
       {"position", "position"},
-      {"port", "port_id"}
+      {"port", "port_id"},
+      {"max_wait_ms", "max_wait_ms"}
     ],
     "route_rules" => [
+      {"linked_warehouse_id", "linked_warehouse_id"},
+      {"min_remaining_ms", "min_remaining_ms"},
       {"id", "id"},
       {"ship_id", "ship_id"},
       {"company_id", "company_id"},
@@ -132,6 +166,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"budget", "budget_cents"}
     ],
     "visit_plans" => [
+      {"advance_budget", "advance_budget"},
       {"id", "id"},
       {"ship_id", "ship_id"},
       {"company_id", "company_id"},
@@ -141,6 +176,10 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"departure_wait", "departure_wait"}
     ],
     "ship_instructions" => [
+      {"markdowns", "markdowns"},
+      {"price_floor", "price_floor"},
+      {"min_remaining_ms", "min_remaining_ms"},
+      {"expires_ms", "expires_ms"},
       {"history_archived", "history_archived"},
       {"id", "id"},
       {"company_id", "company_id"},
@@ -160,6 +199,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"created_ms", "created_ms"}
     ],
     "accounts" => [
+      {"funding_policy", "funding_policy"},
       {"locale", "locale"},
       {"id", "id"},
       {"company_id", "company_id"},
@@ -208,7 +248,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
           {"crew_remainder", "crew_remainder"},
           {"last_cost_ms", "last_cost_ms"},
           {"last_liquid", "last_liquid_good_id"},
-          {"voyage_speedup", "voyage_speedup"}
+          {"voyage_speedup", "voyage_speedup"},
+          {"weather", "weather"}
         ],
     "markets" => [
       {"feedstock", "feedstock"},
@@ -239,12 +280,12 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(accounts companies company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules)
+  @kinds ~w(weather accounts markdown_presets companies company_dormancy warehouse_liquidations company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules remote_links visit_budgets departure_requests)
 
   @children %{
     "warehouses" =>
       {"cargo", "game_warehouse_cargo_batches", "warehouse_id",
-       Enum.map(~w(lot_id quantity expires_ms good unit_cost), fn k ->
+       Enum.map(~w(lot_id quantity expires_ms good unit_cost freshness), fn k ->
          {k,
           %{"quantity" => "quantity_lots", "good" => "good_id", "unit_cost" => "unit_cost_cents"}[
             k
@@ -257,18 +298,53 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
          {"quantity", "quantity_lots"},
          {"expires_ms", "expires_ms"},
          {"good", "good_id"},
-         {"unit_cost", "unit_cost_cents"}
+         {"unit_cost", "unit_cost_cents"},
+         {"freshness", "freshness"}
        ]},
     "markets" =>
       {"batches", "game_market_stock_batches", "market_id",
-       [{"lot_id", "lot_id"}, {"quantity", "quantity_lots"}, {"expires_ms", "expires_ms"}]}
+       [
+         {"lot_id", "lot_id"},
+         {"quantity", "quantity_lots"},
+         {"expires_ms", "expires_ms"},
+         {"freshness", "freshness"}
+       ]}
   }
   # Columns the database always stores but state omits at their default, both ways.
-  @defaults %{"markets" => %{"feedstock" => false, "production_credit" => 0}}
+  @defaults %{
+    "ship_instructions" => %{"price_floor" => 0},
+    "exchange_orders" => %{
+      "min_grade" => 0,
+      "min_remaining_ms" => 0,
+      "price_floor" => 0,
+      "portions" => %{}
+    },
+    "markets" => %{"feedstock" => false, "production_credit" => 0}
+  }
+  # Legacy omissions are declared per entity, never inferred from a shared
+  # column name. New reservation rows otherwise require every persisted field.
+  @column_defaults @defaults
+  # Fields whose defaults are domain terms (lease grace, surcharges, aging rates,
+  # account policy). Domain codecs always write them; the adapter never invents them.
+  @required %{
+    "ship_instructions" => ~w(min_remaining_ms),
+    "route_rules" => ~w(min_remaining_ms),
+    "warehouse_liquidations" => ~w(replacement_paid),
+    "warehouses" =>
+      ~w(aging_bps award_grace space_volumes grace_ms surcharge_bps window_ms clearance_bps),
+    "merchant_warehouses" => ~w(aging_bps),
+    "accounts" => ~w(funding_policy locale),
+    "ship_routes" => ~w(visit_finished),
+    "notices" => ~w(arguments)
+  }
+  @strict ~w(weather markdown_presets remote_links visit_budgets departure_requests warehouse_liquidations company_dormancy)
+
   @optional %{
-    "auctions" => ~w(ship_id),
+    "ship_instructions" => ~w(markdowns price_floor),
+    "exchange_orders" => ~w(initial_price markdowns),
+    "auctions" => ~w(ship_id liquidation_id expires_ms),
     "ships" =>
-      ~w(acquired_ms acquisition_value planned_destination paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+      ~w(acquired_ms acquisition_value planned_destination weather paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
     "invitations" => ["invitee"]
   }
 
@@ -390,7 +466,13 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
         children =
           Enum.group_by(rows, &hd/1, fn [_parent | values] ->
-            fields |> Enum.map(&elem(&1, 0)) |> Enum.zip(values) |> Map.new()
+            fields
+            |> Enum.map(&elem(&1, 0))
+            |> Enum.zip(values)
+            |> Map.new()
+            |> then(fn row ->
+              if row["freshness"], do: row, else: Map.delete(row, "freshness")
+            end)
           end)
 
         Map.new(entities, fn {id, data} -> {id, Map.put(data, key, Map.get(children, id, []))} end)
@@ -418,11 +500,29 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
         end)
         |> Enum.split_with(fn {_, operation} -> operation == :delete end)
 
-      write_batch(repo, world, kind, before, after_state, puts)
-      delete_batch(repo, world, kind, before, deletes)
+      write_changes(repo, world, kind, before, after_state, puts, deletes)
     end
 
     :ok
+  end
+
+  defp write_changes(repo, world, "departure_requests" = kind, before, after_state, puts, deletes) do
+    # The accumulator index is partial and immediate. A timeout or cancellation
+    # can hand it to another existing request in the same tick, so release rows
+    # must be in a separate statement before any claims, regardless of row order.
+    {releases, claims} =
+      Enum.split_with(puts, fn {{_, id}, _} ->
+        is_nil(get_in(after_state, [:entities, kind, id, "window_deadline_ms"]))
+      end)
+
+    delete_batch(repo, world, kind, before, deletes)
+    write_batch(repo, world, kind, before, after_state, releases)
+    write_batch(repo, world, kind, before, after_state, claims)
+  end
+
+  defp write_changes(repo, world, kind, before, after_state, puts, deletes) do
+    write_batch(repo, world, kind, before, after_state, puts)
+    delete_batch(repo, world, kind, before, deletes)
   end
 
   # Batch existing rows separately from inserts: a tick changes every moving ship,
@@ -460,7 +560,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     |> Enum.each(fn chunk ->
       values =
         Enum.flat_map(chunk, fn {id, _, data} ->
-          [world, id | Enum.map(fields, fn {key, _} -> column_value(key, data[key]) end)]
+          [world, id | Enum.map(fields, fn {key, _} -> column_value(kind, key, data[key]) end)]
         end)
 
       placeholders =
@@ -538,14 +638,12 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     :ok
   end
 
-  for {_kind, defaults} <- @defaults, {key, default} <- defaults do
-    defp column_value(unquote(key), nil), do: unquote(default)
+  for {kind, defaults} <- @column_defaults, {key, default} <- defaults do
+    defp column_value(unquote(kind), unquote(key), nil), do: unquote(Macro.escape(default))
   end
 
-  defp column_value("locale", nil), do: "en"
-  defp column_value("arguments", nil), do: %{}
-  defp column_value("capital_ms", value), do: Decimal.new(value)
-  defp column_value(_key, value), do: value
+  defp column_value("financial_reports", "capital_ms", value), do: Decimal.new(value)
+  defp column_value(_kind, _key, value), do: value
 
   defp validate_entity!(kind, id, _old, data) do
     if kind == "markets" and data["merchant"] and
@@ -563,6 +661,17 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
     if Map.keys(data) -- keys != [], do: raise(ArgumentError, "Unsupported fields for #{kind}")
     if "id" in keys and data["id"] != id, do: raise(ArgumentError, "Entity ID mismatch")
+
+    required =
+      if kind in @strict,
+        do: keys -- Map.keys(Map.get(@column_defaults, kind, %{})),
+        else: Map.get(@required, kind, [])
+
+    missing = Enum.reject(required, &Map.has_key?(data, &1))
+
+    if missing != [],
+      do: raise(ArgumentError, "Missing fields for #{kind}: #{inspect(missing)}")
+
     :ok
   end
 
@@ -650,8 +759,10 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     for {_, _, row} <- rows do
       case lots[row["lot_id"]] do
         {good, expiry} ->
-          unless expiry == row["expires_ms"] and (parent == "market_id" or good == row["good"]),
-            do: raise(ArgumentError, "Lot identity does not match cargo")
+          unless expiry == (get_in(row, ["freshness", "origin_expires_ms"]) || row["expires_ms"]) and
+                   TijaraTides.Domain.CargoRules.valid_age_row?(row) and
+                   (parent == "market_id" or good == row["good"]),
+                 do: raise(ArgumentError, "Lot identity does not match cargo")
 
         nil ->
           raise ArgumentError, "Unknown cargo lot"
@@ -665,7 +776,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
 
   defp insert_holdings(repo, world, parent, rows) do
     columns =
-      ~w(world_id lot_id ship_id market_id position quantity_lots unit_cost_cents warehouse_id)
+      ~w(world_id lot_id ship_id market_id position quantity_lots unit_cost_cents warehouse_id freshness)
 
     # Bind parameters are capped per statement, as they are for the parent rows above.
     rows
@@ -681,7 +792,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
             index,
             row["quantity"],
             row["unit_cost"],
-            if(parent == "warehouse_id", do: id)
+            if(parent == "warehouse_id", do: id),
+            row["freshness"]
           ]
         end)
 
@@ -696,7 +808,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
         end)
 
       repo.query!(
-        "INSERT INTO game_cargo_holdings(#{Enum.join(columns, ",")}) VALUES #{placeholders} ON CONFLICT(world_id,lot_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,ship_id=EXCLUDED.ship_id,market_id=EXCLUDED.market_id,position=EXCLUDED.position,quantity_lots=EXCLUDED.quantity_lots,unit_cost_cents=EXCLUDED.unit_cost_cents",
+        "INSERT INTO game_cargo_holdings(#{Enum.join(columns, ",")}) VALUES #{placeholders} ON CONFLICT(world_id,lot_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,ship_id=EXCLUDED.ship_id,market_id=EXCLUDED.market_id,position=EXCLUDED.position,quantity_lots=EXCLUDED.quantity_lots,unit_cost_cents=EXCLUDED.unit_cost_cents,freshness=EXCLUDED.freshness",
         values
       )
     end)

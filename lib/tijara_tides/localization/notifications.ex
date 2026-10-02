@@ -14,14 +14,20 @@ defmodule TijaraTides.Localization.Notifications do
         {"cargo", good} ->
           {"cargo", Localization.text(get_in(goods, [good, "name"]) || good)}
 
-        {key, amount} when key in ["loss", "refund", "price"] ->
+        {key, amount} when key in ["loss", "refund", "price", "grace_rate", "liquidation_rate"] ->
           {key, Localization.money(amount)}
 
         {"storage", class} ->
           {"storage", storage_name(class)}
 
+        {"deadline", wall_ms} ->
+          {"deadline", DateTime.from_unix!(wall_ms, :millisecond) |> DateTime.to_iso8601()}
+
         {key, value} when key in ["reason", "side", "port", "destination"] ->
           {key, Localization.text(value || "")}
+
+        {"minutes", value} when code == "ship.weather" and is_number(value) ->
+          {"minutes", Localization.number(value, format: "0.0")}
 
         {key, value} when is_number(value) ->
           {key, Localization.number(value)}
@@ -32,7 +38,7 @@ defmodule TijaraTides.Localization.Notifications do
 
     bindings =
       for key <-
-            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse)a,
+            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse deadline grace_rate liquidation_rate)a,
           Map.has_key?(args, Atom.to_string(key)),
           into: %{},
           do: {key, args[Atom.to_string(key)]}
@@ -81,6 +87,13 @@ defmodule TijaraTides.Localization.Notifications do
         args
       )
 
+  defp message("warehouse.expired", %{grace_rate: _, liquidation_rate: _} = args),
+    do:
+      gettext(
+        "Your warehouse lease at %{port} expired. Sale or collection grace: %{minutes} active-world minutes. Storage per occupied block per day: %{grace_rate} during grace; %{liquidation_rate} during liquidation. Charges are capped by this lease's proceeds.",
+        args
+      )
+
   defp message("warehouse.expired", args),
     do:
       gettext(
@@ -90,6 +103,13 @@ defmodule TijaraTides.Localization.Notifications do
 
   defp message("warehouse.cleared", args),
     do: gettext("Warehouse cargo at %{port} was cleared. Net proceeds: %{refund}.", args)
+
+  defp message("ship.weather", args),
+    do:
+      gettext(
+        "Weather revised %{ship}'s arrival at %{destination}; total weather delay %{minutes} min.",
+        args
+      )
 
   defp message("ship.loaded", args), do: gettext("%{ship} finished loading at %{port}.", args)
   defp message("ship.unloaded", args), do: gettext("%{ship} finished unloading at %{port}.", args)
@@ -115,6 +135,23 @@ defmodule TijaraTides.Localization.Notifications do
     do: gettext("You earned a new invitation. Open the account menu to send it.", args)
 
   defp message("company.formed", args), do: gettext("Your invitee now runs %{company}.", args)
+
+  defp message("funding.timeout", args),
+    do: gettext("%{ship}: funding accumulation timed out; reserved cash was released.", args)
+
+  defp message("linked.unfunded", args),
+    do:
+      gettext(
+        "Linked purchases at %{port} could not reserve cash or warehouse space for the next circuit.",
+        args
+      )
+
+  defp message("linked.cancelled", args),
+    do:
+      gettext(
+        "%{ship} at %{port}: cancelled %{quantity} linked lots of %{cargo}, releasing %{refund} and their warehouse space. %{filled} purchased lots remain stored. %{reason}.",
+        args
+      )
 
   defp message("ship.departed", args),
     do: gettext("%{ship} automatically departed %{port} for %{destination}.", args)
@@ -150,6 +187,20 @@ defmodule TijaraTides.Localization.Notifications do
         args
       )
 
+  defp message("company.dormancy_warning", args),
+    do:
+      gettext(
+        "%{company} will close for owner absence at %{deadline}. Return to the game before this deadline to keep it. Automated trading does not reset absence.",
+        args
+      )
+
+  defp message("company.dormant", args),
+    do:
+      gettext(
+        "%{company} closed for owner absence. Its assets are in receivership and cannot be restored. Your bankruptcy count is unchanged.",
+        args
+      )
+
   defp message("guarantee.funded", args),
     do:
       gettext(
@@ -165,5 +216,13 @@ defmodule TijaraTides.Localization.Notifications do
       )
 
   defp message("route.paused", args), do: gettext("%{reason}", args)
+
+  defp message("route.wait_expired", args),
+    do:
+      gettext(
+        "%{ship} at %{port}: maximum wait elapsed. Unfilled route targets were cancelled; committed handling will finish before departure.",
+        args
+      )
+
   defp message(_code, _args), do: gettext("Notification unavailable")
 end

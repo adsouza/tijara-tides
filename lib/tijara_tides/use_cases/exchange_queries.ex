@@ -13,7 +13,10 @@ defmodule TijaraTides.UseCases.ExchangeQueries do
     warehouses =
       ((view.private && view.private["warehouses"]) || %{})
       |> Map.values()
-      |> Enum.filter(&(&1["port"] == port and &1["expires_ms"] > view.public["clock_ms"]))
+      |> Enum.filter(
+        &(&1["port"] == port and
+            &1["expires_ms"] + (&1["grace_ms"] || 43_200_000) > view.public["clock_ms"])
+      )
       |> Enum.filter(
         &TijaraTides.Domain.Warehouse.compatible?(
           TijaraTides.Domain.WarehouseWorld.snapshot(&1),
@@ -56,6 +59,38 @@ defmodule TijaraTides.UseCases.ExchangeQueries do
           ),
         else: []
 
+    npc =
+      if item["shelf_ms"] > 0 and q do
+        sell = Enum.find(npc, &(&1["side"] == "sell"))
+
+        {offers, _} =
+          Enum.reduce(
+            q["freshness_batches"] || [],
+            {[], if(sell, do: sell["quantity"], else: 0)},
+            fn batch, {offers, left} ->
+              n = min(left, batch["quantity"])
+
+              level =
+                if n > 0,
+                  do: [
+                    Map.merge(sell, %{
+                      "quantity" => n,
+                      "grade" =>
+                        TijaraTides.Domain.OrderBook.grade_row(batch, view.public["clock_ms"]),
+                      "remaining_ms" => max(0, batch["expires_ms"] - view.public["clock_ms"])
+                    })
+                  ],
+                  else: []
+
+              {offers ++ level, left - n}
+            end
+          )
+
+        Enum.filter(npc, &(&1["side"] == "buy")) ++ offers
+      else
+        npc
+      end
+
     levels = Enum.map(levels, &Map.put(&1, "npc", false)) ++ npc
 
     trades =
@@ -64,6 +99,10 @@ defmodule TijaraTides.UseCases.ExchangeQueries do
 
     %{
       goods: goods,
+      perishable: item["shelf_ms"] > 0,
+      presets:
+        Map.values((view.private && view.private["markdown_presets"]) || %{})
+        |> Enum.sort_by(& &1["name"]),
       good: good,
       warehouses: warehouses,
       orders: orders,

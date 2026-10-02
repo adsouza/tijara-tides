@@ -15,7 +15,11 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "phase" => "buying",
          "auto_depart" => true,
          "stop_after" => false,
-         "reason" => "Following route"
+         "reason" => "Following route",
+         "visit_arrived_ms" => 100,
+         "wait_deadline_ms" => 1000,
+         "wait_timed_out" => false,
+         "visit_finished" => false
        }},
       {RouteStop,
        %{
@@ -23,7 +27,9 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "ship_id" => "s",
          "company_id" => "c",
          "position" => 1,
-         "port" => "Jakarta"
+         "port" => "Jakarta",
+         "max_wait_ms" => 900,
+         "advance_budget" => nil
        }},
       {RouteTarget,
        %{
@@ -36,7 +42,9 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "quantity_mode" => "maximum",
          "quantity" => nil,
          "limit" => 100,
-         "budget" => nil
+         "budget" => nil,
+         "min_remaining_ms" => 120_000,
+         "linked_warehouse_id" => nil
        }},
       {VisitPlan,
        %{
@@ -46,7 +54,8 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "port" => "Jakarta",
          "onward" => "Singapore",
          "auto_depart" => true,
-         "departure_wait" => nil
+         "departure_wait" => nil,
+         "advance_budget" => nil
        }}
     ]
 
@@ -59,5 +68,42 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
     {_, route} = hd(rows)
     assert_raise ArgumentError, fn -> RouteHeader.from_row(%{route | "phase" => "sailing"}) end
     assert_raise ArgumentError, fn -> RouteHeader.from_row(%{route | "cursor" => -1}) end
+    legacy = Map.drop(route, ~w(visit_arrived_ms wait_deadline_ms wait_timed_out))
+    assert RouteHeader.from_row(legacy).wait_deadline_ms == nil
+    refute RouteHeader.from_row(legacy).wait_timed_out
+
+    for changes <- [
+          %{"visit_arrived_ms" => -1},
+          %{"visit_arrived_ms" => "100"},
+          %{"wait_deadline_ms" => 100},
+          %{"wait_deadline_ms" => 99},
+          %{"visit_arrived_ms" => nil},
+          %{"wait_deadline_ms" => "1000"},
+          %{"wait_timed_out" => nil}
+        ] do
+      assert_raise ArgumentError, fn -> RouteHeader.from_row(Map.merge(route, changes)) end
+    end
+
+    {_, stop} = Enum.at(rows, 1)
+    assert RouteStop.from_row(Map.delete(stop, "max_wait_ms")).max_wait_ms == nil
+
+    for wait <- [1, RouteStop.max_wait_ms(), nil] do
+      assert RouteStop.from_row(Map.put(stop, "max_wait_ms", wait)).max_wait_ms == wait
+    end
+
+    for wait <- [0, -1, RouteStop.max_wait_ms() + 1, "1", 1.5] do
+      assert_raise ArgumentError, fn -> RouteStop.from_row(Map.put(stop, "max_wait_ms", wait)) end
+    end
+
+    {_, target} = Enum.at(rows, 2)
+    assert RouteTarget.from_row(Map.delete(target, "min_remaining_ms")).min_remaining_ms == 0
+
+    for minimum <- [nil, false, -1, 2_592_000_001, "60", 1.5] do
+      assert_raise ArgumentError, fn ->
+        RouteTarget.from_row(Map.put(target, "min_remaining_ms", minimum))
+      end
+    end
+
+    assert_raise ArgumentError, fn -> RouteTarget.from_row(Map.put(target, "side", "sell")) end
   end
 end

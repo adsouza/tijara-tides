@@ -8,7 +8,7 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
     good = %{"name" => "Lumber"}
 
     stops = [
-      %{"id" => "a", "port" => "Singapore", "position" => 0},
+      %{"id" => "a", "port" => "Singapore", "position" => 0, "max_wait_ms" => 60_000},
       %{"id" => "b", "port" => "Colombo", "position" => 1}
     ]
 
@@ -35,18 +35,33 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
       }
 
       model = %{
+        link_warehouses: %{},
+        links: %{},
+        budgets: %{},
+        exchange_orders: %{},
+        funding_request: nil,
         route: %{
           "status" => "paused",
           "phase" => "arrival",
           "cursor" => 0,
           "stop_after" => false,
-          "reason" => "Completing loading targets"
+          "reason" => "Completing loading targets",
+          "wait_deadline_ms" => 60_000,
+          "wait_timed_out" => false
         },
         stops: stops,
         rules: %{"a" => [rule]},
         stop_goods:
           Map.new(stops, &{&1["id"], %{"buy" => [{"cargo", good}], "sell" => [{"cargo", good}]}}),
         plan: %{"departure_wait" => "Waiting for cargo orders to be filled or cancelled"},
+        last_timeout: %{
+          "arguments" => %{
+            "port" => "Singapore",
+            "shortfalls" => [
+              %{"side" => "buy", "good" => "cargo", "filled" => 1, "quantity" => 3}
+            ]
+          }
+        },
         orders: [
           %{
             "id" => "order",
@@ -87,6 +102,14 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
       refute html =~ "Sell all aboard"
       refute html =~ "Lumber"
       refute html =~ "lots of"
+      refute html =~ "Wait limit"
+      refute html =~ "Maximum wait remaining"
+      refute html =~ "Last timed-out visit"
+      refute html =~ "remainder cancelled"
+      assert html =~ "حد الانتظار"
+      assert html =~ "المتبقي من الحد الأقصى للانتظار"
+      assert html =~ "أُلغي الباقي"
+      assert html =~ ~s(name="minutes")
       assert html =~ ~s(value="maximum")
       assert html =~ ~s(value="resume")
       assert html =~ ~s(value="cargo")

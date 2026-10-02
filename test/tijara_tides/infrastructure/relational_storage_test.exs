@@ -277,7 +277,8 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     end
   end
 
-  defp legacy_data("accounts", data), do: Map.drop(data, ["suspended_ms", "email", "locale"])
+  defp legacy_data("accounts", data),
+    do: Map.drop(data, ["suspended_ms", "email", "locale", "funding_policy"])
 
   defp legacy_data("companies", data),
     do:
@@ -289,10 +290,15 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     do:
       data
       |> Map.drop(["book_value", "built_ms", "build_value"])
-      |> Map.update!("cargo", &Enum.map(&1, fn row -> Map.delete(row, "lot_id") end))
+      |> Map.update!("cargo", &Enum.map(&1, fn row -> Map.drop(row, ["lot_id", "freshness"]) end))
 
   defp legacy_data("markets", data),
-    do: Map.update!(data, "batches", &Enum.map(&1, fn row -> Map.delete(row, "lot_id") end))
+    do:
+      Map.update!(
+        data,
+        "batches",
+        &Enum.map(&1, fn row -> Map.drop(row, ["lot_id", "freshness"]) end)
+      )
 
   defp legacy_data(_, data), do: data
 

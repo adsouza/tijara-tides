@@ -13,7 +13,7 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     assert {"crude_oil", _} = List.keyfind(all, "crude_oil", 0)
 
     for {class, allowed} <- [
-          {"freighter", ["dry"]},
+          {"freighter", ["dry", "reefer"]},
           {"reefer", ["dry", "reefer"]},
           {"tanker", ["liquid"]}
         ] do

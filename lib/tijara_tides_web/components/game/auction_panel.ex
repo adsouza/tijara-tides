@@ -126,6 +126,14 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         <p :if={a["status"] == "scheduled"}>
           {gettext("Closes in %{time}", time: active_countdown(a["closes_ms"] - @auction.clock))}
         </p>
+        <p :if={a["liquidation"]} class="text-xs text-amber-300">
+          {gettext("Warehouse liquidation")}
+        </p>
+        <p :if={a["expires_ms"]} class="text-xs text-slate-400">
+          {gettext("Projected remaining shelf life at close: %{time}",
+            time: active_countdown(max(0, a["expires_ms"] - a["closes_ms"]))
+          )}
+        </p>
         <p :if={a["price"]}>{gettext("Sale price")}: {money(a["price"])}</p>
         <p :if={a["status"] != "scheduled" and a["amounts"] != []}>
           {gettext("Anonymous final bids")}: {Enum.map_join(a["amounts"], ", ", &money/1)}
@@ -135,7 +143,10 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         </p>
         <p :if={a["bid"]}>{gettext("Your bid")}: {money(a["bid"]["amount"])}</p>
         <form
-          :if={a["status"] == "scheduled" and a["mine"] and @auction.clock < a["opens_ms"]}
+          :if={
+            a["status"] == "scheduled" and a["mine"] and !a["liquidation"] and
+              @auction.clock < a["opens_ms"]
+          }
           phx-submit="auction"
           class="my-2 flex flex-wrap items-end gap-2"
         >

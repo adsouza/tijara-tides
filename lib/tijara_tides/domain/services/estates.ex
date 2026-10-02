@@ -47,7 +47,8 @@ defmodule TijaraTides.Domain.Services.Estates do
 
     s =
       Enum.reduce(Enum.sort(entities(s, "warehouses")), s, fn {id, row}, s ->
-        if estate?(s, row["company_id"]) do
+        if estate?(s, row["company_id"]) and
+             not TijaraTides.Domain.Services.WarehouseLiquidation.active?(s, id) do
           # Preserve commitments already accepting bids, including expired leases.
           closes =
             AuctionWorld.company_auctions(s, row["company_id"])
@@ -203,7 +204,7 @@ defmodule TijaraTides.Domain.Services.Estates do
     ship = get(s, "ships", a.ship_id)
 
     s
-    |> ShipWorld.retire(a.ship_id)
+    |> TijaraTides.Domain.Services.ShipLifecycle.retire(a.ship_id)
     |> CompanyFinanceWorld.post(a.company_id, "estate_ship_disposal", [
       {"fleet", -ship["book_value"]},
       {"receivership", ship["book_value"]}

@@ -7,6 +7,7 @@ defmodule TijaraTidesWeb.GameLive do
   def mount(_params, session, socket) do
     TijaraTides.Localization.put_locale(session["locale"])
     token = session["account_token"]
+    if token && not connected?(socket), do: Game.visit(token)
 
     if connected?(socket) do
       :ok = Game.subscribe()
@@ -24,6 +25,9 @@ defmodule TijaraTidesWeb.GameLive do
         refresh_running: false,
         refresh_pending: false,
         heartbeat_pending: false,
+        owner_visit_pending: false,
+        owner_visit_running: false,
+        owner_visit_queued_ms: nil,
         preferred_locale: if(session["locale_explicit"], do: session["locale"]),
         browser_id: session["player_id"],
         page_title: gettext("Your shipping company"),
@@ -69,6 +73,16 @@ defmodule TijaraTidesWeb.GameLive do
         preview: nil
       )
 
+    socket =
+      attach_hook(socket, :owner_visit, :handle_event, fn event, _params, current ->
+        current =
+          if current.assigns.token && event not in ["dropdown-active", "lv:clear-flash"],
+            do: queue_owner_visit(current),
+            else: current
+
+        {:cont, current}
+      end)
+
     {:ok, refresh(socket)}
   end
 
@@ -80,7 +94,30 @@ defmodule TijaraTidesWeb.GameLive do
     {:noreply, socket |> assign(heartbeat_pending: true) |> background_refresh()}
   end
 
+  def handle_info(:owner_visit, socket) do
+    {:noreply,
+     if(socket.assigns.owner_visit_pending, do: background_refresh(socket), else: socket)}
+  end
+
   def handle_info(_message, socket), do: {:noreply, socket}
+
+  defp queue_owner_visit(socket) do
+    now = System.monotonic_time(:millisecond)
+    previous = socket.assigns.owner_visit_queued_ms
+
+    warned =
+      Enum.any?(
+        Map.get(socket.assigns, :system_notices, []),
+        &(&1["code"] == "company.dormancy_warning")
+      )
+
+    if warned or previous == nil or now - previous >= 60_000 do
+      unless socket.assigns.owner_visit_pending, do: send(self(), :owner_visit)
+      assign(socket, owner_visit_pending: true, owner_visit_queued_ms: now)
+    else
+      socket
+    end
+  end
 
   defp background_refresh(%{assigns: %{refresh_running: true}} = socket),
     do: assign(socket, refresh_pending: true)
@@ -94,6 +131,7 @@ defmodule TijaraTidesWeb.GameLive do
     token = socket.assigns.token
     selected = socket.assigns.selected_ship
     heartbeat = socket.assigns.heartbeat_pending
+    visit = socket.assigns.owner_visit_pending
     generation = socket.assigns.refresh_generation + 1
 
     socket
@@ -101,10 +139,13 @@ defmodule TijaraTidesWeb.GameLive do
       refresh_generation: generation,
       refresh_running: true,
       refresh_pending: false,
-      heartbeat_pending: false
+      heartbeat_pending: false,
+      owner_visit_pending: false,
+      owner_visit_running: visit
     )
     |> start_async({:world_refresh, generation}, fn ->
       if heartbeat, do: Game.connect(token)
+      if visit, do: Game.visit(token)
       fetch_view(token, selected)
     end)
   end
@@ -114,7 +155,7 @@ defmodule TijaraTidesWeb.GameLive do
     if generation != socket.assigns.refresh_generation do
       {:noreply, socket}
     else
-      socket = assign(socket, refresh_running: false)
+      socket = assign(socket, refresh_running: false, owner_visit_running: false)
 
       socket =
         case result do
@@ -143,7 +184,10 @@ defmodule TijaraTidesWeb.GameLive do
       |> assign(
         refresh_generation: socket.assigns.refresh_generation + 1,
         refresh_running: false,
-        refresh_pending: false
+        refresh_pending: false,
+        owner_visit_pending:
+          socket.assigns.owner_visit_pending || socket.assigns.owner_visit_running,
+        owner_visit_running: false
       )
     else
       socket
@@ -241,9 +285,51 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event("exchange", params, socket) do
     command =
       params
-      |> Map.drop(["_target", "minutes", "clear_expiry"])
+      |> Map.drop(["_target", "minutes", "clear_expiry", "markdown_mode", "freshness_minutes"])
       |> Map.update("quantity", nil, &report_number/1)
       |> Map.update("price", nil, &exchange_price/1)
+      |> Map.update("price_floor", nil, &exchange_price/1)
+      |> Map.update("min_grade", nil, &report_number/1)
+      |> then(fn cmd ->
+        if params["freshness_minutes"] not in [nil, ""],
+          do: Map.put(cmd, "min_remaining_ms", freshness_minimum(params)),
+          else: cmd
+      end)
+      |> then(fn cmd ->
+        if params["rebase"], do: Map.put(cmd, "rebase", params["rebase"] == "true"), else: cmd
+      end)
+      |> then(fn cmd ->
+        case params["markdown_mode"] do
+          "custom" ->
+            Map.put(
+              cmd,
+              "markdowns",
+              Map.new(params["markdowns"] || %{}, fn {grade, value} ->
+                {grade, report_number(value)}
+              end)
+            )
+
+          "off" ->
+            Map.put(cmd, "preset", "") |> Map.delete("markdowns")
+
+          "keep" ->
+            Map.drop(cmd, ["markdowns", "price_floor"])
+
+          "preset:" <> id ->
+            Map.put(cmd, "preset", id) |> Map.drop(["markdowns", "price_floor"])
+
+          _ ->
+            if params["action"] == "markdown_preset_save",
+              do:
+                Map.update(
+                  cmd,
+                  "markdowns",
+                  nil,
+                  &Map.new(&1, fn {grade, value} -> {grade, report_number(value)} end)
+                ),
+              else: cmd
+        end
+      end)
 
     command =
       case params["minutes"] do
@@ -257,7 +343,7 @@ defmodule TijaraTidesWeb.GameLive do
           Map.put(
             command,
             "expires_ms",
-            socket.assigns.view.public["clock_ms"] + report_number(value) * 60_000
+            socket.assigns.view.public["clock_ms"] + (report_number(value) || -1) * 60_000
           )
       end
 
@@ -535,9 +621,9 @@ defmodule TijaraTidesWeb.GameLive do
     target = List.last(params["_target"] || [])
 
     fields =
-      if target in ~w(side good quantity limit budget onward),
+      if target in ~w(side good quantity limit budget onward expiry_minutes freshness_minutes),
         do: [target],
-        else: ~w(side good quantity limit budget onward)
+        else: ~w(side good quantity limit budget onward expiry_minutes freshness_minutes)
 
     draft = Map.merge(previous, Map.take(params, fields))
     draft = if target in ["side", "good"], do: Map.drop(draft, ["quantity", "limit"]), else: draft
@@ -570,7 +656,12 @@ defmodule TijaraTidesWeb.GameLive do
           "rule" => id,
           "limit" => :erlang.float_to_binary(rule["limit"] / 100, decimals: 2),
           "budget" => if(rule["budget"], do: to_string(div(rule["budget"], 100)), else: ""),
-          "quantity" => to_string(rule["quantity"] || 1)
+          "quantity" => to_string(rule["quantity"] || 1),
+          "freshness_minutes" =>
+            if(rule["min_remaining_ms"] in [nil, 0],
+              do: "",
+              else: to_string(div(rule["min_remaining_ms"], 60_000))
+            )
         })
 
       {:noreply,
@@ -596,7 +687,9 @@ defmodule TijaraTidesWeb.GameLive do
            socket.assigns.route_drafts,
            key,
            params
-           |> Map.take(~w(rule side good quantity quantity_mode limit budget))
+           |> Map.take(
+             ~w(rule side good quantity quantity_mode limit budget freshness_minutes linked_warehouse_id)
+           )
            |> Map.filter(fn {_, value} -> is_binary(value) and byte_size(value) <= 128 end)
          )
        )}
@@ -605,16 +698,40 @@ defmodule TijaraTidesWeb.GameLive do
     end
   end
 
+  def handle_event("funding-policy", params, socket),
+    do:
+      run(socket, %{
+        "action" => "funding_policy",
+        "policy" => params["policy"],
+        "request_id" => params["request_id"]
+      })
+
+  def handle_event("visit-budget", params, socket) do
+    amount = if(params["amount"] in [nil, ""], do: nil, else: instruction_cents(params["amount"]))
+
+    run(socket, %{
+      "action" => "visit_budget",
+      "ship" => socket.assigns.selected_ship,
+      "stop" => params["stop"],
+      "port" => params["port"],
+      "amount" => amount,
+      "request_id" => params["request_id"]
+    })
+  end
+
   def handle_event("route", params, socket) do
     command =
       params
-      |> Map.take(~w(operation port stop rule side good quantity_mode request_id))
+      |> Map.take(
+        ~w(operation port stop rule side good quantity_mode linked_warehouse_id request_id)
+      )
       |> Map.merge(%{"action" => "route", "ship" => socket.assigns.selected_ship})
 
     command =
       case params["operation"] do
         op when op in ["add_rule", "update_rule"] ->
           Map.merge(command, %{
+            "min_remaining_ms" => freshness_minimum(params),
             "quantity" => report_number(params["quantity"]) || 0,
             "limit" =>
               if(is_binary(params["limit"]) and byte_size(params["limit"]) <= 32,
@@ -631,6 +748,16 @@ defmodule TijaraTidesWeb.GameLive do
         op when op in ["start", "resume"] ->
           Map.put(command, "auto_depart", true)
 
+        "set_wait" ->
+          Map.put(
+            command,
+            "max_wait_ms",
+            if(params["minutes"] in [nil, ""],
+              do: nil,
+              else: (report_number(params["minutes"]) || -1) * 60_000
+            )
+          )
+
         _ ->
           command
       end
@@ -642,6 +769,7 @@ defmodule TijaraTidesWeb.GameLive do
     run(
       socket,
       params
+      |> Map.take(~w(request_id side good quantity limit budget onward preset))
       |> Map.put("action", "instruction")
       |> Map.put("ship", socket.assigns.selected_ship)
       |> Map.put(
@@ -655,6 +783,14 @@ defmodule TijaraTidesWeb.GameLive do
       |> Map.update("quantity", 0, &integer/1)
       |> Map.update("limit", 0, &instruction_cents/1)
       |> Map.update("budget", 0, &(integer(&1) * 100))
+      |> Map.put("min_remaining_ms", freshness_minimum(params))
+      |> Map.put(
+        "expires_in_ms",
+        if(params["expiry_minutes"] in [nil, ""],
+          do: nil,
+          else: (report_number(params["expiry_minutes"]) || -1) * 60_000
+        )
+      )
     )
   end
 
@@ -829,6 +965,11 @@ defmodule TijaraTidesWeb.GameLive do
     case Game.command(socket.assigns.token, request, command) do
       {:ok, result} ->
         socket =
+          if command["action"] == "route" && command["operation"] == "set_wait",
+            do: push_event(socket, "draft-reset", %{id: "route-wait-" <> command["stop"]}),
+            else: socket
+
+        socket =
           if command["action"] == "purchase_ship",
             do: push_event(socket, "draft-reset", %{id: "shipyard-purchase"}),
             else: socket
@@ -880,6 +1021,12 @@ defmodule TijaraTidesWeb.GameLive do
     end
   end
 
+  defp freshness_minimum(params) do
+    if params["side"] == "sell" or params["freshness_minutes"] in [nil, ""],
+      do: 0,
+      else: (report_number(params["freshness_minutes"]) || -1) * 60_000
+  end
+
   defp report_number(value) when is_integer(value), do: value
 
   defp report_number(value) when is_binary(value) and byte_size(value) <= 12 do
@@ -929,6 +1076,8 @@ defmodule TijaraTidesWeb.GameLive do
 
   defp refresh(socket) do
     socket = cancel_refresh(socket)
+    if socket.assigns.owner_visit_pending, do: Game.visit(socket.assigns.token)
+    socket = assign(socket, owner_visit_pending: false)
     {view, preview} = fetch_view(socket.assigns.token, socket.assigns.selected_ship)
     apply_view(socket, view, preview)
   end
@@ -985,6 +1134,7 @@ defmodule TijaraTidesWeb.GameLive do
           if notice["code"] in [
                "ship.loaded",
                "ship.unloaded",
+               "ship.weather",
                "auction.won",
                "invitation.earned"
              ] do

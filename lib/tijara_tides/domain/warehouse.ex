@@ -8,12 +8,26 @@ defmodule TijaraTides.Domain.Warehouse do
   @storage_classes ["dry", "reefer", "liquid"]
   @fields ~w(id company_id port storage good blocks started_ms expires_ms rent prepaid protected_ms)a
   @renewal_defaults [
+    source_lease_id: nil,
+    space_group: nil,
+    space_volumes: %{},
+    award_id: nil,
+    award_grace: false,
+    grace_rent: nil,
+    grace_blocks: nil,
+    grace_duration_ms: nil,
+    external_volume: 0,
+    aging_bps: 2500,
     display_number: 1,
     renewal_rate: nil,
     next_rent: 0,
     next_days: nil,
     auto_days: nil,
-    auto_cap: nil
+    auto_cap: nil,
+    grace_ms: 43_200_000,
+    surcharge_bps: 2500,
+    window_ms: 7_200_000,
+    clearance_bps: 1000
   ]
   @enforce_keys @fields
   defstruct @fields ++ @renewal_defaults ++ [cargo: [], reservations: []]
@@ -45,16 +59,28 @@ defmodule TijaraTides.Domain.Warehouse do
     do: Enum.sum(for b <- w.cargo, do: b.quantity * catalogue["goods"][b.good]["volume_l"])
 
   def compatible?(w, item),
-    do: item["hold"] == w.storage and (w.storage != "liquid" or item["id"] == w.good)
+    do:
+      (item["hold"] == w.storage or
+         (w.storage in ["dry", "reefer"] and item["hold"] in ["dry", "reefer"])) and
+        (w.storage != "liquid" or item["id"] == w.good)
 
-  def cleaning_cost(last_liquid, item) do
-    if item["hold"] == "liquid" and last_liquid not in [nil, item["id"]],
-      do: if("vegetable_oil" in [last_liquid, item["id"]], do: 25_000, else: 5000),
-      else: 0
-  end
+  def receiving_open?(%__MODULE__{} = w, now), do: not w.award_grace and now < w.expires_ms
 
-  def extension_open?(w, now), do: now < w.expires_ms and is_nil(w.next_days)
-  def covered_until(w), do: w.expires_ms + (w.next_days || 0) * @day
+  def receiving_allowed?(%__MODULE__{} = w, company, port, item, now) when is_map(item),
+    do:
+      w.company_id == company and w.port == port and receiving_open?(w, now) and
+        compatible?(w, item)
+
+  def receiving_allowed?(%__MODULE__{}, _company, _port, _item, _now), do: false
+
+  defdelegate cleaning_cost(last_liquid, item), to: TijaraTides.Domain.CargoRules
+
+  def extension_open?(w, now),
+    do: not w.award_grace and now < w.expires_ms and is_nil(w.next_days)
+
+  def covered_until(w),
+    do: w.expires_ms + (w.next_days || 0) * @day + if(w.award_grace, do: w.grace_ms, else: 0)
+
   def day_ms, do: @day
 
   def extension_rate(w, used_blocks),
@@ -63,12 +89,72 @@ defmodule TijaraTides.Domain.Warehouse do
   def renewal_window_ms, do: 21_600_000
 
   def renewal_open?(w, now),
-    do: now >= w.expires_ms - renewal_window_ms() and now < w.expires_ms and is_nil(w.next_days)
+    do:
+      not w.award_grace and now >= w.expires_ms - renewal_window_ms() and now < w.expires_ms and
+        is_nil(w.next_days)
 
   defp fresh?(batch, clock), do: is_nil(batch.expires_ms) or batch.expires_ms > clock
 
-  defp fresh_stock(w, good, clock),
+  def fresh_stock(w, good, clock),
     do: Enum.sum(for b <- w.cargo, b.good == good, fresh?(b, clock), do: b.quantity)
+
+  @doc "Most lots a new reservation of this kind may claim; reserve/4 and read models share it."
+  def reservation_limit(%__MODULE__{} = w, "stock", item, now, _catalogue),
+    do: max(0, fresh_stock(w, item["id"], now) - reserved_quantity(w, "stock", item["id"]))
+
+  def reservation_limit(%__MODULE__{} = w, "capacity", item, _now, catalogue),
+    do: free_lots(w, catalogue, reserved_volume(w, catalogue), item)
+
+  @doc """
+  Most lots one transfer may move under each limit. The transfer command rejects a
+  larger quantity with the error for the limit it exceeds; read models offer the
+  smallest. `terms` supplies the ship and company facts this model does not own.
+  """
+  def transfer_limits(%__MODULE__{} = w, "store", item, terms),
+    do: %{
+      stock: terms.aboard,
+      space:
+        free_lots(
+          w,
+          terms.catalogue,
+          reserved_volume(w, terms.catalogue, terms.ship_id, item["id"]),
+          item
+        ),
+      cash: div(max(0, terms.cash), max(1, terms.handling))
+    }
+
+  def transfer_limits(%__MODULE__{} = w, "collect", item, terms) do
+    qualifying =
+      Enum.sum(
+        for b <- w.cargo,
+            b.good == item["id"],
+            TijaraTides.Domain.CargoRules.qualifies_batch?(
+              b,
+              terms.now,
+              terms.minimum,
+              terms.hold_rate
+            ),
+            do: b.quantity
+      )
+
+    %{
+      stock: max(0, qualifying - reserved_quantity(w, "stock", item["id"], terms.ship_id)),
+      hold: terms.hold_lots,
+      cash: div(max(0, terms.cash - terms.cleaning), max(1, terms.handling))
+    }
+  end
+
+  defp free_lots(w, catalogue, reserved, item),
+    do:
+      max(
+        0,
+        div(
+          w.blocks * block_litres() - volume(w, catalogue) - w.external_volume - reserved,
+          item["volume_l"]
+        )
+      )
+
+  def accrue(%__MODULE__{award_grace: true} = w, _now), do: {w, 0}
 
   def accrue(%__MODULE__{} = w, now) do
     remaining =
@@ -143,23 +229,10 @@ defmodule TijaraTides.Domain.Warehouse do
     {%{w | cargo: cargo}, Enum.sum(for b <- expired, do: b.quantity * b.unit_cost)}
   end
 
-  def clearance(%__MODULE__{} = w, now, bankrupt, catalogue) do
-    if now >= w.protected_ms and
-         ((bankrupt and w.cargo == [] and w.reservations == []) or
-            (not bankrupt and now >= w.expires_ms + div(@day, 2))) do
-      cost = Enum.sum(for b <- w.cargo, do: b.quantity * b.unit_cost)
-
-      value =
-        Enum.sum(
-          for b <- w.cargo,
-              do:
-                b.quantity *
-                  min(b.unit_cost, div(catalogue["goods"][b.good]["reference_cents"], 2))
-        )
-
-      grace = div(w.rent * max(0, now - w.expires_ms), max(1, w.expires_ms - w.started_ms))
-      %{cost: cost, value: value, charges: min(value, grace)}
-    end
+  @doc "Empty estate leases release after committed handling completes. Cargo sales belong to services."
+  def clearance(%__MODULE__{} = w, now, bankrupt, _catalogue) do
+    if bankrupt and now >= w.protected_ms and w.cargo == [] and w.reservations == [],
+      do: %{cost: 0, value: 0, charges: 0}
   end
 
   def reserved_volume(%__MODULE__{} = w, catalogue, ship_id \\ nil, good \\ nil),
@@ -199,6 +272,15 @@ defmodule TijaraTides.Domain.Warehouse do
 
   def clear_reservations(%__MODULE__{} = w),
     do: transition(w, [], Enum.map(w.reservations, & &1.id))
+
+  def release_reservations(%__MODULE__{} = w, ids) do
+    held = MapSet.new(w.reservations, & &1.id)
+
+    unless Enum.all?(ids, &MapSet.member?(held, &1)),
+      do: raise(ArgumentError, "Released claims must belong to this warehouse")
+
+    transition(w, [], ids)
+  end
 
   def prune_reservations(%__MODULE__{} = w, now, valid_ids) do
     available =
@@ -241,14 +323,122 @@ defmodule TijaraTides.Domain.Warehouse do
     %{w | cargo: w.cargo ++ cargo}
   end
 
-  def release_cargo(%Lots{} = lots, %__MODULE__{} = w, good, quantity) do
-    unless is_integer(quantity) and quantity > 0 and
-             quantity <= fresh_stock(w, good, lots.clock_ms),
+  def release_cargo(
+        %Lots{} = lots,
+        %__MODULE__{} = w,
+        good,
+        quantity,
+        minimum \\ 0,
+        receiving_bps \\ 10_000
+      ) do
+    {fresh, excluded} =
+      Enum.split_with(
+        w.cargo,
+        &TijaraTides.Domain.CargoRules.qualifies_batch?(&1, lots.clock_ms, minimum, receiving_bps)
+      )
+
+    unless TijaraTides.Domain.CargoRules.valid_remaining?(minimum) and is_integer(quantity) and
+             quantity > 0 and
+             quantity <= Enum.sum(for b <- fresh, b.good == good, do: b.quantity),
            do: raise(ArgumentError, "Warehouse release exceeds fresh cargo")
 
-    {fresh, stale} = Enum.split_with(w.cargo, &fresh?(&1, lots.clock_ms))
+    fresh = Enum.sort_by(fresh, &(&1.expires_ms || 9_223_372_036_854_775_807))
     {lots, cargo, remaining} = CargoBatch.take(lots, fresh, quantity, good)
-    {lots, %{w | cargo: remaining ++ stale}, cargo}
+    {lots, %{w | cargo: remaining ++ excluded}, cargo}
+  end
+
+  @doc "Read virtual batch allocations without allocating new lot identities."
+  def cargo_allocations(w, good, now) do
+    fresh =
+      w.cargo
+      |> Enum.filter(&(&1.good == good and fresh?(&1, now)))
+      |> Enum.sort_by(&(&1.expires_ms || 9_223_372_036_854_775_807))
+
+    w.reservations
+    |> Enum.filter(&(&1.kind == "stock" and &1.good == good))
+    |> Enum.sort_by(&{&1.created_ms, &1.id})
+    |> Enum.reduce({%{}, fresh}, fn r, {held, free} ->
+      {taken, free, _left} = virtual_take(free, r.quantity, r.expires_ms)
+      {Map.put(held, r.id, taken), free}
+    end)
+  end
+
+  def unreserved_cargo(w, good, now), do: cargo_allocations(w, good, now) |> elem(1)
+
+  # Reservation grades are reconstructed from their auction's immutable expiry.
+  # Quantity-only prefix skipping fails after a lower-grade auction is cancelled.
+  defp virtual_take(batches, quantity, minimum_expiry) do
+    Enum.reduce(batches, {[], [], quantity}, fn batch, {taken, free, left} ->
+      eligible =
+        minimum_expiry == nil or batch.expires_ms == nil or batch.expires_ms >= minimum_expiry
+
+      n = if eligible, do: min(left, batch.quantity), else: 0
+      taken = if n > 0, do: taken ++ [%{batch | quantity: n}], else: taken
+
+      free =
+        if n < batch.quantity, do: free ++ [%{batch | quantity: batch.quantity - n}], else: free
+
+      {taken, free, left - n}
+    end)
+  end
+
+  def release_claim_cargo(lots, w, claim, quantity) do
+    allocated =
+      cargo_allocations(w, claim.good, lots.clock_ms)
+      |> elem(0)
+      |> Map.get(Claim.reservation_id(claim), [])
+
+    allocated =
+      if claim.lot_ids, do: Enum.filter(allocated, &(&1.lot_id in claim.lot_ids)), else: allocated
+
+    {lots, next, cargo} = release_allocation(lots, w, claim.good, quantity, allocated)
+
+    {fresh, stale} =
+      Enum.split_with(next.cargo, &(is_nil(&1.expires_ms) or &1.expires_ms > lots.clock_ms))
+
+    {lots, %{next | cargo: fresh ++ stale}, cargo}
+  end
+
+  @doc "Release free batches while preserving all existing auction grades."
+  def release_free_cargo(%Lots{} = lots, %__MODULE__{} = w, good, quantity, lot_ids \\ nil) do
+    free = unreserved_cargo(w, good, lots.clock_ms)
+    free = if lot_ids, do: Enum.filter(free, &(&1.lot_id in lot_ids)), else: free
+    release_allocation(lots, w, good, quantity, free)
+  end
+
+  def release_liquidation_cargo(%Lots{} = lots, %__MODULE__{} = w, %Claim{} = claim, quantity) do
+    {held, _free} = cargo_allocations(w, claim.good, lots.clock_ms)
+
+    release_allocation(
+      lots,
+      w,
+      claim.good,
+      quantity,
+      Map.get(held, Claim.reservation_id(claim), [])
+    )
+  end
+
+  defp release_allocation(lots, w, good, quantity, allocated) do
+    unless is_integer(quantity) and quantity > 0 and
+             quantity <= Enum.sum(for b <- allocated, do: b.quantity),
+           do: raise(ArgumentError, "Release exceeds its allocated fresh batches")
+
+    {chosen, _, 0} = virtual_take(allocated, quantity, nil)
+    quantities = Map.new(chosen, &{&1.lot_id, &1.quantity})
+
+    {lots, cargo, remaining} =
+      Enum.reduce(w.cargo, {lots, [], []}, fn batch, {lots, cargo, remaining} ->
+        n = if batch.good == good, do: Map.get(quantities, batch.lot_id, 0), else: 0
+
+        if n == 0 do
+          {lots, cargo, remaining ++ [batch]}
+        else
+          {lots, part, rest} = CargoBatch.take(lots, [batch], n, good)
+          {lots, cargo ++ part, remaining ++ rest}
+        end
+      end)
+
+    {lots, %{w | cargo: remaining}, cargo}
   end
 
   def protect_handling(%__MODULE__{} = w, until_ms), do: %{w | protected_ms: until_ms}
@@ -259,14 +449,19 @@ defmodule TijaraTides.Domain.Warehouse do
     stock = fresh_stock(w, order.good, now)
 
     cond do
-      now >= w.expires_ms ->
+      (order.side == "buy" and not receiving_open?(w, now)) or
+          (now >= w.expires_ms and
+             not (order.side == "sell" and
+                      (order.liquidation or
+                         ((order.kind == :order or w.award_grace) and
+                            now < w.expires_ms + w.grace_ms)))) ->
         {:error, :warehouse_expired}
 
       not compatible?(w, item) ->
         {:error, :incompatible_cargo}
 
       order.side == "buy" and
-          volume(w, catalogue) + reserved_volume(w, catalogue) +
+          volume(w, catalogue) + w.external_volume + reserved_volume(w, catalogue) +
             order.quantity * item["volume_l"] > w.blocks * block_litres() ->
         {:error, :warehouse_capacity}
 
@@ -286,8 +481,9 @@ defmodule TijaraTides.Domain.Warehouse do
           good: order.good,
           kind: if(order.side == "buy", do: "capacity", else: "stock"),
           quantity: order.quantity,
-          created_ms: now,
-          stop_id: nil
+          created_ms: order.created_ms || now,
+          stop_id: nil,
+          expires_ms: order.expires_ms
         }
 
         {:ok, transition(w, [r], [])}
@@ -298,9 +494,24 @@ defmodule TijaraTides.Domain.Warehouse do
     r = Enum.find(w.reservations, &(&1.id == Claim.reservation_id(order)))
 
     (w.expires_ms > now or
+       (order.side == "sell" and order.liquidation) or
+       (order.side == "sell" and order.kind == :order and now < w.expires_ms + w.grace_ms) or
        (order.kind in [:auction, :bid] and covered_until(w) >= (order.closes_ms || now))) and
       not is_nil(r) and r.quantity >= order.quantity and
-      (order.side != "sell" or fresh_stock(w, order.good, now) >= order.quantity)
+      (order.side != "sell" or
+         if(order.liquidation,
+           do:
+             Enum.sum(
+               for b <-
+                     Map.get(
+                       elem(cargo_allocations(w, order.good, now), 0),
+                       Claim.reservation_id(order),
+                       []
+                     ),
+                   do: b.quantity
+             ) >= order.quantity,
+           else: fresh_stock(w, order.good, now) >= order.quantity
+         ))
   end
 
   def consume_order(%__MODULE__{} = w, %Claim{} = order, n) do
@@ -328,14 +539,24 @@ defmodule TijaraTides.Domain.Warehouse do
     do:
       is_integer(blocks) and blocks > 0 and blocks <= w.blocks and now >= w.protected_ms and
         is_nil(w.next_days) and
-        volume(w, catalogue) + reserved_volume(w, catalogue) <=
+        volume(w, catalogue) + w.external_volume + reserved_volume(w, catalogue) <=
           (w.blocks - blocks) * block_litres()
+
+  @doc "A settled incoming fill converts its capacity backing into a ship stock claim."
+  def earmark_fill(%__MODULE__{} = w, %Reservation{kind: "stock"} = r, now, catalogue) do
+    unless r.quantity > 0 and r.company_id == w.company_id and r.ship_id != nil and
+             now < w.expires_ms and compatible?(w, catalogue["goods"][r.good]) and
+             r.quantity + reserved_quantity(w, "stock", r.good) <= fresh_stock(w, r.good, now),
+           do: raise(ArgumentError, "Remote fill must be backed by available owned stock")
+
+    transition(w, [r], [])
+  end
 
   def reserve(%__MODULE__{} = w, %Reservation{} = r, now, catalogue) do
     item = catalogue["goods"][r.good]
 
     cond do
-      now >= w.expires_ms ->
+      now >= w.expires_ms or (w.award_grace and r.kind == "capacity") ->
         {:error, :warehouse_expired}
 
       now < w.protected_ms ->
@@ -347,13 +568,11 @@ defmodule TijaraTides.Domain.Warehouse do
       length(w.reservations) >= 100 ->
         {:error, :warehouse_capacity}
 
-      r.kind == "stock" and
-          r.quantity + reserved_quantity(w, r.kind, r.good) > fresh_stock(w, r.good, now) ->
+      r.kind == "stock" and r.quantity > reservation_limit(w, "stock", item, now, catalogue) ->
         {:error, :insufficient_cargo}
 
       r.kind == "capacity" and
-          volume(w, catalogue) + reserved_volume(w, catalogue) + r.quantity * item["volume_l"] >
-            w.blocks * block_litres() ->
+          r.quantity > reservation_limit(w, "capacity", item, now, catalogue) ->
         {:error, :warehouse_capacity}
 
       true ->

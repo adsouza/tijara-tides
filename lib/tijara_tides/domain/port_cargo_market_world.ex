@@ -35,16 +35,21 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     end
   end
 
-  def release_stock(state, port, good, quantity, price, item) do
+  def release_stock(state, port, good, quantity, price, item, minimum \\ 0, policy \\ %{}) do
     market = fetch(state, port, good)
+
+    reserved =
+      if market.merchant, do: Map.get(reserved_lots(state), port <> "|" <> good, 0), else: 0
 
     if market.merchant and
          (not MerchantWarehouseWorld.active?(state, port <> "|" <> good) or
-            quantity > unreserved(state, market)),
+            quantity > max(0, market.stock - reserved)),
        do: raise(ArgumentError, "Merchant stock is not available in paid storage")
 
+    policy = Map.put(policy, :reserved_quantity, reserved)
+
     {lots, market, cargo} =
-      Market.supply(lots(state), fetch(state, port, good), quantity, price, item)
+      Market.supply(lots(state), fetch(state, port, good), quantity, price, item, minimum, policy)
 
     {state |> record_lots(lots) |> store(market), Enum.map(cargo, &CargoRows.encode/1)}
   end
@@ -52,8 +57,29 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
   def accept_cargo(state, port, good, quantity, price, cargo \\ nil) do
     market = fetch(state, port, good)
     receiving!(state, market, quantity)
-    cargo = cargo && Enum.map(cargo, &CargoRows.coerce/1)
+    cargo = condition_cargo(state, market, cargo)
     store(state, Market.receive_cargo(market, quantity, price, cargo))
+  end
+
+  defp condition_cargo(state, market, cargo) do
+    storage =
+      TijaraTides.Domain.ReadState.get(
+        state,
+        "merchant_warehouses",
+        market.port <> "|" <> market.good
+      )
+
+    rate =
+      if market.merchant && storage,
+        do: storage["aging_bps"] || TijaraTides.Domain.CargoFreshness.rate(storage["storage"]),
+        else: 10_000
+
+    cargo &&
+      Enum.map(cargo, fn row ->
+        row
+        |> CargoRows.coerce()
+        |> TijaraTides.Domain.CargoFreshness.recondition(state.clock_ms, rate)
+      end)
   end
 
   defp receiving!(state, market, quantity) do
@@ -97,7 +123,7 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
         market,
         quantity,
         amount,
-        cargo && Enum.map(cargo, &CargoRows.coerce/1)
+        condition_cargo(state, market, cargo)
       )
     )
   end
@@ -164,9 +190,6 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     end)
   end
 
-  defp unreserved(state, market),
-    do: max(0, market.stock - Map.get(reserved_lots(state), market.port <> "|" <> market.good, 0))
-
   defp available(state, %Market{merchant: true} = market, reserved) do
     id = market.port <> "|" <> market.good
     active = MerchantWarehouseWorld.active?(state, id)
@@ -175,6 +198,8 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
       market
       | warehouse_active: active,
         stock: if(active, do: max(0, market.stock - Map.get(reserved, id, 0)), else: 0),
+        batches:
+          if(active, do: Market.available_batches(market, Map.get(reserved, id, 0)), else: []),
         demand: min(market.demand, MerchantWarehouseWorld.free(state, id, market.stock))
     }
   end

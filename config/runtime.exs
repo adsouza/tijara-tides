@@ -1,5 +1,18 @@
 import Config
 
+if config_env() != :test do
+  absence_days = String.to_integer(System.get_env("TIJARA_DORMANCY_ABSENCE_DAYS", "30"))
+  warning_days = String.to_integer(System.get_env("TIJARA_DORMANCY_WARNING_DAYS", "7"))
+
+  unless absence_days > 0 and warning_days > 0,
+    do: raise("Dormancy absence and warning days must be positive")
+
+  config :tijara_tides, :dormancy, %{
+    "absence_ms" => absence_days * 86_400_000,
+    "warning_ms" => warning_days * 86_400_000
+  }
+end
+
 # No connection during ordinary tests, even if the shell has Neon credentials.
 if config_env() != :test do
   local_port = if config_env() == :dev, do: System.get_env("TIJARA_LOCAL_DB_PORT")

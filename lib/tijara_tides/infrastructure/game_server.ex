@@ -16,6 +16,9 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def snapshot(token \\ nil, server \\ default_server()),
     do: GenServer.call(server, {:snapshot, token}, @call_timeout)
 
+  def visit(token, server \\ default_server()),
+    do: GenServer.call(server, {:visit, token}, @call_timeout)
+
   # The owner process only plans the page; the SQL runs here, in the caller, so a slow
   # or contended report read never queues behind or ahead of commands and world ticks.
   def reports(token, selection, server \\ default_server()) do
@@ -163,7 +166,14 @@ defmodule TijaraTides.Infrastructure.GameServer do
                     TijaraTides.UseCases.LotAllocation.run(
                       fresh,
                       store(state),
-                      &Game.initialize(&1, state.catalogue)
+                      fn current ->
+                        current
+                        |> TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(
+                          state.wall_clock.(),
+                          state.catalogue
+                        )
+                        |> Game.initialize(state.catalogue)
+                      end
                     )
                   )
 
@@ -196,6 +206,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
     GameReadiness.publish(state.status)
     Process.send_after(self(), :readiness_heartbeat, 1000)
+    Process.send_after(self(), :dormancy_check, 60_000)
     {:ok, state}
   end
 
@@ -277,6 +288,9 @@ defmodule TijaraTides.Infrastructure.GameServer do
     {:reply, result, state}
   end
 
+  def handle_call({:visit, token}, _from, %{status: :ready} = state),
+    do: lifecycle(state, {:visit, hash(token)}, context(state), fn _ -> :ok end)
+
   def handle_call({:connect, token}, _from, %{status: :ready} = state) do
     case account(state, token) do
       {:ok, _} ->
@@ -348,7 +362,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
     do: {:reply, {:error, :email_link_invalid}, state}
 
   def handle_call(:email_pending, _from, %{status: :ready} = state) do
-    now = System.system_time(:millisecond)
+    now = state.wall_clock.()
 
     rows =
       Game.entities(state.game, "email_requests")
@@ -448,6 +462,32 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   def handle_info({:timeout, timer, :tick}, %{timer: timer} = state),
     do: handle_info(:tick, state)
+
+  def handle_info(:dormancy_check, %{status: :ready} = state) do
+    Process.send_after(self(), :dormancy_check, 60_000)
+
+    OperationBoundary.run(
+      :dormancy,
+      fn ->
+        case TijaraTides.UseCases.LifecycleCommands.run(
+               state.game,
+               :dormancy_check,
+               context(state),
+               store(state)
+             ) do
+          {:ok, outcome} -> {:noreply, accept_outcome(state, outcome)}
+          {:error, _, fresh} -> {:noreply, refresh_game(state, fresh)}
+          {:halt, _} -> {:noreply, OperationBoundary.pause(state)}
+        end
+      end,
+      fn _ -> {:noreply, OperationBoundary.pause(state)} end
+    )
+  end
+
+  def handle_info(:dormancy_check, state) do
+    Process.send_after(self(), :dormancy_check, 60_000)
+    {:noreply, state}
+  end
 
   def handle_info(:tick, %{status: :ready, active: true} = state) do
     OperationBoundary.run(

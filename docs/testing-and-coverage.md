@@ -8,8 +8,26 @@ platform, including when a test or coverage threshold fails.
 
 The [mutation-testing pilot](mutation-testing-pilot.md) records the bounded Muex
 experiment and its expansion across finance, trading instructions, commit/replay,
-conflict recovery, and persistence failures. It records test improvements and the baseline and test-selection safeguards
-required before any mutation-score gate. Mutation testing remains opt-in.
+conflict recovery, and persistence failures. It records test improvements and
+the baseline and test-selection safeguards required before any mutation-score
+gate. Mutation testing remains opt-in.
+
+The [proposed test expansion](test-expansion-plan.md) builds on this policy with
+input and notice contracts, lifecycle interactions, SQL transitions, property
+tests with shrinking, a shared stateful command fuzzer, generated sequences and
+mutation audits across existing code, including earlier finance, queues, markets,
+identity and reporting. It records implementation rounds and acceptance criteria.
+Review regressions now cover receiving freshness, late auction settlement,
+owner-visit coalescing, compiled ship dependencies, persisted-field contracts
+and operation counts. The bounded
+[gameplay mutation audit](mutation-testing-pilot.md#gameplay-review-regression-audit--2026-10-01)
+checks four deliberately broken behaviors. Broader shrinking and generated
+state-machine infrastructure remains follow-up work.
+Round 1b also specifies valid web-form contracts, normalization properties and
+two real-browser workflows. `LiveViewTest` does not execute browser JavaScript;
+SQL-backed form tests alone do not prove serializer coverage. The instruction
+metadata/replay regression is implemented; the broader form inventory, properties
+and Chromium cohort remain proposed in the expansion plan.
 
 For a focused coverage run:
 
@@ -70,6 +88,27 @@ all combinations or paths have been tested, nor does this policy claim MC/DC.
 Mutation testing complements these tests by checking whether deliberately wrong
 behavior is detected; a mutation score is not a branch or condition percentage.
 
+### Stateful change review checklist
+
+Apply this checklist now to stateful changes, including work landing alongside
+the [test expansion](test-expansion-plan.md#round-0-review-checklist). Each review
+must answer:
+
+1. What decisions and input boundaries changed, and which named tests cover
+   them? Which outcomes are infeasible, and why?
+2. Which resources are acquired, consumed, transferred and released on every
+   exit path? Which inbound or committed obligations must remain?
+3. Which lifecycle phases, timers and clocks interact, and what reachable
+   sequence exercises them?
+4. Which SQL constraints and write order apply? What happens on replay,
+   restart and publication?
+5. What independent oracle checks the result, and which semantic fault would
+   it catch?
+
+The checklist is a current review requirement. Links to the expansion's completed
+detection matrix will be added in Round 5; that does not delay its use. This
+documentation does not supply automated branch or condition measurement.
+
 ### Automated measurement acceptance criteria
 
 An automated gate remains required follow-up work. Before enabling it:
@@ -114,13 +153,33 @@ fill after its blocking condition clears.
 | Ownership and configuration | Missing/foreign ship, invalid/current visit port, incorrect sailing destination, incompatible/unknown/non-manual cargo, missing market |
 | Numeric validation | Non-integer and out-of-range quantities/prices/budgets, invalid onward port |
 | Lifecycle limits | Twenty active instructions accepted, twenty-first rejected, cancellation frees a slot, repeated/missing cancellation rejected |
+| Instruction expiry | Unlimited and legacy rows, duration types/bounds, ownership fencing, before/at deadline, newly viable fills, at-sea expiry, queued berth admission, partial fills and committed handling, automatic departure after handling, unchanged terminal records and retry notices |
+| Minimum shelf life | Numeric bounds and defaults, exact qualifying boundary, wait without cash/cargo movement, later replenishment, partial fills, earliest qualifying expiry, retained excluded lots/cost/split lineage, reservation protection, owned-stock berth admission, qualifying cargo aboard, maximum targets waiting and immutable current-visit snapshots |
 | Departure and privacy | Cancel waiting remainders and incompatible plans; owner-only visibility |
 
-The database/browser integration test additionally exercises UI submission and
+The database/LiveView integration test additionally exercises UI submission and
 preserved drafts, command replay, cancellation, automatic arrival settlement,
 SQL reload and a single financial posting after restart.
+The instruction-expiry integration case covers optional/invalid form input,
+tick-preserved drafts, private countdowns, SQL deadlines, replay without extending
+the deadline, restart without offline catch-up, terminal history and no duplicate
+expiry notice or financial posting.
+The freshness form integration case covers preserved drafts, invalid input,
+stored instruction and route terms, route edits/clearing, owner-only visibility,
+SQL reload and creation replay. Root codec cases cover legacy defaults and
+rejection of invalid freshness terms.
 
 ## Server failure scenarios
+
+Repeating-route maximum waits are covered by named cases in
+`test/tijara_tides/domain/ship_routes_test.exs`: limit ownership and bounds;
+the inclusive deadline versus newly fillable targets; partial loading and
+unstarted purchases during unloading; actual arrival on coarse ticks; berth
+retries and pause/resume; completed targets awaiting departure; and
+stop-after-visit with a fresh next-circuit deadline. Codec tests cover legacy
+unlimited rows and invalid timer shapes. The database integration case covers
+the wait form, private countdown/shortfalls, receipts and restart before and
+after timeout. The early simulation phase is checked by phase telemetry tests.
 
 `test/tijara_tides/infrastructure/game_server_failures_test.exs` uses narrow
 persistence doubles at existing callback boundaries. It verifies rejected startup

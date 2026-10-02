@@ -3,6 +3,25 @@ defmodule TijaraTides.Domain.AuctionWorld do
   alias TijaraTides.Domain.{Auction, State}
   alias TijaraTides.Domain.Auction.{Admission, Bid, BidRows, Rows, Transition}
 
+  @doc "Preserve locked auction terms when their won cargo moves to a paid replacement allocation."
+  def relocate_storage(state, old, new) do
+    previous = State.get(state, "warehouses", old)
+    replacement = State.get(state, "warehouses", new)
+
+    unless previous && replacement && previous["company_id"] == replacement["company_id"] &&
+             previous["port"] == replacement["port"] &&
+             previous["storage"] == replacement["storage"] &&
+             previous["space_group"] == replacement["space_group"],
+           do:
+             raise(ArgumentError, "Replacement storage must retain ownership and physical space")
+
+    Enum.reduce(all(state), state, fn auction, s ->
+      if open?(auction) && auction.warehouse_id == old,
+        do: update(s, auction.id, &%{&1 | warehouse_id: new}),
+        else: s
+    end)
+  end
+
   def fetch(s, id) do
     case State.get(s, "auctions", id) do
       nil -> nil
@@ -186,7 +205,7 @@ defmodule TijaraTides.Domain.AuctionWorld do
       row =
         Map.take(
           Rows.encode(a),
-          ~w(id port good quantity reserve opens_ms closes_ms status price ship_id)
+          ~w(id port good quantity reserve opens_ms closes_ms status price ship_id expires_ms)
         )
 
       amounts =
@@ -194,7 +213,7 @@ defmodule TijaraTides.Domain.AuctionWorld do
           do: [],
           else: Enum.sort(Enum.map(Auction.bids(a), & &1.amount), :desc)
 
-      Map.put(row, "amounts", amounts)
+      row |> Map.put("amounts", amounts) |> Map.put("liquidation", a.liquidation_id != nil)
     end)
   end
 

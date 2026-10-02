@@ -74,6 +74,8 @@ defmodule TijaraTides.Domain.MerchantWarehouseWorld do
           port: m["port"],
           good: m["good"],
           storage: item["hold"],
+          aging_bps:
+            if(w, do: w.aging_bps, else: TijaraTides.Domain.CargoFreshness.rate("reefer", cat)),
           blocks: blocks,
           capacity: div(blocks * WarehouseWorld.block_litres(), item["volume_l"]),
           protected_ms: if(w, do: w.protected_ms, else: s.clock_ms),

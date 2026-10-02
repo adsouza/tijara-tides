@@ -23,12 +23,26 @@ defmodule TijaraTides.Domain.PortCargoMarket.Lots do
             {lots, taken ++ [batch], left, need - amount}
 
           true ->
-            {lots, part} = create(lots, good, amount, batch.expires_ms, batch.lot_id)
+            {lots, part} =
+              create(
+                lots,
+                good,
+                amount,
+                TijaraTides.Domain.CargoFreshness.origin(batch),
+                batch.lot_id
+              )
 
             {lots, rest} =
-              create(lots, good, batch.quantity - amount, batch.expires_ms, batch.lot_id)
+              create(
+                lots,
+                good,
+                batch.quantity - amount,
+                TijaraTides.Domain.CargoFreshness.origin(batch),
+                batch.lot_id
+              )
 
-            {lots, taken ++ [part], left ++ [rest], need - amount}
+            {lots, taken ++ [TijaraTides.Domain.CargoFreshness.copy(batch, part)],
+             left ++ [TijaraTides.Domain.CargoFreshness.copy(batch, rest)], need - amount}
         end
       end)
 

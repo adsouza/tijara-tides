@@ -84,11 +84,10 @@ there is no shell, filesystem, notification, or updater plugin installed.
 ## Flatpak
 
 This is a downloadable/sideloadable `.flatpak` bundle, not a Flathub submission.
-The manifest repackages the native .deb against GNOME 50, matching the approach
-in Armchair Metropolist. It grants network access for multiplayer, Wayland/X11
-window display, IPC for X11, and GPU rendering. It grants no home-directory or
-system-bus access. The earlier game's forced dummy proxy resolver is omitted:
-this client needs normal network/proxy behavior.
+The manifest repackages the native .deb against GNOME 50. It grants network
+access for multiplayer, Wayland/X11 window display, IPC for X11, and GPU
+rendering. It grants no home-directory or system-bus access. It does not force a
+dummy proxy resolver: this client needs normal network/proxy behavior.
 
 The shared AppStream metadata names the Debian launcher, `Tijara Tides.desktop`.
 Flatpak renames that launcher to the application ID and updates the metadata's
@@ -124,8 +123,8 @@ flatpak run io.github.adsouza.tijara-tides
 ```
 
 The Flatpak toolchain explicitly includes `elfutils` and `librsvg2-common` and
-checks the SVG loader before building. This carries forward the packaging fixes
-from Armchair Metropolist instead of relying on apt's recommended dependencies.
+checks the SVG loader before building. Listing them explicitly avoids relying
+on apt's recommended dependencies.
 
 ## Verification and distribution
 

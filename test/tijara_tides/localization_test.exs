@@ -91,6 +91,24 @@ defmodule TijaraTides.LocalizationTest do
     end
   end
 
+  test "weather notices format fractional minutes to one localized decimal" do
+    notice = %{
+      "code" => "ship.weather",
+      "arguments" => %{
+        "ship" => "Vessel",
+        "destination" => "Jakarta",
+        "minutes" => 59_000 / 60_000
+      }
+    }
+
+    for {locale, expected} <- [{"en", "1.0"}, {"ar", "١٫٠"}] do
+      text = Localization.with_locale(locale, fn -> Notifications.render(notice, %{}) end)
+      assert text =~ expected
+      refute text =~ "983333"
+      assert notice["arguments"]["minutes"] == 59_000 / 60_000
+    end
+  end
+
   test "display minutes use localized digits while preserving one decimal place" do
     Localization.with_locale("en", fn ->
       assert Presentation.minutes(1_230_000) == "20.5"
@@ -196,6 +214,57 @@ defmodule TijaraTides.LocalizationTest do
 
         assert refrigerated =~ Notifications.storage_name("reefer")
         refute refrigerated =~ "%{"
+      end)
+    end
+  end
+
+  test "lease expiry notices disclose the configured grace duration and both storage rates" do
+    notice = %{
+      "code" => "warehouse.expired",
+      "arguments" => %{
+        "port" => "Custom Port",
+        "minutes" => 90,
+        "grace_rate" => 200,
+        "liquidation_rate" => 300
+      }
+    }
+
+    for locale <- ["en", "ar"] do
+      Localization.with_locale(locale, fn ->
+        rendered = Notifications.render(notice, %{})
+        assert rendered =~ "Custom Port"
+        assert rendered =~ Localization.number(90)
+        assert rendered =~ Localization.money(200)
+        assert rendered =~ Localization.money(300)
+        refute rendered =~ "%{"
+
+        if locale == "en" do
+          assert rendered ==
+                   "Your warehouse lease at Custom Port expired. Sale or collection grace: 90 active-world minutes. Storage per occupied block per day: $2 during grace; $3 during liquidation. Charges are capped by this lease's proceeds."
+        else
+          assert rendered =~ "مهلة البيع أو الاستلام"
+          assert rendered =~ "لا تتجاوز الرسوم حصيلة هذا الإيجار."
+        end
+      end)
+    end
+  end
+
+  test "legacy lease expiry notices remain readable in both locales" do
+    notice = %{"code" => "warehouse.expired", "arguments" => %{"port" => "Custom Port"}}
+
+    for locale <- ["en", "ar"] do
+      Localization.with_locale(locale, fn ->
+        rendered = Notifications.render(notice, %{})
+        assert rendered =~ "Custom Port"
+        refute rendered =~ "%{"
+
+        if locale == "en" do
+          assert rendered ==
+                   "Your warehouse lease at Custom Port expired. Collect its cargo within 12 active-world hours."
+        else
+          assert rendered ==
+                   "انتهى عقد مستودعك في Custom Port. اسحب بضائعه خلال ١٢ ساعة من وقت العالم النشط."
+        end
       end)
     end
   end

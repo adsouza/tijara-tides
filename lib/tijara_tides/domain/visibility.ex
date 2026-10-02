@@ -10,6 +10,7 @@ defmodule TijaraTides.Domain.Visibility do
     %{
       "warehouse_utilization" => TijaraTides.Domain.WarehouseWorld.pools(state),
       "clock_ms" => state.clock_ms,
+      "weather" => TijaraTides.Domain.WeatherWorld.public(state),
       "revision" => state.revision,
       "ports" => catalogue["ports"],
       "goods" => catalogue["goods"],
@@ -27,7 +28,17 @@ defmodule TijaraTides.Domain.Visibility do
       "exchange_trades" => TijaraTides.Domain.OrderBookWorld.recent(state),
       "companies" =>
         Map.new(entities(state, "companies"), fn {id, c} ->
-          {id, Map.take(c, ["id", "name", "created_ms", "bankruptcy_ms"])}
+          record = get(state, "company_dormancy", id)
+
+          {id,
+           Map.take(c, ["id", "name", "created_ms", "bankruptcy_ms"])
+           |> Map.put(
+             "closure_reason",
+             if(record && record["closed_ms"] != nil,
+               do: "dormant",
+               else: if(c["bankruptcy_ms"] != nil, do: "bankruptcy")
+             )
+           )}
         end),
       "ships" =>
         Map.new(entities(state, "ships"), fn {id, s} ->
@@ -43,6 +54,7 @@ defmodule TijaraTides.Domain.Visibility do
              "voyage_path",
              "depart_ms",
              "arrive_ms",
+             "weather",
              "berth_queued_ms",
              "berth_granted_ms"
            ])
@@ -58,6 +70,8 @@ defmodule TijaraTides.Domain.Visibility do
   def private(state, account) do
     %{
       "account" => Map.drop(account, ["inviter"]),
+      "markdown_presets" =>
+        Map.new(owned(state, "markdown_presets", "account_id", account["id"]), &{&1["id"], &1}),
       "invitation_forecast" =>
         TijaraTides.Domain.AccountWorld.InvitationAccrual.forecast(state, account),
       "email_deliveries" =>
@@ -77,9 +91,30 @@ defmodule TijaraTides.Domain.Visibility do
           else: []
         )
         |> Enum.map(&Map.drop(&1, ["valuation_seed"])),
+      "remote_links" =>
+        Map.new(
+          owned(state, "remote_links", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
+      "visit_budgets" =>
+        Map.new(
+          owned(state, "visit_budgets", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
+      "departure_requests" =>
+        Map.new(
+          owned(state, "departure_requests", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
       "exchange_orders" =>
         Map.new(
           owned(state, "exchange_orders", "company_id", account["company_id"]),
+          &{&1["id"], &1}
+        ),
+      "warehouse_liquidations" =>
+        Map.new(
+          owned(state, "warehouse_liquidations", "company_id", account["company_id"])
+          |> Enum.reject(&(&1["status"] == "completed")),
           &{&1["id"], &1}
         ),
       "warehouse_reservations" =>

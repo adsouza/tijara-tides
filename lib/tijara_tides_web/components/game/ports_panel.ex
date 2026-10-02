@@ -87,6 +87,23 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             <p class="mt-2">
               {l10n(@definitions.catalogue["ports"][@selected_port]["identity"])}
             </p>
+            <% handling = GameQueries.port_handling(@definitions.catalogue, @selected_port) %>
+            <div id="port-handling-speed" class="mt-2">
+              {gettext(
+                "Handling time for 100 lots: ordinary %{ordinary} min, perishables %{perishable} min, scrap %{scrap} min, liquids %{liquid} min.",
+                ordinary: minutes(handling["lumber"]),
+                perishable: minutes(handling["fruit"]),
+                scrap: minutes(handling["copper_scrap"]),
+                liquid: minutes(handling["crude_oil"])
+              )}
+            </div>
+            <% storm = GameQueries.port_weather(@view.public, @definitions.catalogue, @selected_port) %>
+            <div :if={storm} id="port-weather" class="mt-2 text-amber-300">
+              <.emoji symbol="🌧️" />{gettext(
+                "Regional storm: %{minutes} min remaining. Voyage estimates include known weather delays.",
+                minutes: minutes(max(0, storm["until_ms"] - @view.public["clock_ms"]))
+              )}
+            </div>
             <section id="port-manufacturing" class="mt-3">
               <h3 class="mb-1 text-base font-semibold text-slate-200">
                 <.emoji symbol="🏭" />{gettext("Local manufacturing")}
@@ -283,8 +300,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
       @ship && @ship["port"] == @selected_port && @ship["status"] != "sailing" %>
     <% tanker_purchase_blocked =
       @port_market_side == "buy" && selected_ship_here &&
-        @ship["status"] in ["loading", "unloading"] &&
-        @definitions.classes[@ship["class"]]["hold"] == "liquid" %>
+        GameQueries.trade_admission(@ship, "buy") == {:error, :tanker_purchase_handling} %>
     <p :if={tanker_purchase_blocked} id="tanker-purchase-handling" class="mb-2 text-sm text-amber-300">
       {gettext("Wait until the tanker finishes loading or unloading before buying liquid cargo.")}
     </p>
@@ -419,13 +435,13 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               {money(q[if(@port_market_side == "buy", do: "ask", else: "bid")])} / {display_number(
                 if(@port_market_side == "buy",
                   do: q["stock"],
-                  else: min(q["demand"], div(q["buyer_budget"], max(1, q["bid"])))
+                  else: GameQueries.sale_capacity(q)
                 )
               )}
               <p :if={@port_market_side == "sell"} class="text-xs text-slate-400">
                 {gettext(
                   "Can buy now: %{lots} lots · demand: %{demand} · buyer funds: %{funds}",
-                  lots: display_number(min(q["demand"], div(q["buyer_budget"], max(1, q["bid"])))),
+                  lots: display_number(GameQueries.sale_capacity(q)),
                   demand: display_number(q["demand"]),
                   funds: finance_money(q["buyer_budget"])
                 )}
@@ -584,6 +600,11 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                       else: gettext("Queue sale")
                     ),
                   else: l10n(String.capitalize(side))}</button>
+                <p :if={quantity > 0} class="basis-full text-xs text-slate-400">
+                  {gettext("Estimated handling: %{minutes} min",
+                    minutes: minutes(GameQueries.handling_time(q, quantity, @ship, item, side))
+                  )}
+                </p>
                 <%= if side == "buy" and available > 0 and quantity > 0 do %>
                   <% total = GameQueries.purchase_total(q, @ship, item, quantity) %>
                   <% voyage =

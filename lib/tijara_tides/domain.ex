@@ -5,6 +5,7 @@ defmodule TijaraTides.Domain do
     deps: [],
     exports: [
       ParticipationWorld,
+      Automation,
       Warehouse,
       WarehouseWorld,
       OrderBook,

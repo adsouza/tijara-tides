@@ -18,7 +18,14 @@ defmodule TijaraTides.Domain.PortCargoMarket do
       "ask" => div(item["reference_cents"] * (ask_base + div(500 - market.stock, 25)), 100),
       "bid" => div(item["reference_cents"] * (bid_base - div(500 - market.demand, 25)), 100),
       "handling_fee" => handling_rate(catalogue["ports"][market.port]),
-      "freshness_batches" => if(market.seller, do: market.batches, else: []),
+      "handling_profile" =>
+        TijaraTides.Domain.CargoRules.handling_profile(market.port, market.good, catalogue),
+      "refrigeration_bps" => TijaraTides.Domain.CargoFreshness.rate("reefer", catalogue),
+      "freshness_batches" =>
+        if(market.seller,
+          do: Enum.sort_by(market.batches, &(&1.expires_ms || 9_223_372_036_854_775_807)),
+          else: []
+        ),
       # Factory feedstock is physical inventory, not an offer to sell it.
       "stock" => if(market.seller, do: market.stock, else: 0),
       "demand" => if(market.buyer, do: market.demand, else: 0),
@@ -27,11 +34,48 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     }
   end
 
+  @doc "Lots a buyer takes at its bid: its demand, and what its budget pays for. Sales and read models share it."
+  def sale_capacity(quote) do
+    demand = max(0, quote["demand"])
+
+    if quote["bid"] > 0,
+      do: min(demand, max(0, div(quote["buyer_budget"], quote["bid"]))),
+      else: demand
+  end
+
+  @doc "What a sale of `quantity` pays the seller: the bid less port handling per lot."
+  def sale_proceeds(quote, quantity), do: quantity * (quote["bid"] - quote["handling_fee"])
+
+  @doc "Virtual FEFO stock remaining after quantity-only NPC auction reservations."
+  def available_batches(market, reserved) do
+    {free, _left} =
+      market.batches
+      |> Enum.sort_by(&(&1.expires_ms || 9_223_372_036_854_775_807))
+      |> Enum.reduce({[], max(0, reserved)}, fn b, {free, left} ->
+        held = min(left, b.quantity)
+        free = if held < b.quantity, do: free ++ [%{b | quantity: b.quantity - held}], else: free
+        {free, left - held}
+      end)
+
+    free
+  end
+
   @doc "Release supplier cargo, preserving perishable lot identities and split lineage."
-  def supply(%Lots{} = lots, %__MODULE__{} = market, quantity, price, item) do
+  def supply(
+        %Lots{} = lots,
+        %__MODULE__{} = market,
+        quantity,
+        price,
+        item,
+        minimum \\ 0,
+        policy \\ %{}
+      ) do
     unless item["id"] == market.good and market.seller and is_integer(quantity) and quantity > 0 and
-             quantity <= market.stock and is_integer(price) and price >= 0,
+             quantity <= market.stock and is_integer(price) and price >= 0 and
+             TijaraTides.Domain.CargoRules.valid_remaining?(minimum),
            do: raise(ArgumentError, "Market cannot supply the requested cargo quantity or price")
+
+    policy = Map.update(policy, :min_remaining_ms, minimum, &max(&1, minimum))
 
     {lots, taken, remaining} =
       if item["shelf_ms"] > 0 or market.merchant do
@@ -42,11 +86,33 @@ defmodule TijaraTides.Domain.PortCargoMarket do
                  Enum.sum(Enum.map(market.batches, & &1.quantity)) == market.stock,
                do: raise(ArgumentError, "Market freshness batches must match its unexpired stock")
 
-        Lots.take(lots, market.batches, quantity, market.good)
+        free =
+          Map.new(
+            available_batches(market, policy[:reserved_quantity] || 0),
+            &{&1.lot_id, &1.quantity}
+          )
+
+        {qualifying, excluded} =
+          Enum.split_with(
+            market.batches,
+            &(Map.get(free, &1.lot_id, 0) > 0 and
+                TijaraTides.Domain.OrderBook.eligible?(&1, lots.clock_ms, policy))
+          )
+
+        qualifying = Enum.sort_by(qualifying, &(&1.expires_ms || 9_223_372_036_854_775_807))
+
+        if Enum.sum(Enum.map(qualifying, &Map.fetch!(free, &1.lot_id))) < quantity,
+          do: raise(ArgumentError, "Market supply does not meet minimum remaining life")
+
+        {next, taken, remaining} = take_available(lots, qualifying, quantity, market.good, free)
+        {next, taken, remaining ++ excluded}
       else
         {next, lot} = Lots.create(lots, market.good, quantity, nil)
         {next, [lot], []}
       end
+
+    taken =
+      Enum.map(taken, &TijaraTides.Domain.CargoFreshness.initialize(&1, lots.clock_ms, item))
 
     cargo =
       Enum.map(
@@ -56,7 +122,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
           unit_cost: price,
           lot_id: &1.lot_id,
           quantity: &1.quantity,
-          expires_ms: &1.expires_ms
+          expires_ms: &1.expires_ms,
+          freshness: &1.freshness
         }
       )
 
@@ -67,6 +134,24 @@ defmodule TijaraTides.Domain.PortCargoMarket do
          budget: market.budget + price * quantity,
          batches: remaining
      }, cargo}
+  end
+
+  # Split physical batches, preserving the full parent's lineage even when only
+  # part of that batch is offered. Virtual quote quantities are never lot parents.
+  defp take_available(lots, batches, quantity, good, free) do
+    {lots, taken, remaining, 0} =
+      Enum.reduce(batches, {lots, [], [], quantity}, fn b, {lots, taken, remaining, left} ->
+        n = min(left, Map.fetch!(free, b.lot_id))
+
+        if n == 0 do
+          {lots, taken, remaining ++ [b], left}
+        else
+          {lots, part, rest} = Lots.take(lots, [b], n, good)
+          {lots, taken ++ part, remaining ++ rest, left - n}
+        end
+      end)
+
+    {lots, taken, remaining}
   end
 
   @doc "Consume finite buyer demand and funds; only merchants retain purchased stock."
@@ -88,7 +173,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
             &%Batch{
               lot_id: &1.lot_id,
               quantity: &1.quantity,
-              expires_ms: &1.expires_ms
+              expires_ms: &1.expires_ms,
+              freshness: &1.freshness
             }
           )
       else
@@ -105,6 +191,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
   end
 
   def validate_catalogue!(catalogue) do
+    TijaraTides.Domain.CargoFreshness.rate("reefer", catalogue)
+
     Enum.each(catalogue["goods"], fn {id, item} ->
       unless Regex.match?(~r/^[a-z]+(_[a-z]+)*$/, id) and item["id"] == id and
                is_binary(item["name"]) and String.trim(item["name"]) != "",
@@ -153,7 +241,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     {lots, batches} =
       if item["shelf_ms"] > 0 and seller and not merchant do
         {next, lot} = Lots.create(lots, good, 500, lots.clock_ms + item["shelf_ms"])
-        {next, [lot]}
+        {next, [TijaraTides.Domain.CargoFreshness.initialize(lot, lots.clock_ms, item)]}
       else
         {lots, []}
       end
@@ -222,7 +310,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
       {lots, batches} =
         if item["shelf_ms"] > 0 and produced > 0 do
           {next, lot} = Lots.create(lots, market.good, produced, now + item["shelf_ms"])
-          {next, batches ++ [lot]}
+          {next, batches ++ [TijaraTides.Domain.CargoFreshness.initialize(lot, now, item)]}
         else
           {lots, batches}
         end

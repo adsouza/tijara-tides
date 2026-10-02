@@ -116,7 +116,7 @@ defmodule TijaraTides.Domain.AuctionsTest do
     assert Auction.fetch(s, "lot").price == 1000
     assert Auction.fetch(s, "lot").status == "sold"
     assert Game.get(s, "companies", "bco")["reserved"] == 0
-    cargo = Game.get(s, "warehouses", "bw")["cargo"]
+    cargo = Game.get(s, "warehouses", "award:" <> a.id)["cargo"]
     assert Enum.sum(for b <- cargo, do: b["quantity"]) == 3
     assert Enum.sum(for b <- cargo, do: b["quantity"] * b["unit_cost"]) == 1000
     assert Game.get(s, "warehouses", "aw")["cargo"] == []
@@ -181,7 +181,7 @@ defmodule TijaraTides.Domain.AuctionsTest do
     a = Auction.fetch(s, "extended-lot")
     assert a.closes_ms > 1000
     assert WarehouseWorld.order_backed?(%{s | clock_ms: 1000}, Auctions.claim(a))
-    s = WarehouseWorld.advance(%{s | clock_ms: 1000}, c.catalogue)
+    s = TijaraTides.Domain.Services.WarehouseLeases.advance(%{s | clock_ms: 1000}, c.catalogue)
     assert WarehouseWorld.order_backed?(s, Auctions.claim(a))
   end
 
@@ -350,7 +350,9 @@ defmodule TijaraTides.Domain.AuctionsTest do
     assert Auction.fetch(s, a.id).status == "sold"
     assert Game.get(s, "markets", a.port <> "|whisky")["stock"] == stock - a.quantity
 
-    assert Enum.sum(for b <- Game.get(s, "warehouses", "bw")["cargo"], do: b["quantity"]) ==
+    assert Enum.sum(
+             for b <- Game.get(s, "warehouses", "award:" <> a.id)["cargo"], do: b["quantity"]
+           ) ==
              a.quantity
   end
 
@@ -379,7 +381,10 @@ defmodule TijaraTides.Domain.AuctionsTest do
     {:ok, s, _} = bid(c, %{s | clock_ms: a.opens_ms}, 2000)
     s = Auctions.advance(%{s | clock_ms: a.closes_ms + 1000}, c.catalogue)
     assert Auction.fetch(s, "lot").status == "sold"
-    assert Enum.sum(for b <- Game.get(s, "warehouses", "bw")["cargo"], do: b["quantity"]) == 3
+
+    assert Enum.sum(
+             for b <- Game.get(s, "warehouses", "award:" <> a.id)["cargo"], do: b["quantity"]
+           ) == 3
   end
 
   test "supplier shortage closes unsold and releases every bidder's cash and space", c do
@@ -482,14 +487,14 @@ defmodule TijaraTides.Domain.AuctionsTest do
     s = Estates.advance(s, c.catalogue)
     a = Enum.find(Auction.all(s), &(&1.company_id == "aco" and &1.warehouse_id == "aw"))
     assert a.quantity == 3
-    s = WarehouseWorld.advance(s, c.catalogue)
+    s = TijaraTides.Domain.Services.WarehouseLeases.advance(s, c.catalogue)
     assert WarehouseWorld.order_backed?(s, Auctions.claim(a))
     s = Estates.advance(s, c.catalogue)
     assert Enum.count(Auction.all(s), &(&1.warehouse_id == "aw")) == 1
     s = Auctions.advance(%{s | clock_ms: a.closes_ms}, c.catalogue)
     assert Auction.fetch(s, a.id).status == "unsold"
     assert Game.get(s, "warehouses", "aw")["cargo"] == []
-    s = WarehouseWorld.advance(s, c.catalogue)
+    s = TijaraTides.Domain.Services.WarehouseLeases.advance(s, c.catalogue)
     assert Game.get(s, "warehouses", "aw") == nil
   end
 
@@ -630,6 +635,6 @@ defmodule TijaraTides.Domain.AuctionsTest do
     s = Auctions.advance(%{s | clock_ms: resale.closes_ms}, c.catalogue)
     assert Auction.fetch(s, resale.id).winner_id == "bco"
     assert Game.get(s, "markets", "Hong Kong|whisky")["stock"] == 0
-    assert hd(Game.get(s, "warehouses", "bw")["cargo"])["lot_id"] == original
+    assert hd(Game.get(s, "warehouses", "award:" <> resale.id)["cargo"])["lot_id"] == original
   end
 end

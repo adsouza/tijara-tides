@@ -44,6 +44,30 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     """
   end
 
+  attr :ship, :map, required: true
+  attr :clock, :integer, required: true
+
+  def weather_notice(assigns) do
+    assigns = assign(assigns, :wait, GameQueries.weather_wait(assigns.ship, assigns.clock))
+
+    ~H"""
+    <p :if={@ship["status"] == "sailing" and @wait} class="weather-wait text-xs text-amber-300">
+      <.emoji symbol="🌧️" />{gettext(
+        "Waiting for regional weather: %{minutes} min. Fuel use is paused; cargo continues aging.",
+        minutes: minutes(@wait)
+      )}
+    </p>
+    <p
+      :if={@ship["status"] == "sailing" and (get_in(@ship, ["weather", "delay_ms"]) || 0) > 0}
+      class="weather-delay text-xs text-amber-300"
+    >
+      {gettext("Weather added %{minutes} min to this voyage's arrival estimate.",
+        minutes: minutes(@ship["weather"]["delay_ms"])
+      )}
+    </p>
+    """
+  end
+
   def bounded_quantity(_quantity, maximum) when maximum < 1, do: 0
   def bounded_quantity(quantity, maximum), do: max(1, min(quantity, maximum))
 
@@ -136,6 +160,12 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       else: cubic_meters(litres)
   end
 
+  def freshness_grade(0), do: gettext("Clearance (below 25%)")
+  def freshness_grade(1), do: gettext("Fair (25–50%)")
+  def freshness_grade(2), do: gettext("Good (50–75%)")
+  def freshness_grade(3), do: gettext("Fresh (75–100%)")
+  def freshness_grade(_), do: gettext("Any grade")
+
   attr :estimates, :list, required: true
   attr :id, :string, required: true
 
@@ -201,12 +231,8 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     |> Enum.map_join(":", &TijaraTides.Localization.number(&1, format: "00"))
   end
 
-  def invitation_expectation(%{"status" => "earning", "remaining_ms" => remaining}) do
-    gettext(
-      "Next invitation in %{time} of active-world time (hours:minutes:seconds), if your company stays active and solvent.",
-      time: active_countdown(remaining)
-    )
-  end
+  def invitation_expectation(%{"status" => "earning"}),
+    do: gettext("Counts down while your company stays active and solvent.")
 
   def invitation_expectation(%{"status" => "suspended"}),
     do: gettext("Invitation earning is paused while your account is suspended.")
@@ -214,13 +240,13 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
   def invitation_expectation(%{"status" => "no_company"}),
     do:
       gettext(
-        "Form a company and complete an economic action worth at least $100. A new invitation takes two days of active, solvent operation."
+        "Form a company and complete an economic action worth at least $100 to start earning."
       )
 
   def invitation_expectation(%{"status" => "financial_trouble"}),
     do:
       gettext(
-        "Clear unpaid bills and loan arrears to resume earning. A new invitation takes two days of active, solvent operation."
+        "Clear unpaid bills and loan arrears to resume earning. Progress restarts from two days."
       )
 
   def invitation_expectation(%{"status" => "capacity"}),
@@ -230,10 +256,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       )
 
   def invitation_expectation(_),
-    do:
-      gettext(
-        "Complete an economic action worth at least $100 to start earning. A new invitation takes two days of active, solvent operation."
-      )
+    do: gettext("Complete an economic action worth at least $100 to start earning.")
 
   # Commands that claim stock inside a warehouse; only ship trades mean cargo aboard.
   @warehouse_stock ~w(auction_consign auction_revise warehouse_reserve exchange_place exchange_amend)
@@ -365,11 +388,19 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         gettext(
           "This auction is locked. Consignments can change only before opening; bids only before closing."
         ),
+      exchange_freshness_invalid:
+        gettext(
+          "Choose a valid freshness requirement or a complete markdown schedule with a percentage for every grade."
+        ),
       exchange_invalid:
         gettext(
           "Choose standardized cargo, your warehouse, a positive limit price and 1–10,000 lots."
         ),
       warehouse_invalid: gettext("Select a valid warehouse, ship, cargo and quantity."),
+      warehouse_replacement_closed:
+        gettext(
+          "Won-cargo replacement is available only during its grace period, after handling finishes."
+        ),
       warehouse_renewal_closed:
         gettext(
           "Renewal is available only in the final six hours, before expiry, and once per term."
@@ -481,6 +512,18 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
           "The ship must be at, or sailing toward, the route's selected stop to start or resume."
         ),
       route_missing: gettext("This ship has no saved repeating route."),
+      funding_policy_invalid: gettext("Choose a valid departure funding policy."),
+      visit_budget_committed:
+        gettext("The budget cannot be lower than spending already committed."),
+      linked_order_invalid:
+        gettext(
+          "Linked purchases require a fixed buy target, an exchange-supported cargo and your active warehouse at this stop."
+        ),
+      linked_order_managed: gettext("Edit linked demand through its route cargo target."),
+      route_wait_invalid:
+        gettext(
+          "Choose a maximum wait from 1 minute to 30 days, or leave it blank for unlimited waiting."
+        ),
       instruction_duplicate_sell:
         gettext(
           "An active sell instruction already exists for this ship and cargo. Cancel it before adding another."
@@ -489,6 +532,12 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         gettext("Choose compatible cargo with a market at the visit port."),
       instruction_quantity_invalid:
         gettext("Use 1–10,000 lots and a valid nonnegative limit price."),
+      instruction_expiry_invalid:
+        gettext("Choose an expiry from 1 minute to 30 days, or leave it blank for no expiry."),
+      instruction_freshness_invalid:
+        gettext(
+          "Choose a minimum shelf life from 0 to 43,200 minutes for buys, or leave it blank."
+        ),
       instruction_sell_exceeds_cargo:
         gettext(
           "The sell target exceeds the selected cargo currently aboard. Reduce the target and try again."
@@ -559,7 +608,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
           List.duplicate(catalogue["ports"][ship["port"]]["coordinates"], 2)
 
       fraction =
-        min(1, max(0, (clock - ship["depart_ms"]) / (ship["arrive_ms"] - ship["depart_ms"])))
+        GameQueries.voyage_progress(ship, clock)
 
       legs = Enum.chunk_every(coords, 2, 1, :discard)
       lengths = Enum.map(legs, fn [a, b] -> distance(a, b) end)

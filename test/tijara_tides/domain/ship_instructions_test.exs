@@ -99,6 +99,147 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     state
   end
 
+  defp fruit_state(_c, state) do
+    source = Game.get(state, "markets", "Jakarta|fruit")
+
+    state
+    |> put_in([:entities, "ships", "company:1", "class"], "reefer")
+    |> State.put("markets", "Singapore|fruit", %{
+      source
+      | "port" => "Singapore",
+        "stock" => 0,
+        "batches" => []
+    })
+  end
+
+  defp fruit_supply(state, entries) do
+    {state, batches} =
+      Enum.map_reduce(entries, state, fn {quantity, life}, state ->
+        {next, lot} =
+          TijaraTides.Domain.CargoLots.create(state, "fruit", quantity, state.clock_ms + life)
+
+        {lot, next}
+      end)
+      |> then(fn {batches, state} -> {state, batches} end)
+
+    market = Game.get(state, "markets", "Singapore|fruit")
+
+    State.put(state, "markets", "Singapore|fruit", %{
+      market
+      | "stock" => Enum.sum(for b <- batches, do: b["quantity"]),
+        "batches" => batches
+    })
+  end
+
+  test "minimum shelf life is validated for buys, defaults to zero and stays private", c do
+    for value <- [0, 1, 2_592_000_000] do
+      {:ok, state, _} = add(c, c.state, "fresh", %{"min_remaining_ms" => value})
+      assert Game.get(state, "ship_instructions", "fresh")["min_remaining_ms"] == value
+      refute Map.has_key?(Game.public(state, c.catalogue), "ship_instructions")
+    end
+
+    for value <- [nil, false, "60", 1.5, -1, 2_592_000_001] do
+      assert {:error, :instruction_freshness_invalid} =
+               add(c, c.state, "fresh", %{"min_remaining_ms" => value})
+    end
+
+    {:ok, state, _} = add(c, c.state, "legacy")
+    assert Game.get(state, "ship_instructions", "legacy")["min_remaining_ms"] == 0
+  end
+
+  test "insufficiently fresh market stock waits without settlement, then resumes when replenished",
+       c do
+    state = fruit_state(c, c.state)
+
+    {:ok, state, _} =
+      add(c, state, "fresh", %{
+        "good" => "fruit",
+        "quantity" => 2,
+        "min_remaining_ms" => 14_400_000
+      })
+
+    state = arrive(c, state) |> fruit_supply([{5, 3_599_999}])
+    waiting = ShipInstructions.advance(state, c.catalogue)
+
+    assert Game.get(waiting, "ship_instructions", "fresh")["reason"] ==
+             "Waiting for cargo meeting the minimum remaining shelf life"
+
+    assert Game.get(waiting, "ship_instructions", "fresh")["filled"] == 0
+
+    assert Map.drop(waiting.entities, ["ship_instructions", "notices"]) ==
+             Map.drop(state.entities, ["ship_instructions", "notices"])
+
+    assert ShipInstructions.advance(waiting, c.catalogue) == waiting
+    filled = waiting |> fruit_supply([{5, 3_600_000}]) |> ShipInstructions.advance(c.catalogue)
+    assert Game.get(filled, "ship_instructions", "fresh")["filled"] == 2
+    assert Game.get(filled, "ship_instructions", "fresh")["min_remaining_ms"] == 14_400_000
+
+    assert hd(Game.get(filled, "ships", "company:1")["cargo"])["freshness"]["origin_expires_ms"] ==
+             state.clock_ms + 3_600_000
+
+    assert ShipInstructions.advance(filled, c.catalogue) == filled
+  end
+
+  test "market fills select earliest qualifying expiry, preserve excluded stock and retry only the remainder",
+       c do
+    state = fruit_state(c, c.state)
+
+    {:ok, state, _} =
+      add(c, state, "fresh", %{
+        "good" => "fruit",
+        "quantity" => 3,
+        "min_remaining_ms" => 14_400_000
+      })
+
+    state = arrive(c, state) |> fruit_supply([{1, 7_200_000}, {4, 3_599_999}, {1, 3_600_000}])
+    filled = ShipInstructions.advance(state, c.catalogue)
+    order = Game.get(filled, "ship_instructions", "fresh")
+    assert order["filled"] == 2
+    cargo = Game.get(filled, "ships", "company:1")["cargo"]
+
+    assert Enum.map(cargo, & &1["freshness"]["origin_expires_ms"]) == [
+             state.clock_ms + 3_600_000,
+             state.clock_ms + 7_200_000
+           ]
+
+    assert Game.get(filled, "markets", "Singapore|fruit")["stock"] == 4
+    assert ShipInstructions.advance(filled, c.catalogue) == filled
+    ship = Game.get(filled, "ships", "company:1")
+
+    waiting =
+      TijaraTides.Domain.Fleet.advance(%{filled | clock_ms: ship["arrive_ms"]}, 0)
+      |> ShipInstructions.advance(c.catalogue)
+
+    assert Game.get(waiting, "ship_instructions", "fresh")["filled"] == 2
+    assert Game.get(waiting, "ship_instructions", "fresh")["reason"] =~ "minimum remaining"
+    finished = waiting |> fruit_supply([{3, 3_600_000}]) |> ShipInstructions.advance(c.catalogue)
+    assert Game.get(finished, "ship_instructions", "fresh")["filled"] == 3
+    assert Game.get(finished, "ship_instructions", "fresh")["status"] == "filled"
+
+    assert Enum.sum(for b <- Game.get(finished, "ships", "company:1")["cargo"], do: b["quantity"]) ==
+             3
+  end
+
+  test "freshness-unviable instructions do not hold a berth", c do
+    state = fruit_state(c, c.state)
+
+    {:ok, state, _} =
+      add(c, state, "fresh", %{"good" => "fruit", "min_remaining_ms" => 14_400_000})
+
+    state = arrive(c, state) |> fruit_supply([{5, 3_599_999}])
+
+    state =
+      TijaraTides.Domain.BerthFixture.update(state, "company:1", %{
+        berth_granted_ms: nil,
+        berth_queued_ms: state.clock_ms
+      })
+
+    waiting = TijaraTides.Domain.Services.BerthAllocation.advance(state, c.catalogue)
+    assert Game.get(waiting, "ships", "company:1")["berth_granted_ms"] == nil
+    assert Game.get(waiting, "ships", "company:1")["berth_retry_ms"] > state.clock_ms
+    assert Game.get(waiting, "ships", "company:1")["cargo"] == []
+  end
+
   test "departure archives completed history even on a return to the same port", c do
     {:ok, state, _} = add(c, c.state, "next")
     order = Game.get(state, "ship_instructions", "next")
@@ -123,6 +264,190 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
            ) == ["next"]
 
     assert Map.has_key?(private["ship_instructions"], "previous")
+  end
+
+  test "expiry is optional, bounded, relative to acceptance and fenced by ownership", c do
+    state = %{c.state | clock_ms: 90_000}
+
+    for duration <- [nil, 1, 2_592_000_000] do
+      {:ok, added, _} = add(c, state, "expiry", %{"expires_in_ms" => duration})
+
+      assert Game.get(added, "ship_instructions", "expiry")["expires_ms"] ==
+               if(duration, do: state.clock_ms + duration)
+    end
+
+    for duration <- [false, "60000", 1.5, 0, -1, 2_592_000_001] do
+      assert {:error, :instruction_expiry_invalid} =
+               add(c, state, "expiry", %{"expires_in_ms" => duration})
+    end
+
+    foreign = %{c | account: %{"company_id" => "other"}}
+
+    assert {:error, :instruction_ship_not_owned} =
+             add(foreign, state, "expiry", %{"expires_in_ms" => -1})
+  end
+
+  test "expiry wins over a newly fillable order at the inclusive deadline", c do
+    {:ok, state, _} = add(c, c.state, "expiry", %{"expires_in_ms" => 2_592_000_000})
+    state = arrive(c, state)
+    deadline = state.clock_ms + 60_000
+    state = put_in(state, [:entities, "ship_instructions", "expiry", "expires_ms"], deadline)
+    before = %{state | clock_ms: deadline - 1}
+    assert TijaraTides.Domain.ShipWorld.expire_instructions(before, c.catalogue) == before
+    filled = ShipInstructions.advance(before, c.catalogue)
+    assert Game.get(filled, "ship_instructions", "expiry")["filled"] == 2
+    assert Game.get(filled, "ship_instructions", "expiry")["expires_ms"] == deadline
+
+    state = %{state | clock_ms: deadline}
+    expired = ShipInstructions.advance(state, c.catalogue)
+    order = Game.get(expired, "ship_instructions", "expiry")
+    assert order["status"] == "cancelled"
+    assert order["reason"] == "Instruction expired"
+    assert order["filled"] == 0
+    assert order["spent"] == 0
+
+    assert Map.drop(expired.entities, ["ship_instructions", "notices"]) ==
+             Map.drop(state.entities, ["ship_instructions", "notices"])
+
+    assert Game.get(expired, "notices", "instruction:expiry")["arguments"]["reason"] ==
+             "Instruction expired"
+
+    assert ShipInstructions.advance(expired, c.catalogue) == expired
+  end
+
+  test "expiry preserves partially settled cargo, cash and committed handling before automatic departure",
+       c do
+    {:ok, state, _} =
+      add(c, automatic(c, c.state), "expiry", %{"expires_in_ms" => 2_592_000_000})
+
+    loading = arrive(c, state) |> ShipInstructions.advance(c.catalogue)
+    ship = Game.get(loading, "ships", "company:1")
+    assert ship["status"] == "loading"
+    assert Game.get(loading, "ship_instructions", "expiry")["filled"] == 2
+
+    loading =
+      put_in(
+        loading,
+        [:entities, "ship_instructions", "expiry", "expires_ms"],
+        loading.clock_ms + 1
+      )
+
+    loading = %{loading | clock_ms: loading.clock_ms + 1}
+    expired = ShipInstructions.advance(loading, c.catalogue)
+    assert Game.get(expired, "ship_instructions", "expiry")["status"] == "cancelled"
+
+    for kind <- ["ships", "companies", "markets", "cargo_lots", "journal_transactions"] do
+      assert Game.entities(expired, kind) == Game.entities(loading, kind)
+    end
+
+    assert Game.get(expired, "ship_instructions", "expiry")["spent"] ==
+             Game.get(loading, "ship_instructions", "expiry")["spent"]
+
+    assert Game.get(expired, "visit_plans", "company:1|Singapore")["departure_wait"] =~ "handling"
+    assert ShipInstructions.advance(expired, c.catalogue) == expired
+
+    sailing =
+      TijaraTides.Domain.Fleet.advance(%{expired | clock_ms: ship["arrive_ms"]}, 0)
+      |> ShipInstructions.advance(c.catalogue)
+
+    assert Game.get(sailing, "ships", "company:1")["status"] == "sailing"
+    assert Game.get(sailing, "ships", "company:1")["cargo"] == ship["cargo"]
+    assert Game.get(sailing, "ship_instructions", "expiry")["history_archived"]
+  end
+
+  test "expiry cancels only a partial sale's remainder while unloading and proceeds stay committed",
+       c do
+    state = put_in(c.state, [:entities, "markets", "Singapore|lumber", "demand"], 1)
+    state = put_in(state, [:entities, "markets", "Singapore|lumber", "buyer"], true)
+    {state, lot} = TijaraTides.Domain.CargoLots.create(state, "lumber", 3, nil)
+
+    state =
+      put_in(state, [:entities, "ships", "company:1", "cargo"], [
+        Map.merge(lot, %{"good" => "lumber", "unit_cost" => 100})
+      ])
+
+    {:ok, state, _} =
+      add(c, state, "sale-expiry", %{
+        "side" => "sell",
+        "quantity" => 3,
+        "limit" => 0,
+        "expires_in_ms" => 2_592_000_000
+      })
+
+    unloading = arrive(c, state) |> ShipInstructions.advance(c.catalogue)
+    assert Game.get(unloading, "ship_instructions", "sale-expiry")["filled"] == 1
+    assert Game.get(unloading, "ships", "company:1")["status"] == "unloading"
+
+    unloading =
+      put_in(
+        unloading,
+        [:entities, "ship_instructions", "sale-expiry", "expires_ms"],
+        unloading.clock_ms
+      )
+
+    expired = ShipInstructions.advance(unloading, c.catalogue)
+    assert Game.get(expired, "ship_instructions", "sale-expiry")["status"] == "cancelled"
+    assert Game.get(expired, "ship_instructions", "sale-expiry")["filled"] == 1
+
+    for kind <- ["ships", "companies", "markets", "cargo_lots", "journal_transactions"],
+        do: assert(Game.entities(expired, kind) == Game.entities(unloading, kind))
+
+    assert ShipInstructions.advance(expired, c.catalogue) == expired
+  end
+
+  test "planned instructions expire at sea without changing voyage or onward plan", c do
+    {:ok, state, _} = add(c, c.state, "expiry", %{"expires_in_ms" => 1})
+    ship = Game.get(state, "ships", "company:1")
+    quote = Game.voyage_quote(ship, "Singapore", c.catalogue)
+
+    {:ok, sailing, _} =
+      TijaraTides.Domain.Fleet.sail(
+        state,
+        c.account,
+        ship["id"],
+        "Singapore",
+        quote["fuel"],
+        c.catalogue
+      )
+
+    sailing = %{sailing | clock_ms: 1}
+    expired = ShipInstructions.advance(sailing, c.catalogue)
+    assert Game.get(expired, "ship_instructions", "expiry")["reason"] == "Instruction expired"
+    assert Game.entities(expired, "ships") == Game.entities(sailing, "ships")
+    assert Game.entities(expired, "companies") == Game.entities(sailing, "companies")
+    assert Game.entities(expired, "visit_plans") == Game.entities(sailing, "visit_plans")
+  end
+
+  test "expiry prevents berth admission, while unlimited and terminal instructions remain unchanged",
+       c do
+    {:ok, state, _} = add(c, c.state, "expiry", %{"expires_in_ms" => 1})
+    state = arrive(c, state)
+
+    state =
+      TijaraTides.Domain.BerthFixture.update(state, "company:1", %{
+        berth_granted_ms: nil,
+        berth_queued_ms: state.clock_ms
+      })
+
+    changed = TijaraTides.Domain.Services.BerthAllocation.advance(state, c.catalogue)
+    assert Game.get(changed, "ships", "company:1")["berth_granted_ms"] == nil
+    assert Game.get(changed, "ship_instructions", "expiry")["status"] == "cancelled"
+    assert Game.get(changed, "ships", "company:1")["status"] == "docked"
+
+    for status <- ["filled", "cancelled", "planned", "waiting"] do
+      row =
+        Game.get(state, "ship_instructions", "expiry")
+        |> Map.put("status", status)
+        |> Map.delete("expires_ms")
+
+      unlimited = State.put(state, "ship_instructions", "expiry", row)
+      assert TijaraTides.Domain.ShipWorld.expire_instructions(unlimited, c.catalogue) == unlimited
+
+      if status in ["filled", "cancelled"] do
+        terminal = State.put(state, "ship_instructions", "expiry", Map.put(row, "expires_ms", 1))
+        assert TijaraTides.Domain.ShipWorld.expire_instructions(terminal, c.catalogue) == terminal
+      end
+    end
   end
 
   test "automatic departure is opt-in, works empty, and reserves fuel only once", c do
@@ -230,15 +555,24 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
       waiting = ShipInstructions.advance(blocked, c.catalogue)
       assert Game.get(waiting, "ships", "company:1")["status"] == "docked"
       assert Game.get(waiting, "visit_plans", "company:1|Singapore")["departure_wait"] =~ reason
-      assert Game.entities(waiting, "companies") == Game.entities(blocked, "companies")
+      # Funding settles overdue obligations before reserving cash, including arrears timestamps.
+      assert Map.take(Game.get(waiting, "companies", "company"), ~w(cash reserved unpaid profit)) ==
+               Map.take(
+                 Game.get(blocked, "companies", "company"),
+                 ~w(cash reserved unpaid profit)
+               )
+
       assert ShipInstructions.advance(waiting, c.catalogue) == waiting
 
       recovered =
-        put_in(
-          waiting,
-          [:entities, "companies", "company", field],
-          arrived.entities["companies"]["company"][field]
-        )
+        if field == "unpaid",
+          do: waiting,
+          else:
+            put_in(
+              waiting,
+              [:entities, "companies", "company", field],
+              arrived.entities["companies"]["company"][field]
+            )
 
       recovered =
         put_in(

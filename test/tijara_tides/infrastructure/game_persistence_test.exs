@@ -123,6 +123,144 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
            ).rows == [["valid-after-error"]]
   end
 
+  test "repeated owner visits do not commit or broadcast within the same minute", c do
+    {:ok, wall} = Agent.start_link(fn -> 0 end)
+
+    :sys.replace_state(c.server, fn state ->
+      %{state | wall_clock: fn -> Agent.get(wall, & &1) end}
+    end)
+
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "visit-company",
+        %{
+          "action" => "company",
+          "name" => "Visit throttle"
+        },
+        c.server
+      )
+
+    GameServer.subscribe()
+    original = :sys.get_state(c.server).game.revision
+
+    for now <- 1..20 do
+      Agent.update(wall, fn _ -> now end)
+      assert :ok = GameServer.visit(token, c.server)
+    end
+
+    assert :sys.get_state(c.server).game.revision == original
+    refute_receive {:game_changed, _}
+    Agent.update(wall, fn _ -> 60_000 end)
+    assert :ok = GameServer.visit(token, c.server)
+    assert :sys.get_state(c.server).game.revision == original + 1
+    assert_receive {:game_changed, _}
+    assert :ok = GameServer.visit(token, c.server)
+    refute_receive {:game_changed, _}
+  end
+
+  test "dormancy persists while idle, ignores snapshot and connection heartbeats, and survives restart",
+       c do
+    {:ok, wall} = Agent.start_link(fn -> 0 end)
+
+    :sys.replace_state(c.server, fn state ->
+      %{
+        state
+        | wall_clock: fn -> Agent.get(wall, & &1) end,
+          catalogue:
+            Map.put(state.catalogue, "dormancy", %{"absence_ms" => 100, "warning_ms" => 200})
+      }
+    end)
+
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => company}} =
+      GameServer.command(
+        token,
+        "company",
+        %{"action" => "company", "name" => "Dormancy Test"},
+        c.server
+      )
+
+    assert Repo.query!(
+             "SELECT last_visit_ms,warned_ms,closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[0, nil, nil]]
+
+    Agent.update(wall, fn _ -> 99 end)
+    GameServer.snapshot(token, c.server)
+    assert :ok == GameServer.connect(token, c.server)
+
+    assert Repo.query!(
+             "SELECT last_visit_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[0]]
+
+    # The wall timer is independent of world activation and progression.
+    :sys.replace_state(c.server, &%{&1 | active: false})
+    Agent.update(wall, fn _ -> 100 end)
+    send(c.server, :dormancy_check)
+    state = :sys.get_state(c.server)
+    assert state.game.clock_ms == 0
+    refute state.active
+
+    assert Repo.query!(
+             "SELECT warned_ms,closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[100, 300]]
+
+    # A visit cancels the warning atomically and records a new baseline.
+    Agent.update(wall, fn _ -> 299 end)
+    assert :ok == GameServer.visit(token, c.server)
+
+    assert Repo.query!(
+             "SELECT last_visit_ms,warned_ms,closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[299, nil, nil]]
+
+    Agent.update(wall, fn _ -> 399 end)
+    send(c.server, :dormancy_check)
+    :sys.get_state(c.server)
+
+    assert Repo.query!(
+             "SELECT closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[599]]
+
+    # Initialization honours a warning that elapsed during suspension, before any visit.
+    Agent.update(wall, fn _ -> 1000 end)
+
+    restarted =
+      start_supervised!(
+        {GameServer,
+         name: nil,
+         enabled: true,
+         world_id: c.world_id,
+         wall_clock: fn -> Agent.get(wall, & &1) end,
+         tick_ms: 86_400_000},
+        id: :dormancy_restart
+      )
+
+    view = GameServer.snapshot(token, restarted)
+    assert view.private["account"]["company_id"] == nil
+    assert view.private["account"]["bankruptcies"] == 0
+    assert view.public["companies"][company]["closure_reason"] == "dormant"
+
+    assert Repo.query!(
+             "SELECT warned_ms,closes_ms,closed_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+             [c.world_id, company]
+           ).rows == [[399, 599, 1000]]
+
+    assert Repo.query!("SELECT count(*) FROM game_bankruptcy_events WHERE world_id=$1", [
+             c.world_id
+           ]).rows == [[0]]
+
+    assert :ok == GameServer.visit(token, restarted)
+    assert GameServer.snapshot(token, restarted).private["account"]["company_id"] == nil
+  end
+
   test "a busy initialized owner remains ready without servicing its mailbox", %{server: server} do
     assert GameServer.readiness(server) == :ready
     :ok = :sys.suspend(server)
@@ -514,7 +652,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
     conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => player})
     {:ok, view, _} = live(conn, "/play")
-    assert has_element?(view, "#invitation-expectation", "Next invitation in")
+    assert has_element?(view, "#invitation-countdown", "24:00:00")
     refute has_element?(view, "#invitations")
     assert resumed.entities["accounts"][account["id"]]["email"] == nil
     GameServer.connect(player, replacement)
@@ -525,7 +663,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert grant["account_id"] == account["id"]
     render(view)
     assert render_async(view) =~ "You earned a new invitation. Open the account menu to send it."
-    refute has_element?(view, "#invitation-expectation")
+    assert has_element?(view, "#invitation-expectation", "Available invitations: 1")
+    assert has_element?(view, "#invitation-countdown", "48:00:00")
+    refute has_element?(view, "#invitations")
 
     assert_push_event(view, "system-notification", %{
       body: "You earned a new invitation. Open the account menu to send it."
@@ -764,6 +904,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     advance(c.server, listing["closes_ms"] - before.clock_ms + 1)
 
+    original_aw = aw
+    aw = "award:" <> listing["id"]
+
     assert Enum.sum(
              for lot <- GameServer.snapshot(a, c.server).private["warehouses"][aw]["cargo"],
                  do: lot["quantity"]
@@ -781,7 +924,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       }
     end)
 
-    for {token, warehouse} <- [{a, aw}, {b, bw}] do
+    for {token, warehouse} <- [{a, original_aw}, {b, bw}] do
       view = GameServer.snapshot(token, c.server)
       row = view.private["warehouses"][warehouse]
       used = view.public["warehouse_utilization"][port <> "|dry"]
@@ -838,7 +981,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     for warehouse <- [aw, bw] do
       row = Game.get(:sys.get_state(c.server).game, "warehouses", warehouse)
-      assert row["expires_ms"] < resale["closes_ms"]
+      if warehouse == bw, do: assert(row["expires_ms"] < resale["closes_ms"])
       assert Warehouse.covered_until(Warehouse.Rows.decode(row)) >= resale["closes_ms"]
     end
 
@@ -908,7 +1051,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert {:ok, _} = GameStore.reload(Repo, c.world_id, before)
     advance(c.server, resale["closes_ms"] - before.clock_ms + 1)
     view = GameServer.snapshot(b, c.server)
-    assert Enum.sum(for lot <- view.private["warehouses"][bw]["cargo"], do: lot["quantity"]) == 3
+
+    assert Enum.sum(
+             for lot <- view.private["warehouses"]["award:" <> resale["id"]]["cargo"],
+                 do: lot["quantity"]
+           ) == 3
+
     assert view.private["company"]["reserved"] == 0
     assert :ok == FinancialLedger.audit(Repo, c.world_id)
     before = :sys.get_state(c.server).game
@@ -923,12 +1071,20 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     advance(c.server, target - before.clock_ms)
     after_clearance = :sys.get_state(c.server).game
     assert after_clearance.clock_ms >= target
+
+    liquidation =
+      Enum.find(Map.values(after_clearance.entities["auctions"]), &(&1["liquidation_id"] == aw))
+
+    assert liquidation["status"] == "scheduled"
+    assert Game.get(after_clearance, "warehouses", aw)["blocks"] > 0
+    advance(c.server, liquidation["closes_ms"] - after_clearance.clock_ms + 1)
+    after_clearance = :sys.get_state(c.server).game
     assert Game.get(after_clearance, "warehouses", aw) == nil
 
     assert [["sold"], ["unsold"]] ==
              Repo.query!(
-               "SELECT status FROM game_auctions WHERE world_id=$1 AND warehouse_id=$2 ORDER BY status",
-               [c.world_id, aw]
+               "SELECT status FROM game_auctions WHERE world_id=$1 AND warehouse_id=$2 AND id=ANY($3) ORDER BY status",
+               [c.world_id, aw, [resale["id"], unsold["id"]]]
              ).rows
 
     assert [[0]] ==
@@ -1746,6 +1902,175 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
                %{email_context | wall_ms: now},
                store
              )
+  end
+
+  test "route wait form, private countdown, receipts and timeout shortfalls survive restart", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Patient routes",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    render_click(view, "ship", %{"id" => ship})
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Jakarta"}) |> render_submit()
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Singapore"}) |> render_submit()
+    stops = GameServer.snapshot(token, c.server).private["route_stops"]
+    first = stops |> Map.values() |> Enum.find(&(&1["position"] == 0))
+    assert first["max_wait_ms"] == nil
+    assert has_element?(view, "#route-wait-#{first["id"]}[phx-hook=ExchangeDraft]")
+    view |> form("#route-wait-#{first["id"]}", %{"minutes" => "1"}) |> render_submit()
+
+    assert GameServer.snapshot(token, c.server).private["route_stops"][first["id"]]["max_wait_ms"] ==
+             60_000
+
+    assert has_element?(view, "#route-wait-#{first["id"]} input[name=minutes][value='1']")
+    view |> form("#route-wait-#{first["id"]}", %{"minutes" => "43201"}) |> render_submit()
+    assert render(view) =~ "Choose a maximum wait"
+
+    assert GameServer.snapshot(token, c.server).private["route_stops"][first["id"]]["max_wait_ms"] ==
+             60_000
+
+    view |> form("#route-wait-#{first["id"]}", %{"minutes" => ""}) |> render_submit()
+
+    assert GameServer.snapshot(token, c.server).private["route_stops"][first["id"]]["max_wait_ms"] ==
+             nil
+
+    wait = %{
+      "action" => "route",
+      "operation" => "set_wait",
+      "ship" => ship,
+      "stop" => first["id"],
+      "max_wait_ms" => 60_000
+    }
+
+    assert {:ok, _} = GameServer.command(token, "wait-setting", wait, c.server)
+    assert {:ok, _} = GameServer.command(token, "wait-setting", wait, c.server)
+
+    rule = %{
+      "action" => "route",
+      "operation" => "add_rule",
+      "ship" => ship,
+      "stop" => first["id"],
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 3,
+      "limit" => 0
+    }
+
+    assert {:ok, _} = GameServer.command(token, "rule", rule, c.server)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "start",
+               %{
+                 "action" => "route",
+                 "operation" => "start",
+                 "ship" => ship,
+                 "auto_depart" => false
+               },
+               c.server
+             )
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 30_000)
+    before = GameServer.snapshot(token, c.server).private
+    timer = before["ship_routes"][ship]
+    assert timer["visit_arrived_ms"] == 0
+    assert timer["wait_deadline_ms"] == 60_000
+    render_click(view, "ship", %{"id" => ship})
+    assert has_element?(view, "[id='route-wait-countdown-#{ship}']", "00:00:30")
+    refute Map.has_key?(GameServer.snapshot(nil, c.server).public, "ship_routes")
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :wait_replacement
+      )
+
+    restored = GameServer.snapshot(token, replacement).private
+    assert restored["ship_routes"][ship] == timer
+    assert restored["route_stops"] == before["route_stops"]
+    assert {:ok, _} = GameServer.command(token, "wait-setting", wait, replacement)
+    assert GameServer.snapshot(token, replacement).private["ship_routes"][ship] == timer
+    GameServer.connect(token, replacement)
+    advance(replacement, 30_000)
+    expired = GameServer.snapshot(token, replacement).private
+    assert expired["ship_routes"][ship]["wait_timed_out"]
+    assert expired["ships"][ship]["cargo"] == []
+    assert [order] = Map.values(expired["ship_instructions"])
+    assert order["status"] == "cancelled"
+    assert order["filled"] == 0
+
+    assert [[0, 60_000, true]] ==
+             Repo.query!(
+               "SELECT visit_arrived_ms, wait_deadline_ms, wait_timed_out FROM game_ship_routes WHERE world_id=$1 AND id=$2",
+               [c.world_id, ship]
+             ).rows
+
+    Application.put_env(:tijara_tides, :game_server, replacement)
+    {:ok, new_view, _} = conn |> recycle() |> live("/play")
+    render_click(new_view, "ship", %{"id" => ship})
+    refute has_element?(new_view, "[id='route-wait-countdown-#{ship}']")
+
+    assert has_element?(
+             new_view,
+             "[id='route-last-timeout-#{ship}']",
+             "0/3 lots filled; remainder cancelled"
+           )
+
+    notices = expired["notices"]
+    advance(replacement, 1)
+    assert GameServer.snapshot(token, replacement).private["notices"] == notices
+
+    again =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :wait_expired_replacement
+      )
+
+    assert GameServer.snapshot(token, again).private["ship_routes"][ship]["wait_timed_out"]
+    assert GameServer.snapshot(token, again).private["notices"] == notices
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "resume",
+               %{"action" => "route", "operation" => "resume", "ship" => ship},
+               again
+             )
+
+    GameServer.connect(token, again)
+    advance(again, 1)
+    departed = GameServer.snapshot(token, again).private
+    assert departed["ships"][ship]["status"] == "sailing"
+    assert departed["ship_instructions"] == %{}
+
+    model =
+      TijaraTides.UseCases.GameQueries.route_editor(
+        departed,
+        departed["ships"][ship],
+        :sys.get_state(again).catalogue
+      )
+
+    assert [%{"quantity" => 3, "filled" => 0}] = model.last_timeout["arguments"]["shortfalls"]
   end
 
   test "repeating route UI, receipts, private templates and active visit survive restart", c do
@@ -2573,6 +2898,454 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert_receive {:world_updated, %{online_players: ^base}}
     assert has_element?(lobby, "#online-players", to_string(base))
     Enum.each([lobby, spectator, second], &GenServer.stop(&1.pid, :normal))
+  end
+
+  test "browser instruction submissions exclude form metadata and replay normalized durations",
+       c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Browser instructions",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "load-cargo",
+               %{
+                 "action" => "buy",
+                 "ship" => ship,
+                 "good" => "lumber",
+                 "quantity" => 2,
+                 "limit" => 1_000_000,
+                 "destination" => "Singapore"
+               },
+               c.server
+             )
+
+    advance(c.server, 60_000)
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    render_click(view, "ship", %{"id" => ship})
+    select_destination(view, "Singapore")
+    selector = "[id='instruction-form-#{ship}']"
+
+    for {side, terms} <- [
+          {"sell", %{"preset" => "", "expiry_minutes" => ""}},
+          {"buy", %{"budget" => "10000", "freshness_minutes" => "75", "expiry_minutes" => "2"}}
+        ] do
+      [_, request] =
+        Regex.run(
+          ~r/value="([^"]+)"/,
+          view |> element(selector <> " input[name=request_id]") |> render()
+        )
+
+      params =
+        Map.merge(
+          %{
+            "request_id" => request,
+            "side" => side,
+            "good" => "lumber",
+            "quantity" => "1",
+            "limit" => "10000",
+            "onward" => "Jakarta"
+          },
+          terms
+        )
+
+      # LiveViewTest's form helper omits the browser's untouched-input markers.
+      metadata = Map.new(params, fn {field, _} -> {"_unused_" <> field, ""} end)
+      browser_params = params |> Map.merge(metadata) |> Map.put("_target", ["side"])
+      html = render_submit(view, "add-instruction", browser_params)
+      refute html =~ "The command contains too many fields"
+      snapshot = GameServer.snapshot(token, c.server)
+      order = Enum.find(Map.values(snapshot.private["ship_instructions"]), &(&1["side"] == side))
+      assert order != nil
+      assert order["port"] == "Singapore"
+      assert order["quantity"] == 1
+      assert order["limit"] == 1_000_000
+
+      if side == "buy" do
+        assert order["budget"] == 1_000_000
+        assert order["min_remaining_ms"] == 4_500_000
+        assert order["expires_ms"] == snapshot.public["clock_ms"] + 120_000
+      else
+        assert order["expires_ms"] == nil
+      end
+
+      # UI metadata and equivalent minute formatting must not change the receipt.
+      replay = Map.put(params, "expiry_minutes", if(side == "buy", do: "002", else: ""))
+      render_submit(view, "add-instruction", replay)
+
+      assert GameServer.snapshot(token, c.server).public["revision"] ==
+               snapshot.public["revision"]
+    end
+
+    game = :sys.get_state(c.server).game
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, game)
+    assert restored.entities["ship_instructions"] == game.entities["ship_instructions"]
+    assert map_size(restored.entities["ship_instructions"]) == 2
+  end
+
+  test "minimum shelf life forms, route edits and private terms survive replay and restart", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Fresh routes",
+          "port" => "Singapore",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    select_destination(view, "Jakarta")
+
+    view
+    |> form("form[phx-submit=instruction-onward]", %{"onward" => "Singapore"})
+    |> render_submit()
+
+    selector = "[id='instruction-form-#{ship}']"
+    assert has_element?(view, selector <> " input[name=freshness_minutes][disabled]")
+    view |> form(selector, %{"side" => "buy"}) |> render_change()
+
+    params = %{
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => "1",
+      "limit" => "10000",
+      "budget" => "10000",
+      "freshness_minutes" => "75"
+    }
+
+    view |> form(selector, params) |> render_change()
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
+    assert has_element?(view, selector <> " input[name=freshness_minutes][value='75']")
+
+    for invalid <- ["-1", "43201", "1.5", "invalid"] do
+      view |> form(selector, Map.put(params, "freshness_minutes", invalid)) |> render_submit()
+      assert render(view) =~ "Choose a minimum shelf life"
+      assert GameServer.snapshot(token, c.server).private["ship_instructions"] == %{}
+    end
+
+    [_, request] =
+      Regex.run(
+        ~r/value="([^"]+)"/,
+        view |> element(selector <> " input[name=request_id]") |> render()
+      )
+
+    view |> form(selector, params) |> render_submit()
+    assert [order] = Map.values(GameServer.snapshot(token, c.server).private["ship_instructions"])
+    assert order["min_remaining_ms"] == 4_500_000
+
+    assert has_element?(
+             view,
+             "[id='instruction-#{order["id"]}']",
+             "Minimum remaining shelf life: 75 min"
+           )
+
+    command = %{
+      "action" => "instruction",
+      "ship" => ship,
+      "port" => "Jakarta",
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 1,
+      "limit" => 1_000_000,
+      "budget" => 1_000_000,
+      "onward" => "Singapore",
+      "expires_in_ms" => nil,
+      "min_remaining_ms" => 4_500_000
+    }
+
+    assert {:ok, %{"instruction_id" => id}} =
+             GameServer.command(token, request, command, c.server)
+
+    assert id == order["id"]
+    quote = GameServer.preview(token, ship, "Dubai", c.server)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "divert",
+               %{
+                 "action" => "sail",
+                 "ship" => ship,
+                 "destination" => "Dubai",
+                 "fuel_limit" => quote["fuel"]
+               },
+               c.server
+             )
+
+    render_async(view)
+    render_async(view)
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Dubai"}) |> render_submit()
+    view |> form("[id='route-stop-#{ship}']", %{"port" => "Jakarta"}) |> render_submit()
+
+    first =
+      GameServer.snapshot(token, c.server).private["route_stops"]
+      |> Map.values()
+      |> Enum.find(&(&1["position"] == 0))
+
+    form_id = "#route-rule-#{first["id"]}"
+
+    rule_params = %{
+      "side" => "buy",
+      "good" => "spices",
+      "quantity" => "2",
+      "limit" => "10000",
+      "freshness_minutes" => "120"
+    }
+
+    view |> form(form_id, rule_params) |> render_change()
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
+    assert has_element?(view, form_id <> " input[name=freshness_minutes][value='120']")
+    view |> form(form_id, rule_params) |> render_submit()
+    assert [rule] = Map.values(GameServer.snapshot(token, c.server).private["route_rules"])
+    assert rule["min_remaining_ms"] == 7_200_000
+    view |> element("button[phx-value-rule='#{rule["id"]}']", "Edit") |> render_click()
+    assert has_element?(view, form_id <> " input[name=freshness_minutes][value='120']")
+    view |> form(form_id, Map.put(rule_params, "freshness_minutes", "")) |> render_submit()
+
+    assert GameServer.snapshot(token, c.server).private["route_rules"][rule["id"]][
+             "min_remaining_ms"
+           ] == 0
+
+    view |> element("button[phx-value-rule='#{rule["id"]}']", "Edit") |> render_click()
+    view |> form(form_id, rule_params) |> render_submit()
+    before = GameServer.snapshot(token, c.server)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :freshness_replacement
+      )
+
+    restored = GameServer.snapshot(token, replacement)
+    assert restored.private["route_rules"] == before.private["route_rules"]
+    assert restored.private["ship_instructions"] == before.private["ship_instructions"]
+
+    assert {:ok, %{"instruction_id" => ^id}} =
+             GameServer.command(token, request, command, replacement)
+
+    assert [[4_500_000]] ==
+             Repo.query!(
+               "SELECT min_remaining_ms FROM game_ship_instructions WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows
+
+    assert [[7_200_000]] ==
+             Repo.query!(
+               "SELECT min_remaining_ms FROM game_route_rules WHERE world_id=$1 AND id=$2",
+               [c.world_id, rule["id"]]
+             ).rows
+
+    refute Map.has_key?(GameServer.snapshot(nil, replacement).public, "ship_instructions")
+    assert GameServer.snapshot(nil, replacement).private == nil
+  end
+
+  test "instruction expiry UI preserves drafts, receipts and deadlines across offline restart",
+       c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Timed instructions",
+          "port" => "Singapore",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    select_destination(view, "Jakarta")
+
+    view
+    |> form("form[phx-submit=instruction-onward]", %{"onward" => "Singapore"})
+    |> render_submit()
+
+    selector = "[id='instruction-form-#{ship}']"
+    assert has_element?(view, selector <> " input[name=expiry_minutes][value='']")
+    view |> form(selector, %{"side" => "buy"}) |> render_change()
+
+    params = %{
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => "1",
+      "limit" => "0",
+      "budget" => "10000",
+      "expiry_minutes" => "2"
+    }
+
+    view |> form(selector, params) |> render_change()
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
+    assert has_element?(view, selector <> " input[name=expiry_minutes][value='2']")
+
+    for invalid <- ["0", "43201", "1.5", "invalid"] do
+      view |> form(selector, Map.put(params, "expiry_minutes", invalid)) |> render_submit()
+      assert render(view) =~ "Choose an expiry"
+      assert GameServer.snapshot(token, c.server).private["ship_instructions"] == %{}
+    end
+
+    [_, request] =
+      Regex.run(
+        ~r/value="([^"]+)"/,
+        view |> element(selector <> " input[name=request_id]") |> render()
+      )
+
+    view |> form(selector, params) |> render_submit()
+    snapshot = GameServer.snapshot(token, c.server)
+    assert [order] = Map.values(snapshot.private["ship_instructions"])
+    assert order["expires_ms"] == snapshot.public["clock_ms"] + 120_000
+    assert has_element?(view, "[id='instruction-#{order["id"]}']", "Expiry remaining: 00:02:00")
+
+    command = %{
+      "action" => "instruction",
+      "ship" => ship,
+      "port" => "Jakarta",
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 1,
+      "limit" => 0,
+      "budget" => 1_000_000,
+      "onward" => "Singapore",
+      "min_remaining_ms" => 0,
+      "expires_in_ms" => 120_000
+    }
+
+    revision = snapshot.public["revision"]
+
+    assert {:ok, %{"instruction_id" => id}} =
+             GameServer.command(token, request, command, c.server)
+
+    assert id == order["id"]
+    assert GameServer.snapshot(token, c.server).public["revision"] == revision
+
+    view |> form(selector, Map.put(params, "expiry_minutes", "")) |> render_submit()
+
+    assert Enum.count(GameServer.snapshot(token, c.server).private["ship_instructions"], fn {_,
+                                                                                             row} ->
+             is_nil(row["expires_ms"])
+           end) == 1
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 60_000)
+    before = GameServer.snapshot(token, c.server)
+    assert before.private["ship_instructions"][id]["status"] == "planned"
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :expiry_replacement
+      )
+
+    restored = GameServer.snapshot(token, replacement)
+    assert restored.public["clock_ms"] == before.public["clock_ms"]
+    assert restored.private["ship_instructions"] == before.private["ship_instructions"]
+
+    assert {:ok, %{"instruction_id" => ^id}} =
+             GameServer.command(token, request, command, replacement)
+
+    assert GameServer.snapshot(token, replacement).private["ship_instructions"][id]["expires_ms"] ==
+             order["expires_ms"]
+
+    assert GameServer.snapshot(nil, replacement).private == nil
+    refute Map.has_key?(GameServer.snapshot(nil, replacement).public, "ship_instructions")
+
+    assert [[120_000]] ==
+             Repo.query!(
+               "SELECT expires_ms FROM game_ship_instructions WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows
+
+    Application.put_env(:tijara_tides, :game_server, replacement)
+    {:ok, resumed, _} = conn |> recycle() |> live("/play")
+    render_click(resumed, "ship", %{"id" => ship})
+    assert has_element?(resumed, "[id='instruction-#{id}']", "Expiry remaining: 00:01:00")
+    GameServer.connect(token, replacement)
+    advance(replacement, 60_000)
+    expired = GameServer.snapshot(token, replacement)
+    assert expired.private["ship_instructions"][id]["status"] == "cancelled"
+    assert expired.private["ship_instructions"][id]["reason"] == "Instruction expired"
+    assert expired.private["ship_instructions"][id]["filled"] == 0
+    assert expired.private["ships"][ship]["cargo"] == []
+
+    assert [["cancelled", "Instruction expired", 120_000]] ==
+             Repo.query!(
+               "SELECT status,reason,expires_ms FROM game_ship_instructions WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows
+
+    assert [[0]] ==
+             Repo.query!(
+               "SELECT count(*) FROM game_journal_transactions WHERE world_id=$1 AND kind='purchase'",
+               [c.world_id]
+             ).rows
+
+    render_click(resumed, "ship", %{"id" => ship})
+    assert has_element?(resumed, "[id='instruction-#{id}']", "Instruction expired")
+    refute has_element?(resumed, "[id='instruction-#{id}'] button")
+    refute has_element?(resumed, "[id='instruction-#{id}']", "Expiry remaining:")
+    notices = expired.private["notices"]
+    advance(replacement, 1)
+    assert GameServer.snapshot(token, replacement).private["notices"] == notices
+
+    assert {:ok, %{"instruction_id" => ^id}} =
+             GameServer.command(token, request, command, replacement)
+
+    assert GameServer.snapshot(token, replacement).private["ship_instructions"][id]["status"] ==
+             "cancelled"
+
+    after_restart =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :expired_replacement
+      )
+
+    assert GameServer.snapshot(token, after_restart).private["ship_instructions"] ==
+             expired.private["ship_instructions"]
   end
 
   test "ship instructions submit through the UI, replay, settle on arrival and survive reload",
@@ -3424,7 +4197,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#cargo-ship-filter input[type=checkbox][checked]")
     assert "lumber" in option_goods.()
     refute "crude_oil" in option_goods.()
-    refute "fruit" in option_goods.()
+    assert "fruit" in option_goods.()
     send(view.pid, {:game_changed, 0})
     render_async(view)
     refute "crude_oil" in option_goods.()
@@ -3567,7 +4340,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "th", "Aboard")
     assert has_element?(view, "th", "Trade")
     refute has_element?(view, "td", "Appliances")
-    refute has_element?(view, "td", "Fruit")
+    assert has_element?(view, "td", "Fruit")
     assert has_element?(view, "td", "Lumber")
     assert has_element?(view, "#aboard-buy-lumber", "0")
     refute has_element?(view, "#set-port-destination")
@@ -3985,7 +4758,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert has_element?(view, "#trade-buy-fruit", "0.2 min handling")
     assert has_element?(view, "#trade-buy-fruit", "Estimates may change")
     view |> form("#trade-buy-fruit", %{"quantity" => "20"}) |> render_submit()
-    advance(server, 11_000)
+    advance(server, 13_000)
     select_destination(view, "Singapore")
     assert has_element?(view, ".voyage-freshness", "Fruit: estimated time to first expiry")
     assert has_element?(view, ".voyage-freshness", "after unloading")
@@ -4220,6 +4993,1239 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok == FinancialLedger.audit(Repo, world)
   end
 
+  test "lease liquidation persists mixed-stage proceeds, rolls back atomically and resumes after reload",
+       c do
+    alias TijaraTides.Domain.{
+      State,
+      Warehouse,
+      WarehouseWorld,
+      CargoLots,
+      CompanyFinanceWorld,
+      AuctionWorld
+    }
+
+    alias TijaraTides.Domain.Services.{Exchange, Auctions, WarehouseLiquidation}
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+
+    {:ok, %{"session" => seller_token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        seller_token,
+        "pool-seller",
+        %{
+          "action" => "company",
+          "name" => "Pool seller",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    {:ok, code} = GameServer.seed(c.server)
+    {:ok, %{"session" => buyer_token}} = GameServer.redeem(code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        buyer_token,
+        "pool-buyer",
+        %{
+          "action" => "company",
+          "name" => "Pool buyer",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    seller = GameServer.snapshot(seller_token, c.server).private["account"]
+    buyer = GameServer.snapshot(buyer_token, c.server).private["account"]
+    before = :sys.get_state(c.server).game
+
+    cat =
+      Map.put(:sys.get_state(c.server).catalogue, "auctions", %{
+        "interval_ms" => 10_000,
+        "window_ms" => 10_000
+      })
+
+    ids = CommandStore.allocate_lot_ids(%{repo: Repo}, 64)
+    next = Map.put(before, :lot_allocation, ids)
+
+    next =
+      Enum.reduce([{seller, "a-pool", 1}, {buyer, "z-buyer", 3}], next, fn {account, id, days},
+                                                                           s ->
+        {:ok, s, _} =
+          WarehouseWorld.lease(
+            s,
+            account,
+            %{
+              "port" => "Jakarta",
+              "storage" => "dry",
+              "blocks" => 10,
+              "days" => days,
+              "price" =>
+                Warehouse.quote(WarehouseWorld.used(s, "Jakarta", "dry"), "dry", 10, days)
+            },
+            id,
+            cat
+          )
+
+        s
+      end)
+
+    {next, lot} = CargoLots.create(next, "lumber", 80, nil)
+    w = State.get(next, "warehouses", "a-pool")
+
+    next =
+      State.put(next, "warehouses", w["id"], %{
+        w
+        | "cargo" => [Map.merge(lot, %{"good" => "lumber", "unit_cost" => 100})]
+      })
+      |> CompanyFinanceWorld.post(seller["company_id"], "purchase", [
+        {"inventory", 8000},
+        {"cash_available", -8000}
+      ])
+
+    m = State.get(next, "markets", "Jakarta|lumber")
+    next = State.put(next, "markets", "Jakarta|lumber", %{m | "stock" => 0, "demand" => 0})
+
+    {:ok, next, _} =
+      Exchange.place(
+        next,
+        buyer,
+        %{
+          "warehouse" => "z-buyer",
+          "good" => "lumber",
+          "side" => "buy",
+          "quantity" => 20,
+          "price" => 1000
+        },
+        "pool-order",
+        cat
+      )
+
+    next =
+      %{next | clock_ms: w["expires_ms"] + 43_200_000, revision: before.revision + 1}
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(cat)
+
+    assert WarehouseLiquidation.pool(next, "a-pool")["proceeds"] == 20_000
+    [a] = Enum.filter(AuctionWorld.all(next), &(&1.liquidation_id == "a-pool"))
+    assert a.quantity == 60
+
+    assert_raise Postgrex.Error, fn ->
+      GameStore.commit(
+        Repo,
+        c.world_id,
+        before.epoch,
+        before,
+        next,
+        {seller["id"], "rollback-pool", nil, %{}}
+      )
+    end
+
+    assert [[0]] =
+             Repo.query!("SELECT count(*) FROM game_warehouse_liquidations WHERE world_id=$1", [
+               c.world_id
+             ]).rows
+
+    assert {:ok, unchanged} = GameStore.reload(Repo, c.world_id, before)
+    assert unchanged.entities["companies"] == before.entities["companies"]
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    assert restored.entities["warehouse_liquidations"] == next.entities["warehouse_liquidations"]
+    assert restored.entities["warehouses"] == next.entities["warehouses"]
+    assert AuctionWorld.fetch(restored, a.id) == a
+
+    parent = lot["lot_id"]
+
+    assert [[^parent], [^parent]] =
+             Repo.query!(
+               "SELECT parent_lot_id FROM game_cargo_lots WHERE world_id=$1 AND parent_lot_id=$2 ORDER BY id",
+               [c.world_id, lot["lot_id"]]
+             ).rows
+
+    # A balanced journal alone cannot release proceeds that still belong to an open pool.
+    escaped =
+      CompanyFinanceWorld.post(restored, seller["company_id"], "bad-pool-release", [
+        {"cash_reserved", -20_000},
+        {"cash_available", 20_000}
+      ])
+
+    assert_raise ArgumentError, "Company balances do not reconcile with journal", fn ->
+      GameStore.commit(Repo, c.world_id, restored.epoch, restored, escaped)
+    end
+
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+
+    settled =
+      Auctions.reconcile(
+        %{restored | clock_ms: a.closes_ms, revision: restored.revision + 1},
+        cat
+      )
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(cat)
+
+    p = WarehouseLiquidation.pool(settled, "a-pool")
+    assert p["status"] == "completed"
+    assert p["proceeds"] == 20_000 + 60 * 2500
+    assert p["paid"] == p["proceeds"] - p["charged"]
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, settled)
+    assert {:ok, final} = GameStore.reload(Repo, c.world_id, settled)
+    assert WarehouseLiquidation.pool(final, "a-pool") == p
+    assert State.get(final, "warehouses", "a-pool") == nil
+    assert State.get(final, "companies", seller["company_id"])["reserved"] == 0
+    assert AuctionWorld.fetch(final, a.id).status == "unsold"
+
+    repeated =
+      Auctions.reconcile(final, cat) |> TijaraTides.Domain.Services.WarehouseLeases.advance(cat)
+
+    assert repeated.entities == final.entities
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "malformed exchange minute input rejects the command without crashing its LiveView", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "input-company",
+        %{"action" => "company", "name" => "Input", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    state = :sys.get_state(c.server).game
+
+    price =
+      TijaraTides.Domain.Warehouse.quote(
+        TijaraTides.Domain.WarehouseWorld.used(state, "Jakarta", "reefer"),
+        "reefer",
+        1,
+        1
+      )
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "input-lease",
+        %{
+          "action" => "warehouse_lease",
+          "port" => "Jakarta",
+          "storage" => "reefer",
+          "blocks" => 1,
+          "days" => 1,
+          "price" => price
+        },
+        c.server
+      )
+
+    [warehouse] = Map.keys(:sys.get_state(c.server).game.entities["warehouses"])
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+
+    params = %{
+      "action" => "exchange_place",
+      "warehouse" => warehouse,
+      "good" => "fruit",
+      "side" => "buy",
+      "quantity" => "1",
+      "price" => "0.01",
+      "min_grade" => "0"
+    }
+
+    original = :sys.get_state(c.server).game.entities["exchange_orders"]
+
+    for invalid <- ["bad", "99999999999999", [], %{}, false] do
+      render_hook(view, "exchange", Map.put(params, "freshness_minutes", invalid))
+      assert Process.alive?(view.pid)
+      assert render(view) =~ "freshness"
+      assert :sys.get_state(c.server).game.entities["exchange_orders"] == original
+    end
+
+    render_hook(view, "exchange", Map.put(params, "minutes", "bad"))
+    assert Process.alive?(view.pid)
+    assert :sys.get_state(c.server).game.entities["exchange_orders"] == original
+    render_hook(view, "exchange", Map.put(params, "freshness_minutes", "1"))
+    [order] = Map.values(:sys.get_state(c.server).game.entities["exchange_orders"])
+    assert order["min_remaining_ms"] == 60_000
+  end
+
+  test "late perishable liquidation settlement commits once and survives reload", c do
+    alias TijaraTides.Domain.{
+      State,
+      Warehouse,
+      WarehouseWorld,
+      CargoLots,
+      CompanyFinanceWorld,
+      AuctionWorld
+    }
+
+    alias TijaraTides.Domain.Services.{Auctions, WarehouseLiquidation}
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "late-seller",
+        %{
+          "action" => "company",
+          "name" => "Late seller",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    {:ok, code} = GameServer.seed(c.server)
+    {:ok, %{"session" => buyer_token}} = GameServer.redeem(code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        buyer_token,
+        "late-buyer",
+        %{
+          "action" => "company",
+          "name" => "Late buyer",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    before = :sys.get_state(c.server).game
+
+    cat =
+      Map.put(:sys.get_state(c.server).catalogue, "warehouse_liquidation", %{
+        "window_ms" => 10_000
+      })
+
+    seller = GameServer.snapshot(token, c.server).private["account"]
+    buyer = GameServer.snapshot(buyer_token, c.server).private["account"]
+    next = Map.put(before, :lot_allocation, CommandStore.allocate_lot_ids(%{repo: Repo}, 16))
+
+    next =
+      Enum.reduce(
+        [{seller, "late-source", "dry", 1}, {buyer, "late-receiver", "reefer", 3}],
+        next,
+        fn {account, id, storage, days}, state ->
+          {:ok, state, _} =
+            WarehouseWorld.lease(
+              state,
+              account,
+              %{
+                "port" => "Jakarta",
+                "storage" => storage,
+                "blocks" => 2,
+                "days" => days,
+                "price" =>
+                  Warehouse.quote(
+                    WarehouseWorld.used(state, "Jakarta", storage),
+                    storage,
+                    2,
+                    days
+                  )
+              },
+              id,
+              cat
+            )
+
+          state
+        end
+      )
+
+    w = State.get(next, "warehouses", "late-source")
+    grace = w["expires_ms"] + w["grace_ms"]
+    expiry = grace + 11_001
+    {next, lot} = CargoLots.create(next, "fruit", 2, expiry)
+
+    next =
+      State.put(next, "warehouses", w["id"], %{
+        w
+        | "cargo" => [Map.merge(lot, %{"good" => "fruit", "unit_cost" => 100})]
+      })
+      |> CompanyFinanceWorld.post(seller["company_id"], "purchase", [
+        {"inventory", 200},
+        {"cash_available", -200}
+      ])
+
+    market = State.get(next, "markets", "Jakarta|fruit")
+
+    next =
+      State.put(next, "markets", "Jakarta|fruit", %{
+        market
+        | "demand" => 0,
+          "stock" => 0,
+          "batches" => []
+      })
+
+    next = TijaraTides.Domain.Services.WarehouseLeases.advance(%{next | clock_ms: grace}, cat)
+    [a] = Enum.filter(AuctionWorld.all(next), &(&1.liquidation_id == w["id"]))
+
+    {:ok, next, _} =
+      Auctions.bid(
+        %{next | clock_ms: a.opens_ms},
+        buyer,
+        %{"auction" => a.id, "warehouse" => "late-receiver", "price" => 10_000},
+        "late-winning",
+        cat
+      )
+
+    next = %{next | revision: before.revision + 1}
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    late = a.closes_ms + 2000
+
+    settled =
+      Game.advance(
+        Map.put(restored, :lot_allocation, CommandStore.allocate_lot_ids(%{repo: Repo}, 1024)),
+        late - restored.clock_ms,
+        cat
+      )
+      |> Map.put(:revision, restored.revision + 1)
+
+    assert AuctionWorld.fetch(settled, a.id).status == "sold"
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, settled)
+    assert {:ok, final} = GameStore.reload(Repo, c.world_id, settled)
+    [cargo] = State.get(final, "warehouses", "award:" <> a.id)["cargo"]
+    assert cargo["expires_ms"] == a.closes_ms + 4 * (expiry - a.closes_ms)
+    assert WarehouseLiquidation.pool(final, w["id"])["status"] == "completed"
+    assert Game.advance(final, 0, cat).entities == final.entities
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "refrigerated partial transfers preserve biological age and lot lineage across reload",
+       c do
+    alias TijaraTides.Domain.{
+      State,
+      Warehouse,
+      WarehouseWorld,
+      ShipWorld,
+      PortCargoMarketWorld,
+      CompanyFinanceWorld
+    }
+
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "cold-company",
+        %{"action" => "company", "name" => "Cold", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    before = :sys.get_state(c.server).game
+    cat = :sys.get_state(c.server).catalogue
+    a = GameServer.snapshot(token, c.server).private["account"]
+    ship = State.owned(before, "ships", "company_id", a["company_id"]) |> hd()
+    ids = CommandStore.allocate_lot_ids(%{repo: Repo}, 16)
+
+    next =
+      Map.put(before, :lot_allocation, ids)
+      |> State.put("ships", ship["id"], %{ship | "class" => "reefer"})
+
+    {next, cargo} =
+      PortCargoMarketWorld.release_stock(next, "Jakarta", "fruit", 4, 100, cat["goods"]["fruit"])
+
+    origin = hd(cargo)["expires_ms"]
+
+    next =
+      ShipWorld.load_cargo(next, ship["id"], cargo, 0, cat)
+      |> CompanyFinanceWorld.post(a["company_id"], "purchase", [
+        {"inventory", 400},
+        {"cash_available", -400}
+      ])
+
+    {:ok, next, _} =
+      WarehouseWorld.lease(
+        next,
+        a,
+        %{
+          "port" => "Jakarta",
+          "storage" => "dry",
+          "blocks" => 1,
+          "days" => 1,
+          "price" => Warehouse.quote(WarehouseWorld.used(next, "Jakarta", "dry"), "dry", 1, 1)
+        },
+        "warm-storage",
+        cat
+      )
+
+    next = Game.advance(next, 3000, cat)
+    cold = State.get(next, "ships", ship["id"])["cargo"] |> hd()
+
+    {:ok, next, _} =
+      WarehouseWorld.transfer(
+        next,
+        a,
+        %{
+          "warehouse" => "warm-storage",
+          "ship" => ship["id"],
+          "side" => "store",
+          "good" => "fruit",
+          "quantity" => 2
+        },
+        cat
+      )
+
+    handling = TijaraTides.Domain.CargoRules.handling_ms(2, "Jakarta", "fruit", cat)
+    assert State.get(next, "ships", ship["id"])["arrive_ms"] == next.clock_ms + handling
+
+    assert State.get(next, "warehouses", "warm-storage")["protected_ms"] ==
+             next.clock_ms + handling
+
+    warm = State.get(next, "warehouses", "warm-storage")["cargo"] |> hd()
+    assert warm["freshness"]["origin_expires_ms"] == origin
+    assert warm["freshness"]["harvest_ms"] == cold["freshness"]["harvest_ms"]
+    assert warm["expires_ms"] < cold["expires_ms"]
+    next = Game.advance(next, handling, cat)
+
+    target =
+      TijaraTides.Domain.CargoFreshness.recondition(
+        TijaraTides.Domain.Ship.CargoRows.decode(warm),
+        next.clock_ms,
+        2500
+      )
+
+    command = %{
+      "warehouse" => "warm-storage",
+      "ship" => ship["id"],
+      "side" => "collect",
+      "good" => "fruit",
+      "quantity" => 2,
+      "min_remaining_ms" => target.expires_ms - next.clock_ms
+    }
+
+    assert {:error, :insufficient_cargo} =
+             WarehouseWorld.transfer(
+               next,
+               a,
+               %{command | "min_remaining_ms" => command["min_remaining_ms"] + 1},
+               cat
+             )
+
+    assert {:ok, next, _} = WarehouseWorld.transfer(next, a, command, cat)
+    assert State.get(next, "warehouses", "warm-storage")["cargo"] == []
+
+    assert Enum.any?(
+             State.get(next, "ships", ship["id"])["cargo"],
+             &(&1["lot_id"] == warm["lot_id"] and &1["expires_ms"] == target.expires_ms)
+           )
+
+    next = Game.advance(next, handling, cat)
+    next = %{next | revision: before.revision + 1}
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    assert restored.entities["warehouses"] == next.entities["warehouses"]
+    assert restored.entities["ships"] == next.entities["ships"]
+
+    rejuvenated = %{
+      warm["freshness"]
+      | "remaining_units" => warm["freshness"]["remaining_units"] + 10_000,
+        "expires_ms" => warm["expires_ms"] + 1
+    }
+
+    assert_raise Postgrex.Error, fn ->
+      Repo.query!("UPDATE game_cargo_holdings SET freshness=$3 WHERE world_id=$1 AND lot_id=$2", [
+        c.world_id,
+        warm["lot_id"],
+        rejuvenated
+      ])
+    end
+
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+
+    assert [[^origin], [^origin]] =
+             Repo.query!(
+               "SELECT expires_ms FROM game_cargo_lots WHERE world_id=$1 AND parent_lot_id=$2 ORDER BY id",
+               [c.world_id, cold["lot_id"]]
+             ).rows
+  end
+
+  test "weather warnings, revised ETAs, fuel pauses and forecasts persist through replay and restart",
+       c do
+    alias TijaraTides.Domain.Fleet
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    cat =
+      :sys.get_state(c.server).catalogue
+      |> Map.put("weather", %{
+        "period_ms" => 20_000,
+        "duration_ms" => 4000,
+        "chance_bps" => 10_000,
+        "first_slot" => 1,
+        "seed" => 1,
+        "stagger" => false
+      })
+
+    previous_weather = Application.get_env(:tijara_tides, :weather)
+    Application.put_env(:tijara_tides, :weather, cat["weather"])
+
+    on_exit(fn ->
+      if previous_weather,
+        do: Application.put_env(:tijara_tides, :weather, previous_weather),
+        else: Application.delete_env(:tijara_tides, :weather)
+    end)
+
+    :sys.replace_state(c.server, &%{&1 | catalogue: cat})
+
+    {:ok, %{"company_id" => co}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "weather-company",
+        %{
+          "action" => "company",
+          "name" => "Weather",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    id = co <> ":1"
+
+    command = %{
+      "action" => "sail",
+      "ship" => id,
+      "destination" => "Singapore",
+      "fuel_limit" => 100_000_000
+    }
+
+    {:ok, reply} = GameServer.command(token, "weather-sail", command, c.server)
+    original = GameServer.snapshot(token, c.server).private["ships"][id]
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    advance(c.server, 20_500)
+    snapshot = GameServer.snapshot(token, c.server)
+    delayed = snapshot.private["ships"][id]
+    assert delayed["arrive_ms"] == original["arrive_ms"] + 4000
+    assert delayed["weather"]["delay_ms"] == 4000
+
+    assert delayed["fuel_burned"] ==
+             div(delayed["fuel_total"] * 20_000, delayed["weather"]["sailing_ms"])
+
+    assert map_size(snapshot.public["weather"]) == 24
+    render_async(view)
+    assert has_element?(view, ".weather-wait", "Fuel use is paused")
+    assert has_element?(view, "#port-weather", "Regional storm")
+    known = GameServer.preview(token, co <> ":2", "Singapore", c.server)
+    assert known["weather_delay_ms"] > 0
+    assert known["weather_delay_ms"] + known["weather"]["since_ms"] == 24_000
+    render_click(view, "ship", %{"id" => co <> ":2"})
+    render_change(view, "preview", %{"destination" => "Singapore"})
+    assert render(view) =~ "Known weather delay"
+    assert {:ok, ^reply} = GameServer.command(token, "weather-sail", command, c.server)
+    before = GameServer.snapshot(token, c.server)
+    GenServer.stop(view.pid)
+    stop_supervised!(GameServer)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :weather_replacement
+      )
+
+    :sys.replace_state(replacement, &%{&1 | catalogue: cat})
+    Application.put_env(:tijara_tides, :game_server, replacement)
+    restored = GameServer.snapshot(token, replacement)
+    assert restored.private["ships"] == before.private["ships"]
+    assert restored.public["weather"] == before.public["weather"]
+    assert {:ok, ^reply} = GameServer.command(token, "weather-sail", command, replacement)
+    :ok = GameServer.connect(token, replacement)
+    notices = GameServer.snapshot(token, replacement).private["notices"]
+    advance(replacement, 0)
+    assert GameServer.snapshot(token, replacement).private["notices"] == notices
+    advance(replacement, 300)
+    still = GameServer.snapshot(token, replacement).private["ships"][id]
+    assert still["fuel_burned"] == delayed["fuel_burned"]
+    assert still["arrive_ms"] == delayed["arrive_ms"]
+    assert Fleet.progress(still, 20_800) == Fleet.progress(delayed, 20_500)
+    refute Map.has_key?(GameServer.snapshot(nil, replacement).public["ships"][id], "cargo")
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "staggered storms survive full simulation commits, reload and repeated ticks", c do
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    cat = :sys.get_state(c.server).catalogue
+
+    cat =
+      Map.put(cat, "weather", %{
+        "period_ms" => 20_000,
+        "duration_ms" => 4000,
+        "chance_bps" => 10_000,
+        "first_slot" => 1,
+        "seed" => 1,
+        "stagger" => true
+      })
+
+    previous = Application.get_env(:tijara_tides, :weather)
+    Application.put_env(:tijara_tides, :weather, cat["weather"])
+
+    on_exit(fn ->
+      if previous,
+        do: Application.put_env(:tijara_tides, :weather, previous),
+        else: Application.delete_env(:tijara_tides, :weather)
+    end)
+
+    :sys.replace_state(c.server, &%{&1 | catalogue: cat})
+
+    {:ok, %{"company_id" => co}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "stagger-company",
+        %{
+          "action" => "company",
+          "name" => "Staggered weather",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    :ok = GameServer.connect(token, c.server)
+    id = co <> ":1"
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "stagger-sail",
+        %{
+          "action" => "sail",
+          "ship" => id,
+          "destination" => "Singapore",
+          "fuel_limit" => 100_000_000
+        },
+        c.server
+      )
+
+    original = GameServer.snapshot(token, c.server).private["ships"][id]
+
+    delayed =
+      Enum.reduce(1..6, original, fn _, before ->
+        advance(c.server, 10_000)
+        state = :sys.get_state(c.server)
+        ship = state.game.entities["ships"][id]
+        assert ship["fuel_burned"] >= before["fuel_burned"]
+        assert ship["arrive_ms"] >= before["arrive_ms"]
+        {:ok, restored} = GameStore.reload(Repo, c.world_id, state.game)
+        assert restored.entities["ships"][id] == ship
+        assert :ok = FinancialLedger.audit(Repo, c.world_id)
+        ship
+      end)
+
+    assert delayed["weather"]["delay_ms"] > 0
+    assert delayed["arrive_ms"] > original["arrive_ms"]
+    stop_supervised!(GameServer)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :stagger_replacement
+      )
+
+    :sys.replace_state(replacement, &%{&1 | catalogue: cat})
+    assert GameServer.snapshot(token, replacement).private["ships"][id] == delayed
+    :ok = GameServer.connect(token, replacement)
+    before = GameServer.snapshot(token, replacement)
+    advance(replacement, 0)
+    after_tick = GameServer.snapshot(token, replacement)
+    # The server's monotonic clock may advance a millisecond during the retry;
+    # assert the weather transition is not reapplied, rather than freezing crew cost.
+    assert after_tick.private["ships"][id]["weather"] == delayed["weather"]
+    assert after_tick.private["ships"][id]["arrive_ms"] == delayed["arrive_ms"]
+    assert after_tick.private["notices"] == before.private["notices"]
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "legacy voyages save their first reconstructed path before catalogue geometry changes",
+       c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => co}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "legacy-company",
+        %{
+          "action" => "company",
+          "name" => "Legacy voyage",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    :ok = GameServer.connect(token, c.server)
+    id = co <> ":1"
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "legacy-sail",
+        %{
+          "action" => "sail",
+          "ship" => id,
+          "destination" => "Singapore",
+          "fuel_limit" => 100_000_000
+        },
+        c.server
+      )
+
+    :sys.replace_state(c.server, fn state ->
+      row = state.game.entities["ships"][id] |> Map.delete("voyage_path") |> Map.delete("weather")
+      changed = TijaraTides.Domain.State.put(state.game, "ships", id, row)
+
+      changed =
+        TijaraTides.UseCases.CommitPreparation.prepare(state.game, %{
+          changed
+          | revision: changed.revision + 1
+        })
+
+      {:ok, :ok} = GameStore.commit(Repo, c.world_id, state.game.epoch, state.game, changed)
+      %{state | game: TijaraTides.UseCases.CommitPreparation.accepted(changed)}
+    end)
+
+    original_path =
+      :sys.get_state(c.server).catalogue["routes"]["Jakarta|Singapore"]["coordinates"]
+
+    advance(c.server, 10_000)
+    state = :sys.get_state(c.server)
+    assert state.game.entities["ships"][id]["voyage_path"] == original_path
+    {:ok, loaded} = GameStore.reload(Repo, c.world_id, state.game)
+    assert loaded.entities["ships"][id]["voyage_path"] == original_path
+
+    :sys.replace_state(c.server, fn state ->
+      put_in(state.catalogue["routes"]["Jakarta|Singapore"]["coordinates"], [
+        [-10, -10],
+        [-9, -10]
+      ])
+    end)
+
+    advance(c.server, 10_000)
+    assert :sys.get_state(c.server).game.entities["ships"][id]["voyage_path"] == original_path
+    assert :ok = TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "Unicode preset names reject before commit and preserve readiness and replay", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    schedule = %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
+
+    for {unit, index} <- Enum.with_index(["e\u0301", "👍🏽", "🚢"]) do
+      width = length(String.codepoints(unit))
+      name = String.duplicate(unit, div(80, width)) <> String.duplicate("x", rem(80, width))
+      request = "unicode-#{index}"
+
+      payload = %{
+        "action" => "markdown_preset_save",
+        "name" => "  " <> name <> "  ",
+        "markdowns" => schedule
+      }
+
+      assert {:ok, %{"preset" => id} = reply} =
+               GameServer.command(token, request, payload, c.server)
+
+      assert Repo.query!(
+               "SELECT name,length(name) FROM game_markdown_presets WHERE world_id=$1 AND id=$2",
+               [c.world_id, id]
+             ).rows == [[name, 80]]
+
+      assert {:ok, ^reply} = GameServer.command(token, request, payload, c.server)
+
+      revision = :sys.get_state(c.server).game.revision
+      bad_request = request <> "-oversized"
+      bad = %{payload | "name" => name <> "x"} |> Map.put("preset", id)
+
+      assert {:error, :exchange_freshness_invalid} =
+               GameServer.command(token, bad_request, bad, c.server)
+
+      assert :sys.get_state(c.server).status == :ready
+      assert :sys.get_state(c.server).game.revision == revision
+
+      assert Repo.query!(
+               "SELECT request_id FROM game_receipts WHERE world_id=$1 AND request_id=$2",
+               [c.world_id, bad_request]
+             ).rows == []
+
+      assert Repo.query!("SELECT name FROM game_markdown_presets WHERE world_id=$1 AND id=$2", [
+               c.world_id,
+               id
+             ]).rows == [[name]]
+
+      assert {:error, :exchange_freshness_invalid} =
+               GameServer.command(
+                 token,
+                 request <> "-invalid-create",
+                 Map.delete(bad, "preset"),
+                 c.server
+               )
+
+      assert {:ok, _} =
+               GameServer.command(token, bad_request, Map.put(bad, "name", name), c.server)
+
+      game = :sys.get_state(c.server).game
+      assert {:ok, restored} = GameStore.reload(Repo, c.world_id, game)
+      assert restored.entities["markdown_presets"][id]["name"] == name
+    end
+  end
+
+  test "unsafe preset names and client-chosen ids reject without changing durable state", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    {:ok, invitation} = GameServer.seed(c.server)
+    {:ok, %{"session" => other}} = GameServer.redeem(invitation, c.server)
+
+    payload = %{
+      "action" => "markdown_preset_save",
+      "name" => "Food",
+      "markdowns" => %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
+    }
+
+    {:ok, %{"preset" => owned}} = GameServer.command(token, "owned-preset", payload, c.server)
+    {:ok, %{"preset" => foreign}} = GameServer.command(other, "foreign-preset", payload, c.server)
+    before = :sys.get_state(c.server).game
+
+    bad_names =
+      for name <- [
+            "Food\u0000",
+            "A\u0001B",
+            "A\nB",
+            "A\tB",
+            "A\u007FB",
+            "A\u0085B",
+            "A\u200BB",
+            "A\u202EB",
+            "A\u2066B",
+            "👩‍👩‍👧‍👦"
+          ],
+          command <- [
+            Map.put(payload, "name", name),
+            Map.merge(payload, %{"name" => name, "preset" => owned})
+          ],
+          do: command
+
+    bad_ids =
+      for id <- [
+            "missing",
+            "",
+            "id\u0000x",
+            String.duplicate("x", 3000),
+            nil,
+            false,
+            123,
+            1.5,
+            [],
+            [owned],
+            %{},
+            %{"id" => owned},
+            foreign
+          ],
+          do: Map.put(payload, "preset", id)
+
+    for {command, index} <- Enum.with_index(bad_names ++ bad_ids) do
+      request = "invalid-preset-#{index}"
+
+      assert {:error, :exchange_freshness_invalid} =
+               GameServer.command(token, request, command, c.server)
+
+      runtime = :sys.get_state(c.server)
+      assert runtime.status == :ready
+      assert runtime.game.revision == before.revision
+      assert runtime.game.entities == before.entities
+
+      assert Repo.query!(
+               "SELECT request_id FROM game_receipts WHERE world_id=$1 AND request_id=$2",
+               [c.world_id, request]
+             ).rows == []
+
+      assert Repo.query!("SELECT revision FROM game_worlds WHERE id=$1", [c.world_id]).rows == [
+               [before.revision]
+             ]
+    end
+
+    assert Repo.query!(
+             "SELECT id,name FROM game_markdown_presets WHERE world_id=$1 ORDER BY id",
+             [c.world_id]
+           ).rows == Enum.sort([[owned, "Food"], [foreign, "Food"]])
+
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
+    assert restored.entities["markdown_presets"] == before.entities["markdown_presets"]
+
+    # A rejected request remains available for a corrected create and then replay.
+    assert {:ok, %{"preset" => created} = reply} =
+             GameServer.command(token, "invalid-preset-0", payload, c.server)
+
+    assert created not in [owned, foreign]
+    assert {:ok, ^reply} = GameServer.command(token, "invalid-preset-0", payload, c.server)
+    amendment = Map.merge(payload, %{"preset" => owned, "name" => "Updated"})
+
+    assert {:ok, %{"preset" => ^owned} = reply} =
+             GameServer.command(token, "edit-owned", amendment, c.server)
+
+    assert {:ok, ^reply} = GameServer.command(token, "edit-owned", amendment, c.server)
+
+    assert Repo.query!("SELECT name FROM game_markdown_presets WHERE world_id=$1 AND id=$2", [
+             c.world_id,
+             owned
+           ]).rows == [["Updated"]]
+
+    assert Repo.query!("SELECT name FROM game_markdown_presets WHERE world_id=$1 AND id=$2", [
+             c.world_id,
+             foreign
+           ]).rows == [["Food"]]
+  end
+
+  test "graded backing, copied presets and partial-fill priority survive durable reload", c do
+    alias TijaraTides.Domain.{
+      State,
+      Warehouse,
+      WarehouseWorld,
+      CargoLots,
+      CargoFreshness,
+      CompanyFinanceWorld,
+      OrderBookWorld,
+      OrderBook,
+      MarkdownPresetWorld
+    }
+
+    alias TijaraTides.Domain.Ship.{CargoBatch, CargoRows}
+    alias TijaraTides.Domain.Services.Exchange
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+    {:ok, %{"session" => seller_token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        seller_token,
+        "graded-seller",
+        %{"action" => "company", "name" => "Seller", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    {:ok, code} = GameServer.seed(c.server)
+    {:ok, %{"session" => buyer_token}} = GameServer.redeem(code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        buyer_token,
+        "graded-buyer",
+        %{"action" => "company", "name" => "Buyer", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    seller = GameServer.snapshot(seller_token, c.server).private["account"]
+    buyer = GameServer.snapshot(buyer_token, c.server).private["account"]
+    before = :sys.get_state(c.server).game
+    cat = put_in(:sys.get_state(c.server).catalogue, ["goods", "fruit", "shelf_ms"], 1000)
+    next = Map.put(before, :lot_allocation, CommandStore.allocate_lot_ids(%{repo: Repo}, 32))
+
+    next =
+      Enum.reduce([{seller, "sw"}, {buyer, "bw"}], next, fn {a, id}, s ->
+        {:ok, s, _} =
+          WarehouseWorld.lease(
+            s,
+            a,
+            %{
+              "port" => "Jakarta",
+              "storage" => "dry",
+              "blocks" => 2,
+              "days" => 1,
+              "price" => Warehouse.quote(WarehouseWorld.used(s, "Jakarta", "dry"), "dry", 2, 1)
+            },
+            id,
+            cat
+          )
+
+        s
+      end)
+
+    {next, cargo} =
+      Enum.reduce([900, 500], {next, []}, fn life, {s, bs} ->
+        expiry = s.clock_ms + life
+        {s, lot} = CargoLots.create(s, "fruit", 2, expiry)
+
+        batch =
+          CargoFreshness.initialize(
+            %CargoBatch{
+              good: "fruit",
+              quantity: 2,
+              lot_id: lot["lot_id"],
+              expires_ms: expiry,
+              unit_cost: 10
+            },
+            s.clock_ms,
+            cat["goods"]["fruit"]
+          )
+
+        {s, bs ++ [CargoRows.encode(batch)]}
+      end)
+
+    w = State.get(next, "warehouses", "sw")
+
+    next =
+      State.put(next, "warehouses", "sw", %{w | "cargo" => cargo})
+      |> CompanyFinanceWorld.post(seller["company_id"], "purchase", [
+        {"inventory", 40},
+        {"cash_available", -40}
+      ])
+
+    m = State.get(next, "markets", "Jakarta|fruit")
+
+    next =
+      State.put(next, "markets", "Jakarta|fruit", %{
+        m
+        | "stock" => 0,
+          "batches" => [],
+          "demand" => 0
+      })
+
+    schedule = %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
+
+    {:ok, next, _} =
+      MarkdownPresetWorld.save(next, seller, %{"name" => "Food", "markdowns" => schedule}, "food")
+
+    next = %{next | revision: before.revision + 1}
+
+    {:ok, next, _} =
+      Exchange.place(
+        next,
+        seller,
+        %{
+          "warehouse" => "sw",
+          "good" => "fruit",
+          "side" => "sell",
+          "quantity" => 4,
+          "price" => 1000,
+          "preset" => "food"
+        },
+        "sell-food",
+        cat
+      )
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    assert restored.entities["markdown_presets"] == next.entities["markdown_presets"]
+    assert OrderBookWorld.fetch(restored, "sell-food") == OrderBookWorld.fetch(next, "sell-food")
+    {:ok, changed, _} = MarkdownPresetWorld.delete(restored, seller, "food")
+
+    {:ok, changed, _} =
+      Exchange.place(
+        %{changed | revision: restored.revision + 1},
+        buyer,
+        %{
+          "warehouse" => "bw",
+          "good" => "fruit",
+          "side" => "buy",
+          "quantity" => 1,
+          "price" => 1000,
+          "min_grade" => 3
+        },
+        "buy-food",
+        cat
+      )
+
+    remaining = OrderBookWorld.fetch(changed, "sell-food")
+    assert remaining.quantity == 3 and remaining.markdowns == schedule
+    assert Enum.all?(OrderBook.quotes(remaining), &(&1.priority_ms == next.clock_ms))
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, changed)
+    assert {:ok, final} = GameStore.reload(Repo, c.world_id, changed)
+    assert OrderBookWorld.fetch(final, "sell-food") == remaining
+    assert hd(State.get(final, "warehouses", "bw")["cargo"])["unit_cost"] == 1000
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+    assert Exchange.reconcile(final).entities == final.entities
+  end
+
+  test "won-cargo replacement commits charges and preserves cargo on reload and replay", c do
+    alias TijaraTides.Domain.{State, Warehouse, WarehouseWorld, CargoLots, CompanyFinanceWorld}
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "replacement-company",
+        %{
+          "action" => "company",
+          "name" => "Replacement",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    before = :sys.get_state(c.server).game
+    cat = :sys.get_state(c.server).catalogue
+    account = GameServer.snapshot(token, c.server).private["account"]
+    ids = CommandStore.allocate_lot_ids(%{repo: Repo}, 8)
+
+    {:ok, next, _} =
+      WarehouseWorld.lease(
+        Map.put(before, :lot_allocation, ids),
+        account,
+        %{
+          "port" => "Jakarta",
+          "storage" => "dry",
+          "blocks" => 1,
+          "days" => 1,
+          "price" => Warehouse.quote(WarehouseWorld.used(before, "Jakarta", "dry"), "dry", 1, 1)
+        },
+        "support",
+        cat
+      )
+
+    {next, lot} = CargoLots.create(next, "lumber", 30, nil)
+    cargo = Map.merge(lot, %{"good" => "lumber", "unit_cost" => 100})
+    w = State.get(next, "warehouses", "support")
+
+    next =
+      State.put(next, "warehouses", "support", %{w | "cargo" => [cargo]})
+      |> CompanyFinanceWorld.post(account["company_id"], "purchase", [
+        {"inventory", 3000},
+        {"cash_available", -3000}
+      ])
+      |> WarehouseWorld.award_storage("support", "won", [cargo], cat)
+
+    next =
+      %{next | revision: before.revision + 1, clock_ms: w["expires_ms"] + 3_600_000}
+      |> TijaraTides.Domain.Services.WarehouseLeases.advance(cat)
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    quote = WarehouseWorld.replacement_quote(restored, "award:won", 1, cat)
+    cmd = %{"warehouse" => "award:won", "days" => 1, "price" => quote.rent}
+    {:ok, replaced, reply} = WarehouseWorld.replace_award(restored, account, cmd, "paid", cat)
+    replaced = %{replaced | revision: restored.revision + 1}
+    receipt = {account["id"], "replace-won", "replace-won-fingerprint", reply}
+
+    assert reply["charges"] > 0
+
+    assert {:ok, :ok} =
+             GameStore.commit(Repo, c.world_id, restored.epoch, restored, replaced, receipt)
+
+    assert {:error, {:replay, ^reply}} =
+             GameStore.commit(Repo, c.world_id, restored.epoch, restored, replaced, receipt)
+
+    assert {:ok, final} = GameStore.reload(Repo, c.world_id, replaced)
+    assert final.entities["warehouses"] == replaced.entities["warehouses"]
+    assert final.entities["warehouse_liquidations"] == replaced.entities["warehouse_liquidations"]
+    assert State.get(final, "warehouses", "paid")["cargo"] == [cargo]
+
+    assert final.entities["warehouse_liquidations"]["award:won"]["replacement_paid"] ==
+             reply["charges"]
+
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "a closed auction bid outlives its lease and clearance still commits", c do
     alias TijaraTides.Domain.Warehouse
 
@@ -4302,7 +6308,17 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     advance(c.server, target - game.clock_ms)
 
     game = :sys.get_state(c.server).game
-    assert game.clock_ms >= target, "clearance tick was rejected; the world stopped advancing"
+    assert game.clock_ms >= target, "liquidation tick was rejected; the world stopped advancing"
+    award_id = "award:" <> listing["id"]
+
+    liquidation =
+      Enum.find(Map.values(game.entities["auctions"]), &(&1["liquidation_id"] == award_id))
+
+    assert liquidation["status"] == "scheduled"
+    assert Game.get(game, "warehouses", award_id)["blocks"] > 0
+    assert Game.get(game, "warehouses", wid) == nil
+    advance(c.server, liquidation["closes_ms"] - game.clock_ms + 1)
+    game = :sys.get_state(c.server).game
     assert Game.get(game, "warehouses", wid) == nil
 
     assert [[0]] =
@@ -4492,5 +6508,526 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     refute has_element?(view, "#destination-picker")
     assert has_element?(view, "#destination-picker-trigger", port)
+  end
+
+  test "mid-visit departures persist refunds and retain only the inbound budget on replay", c do
+    alias TijaraTides.Domain.{State, ShipWorld, Commands}
+    alias TijaraTides.Domain.Services.DepartureFunding
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "budget-company",
+        %{
+          "action" => "company",
+          "name" => "Visit budgets",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    base = :sys.get_state(c.server).game
+    cat = :sys.get_state(c.server).catalogue
+    account = GameServer.snapshot(token, c.server).private["account"]
+
+    ships =
+      State.entities(base, "ships") |> Map.values() |> Enum.sort_by(& &1["id"]) |> Enum.take(2)
+
+    Enum.reduce(Enum.zip(ships, [false, true]), base, fn {ship, paused}, base ->
+      commands = [
+        {"a", %{"action" => "route", "operation" => "add_stop", "port" => "Jakarta"}},
+        {"b", %{"action" => "route", "operation" => "add_stop", "port" => "Singapore"}},
+        {"budget-a", %{"action" => "visit_budget", "stop" => ship["id"] <> "a", "amount" => 200}},
+        {"budget-b", %{"action" => "visit_budget", "stop" => ship["id"] <> "b", "amount" => 300}},
+        {"buy",
+         %{
+           "action" => "route",
+           "operation" => "add_rule",
+           "stop" => ship["id"] <> "a",
+           "side" => "buy",
+           "good" => "lumber",
+           "quantity" => 1,
+           "limit" => 1
+         }},
+        {"start", %{"action" => "route", "operation" => "start", "auto_depart" => false}}
+      ]
+
+      prepared =
+        Enum.reduce(commands, base, fn {suffix, command}, state ->
+          {:ok, state, _} =
+            Commands.execute(state, account, Map.put(command, "ship", ship["id"]), %{
+              id: ship["id"] <> suffix,
+              catalogue: cat
+            })
+
+          state
+        end)
+        |> ShipWorld.prepare_visits(cat)
+
+      prepared =
+        if paused do
+          {:ok, state, _} =
+            Commands.execute(
+              prepared,
+              account,
+              %{"action" => "route", "operation" => "pause", "ship" => ship["id"]},
+              %{id: ship["id"] <> "pause", catalogue: cat}
+            )
+
+          state
+        else
+          prepared
+        end
+
+      before = %{prepared | revision: base.revision + 1}
+      assert State.get(before, "visit_budgets", ship["id"] <> "a")["remaining"] == 200
+      assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, base.epoch, base, before)
+      assert {:ok, before} = GameStore.reload(Repo, c.world_id, before)
+
+      {:ok, sailed, reply} =
+        Commands.execute(
+          before,
+          account,
+          %{
+            "action" => "sail",
+            "ship" => ship["id"],
+            "destination" => "Singapore",
+            "fuel_limit" => 86_400_000
+          },
+          %{id: ship["id"] <> "leave", catalogue: cat}
+        )
+
+      sailed = %{sailed | revision: before.revision + 1}
+      receipt = {account["id"], ship["id"] <> "leave", "leave-fingerprint", reply}
+
+      assert {:ok, :ok} =
+               GameStore.commit(Repo, c.world_id, before.epoch, before, sailed, receipt)
+
+      assert {:error, {:replay, ^reply}} =
+               GameStore.commit(Repo, c.world_id, before.epoch, before, sailed, receipt)
+
+      assert {:ok, restored} = GameStore.reload(Repo, c.world_id, sailed)
+      assert State.get(restored, "visit_budgets", ship["id"] <> "a") == nil
+      assert State.get(restored, "visit_budgets", ship["id"] <> "b")["remaining"] == 300
+      assert State.get(restored, "visit_budgets", ship["id"] <> "b")["visit"] == 1
+
+      assert State.get(restored, "companies", account["company_id"]) ==
+               State.get(sailed, "companies", account["company_id"])
+
+      assert :ok = FinancialLedger.audit(Repo, c.world_id)
+
+      # Simulate a persisted budget left over from a previous visit by the old code;
+      # the ship's next funding revalidation releases it.
+      row = State.get(restored, "visit_budgets", ship["id"] <> "b")
+
+      stale =
+        State.put(restored, "visit_budgets", row["id"], %{row | "visit" => 0})
+        |> Map.put(:revision, restored.revision + 1)
+
+      assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, stale)
+      assert {:ok, stale} = GameStore.reload(Repo, c.world_id, stale)
+      company = State.get(stale, "companies", account["company_id"])
+
+      repaired =
+        DepartureFunding.revalidate(stale, [ship["id"]], cat)
+        |> Map.put(:revision, stale.revision + 1)
+
+      assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, stale.epoch, stale, repaired)
+      assert {:ok, repaired} = GameStore.reload(Repo, c.world_id, repaired)
+      assert State.get(repaired, "visit_budgets", row["id"]) == nil
+
+      assert State.get(repaired, "companies", account["company_id"])["reserved"] ==
+               company["reserved"] - 300
+
+      assert :ok = FinancialLedger.audit(Repo, c.world_id)
+      repaired
+    end)
+  end
+
+  test "a same-tick funding timeout hands the accumulator to an existing request atomically", c do
+    alias TijaraTides.Domain.State
+    alias TijaraTides.Domain.Services.DepartureFunding
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {before, cat, account, claimant, holder, _third} = departure_handoff_fixture(c)
+    old = State.get(before, "departure_requests", holder["id"])
+
+    next =
+      %{before | clock_ms: old["window_deadline_ms"], revision: before.revision + 1}
+      |> DepartureFunding.advance(cat)
+
+    released = State.get(next, "departure_requests", holder["id"])
+    claimed = State.get(next, "departure_requests", claimant["id"])
+    assert released["window_deadline_ms"] == nil
+    assert released["accumulated"] == 0
+    assert released["cooldown_ms"] > next.clock_ms
+    assert claimed["accumulated"] == old["accumulated"]
+    assert claimed["window_deadline_ms"] > next.clock_ms
+
+    assert Enum.any?(State.entities(next, "notices"), fn {_, n} ->
+             n["code"] == "funding.timeout"
+           end)
+
+    receipt = {account["id"], "funding-handoff", "funding-handoff-fingerprint", %{"ok" => true}}
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next, receipt)
+
+    assert {:error, {:replay, %{"ok" => true}}} =
+             GameStore.commit(Repo, c.world_id, before.epoch, before, next, receipt)
+
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+
+    assert State.entities(restored, "departure_requests") ==
+             State.entities(next, "departure_requests")
+
+    assert State.get(restored, "companies", account["company_id"])["reserved"] == 100
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "deleted accumulators release the index before existing and newly inserted claims", c do
+    alias TijaraTides.Domain.{State, AutomationWorld}
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {before, _cat, account, claimant, holder, third} = departure_handoff_fixture(c)
+
+    {restored, _} =
+      Enum.reduce([claimant, third], {before, holder["id"]}, fn vessel, {before, holder_id} ->
+        next =
+          before
+          |> AutomationWorld.abandon_request(State.get(before, "departure_requests", holder_id))
+
+        next =
+          if vessel == third do
+            AutomationWorld.request(
+              next,
+              %{
+                ship_id: third["id"],
+                company_id: account["company_id"],
+                port: "Singapore",
+                stop_id: nil,
+                visit: 0,
+                configured: nil
+              },
+              "wait",
+              900_000_000
+            )
+          else
+            next
+          end
+
+        next =
+          AutomationWorld.accumulate(
+            next,
+            State.get(next, "departure_requests", vessel["id"]),
+            100,
+            200
+          )
+          |> Map.put(:revision, before.revision + 1)
+
+        assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+        assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+
+        assert State.entities(restored, "departure_requests") ==
+                 State.entities(next, "departure_requests")
+
+        assert :ok = FinancialLedger.audit(Repo, c.world_id)
+
+        {restored, vessel["id"]}
+      end)
+
+    # Recreating the deleted request with zero cash still claims the unique slot.
+    invalid =
+      AutomationWorld.accumulate(
+        restored,
+        State.get(before, "departure_requests", claimant["id"]),
+        0,
+        200
+      )
+      |> Map.put(:revision, restored.revision + 1)
+
+    error =
+      assert_raise Postgrex.Error, fn ->
+        GameStore.commit(Repo, c.world_id, restored.epoch, restored, invalid)
+      end
+
+    assert error.postgres.constraint == "game_one_departure_accumulator"
+    assert {:ok, after_rollback} = GameStore.reload(Repo, c.world_id, restored)
+    assert after_rollback.entities == restored.entities
+    assert after_rollback.revision == restored.revision
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  defp departure_handoff_fixture(c) do
+    alias TijaraTides.Domain.{State, CompanyFinanceWorld, ShipWorld}
+    alias TijaraTides.Domain.Services.{RouteEditing, DepartureFunding}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "handoff-company",
+        %{
+          "action" => "company",
+          "name" => "Handoff trader",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    base = :sys.get_state(c.server).game
+    account = GameServer.snapshot(token, c.server).private["account"]
+
+    [claimant, holder, third] =
+      State.entities(base, "ships") |> Map.values() |> Enum.sort_by(& &1["id"])
+
+    cat =
+      Map.put(:sys.get_state(c.server).catalogue, "departure_funding", %{
+        "wait_ms" => 100,
+        "window_ms" => 50,
+        "cooldown_ms" => 200
+      })
+
+    company = State.get(base, "companies", account["company_id"])
+    delta = 100 - company["cash"] + company["reserved"]
+
+    state =
+      CompanyFinanceWorld.post(base, company["id"], "test_funds", [
+        {"cash_available", delta},
+        {"capital", -delta}
+      ])
+
+    # The older holder sorts after its claimant in the persistence map, so an
+    # unordered update batch attempts the new claim before releasing the old one.
+    state =
+      Enum.reduce([{holder, 0}, {claimant, 1}], state, fn {ship, clock}, state ->
+        state = Map.put(state, :clock_ms, clock)
+
+        state =
+          Enum.reduce([{"Jakarta", "a"}, {"Singapore", "b"}], state, fn {port, suffix}, state ->
+            {:ok, state, _} =
+              RouteEditing.execute(
+                state,
+                account,
+                %{"ship" => ship["id"], "operation" => "add_stop", "port" => port},
+                %{id: ship["id"] <> suffix, catalogue: cat}
+              )
+
+            state
+          end)
+
+        {:ok, state, _} =
+          DepartureFunding.configure_visit(
+            state,
+            account,
+            %{"ship" => ship["id"], "stop" => ship["id"] <> "b", "amount" => 900_000_000},
+            cat
+          )
+
+        {:ok, state, _} =
+          RouteEditing.execute(
+            state,
+            account,
+            %{"ship" => ship["id"], "operation" => "start", "auto_depart" => true},
+            %{id: ship["id"] <> "start", catalogue: cat}
+          )
+
+        state |> ShipWorld.prepare_visits(cat) |> DepartureFunding.advance(cat)
+      end)
+
+    next = %{state | clock_ms: 100, revision: base.revision + 1} |> DepartureFunding.advance(cat)
+    assert State.get(next, "departure_requests", holder["id"])["accumulated"] == 100
+    assert State.get(next, "departure_requests", claimant["id"])["window_deadline_ms"] == nil
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, base.epoch, base, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    {restored, cat, account, claimant, holder, third}
+  end
+
+  test "linked orders and accumulated departure funding persist, replay and reject unbacked cash releases",
+       c do
+    alias TijaraTides.Domain.{State, Warehouse, WarehouseWorld, CompanyFinanceWorld}
+    alias TijaraTides.Infrastructure.Persistence.FinancialLedger
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "automation-company",
+        %{
+          "action" => "company",
+          "name" => "Automation trader",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    private = GameServer.snapshot(token, c.server).private
+    [ship, second | _] = private["ships"] |> Map.values() |> Enum.sort_by(& &1["id"])
+    game = :sys.get_state(c.server).game
+    rent = Warehouse.quote(WarehouseWorld.used(game, "Jakarta", "dry"), "dry", 10, 1)
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "automation-lease",
+        %{
+          "action" => "warehouse_lease",
+          "port" => "Jakarta",
+          "storage" => "dry",
+          "blocks" => 10,
+          "days" => 1,
+          "price" => rent
+        },
+        c.server
+      )
+
+    [warehouse] = GameServer.snapshot(token, c.server).private["warehouses"] |> Map.values()
+
+    stops =
+      Map.new([ship, second], fn vessel ->
+        for {port, index} <- [{"Jakarta", 0}, {"Singapore", 1}] do
+          assert {:ok, _} =
+                   GameServer.command(
+                     token,
+                     vessel["id"] <> ":stop:" <> to_string(index),
+                     %{
+                       "action" => "route",
+                       "operation" => "add_stop",
+                       "ship" => vessel["id"],
+                       "port" => port
+                     },
+                     c.server
+                   )
+        end
+
+        rows =
+          GameServer.snapshot(token, c.server).private["route_stops"]
+          |> Map.values()
+          |> Enum.filter(&(&1["ship_id"] == vessel["id"]))
+          |> Enum.sort_by(& &1["position"])
+
+        {vessel["id"], rows}
+      end)
+
+    linked = %{
+      "action" => "route",
+      "operation" => "add_rule",
+      "ship" => ship["id"],
+      "stop" => hd(stops[ship["id"]])["id"],
+      "side" => "buy",
+      "good" => "lumber",
+      "quantity" => 3,
+      "limit" => 1,
+      "linked_warehouse_id" => warehouse["id"]
+    }
+
+    assert {:ok, reply} = GameServer.command(token, "linked-target", linked, c.server)
+    before_replay = GameServer.snapshot(token, c.server).private
+    assert {:ok, ^reply} = GameServer.command(token, "linked-target", linked, c.server)
+
+    assert GameServer.snapshot(token, c.server).private["company"]["reserved"] ==
+             before_replay["company"]["reserved"]
+
+    for {vessel, auto} <- [{ship, false}, {second, true}] do
+      assert {:ok, _} =
+               GameServer.command(
+                 token,
+                 vessel["id"] <> ":start",
+                 %{
+                   "action" => "route",
+                   "operation" => "start",
+                   "ship" => vessel["id"],
+                   "auto_depart" => auto
+                 },
+                 c.server
+               )
+    end
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "next-budget",
+               %{
+                 "action" => "visit_budget",
+                 "ship" => second["id"],
+                 "stop" => List.last(stops[second["id"]])["id"],
+                 "amount" => 900_000_000
+               },
+               c.server
+             )
+
+    :sys.replace_state(c.server, fn s ->
+      %{
+        s
+        | catalogue:
+            Map.put(s.catalogue, "departure_funding", %{
+              "wait_ms" => 100,
+              "window_ms" => 10_000,
+              "cooldown_ms" => 200
+            })
+      }
+    end)
+
+    GameServer.connect(token, c.server)
+    advance(c.server, 100)
+    advance(c.server, 200)
+    state = :sys.get_state(c.server).game
+    request = State.get(state, "departure_requests", second["id"])
+    assert request["accumulated"] > 0
+    assert request["window_deadline_ms"] > state.clock_ms
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, state)
+
+    for kind <-
+          ~w(remote_links departure_requests visit_budgets exchange_orders warehouse_reservations accounts route_stops route_rules ship_routes) do
+      assert State.entities(restored, kind) == State.entities(state, kind)
+    end
+
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    before = restored
+
+    invalid =
+      CompanyFinanceWorld.post(before, request["company_id"], "unbacked-funding-release", [
+        {"cash_reserved", -1},
+        {"cash_available", 1}
+      ])
+      |> Map.put(:revision, before.revision + 1)
+
+    assert_raise ArgumentError, ~r/balances do not reconcile/, fn ->
+      GameStore.commit(Repo, c.world_id, before.epoch, before, invalid)
+    end
+
+    assert {:ok, after_rollback} = GameStore.reload(Repo, c.world_id, before)
+    assert after_rollback.entities == before.entities
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "new-policy",
+               %{"action" => "funding_policy", "policy" => "reduced"},
+               c.server
+             )
+
+    private = GameServer.snapshot(token, c.server).private
+    assert private["account"]["funding_policy"] == "reduced"
+
+    # Re-priced in place: waiting age and deadline survive, the excess is returned.
+    assert %{"policy" => "reduced", "required" => required, "accumulated" => required} =
+             repriced = private["departure_requests"][request["id"]]
+
+    assert required < request["required"]
+
+    assert Map.take(repriced, ~w(blocked_ms window_deadline_ms)) ==
+             Map.take(request, ~w(blocked_ms window_deadline_ms))
+
+    assert :ok == FinancialLedger.audit(Repo, c.world_id)
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+    conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => token})
+    {:ok, view, html} = live(conn, "/play")
+    assert html =~ "Automatic departure funding policy"
+    assert has_element?(view, "#departure-funding-policy option[value=reduced][selected]")
   end
 end

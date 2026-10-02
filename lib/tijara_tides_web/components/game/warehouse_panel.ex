@@ -53,7 +53,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
               selected={kind == @storage.storage}
             >
               {storage_name(kind)} — {if kind == "dry",
-                do: gettext("non-perishable solid goods"),
+                do: gettext("solid goods, including perishables"),
                 else:
                   Enum.map_join(@storage.storage_goods[kind] || [], ", ", fn {id, _} ->
                     cargo_option(id)
@@ -116,6 +116,12 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
             total: display_number(lease.row["blocks"] * 100)
           )}
         </p>
+        <p :for={fresh <- lease.freshness} class="text-xs text-amber-200">
+          <.cargo_label good={fresh.good} />
+          · {gettext("Remaining under current storage: %{minutes} mins",
+            minutes: display_number(div(fresh.remaining_ms, 60_000))
+          )}
+        </p>
         <p class="text-xs text-slate-400">
           {if lease.row["expires_ms"] > @view.public["clock_ms"],
             do:
@@ -123,8 +129,60 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
                 minutes:
                   display_number(div(lease.row["expires_ms"] - @view.public["clock_ms"], 60_000))
               ),
-            else: gettext("Expired: collection only during the 12-hour grace period.")}
+            else:
+              if(@view.public["clock_ms"] < lease.grace_end_ms,
+                do:
+                  gettext("Expired: collection grace ends in %{minutes} mins.",
+                    minutes:
+                      display_number(div(lease.grace_end_ms - @view.public["clock_ms"], 60_000))
+                  ),
+                else: gettext("Liquidating: local buy orders, auctions, then clearance.")
+              )}
         </p>
+        <p class="text-xs text-slate-400">
+          {gettext(
+            "Liquidation rent: previous rate plus %{percent}%; charges are capped by this lease's proceeds.",
+            percent: display_number(div(lease.surcharge_bps, 100))
+          )}
+        </p>
+        <p :if={lease.liquidation} class="text-xs text-amber-300">
+          {gettext("Proceeds held: %{proceeds}. Accrued storage and handling: %{charges}.",
+            proceeds: money(lease.liquidation["proceeds"]),
+            charges: money(lease.liquidation["rent_due"] + lease.liquidation["handling_due"])
+          )}
+        </p>
+        <div :if={lease.row["award_grace"]} class="my-2 text-sm text-teal-200">
+          <p>
+            {gettext("Won cargo has its own storage grace. No new cargo can enter this allocation.")}
+          </p>
+          <form
+            :for={offer <- lease.replacement_offers}
+            phx-submit="warehouse"
+            class="inline-block m-1"
+          >
+            <input type="hidden" name="action" value="warehouse_replace" />
+            <input type="hidden" name="warehouse" value={lease.row["id"]} />
+            <input type="hidden" name="request_id" value={@request_id} />
+            <input type="hidden" name="days" value={offer.days} />
+            <input type="hidden" name="price" value={offer.price} />
+            <button
+              disabled={
+                offer.price +
+                  if(lease.liquidation,
+                    do: lease.liquidation["rent_due"] + lease.liquidation["handling_due"],
+                    else: 0
+                  ) > @storage.cash
+              }
+              class="rounded border border-teal-700 px-2 py-1 disabled:opacity-40"
+            >
+              {gettext(
+                "Replace occupied storage: %{days} days · %{price}, plus accrued grace charges",
+                days: display_number(offer.days),
+                price: money(offer.price)
+              )}
+            </button>
+          </form>
+        </div>
         <p :if={lease.reserved_volume > 0} class="text-xs text-slate-400">
           {gettext("Reserved receiving space: %{volume} m³",
             volume: display_number(div(lease.reserved_volume, 1000))
@@ -136,6 +194,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           )}
         </p>
         <details
+          :if={!lease.row["award_grace"]}
           id={"warehouse-renewal-#{lease.row["id"]}"}
           phx-mounted={JS.ignore_attributes("open")}
           class="my-2"
@@ -355,7 +414,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
         </p>
         <p class="mt-1">
           {gettext(
-            "Releasing empty capacity refunds half its unused rent. After expiry, collect cargo within 12 active-world hours. Remaining goods are cleared at half reference value and never for more than they cost; grace rent is capped at proceeds. Perishables continue aging. Liquid storage is dedicated to one cargo type."
+            "Releasing empty capacity refunds half its unused rent. After expiry, cargo may be sold or collected during the disclosed grace period. Remaining goods fill local buy orders, enter auctions, then clear at 10% of reference value, reduced by remaining shelf life. Perishables keep aging; those unable to survive a full two-hour auction clear immediately. Storage and handling charges never exceed the proceeds of that lease. Liquid storage is dedicated to one cargo type."
           )}
         </p>
       </details>

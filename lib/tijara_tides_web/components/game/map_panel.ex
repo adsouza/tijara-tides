@@ -320,7 +320,9 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
             :if={@view.public["companies"][inspected["company_id"]]["bankruptcy_ms"] != nil}
             class="text-red-300"
           >
-            {gettext("Company in bankruptcy — assets in receivership")}
+            {if @view.public["companies"][inspected["company_id"]]["closure_reason"] == "dormant",
+              do: gettext("Company closed for dormancy — assets in receivership"),
+              else: gettext("Company in bankruptcy — assets in receivership")}
           </p>
           <p>
             {l10n(@definitions.classes[inspected["class"]]["name"])} · {l10n(inspected["status"])}
@@ -335,6 +337,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
               value1: minutes(max(0, inspected["arrive_ms"] - @view.public["clock_ms"]))
             )}
           </p>
+          <.weather_notice ship={inspected} clock={@view.public["clock_ms"]} />
           <div :if={own} class="mt-2 border-t border-slate-600 pt-2">
             <p class="font-semibold"><.emoji symbol="📦" />{gettext("Cargo aboard")}</p>
             <p :if={own["cargo"] == []} class="text-slate-400">{gettext("Empty hold")}</p>

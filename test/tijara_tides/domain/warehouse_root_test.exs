@@ -130,12 +130,13 @@ defmodule TijaraTides.Domain.WarehouseRootTest do
     assert expired.warehouse.reservations == []
   end
 
-  test "clearance cannot exceed cost and waits for handling protection" do
+  test "only empty estate leases release, after handling protection" do
     w = %{lease() | cargo: [stock()], protected_ms: @day * 2}
-    assert Warehouse.clearance(w, @day + div(@day, 2), false, catalogue()) == nil
-
-    assert %{cost: 230, value: 230, charges: 230} =
-             Warehouse.clearance(w, @day * 2, false, catalogue())
+    assert Warehouse.clearance(w, @day * 2, false, catalogue()) == nil
+    assert Warehouse.clearance(w, @day * 2, true, catalogue()) == nil
+    w = %{w | cargo: []}
+    assert Warehouse.clearance(w, @day, true, catalogue()) == nil
+    assert %{cost: 0, value: 0, charges: 0} = Warehouse.clearance(w, @day * 2, true, catalogue())
   end
 
   test "world fill preserves stale stock for disposal, explicit child writes and lineage" do
@@ -190,5 +191,39 @@ defmodule TijaraTides.Domain.WarehouseRootTest do
     assert next.entities["warehouses"]["w"] == row
     assert ChangeSet.since(state, next) == %{{"warehouse_reservations", "exchange:a"} => :put}
     assert ChangeSet.assert_complete!(state, next) == :ok
+  end
+
+  test "liquidation clearance and later lots preserve batches allocated to earlier auctions" do
+    a = %{claim("first", 3) | kind: :auction, liquidation: true}
+    b = %{claim("second", 2) | kind: :auction, liquidation: true}
+    early = %{stock() | quantity: 3, expires_ms: 1000, unit_cost: 23}
+    later = %{stock() | quantity: 4, expires_ms: 2000, unit_cost: 50, lot_id: "later"}
+    w = %{lease() | cargo: [early, later]}
+    {:ok, first} = Warehouse.back_order(w, a, 0, catalogue())
+    {:ok, second} = Warehouse.back_order(first.warehouse, b, 1, catalogue())
+    w = second.warehouse
+    lots = %TijaraTides.Domain.CargoLots.Scope{clock_ms: 2, lot_allocation: {:local, 1}}
+    {_lots, remaining, free} = Warehouse.release_free_cargo(lots, w, "lumber", 2)
+    assert Enum.all?(free, &(&1.expires_ms == 2000 and &1.unit_cost == 50))
+    assert Enum.any?(remaining.cargo, &(&1.quantity == 3 and &1.expires_ms == 1000))
+    {_lots, remaining, sold} = Warehouse.release_liquidation_cargo(lots, w, b, 2)
+    assert Enum.all?(sold, &(&1.expires_ms == 2000 and &1.unit_cost == 50))
+    assert Enum.any?(remaining.cargo, &(&1.quantity == 3 and &1.expires_ms == 1000))
+  end
+
+  test "lower-grade leftovers stay free while a later auction keeps its promised freshness" do
+    a = %{claim("fresh", 2) | kind: :auction, liquidation: true, expires_ms: 2000}
+    old = %{stock() | quantity: 3, expires_ms: 1500, unit_cost: 23}
+    fresh = %{stock() | quantity: 2, expires_ms: 2000, unit_cost: 50, lot_id: "fresh"}
+    {:ok, transition} = Warehouse.back_order(%{lease() | cargo: [old, fresh]}, a, 0, catalogue())
+    w = transition.warehouse
+    assert Enum.sum(for b <- Warehouse.unreserved_cargo(w, "lumber", 1), do: b.quantity) == 3
+    lots = %TijaraTides.Domain.CargoLots.Scope{clock_ms: 1, lot_allocation: {:local, 1}}
+    {_lots, remaining, cleared} = Warehouse.release_free_cargo(lots, w, "lumber", 3)
+    assert cleared == [old]
+    assert remaining.cargo == [fresh]
+    assert Warehouse.order_backed?(remaining, a, 1)
+    {_lots, _remaining, sold} = Warehouse.release_liquidation_cargo(lots, remaining, a, 2)
+    assert sold == [fresh]
   end
 end

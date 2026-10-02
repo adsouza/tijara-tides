@@ -5,6 +5,7 @@ defmodule TijaraTides.Domain.AccountWorld do
   @invite_ms 3 * 86_400_000
 
   alias TijaraTides.Domain.Account
+  defdelegate owner_visit(state, account, wall_ms), to: __MODULE__.Dormancy, as: :visit
   alias TijaraTides.Domain.Account.{Rows, BankruptcyRows, BankruptcyEvent}
   @doc "Reconstitute identity history supplied by the persistence read-through port."
   def restore_history(state, kind, id, row)
@@ -51,6 +52,13 @@ defmodule TijaraTides.Domain.AccountWorld do
       Map.put(state, :identity_compacted_at, wall_ms)
     end
   end
+
+  def set_funding_policy(state, account, policy) when policy in ["wait", "reduced", "skip"] do
+    {:ok, current} = Account.set_funding_policy(fetch(state, account["id"]), policy)
+    {:ok, store(state, current), %{}}
+  end
+
+  def set_funding_policy(_state, _account, _policy), do: {:error, :funding_policy_invalid}
 
   def fetch(state, id) do
     # An absent account reads as an empty one; the codec no longer decodes a nil row.
@@ -164,6 +172,7 @@ defmodule TijaraTides.Domain.AccountWorld do
       state
       |> store(account)
       |> put("bankruptcy_events", company_id, BankruptcyRows.encode(event))
+      |> __MODULE__.Dormancy.cancel_pending(company_id)
 
     if Account.counted(account, state.clock_ms) >= 5 do
       state

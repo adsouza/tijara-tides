@@ -1,7 +1,7 @@
 defmodule TijaraTides.UseCases.WarehouseQueries do
   alias TijaraTides.Domain.WarehouseWorld
   @moduledoc "Warehouse lease and transfer options from authorized read models."
-  alias TijaraTides.Domain.{Fleet, CargoRules, Warehouse}
+  alias TijaraTides.Domain.{CargoRules, Warehouse}
 
   def warehouse_options(definitions, view, port, draft, ship) do
     catalogue = definitions.catalogue
@@ -44,17 +44,16 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
     now = view.public["clock_ms"]
     handling = TijaraTides.Domain.PortCargoMarket.handling_rate(catalogue["ports"][port])
     docked = ship && ship["status"] == "docked" && ship["port"] == port
-    space = docked && Fleet.capacity(ship, catalogue)
-    class = docked && definitions.classes[ship["class"]]
 
     leases =
       Enum.map(leases, fn row ->
         w = WarehouseWorld.snapshot(row)
+        external = WarehouseWorld.shared_external_volume(leases, reservation_rows, w, now)
         volume = Warehouse.volume(w, catalogue)
         reserved_volume = WarehouseWorld.reserved_volume(reservation_rows, w, catalogue)
         reservations = WarehouseWorld.reservations(reservation_rows, w)
         claimed = %{w | reservations: reservations}
-        ready = docked && now >= w.protected_ms
+        ready = (docked && now >= w.protected_ms) and now < w.expires_ms + w.grace_ms
 
         goods =
           if ready,
@@ -65,67 +64,79 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
               end),
             else: []
 
+        # The transfer command checks these same limits, so offers never exceed them.
+        loaded = %{claimed | external_volume: external}
+        storing = now < w.expires_ms && not w.award_grace
+
         transfers =
           Enum.map(goods, fn {id, item} ->
-            aboard = Enum.sum(for b <- ship["cargo"], b["good"] == id, do: b["quantity"])
+            terms = %{
+              now: now,
+              ship_id: ship["id"],
+              aboard: Enum.sum(for b <- ship["cargo"], b["good"] == id, do: b["quantity"]),
+              minimum: 0,
+              hold_rate: CargoRules.hold_rate(ship, catalogue),
+              hold_lots: WarehouseWorld.hold_lots(ship, item, catalogue),
+              cash: cash,
+              cleaning: WarehouseWorld.cleaning_cost(ship, item),
+              handling: handling,
+              catalogue: catalogue
+            }
 
-            stored =
-              Enum.sum(
-                for b <- w.cargo,
-                    b.good == id and (is_nil(b.expires_ms) or b.expires_ms > now),
-                    do: b.quantity
-              )
-
-            store =
-              if now < w.expires_ms,
-                do:
-                  min(
-                    aboard,
-                    div(
-                      w.blocks * Warehouse.block_litres() - volume -
-                        WarehouseWorld.reserved_volume(
-                          reservation_rows,
-                          w,
-                          catalogue,
-                          ship["id"],
-                          id
-                        ),
-                      item["volume_l"]
-                    )
-                  ),
-                else: 0
-
-            collect =
-              min(
-                max(
-                  0,
-                  stored -
-                    WarehouseWorld.reserved_quantity(reservation_rows, w, "stock", id, ship["id"])
-                ),
-                min(
-                  div(class["weight"] - space.weight, item["weight_kg"]),
-                  div(class["volume"] - space.volume, item["volume_l"])
-                )
-              )
+            limit = fn side ->
+              Warehouse.transfer_limits(loaded, side, item, %{
+                terms
+                | cleaning: if(side == "collect", do: terms.cleaning, else: 0)
+              })
+              |> Map.values()
+              |> Enum.min()
+              |> min(CargoRules.max_lots())
+            end
 
             %{
               good: id,
-              stored: stored,
-              store: max(0, min(CargoRules.max_lots(), min(store, div(cash, max(1, handling))))),
-              collect:
-                max(
-                  0,
-                  min(
-                    min(CargoRules.max_lots(), collect),
-                    div(max(0, cash - WarehouseWorld.cleaning_cost(ship, item)), max(1, handling))
-                  )
-                )
+              stored:
+                Enum.sum(
+                  for b <- w.cargo,
+                      b.good == id and (is_nil(b.expires_ms) or b.expires_ms > now),
+                      do: b.quantity
+                ),
+              store: if(storing, do: limit.("store"), else: 0),
+              collect: limit.("collect")
             }
           end)
           |> Enum.filter(&(&1.store > 0 or &1.collect > 0 or &1.stored > 0))
 
         %{
           row: row,
+          freshness:
+            for(
+              {good, batches} <- Enum.group_by(row["cargo"], & &1["good"]),
+              Enum.any?(batches, & &1["expires_ms"]),
+              do: %{
+                good: good,
+                remaining_ms: max(0, Enum.min(Enum.map(batches, & &1["expires_ms"])) - now)
+              }
+            ),
+          replacement_offers:
+            if(
+              w.award_grace && now >= w.expires_ms && now < w.expires_ms + w.grace_ms &&
+                volume > 0,
+              do:
+                Enum.map(Warehouse.terms(), fn days ->
+                  n = div(volume + Warehouse.block_litres() - 1, Warehouse.block_litres())
+
+                  %{
+                    days: days,
+                    blocks: n,
+                    price: Warehouse.quote(max(0, used - n), w.storage, n, days)
+                  }
+                end),
+              else: []
+            ),
+          liquidation: get_in(view, [:private, "warehouse_liquidations", w.id]),
+          grace_end_ms: w.expires_ms + w.grace_ms,
+          surcharge_bps: w.surcharge_bps,
           volume: volume,
           transfers: transfers,
           reserved_volume: reserved_volume,
@@ -160,25 +171,14 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
                   {id, item} <- Enum.sort(catalogue["goods"]),
                   Warehouse.compatible?(w, item) and CargoRules.compatible_class?(ship, item),
                   kind <- ["stock", "capacity"],
+                  not w.award_grace or kind == "stock",
                   n =
-                    if(kind == "stock",
-                      do:
-                        max(
-                          0,
-                          Enum.sum(
-                            for b <- w.cargo,
-                                b.good == id and (is_nil(b.expires_ms) or b.expires_ms > now),
-                                do: b.quantity
-                          ) - WarehouseWorld.reserved_quantity(reservation_rows, w, "stock", id)
-                        ),
-                      else:
-                        max(
-                          0,
-                          div(
-                            w.blocks * Warehouse.block_litres() - volume - reserved_volume,
-                            item["volume_l"]
-                          )
-                        )
+                    Warehouse.reservation_limit(
+                      %{claimed | external_volume: external},
+                      kind,
+                      item,
+                      now,
+                      catalogue
                     ),
                   n > 0,
                   do: %{good: id, kind: kind, max: min(CargoRules.max_lots(), n)}
@@ -195,11 +195,11 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
               else: []
             ),
           free_blocks:
-            if(now >= w.protected_ms and is_nil(w.next_days),
+            if(not w.award_grace and now >= w.protected_ms and is_nil(w.next_days),
               do:
                 w.blocks -
                   div(
-                    volume + reserved_volume + Warehouse.block_litres() - 1,
+                    volume + external + reserved_volume + Warehouse.block_litres() - 1,
                     Warehouse.block_litres()
                   ),
               else: 0

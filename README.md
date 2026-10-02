@@ -116,8 +116,8 @@ ownership fencing rejects writes from a superseded server. The simulation resume
 from its last committed clock when a player connects, without offline catch-up.
 The guest lobby remains separate and resets on restart.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for what was carried forward from Armchair
-Metropolist, lifecycle behavior, and the boundaries for future gameplay work.
+See [the architecture](docs/architecture.md) for lifecycle behavior and the
+boundaries for future gameplay work.
 
 ## Native desktop clients
 

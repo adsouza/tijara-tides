@@ -6,6 +6,7 @@ defmodule TijaraTides.Domain.Fleet do
   import TijaraTides.Domain.State
   @voyage_speedup 600
   @minimum_voyage_ms 6_000
+  @max_voyage_ms 86_400_000
 
   @useful_life_ms ShipMaintenance.useful_life_ms()
   @residual_bps ShipMaintenance.residual_bps()
@@ -15,6 +16,9 @@ defmodule TijaraTides.Domain.Fleet do
   defdelegate maintenance_estimate(ship, from_ms, to_ms), to: ShipMaintenance, as: :estimate
   defdelegate maintenance_forecast(ship, now), to: ShipMaintenance, as: :forecast
   defdelegate maintenance_curve(), to: ShipMaintenance, as: :curve
+
+  @doc "The longest voyage a ship may begin; departures, purchases and planners share it."
+  def max_voyage_ms, do: @max_voyage_ms
 
   def sale_value(ship, now) do
     basis = ship["acquisition_value"] || ship["build_value"] || ship["book_value"]
@@ -65,7 +69,7 @@ defmodule TijaraTides.Domain.Fleet do
 
         state =
           state
-          |> TijaraTides.Domain.ShipWorld.retire(id)
+          |> TijaraTides.Domain.Services.ShipLifecycle.retire(id)
           |> CompanyFinanceWorld.post(
             company["id"],
             "ship_sale",
@@ -83,6 +87,22 @@ defmodule TijaraTides.Domain.Fleet do
          %{"sold" => id, "proceeds" => value.proceeds}}
     end
   end
+
+  defdelegate weather_region(coordinates), to: TijaraTides.Domain.Weather, as: :region
+  def voyage_speedup, do: @voyage_speedup
+
+  def moving_time(ship, from, into) do
+    if ship["status"] == "sailing" do
+      weather = ship["weather"]
+
+      TijaraTides.Domain.Weather.motion(ship["depart_ms"], ship["arrive_ms"], weather, into) -
+        TijaraTides.Domain.Weather.motion(ship["depart_ms"], ship["arrive_ms"], weather, from)
+    else
+      0
+    end
+  end
+
+  defdelegate progress(ship, clock), to: TijaraTides.Domain.VoyageNavigation
 
   defdelegate classes(), to: TijaraTides.Domain.ShipClass, as: :all
 
@@ -154,22 +174,9 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  def validate_ship_name(state, name, except_id \\ nil) do
-    name = if is_binary(name), do: String.trim(name), else: ""
-
-    cond do
-      name == "" or String.length(name) > 80 or String.match?(name, ~r/[\p{Cc}\p{Cf}]/u) ->
-        {:error, :ship_name_invalid}
-
-      Enum.any?(entities(state, "ships"), fn {id, ship} ->
-        id != except_id and ship["name"] == name
-      end) ->
-        {:error, :ship_name_taken}
-
-      true ->
-        {:ok, name}
-    end
-  end
+  defdelegate validate_ship_name(state, name, except_id \\ nil),
+    to: TijaraTides.Domain.ShipWorld.Names,
+    as: :validate
 
   defp next_ship_name(state, company_name) do
     names = MapSet.new(entities(state, "ships"), fn {_, ship} -> ship["name"] end)
@@ -184,21 +191,22 @@ defmodule TijaraTides.Domain.Fleet do
     TijaraTides.Domain.Ship.capacity(%TijaraTides.Domain.Ship{cargo: cargo}, catalogue)
   end
 
-  def voyage_quote(ship, destination, catalogue, clock \\ nil)
+  def voyage_quote(ship, destination, catalogue, clock \\ nil, weather_cutoff \\ nil)
 
-  def voyage_quote(ship, destination, catalogue, clock) when is_binary(destination) do
+  def voyage_quote(ship, destination, catalogue, clock, weather_cutoff)
+      when is_binary(destination) do
     case catalogue["routes"][ship["port"] <> "|" <> destination] do
       nil ->
         nil
 
       route ->
-        route_quote(ship, route, catalogue, clock)
+        route_quote(ship, route, catalogue, clock, weather_cutoff)
     end
   end
 
-  def voyage_quote(_ship, _destination, _catalogue, _clock), do: nil
+  def voyage_quote(_ship, _destination, _catalogue, _clock, _weather_cutoff), do: nil
 
-  defp route_quote(ship, route, catalogue, clock) do
+  defp route_quote(ship, route, catalogue, clock, weather_cutoff \\ nil) do
     aged = clock || ship["last_cost_ms"] || 0
 
     class = classes()[ship["class"]]
@@ -211,14 +219,29 @@ defmodule TijaraTides.Domain.Fleet do
         div(route["nautical_miles"] * 3_600_000, class["speed"] * @voyage_speedup)
       )
 
+    weather =
+      TijaraTides.Domain.Weather.forecast(
+        route,
+        duration,
+        aged,
+        weather_cutoff || aged,
+        TijaraTides.Domain.Weather.model(catalogue)
+      )
+
+    total = duration + weather["delay_ms"]
+
     %{
+      "weather" => weather,
+      "weather_delay_ms" => weather["delay_ms"],
+      "sailing_ms" => duration,
       "fuel" => fuel,
       "canal_fees" => Enum.count(route["passages"], &(&1 in ["panama", "suez"])) * 25_000,
-      "duration_ms" => duration,
-      "crew_estimate" => div(duration * class["crew"], 60_000),
+      "duration_ms" => total,
+      "crew_estimate" =>
+        div(duration * class["crew"] * 2 + weather["delay_ms"] * class["crew"], 120_000),
       # Age the estimate from the caller's clock. The settlement cursor stands in only
       # for funding and automation checks, which build synthetic ships and never read it.
-      "maintenance_estimate" => ShipMaintenance.estimate(ship, aged, aged + duration),
+      "maintenance_estimate" => ShipMaintenance.estimate(ship, aged, aged + total),
       "route" => route
     }
   end
@@ -267,7 +290,7 @@ defmodule TijaraTides.Domain.Fleet do
          true <- ship["status"] == "sailing",
          %{} = quote <- reroute_quote(ship, destination, state.clock_ms, catalogue),
          true <- is_integer(limit) and limit >= quote["fuel"],
-         true <- quote["duration_ms"] <= 86_400_000 do
+         true <- quote["duration_ms"] <= @max_voyage_ms do
       delta = quote["fuel"] - (ship["fuel_total"] - ship["fuel_burned"])
 
       if company["cash"] - company["reserved"] < delta + quote["canal_fees"] or
@@ -309,6 +332,7 @@ defmodule TijaraTides.Domain.Fleet do
     with {:ok, _ship, company, estimate} <-
            departure_check(state, account, id, destination, limit, catalogue) do
       owner = company["id"]
+      state = TijaraTides.Domain.AutomationWorld.release_departing_visit(state, id)
 
       state =
         TijaraTides.Domain.ShipWorld.depart(state, id, destination, estimate, @voyage_speedup)
@@ -357,7 +381,7 @@ defmodule TijaraTides.Domain.Fleet do
         {:error, {:departure_already_here, destination}}
 
       true ->
-        case voyage_quote(ship, destination, catalogue) do
+        case voyage_quote(ship, destination, catalogue, state.clock_ms) do
           nil -> {:error, {:departure_no_route, ship["port"], destination}}
           estimate -> departure_funding(ship, company, estimate, limit)
         end
@@ -375,7 +399,7 @@ defmodule TijaraTides.Domain.Fleet do
       limit < estimate["fuel"] ->
         {:error, {:departure_fuel_limit, estimate["fuel"], limit}}
 
-      estimate["duration_ms"] > 86_400_000 ->
+      estimate["duration_ms"] > @max_voyage_ms ->
         {:error, {:departure_too_long, estimate["duration_ms"]}}
 
       company["unpaid"] > 0 ->

@@ -14,7 +14,31 @@ Luxury cargo auctions and standing warehouse-backed exchange orders are implemen
 Procurement auctions and player industry remain deferred.
 Age-based maintenance is implemented alongside depreciation. Next-port instructions are implemented;
 they execute ship-specific buy/sell actions on arrival rather than placing
-standing orders on a shared exchange.
+standing orders on a shared exchange. Each instruction optionally expires after
+1–43,200 active-world minutes from acceptance. Blank means unlimited. The Ships
+panel preserves the expiry draft across ticks and shows its remaining time.
+At the inclusive deadline, expiry runs before berth admission or new fills,
+cancelling only the unfilled remainder with an owner-only notice. Cargo, spending,
+settled trades, committed handling and the onward plan are preserved. Automatic
+departure still waits for handling and other active instructions. Migration
+`20260930000002_add_instruction_expiry.exs` adds the nullable typed deadline;
+legacy instructions remain unlimited. Deadlines pause offline, survive reloads
+and remain fixed when a creation request is replayed.
+
+Next-port buys and repeating-route load targets also accept an optional minimum
+remaining shelf life, in active-world minutes (0–43,200; blank means any unspoiled
+cargo). Check it at purchase or collection settlement, not at predicted arrival.
+Within each source, take the earliest-expiring qualifying lots first, retaining
+lot identity, split lineage, acquisition cost and expiry. Owned warehouse stock
+qualifying for the ship is used before market purchases, without consuming other
+ships' reserved quantities. Unsuitable stock stays owned in place; no trade or
+cash posting occurs when no stock qualifies. Fixed targets retry the remainder;
+buy-maximum targets also wait when all available stock fails freshness. Route
+load targets count only qualifying cargo already aboard, while all cargo still
+uses physical capacity. Current visit orders retain their snapshotted terms when
+the template is edited. Private controls, progress and waiting reasons persist
+through replay and restart. Migration `20260930000003_add_instruction_freshness.exs`
+defaults existing instruction and route terms to zero. Standing-order freshness terms, graded backing and markdown presets are now implemented; see below.
 
 See [architecture and domain boundaries](architecture.md) for command workflows,
 query projections, consistency and module responsibilities.
@@ -56,9 +80,20 @@ reference prices, production rates, ship prices, and travel scaling are explicit
 provisional tuning values. Voyages currently run at 600× sailing speed with a
 six-second minimum (10× faster than the initial playtest). Existing voyages are
 retimed on their next tick, preserving progress and fuel already spent.
-New perishable production has correspondingly shorter shelf lives: fruit 7h 12m,
-seafood 3h 36m, and meat 4h 48m of active-world time. Existing lots retain their
-stored expiry timestamps; buying or splitting a lot does not reset its age. New
+New ordinary shelf lives are provisionally 60 active-world minutes for fruit
+(bananas), 90 seconds for meat and 60 seconds for seafood. Refrigeration defaults
+to quarter-speed biological aging, giving fresh cargo 4 hours, 6 minutes and
+4 minutes respectively. Rates and birth shelf lives live in the catalogue;
+accepted holdings snapshot their conditions. Existing lots retain their original
+shelf-life basis and biological age when upgraded. Higher reefer ship crew costs,
+smaller holds and higher refrigerated storage rent supply the cost tradeoff.
+Cargo holds immutable birth expiry and lineage separately from projected expiry
+under its current conditions. Exact integer age units survive warming, cooling,
+resale and splits; cooling cannot revive spoiled goods. Harvest time and biological
+freshness never reset. Lifetime previews use the receiving hold on purchase and
+show remaining time under current conditions in storage. Clearance payments use
+biological freshness, with exact rational cent remainders across mixed birth
+shelf lives. New
 companies start with no cash or ships; players borrow up to $250,000 and buy ships
 at any port. Existing companies retain their assets.
 
@@ -253,20 +288,10 @@ with launch tuning described in this document. Remaining work includes:
 
 - **Simulated economy:** differentiated production rates, money-stock and
   source/sink monitoring, and price-level monitoring (§5).
-- **Dormancy and estates:** durable owner-absence tracking and closure warnings,
-  dormant liquidation without a bankruptcy count,
-  full warehouse liquidation stages, won-cargo storage grace and replacement
-  leases (§§5, 7, 11, 12).
 - **Procurement:** machinery delivery auctions, supplier deposits, buyer funding
   and receiving-capacity commitments, delivery deadlines, settlement/default and
   system-fault protections (§7).
-- **Perishable and unified markets:** freshness-graded order books, minimum
-  freshness requirements, markdown schedules and presets, mixed-grade backing,
-  freshness-aware reservation replacement, and direct ship trades against
-  player order books (§§6–8).
-- **Automation:** linked remote orders and their atomic handover at berth,
-  earmarked advance purchase budgets, optional expiry and maximum-wait controls,
-  and departure-funding allocation and accumulation policies (§8).
+- **Unified markets:** direct ship trades against player order books (§§6–8).
 - **Ports and physical handling:** full ship-size, terminal and waterway limits,
   predictive queue estimates, automatic warehouse-transfer queuing, transfers
   between storage types, and utilization-triggered berth/storage growth with
@@ -423,6 +448,8 @@ and the final/first pair must differ. The final stop returns to the first.
 Running and paused routes remain editable. Cargo targets can be added, edited,
 or removed; already-created visit orders retain their original terms, including
 quantity mode. Changes apply when the relevant stage next creates orders.
+Linked fixed buy targets reconcile unfinished, uncommitted visit orders and
+standing-order backing together; rejected edits retain the previous terms.
 Future stops can be added or removed while preserving the active stop identity.
 Removing the current or next stop returns the route to draft and clears its
 visit orders and onward plan; committed handling and voyages still finish.
@@ -435,12 +462,30 @@ route-managed ships cannot also receive independent next-port instructions.
 Each stop sells up to its configured quantity from cargo actually aboard, then
 finishes unloading before calculating purchase shortfalls. Load targets include
 retained cargo; a fresh per-visit cap limits purchases including handling and
-cleaning, without earmarking cash. Prices use the same limit semantics and
+cleaning. Without an optional advance budget, purchases use unreserved cash.
+Prices use the same limit semantics and
 voyage-affordability checks as manual and single-visit trades. Partial fills retry
 and never accumulate across circuits. Once sales finish, exhausted hold capacity
 cancels the remaining loading shortfall with notification. Other unfilled targets
-wait until filled or explicitly cancelled. Expiry and maximum-wait controls,
-linked exchange orders and advance purchase budgets remain future extensions.
+wait until filled, explicitly cancelled, or their stop's maximum wait elapses.
+Linked exchange orders and advance purchase budgets are described below.
+
+Each stop has an optional maximum wait, configured in minutes (up to 30 days)
+inside its collapsed Wait limit disclosure. Blank means unlimited waiting.
+The active-world deadline is saved from arrival, including berth queues and
+handling, and survives retries, partial fills, phase changes, pause/resume and
+database reload. Starting a route at its current port starts the visit then;
+starting while sailing uses its actual arrival. Limit edits apply to visits
+that have not arrived yet and never change the current visit's saved deadline.
+At the inclusive deadline, timeout runs before berth admission or new route
+fills. Unfilled targets are cancelled, including purchases whose sale phase has
+not finished, while committed handling drains without starting another phase.
+Then the ordinary automatic-departure and stop-after-visit rules apply; funding
+blocks remain separate. The editor shows an active-world countdown and retains
+the latest timed-out visit's cargo shortfalls through its private notice even
+after departure. Unlimited existing stops retain their behavior. Migration
+`20260930000001_add_route_wait_limits.exs` adds typed stop limits and visit timers.
+
 Loading now takes compatible owned warehouse stock first, prioritizing stock
 earmarked for the ship, before buying the shortfall. Transfers retain cost and
 expiry and incur handling fees without consuming the market-purchase budget.
@@ -549,14 +594,52 @@ location atomically at acceptance, preserving cost and expiry and splitting lot
 identities only for partial batches. Committed warehouse space is protected
 until handling finishes. Stored cargo remains private to its company.
 
-Expiry prevents new deposits and allows 12 active-world hours for collection.
-Perishable aging continues. Expiry and clearance notify the owner. Ordinary
-expired leases still send remaining cargo to system clearance at
-50% of reference value, with grace rent deducted only from clearance proceeds.
-Bankrupt-company storage instead remains occupied through estate auctions after
-committed handling finishes. All timings pause with the world. Ordinary expired-lease
-liquidation auction stages and port-specific
-warehouse tuning remain subsequent milestones.
+Expiry prevents new deposits and cancels incoming buy orders. The default grace
+period is 12 active-world hours for sale or collection. Perishable aging
+continues. At grace end, remaining usable goods fill compatible local player buy
+orders in price/time order, then enter computer-run liquidation auctions. Owner
+minimum sale prices do not constrain these sales. Ordinary lots use the next
+scheduled port auction with its full window; perishable lots use a fixed two-hour
+window. Cargo unable to survive that window clears immediately. Unsold auction
+lots clear at 10% of configured reference value, multiplied by the remaining
+biological shelf-life fraction for perishables, capped at one. Spoiled cargo is
+discarded without payment. Fractional clearance amounts carry across batch and
+lot splits within the lease pool. Clearance leaves storage and the economy;
+existing finite simulated auction buyers retain their shared demand and budgets.
+
+Each expired lease has a durable accounting pool. All forced-sale proceeds stay
+in reserved cash until its cargo and commitments finish. Grace storage uses the
+previous lease rate per occupied block; liquidation adds a fixed 25% surcharge.
+Only occupied blocks continue accruing charges, and each released block leaves
+port utilization immediately. Unpaid storage and clearance handling are capped
+by the aggregate proceeds of that lease. Warehouse ownership transfers through
+buy orders and auctions add no handling fee. Shortfalls create no payables and
+never debit other cash or another lease's proceeds. Completion pays nonnegative
+net proceeds to a solvent owner. Bankruptcy during this process preserves its
+auctions and charge pool; outstanding net proceeds instead leave the economy.
+Bankruptcy asset auctions retain their separate rules.
+
+Lease rows snapshot grace, surcharge, expedited window and clearance rate from
+`warehouse_liquidation` catalogue settings (`grace_ms`, `surcharge_bps`,
+`window_ms`, `clearance_bps`). Changing defaults does not rewrite accepted terms
+or running deadlines. Owner notices disclose both storage rates; the storage UI
+shows the grace countdown, held proceeds and accrued charges. Auction listings
+show liquidation status and projected freshness without exposing private lease
+identities. State, reservations, cargo lineage, escrow and postings commit in
+one transaction and resume after reload. Perishable standing books and
+port-specific warehouse tuning remain separate milestones.
+
+Cargo auction awards receive separate storage allocations in the supporting
+lease's physical space. Their snapshotted grace starts at the later of actual
+settlement and paid coverage expiry, using the active-world clock. A timely paid
+extension extends that support before grace starts. Shared allocations count
+aggregate occupied volume and current paid blocks once; they cannot receive new
+cargo or acquire additional blocks. Other expired stock keeps its own deadline.
+During grace, replacement pays the current progressive new-lease quote for the
+remaining occupied blocks plus accrued storage charges. A fresh paid lease starts
+immediately, preserving lot identity, standing-order priority and auction terms.
+Failed payment changes nothing. The old charge pool retains its payment history,
+and a later expiry of the replacement creates a separate liquidation pool.
 
 Reservations are relational, typed claims owned by the warehouse aggregate.
 Players earmark quantities of a cargo for a ship, or reserve receiving volume.
@@ -710,7 +793,7 @@ new leases use the next number above the company's surviving leases. Renewal
 and clearance of other leases do not rename a surviving warehouse.
 
 The lease selector offers one option per storage type, listing compatible cargo
-(with ordinary storage abbreviated to "non-perishable solid goods").
+(including perishables in ordinary storage).
 Ordinary and refrigerated leases accept mixtures of their listed goods. Liquid
 leases additionally require a dedicated cargo, chosen from liquid goods only.
 
@@ -727,7 +810,7 @@ since its last qualifying action over seven real days. The index sums these
 weights globally; fleet size, port selection and authentication do not increase
 it. Settled trades, funded auction bids, ship purchases, dispatches and paid
 warehouse terms qualify at $100 or more. Automated economic actions count;
-owner absence and dormant closure remain separate, unimplemented behavior.
+owner absence and dormant closure use the separate lifecycle described below.
 Failed commands, receipt replays, bid withdrawals and operating expenses do not
 refresh participation. Timestamps commit atomically with the economic action.
 
@@ -761,3 +844,197 @@ bids are admitted at settlement only when funds and paid receiving space cover
 the lot. Newly acquired stock can be offered only in a later unopened auction.
 Listed quantities are excluded from other offers, and a merchant cannot bid on
 its own listings. Consumer purchases remain the final consumption sink.
+
+## Linked remote orders and departure funding
+
+Fixed buy targets for Bulk commodities, Mass consumer products and Scrap may
+link to an owned compatible warehouse at the stop. Demand subtracts qualifying
+cargo aboard and available owned stock, respecting other stock reservations.
+The linked order reserves its own cash and receiving capacity. Each completed
+fill becomes owned warehouse cargo earmarked for the collecting ship and stop.
+It cannot become another ship's collection or sell backing. Original lot IDs,
+acquisition cost and expiry survive transfer. Ordinary unlinked orders remain
+independent. Perishable standing books and their linked targets use the same cash/capacity backing and inherit the rule's minimum remaining life.
+
+At berth assignment, one atomic handover cancels the remote remainder and
+releases its cash and incoming capacity, retaining completed stock claims for
+collection. The visit collects owned stock before buying its shortfall. Linked
+orders cannot compete for another fill after berth assignment or the inclusive
+maximum-wait deadline. Target reductions release excess backing; increases and
+repricing validate fresh backing before committing the target and order together.
+Committed handling is protected. Removing a link/stop or ending a visit releases
+claims while retaining purchased cargo. A completed circuit rearms each target
+once, without carrying forward unmet quantities. Unaffordable future backing
+retries without duplicating reservations. Private notices report the cancelled
+remainder, cash returned and stored stock retained.
+
+An optional per-stop advance budget reserves purchase cash separately from fuel
+and standing orders. It is a strict cap including market handling and cleaning;
+market purchases, including manual buys during that visit, cannot supplement it
+from free cash, sale proceeds or linked-order refunds. Owned-stock collection
+fees use ordinary available cash. Explicit budget changes respect cash and
+settled spending. Unused funds return when the visit finishes, expires or is
+removed. Repeating stops retain their configured amount, funding only the
+current initial visit at start and the next visit together with departure.
+Single next-port visits can also reserve an explicit budget.
+
+The Fleet panel offers one account-wide insufficient-funds policy: Wait and
+notify (default), Sail with a reduced budget, or Skip purchases. Each policy
+fully funds fuel and canal fees. Reduced budgets remain strict at arrival; Skip
+still permits deliveries and owned-stock collection. Affordable departures are
+allocated by original waiting age, with stable ship-ID ties; an expensive older
+request does not block an affordable younger one. A policy change re-prices
+waiting requests in place: waiting age and window deadlines are kept, and
+accumulated cash above the new requirement is returned. Blocked/resumed notices
+are coalesced. Reservations and departure share the authoritative atomic
+operation.
+
+After 30 active-world minutes, the oldest eligible request may accumulate cash
+for a fixed 10-minute window. Only one ship per company accumulates. Arrears and
+loan installments settle first. Completion converts the accumulation into the
+ordinary fuel/purchase reservations once. Timeout returns cash, settles arrears
+and funds affordable departures before another accumulation, with a 30-minute
+cooldown and preserved waiting age. Retries and partial funding retain the
+original deadline. The `:departure_funding` application setting configures
+`wait_ms`, `window_ms` and `cooldown_ms`; the domain validates positive durations.
+
+Migration `20261001000000_add_route_funding_and_links.exs` stores private linked
+cycles, visit budgets, departure requests, account policy and route completion.
+Reload and receipt replay preserve reservations, waiting age and deadlines.
+The financial verifier includes fuel, visit and accumulation reservations;
+conflicting cash releases roll back the transaction. Tests cover NPC, player and
+liquidation fills, strict budgets, fair allocation, timeout, plan changes,
+receivership, database reload, command replay and rollback.
+
+## Owner absence and dormant closure
+
+Owner interactions coalesce into at most one ordinary dormancy visit per wall
+minute. Gameplay commands include the visit in their own commit; rapid form
+events do not cause separate writes and broadcasts. Returns during a warning
+cancel that warning immediately, even within the throttling interval.
+
+Dormancy uses durable wall-clock timestamps per company, separate from economic
+activity. The default absence interval is 30 real days followed by 7 real days of
+advance warning. `TIJARA_DORMANCY_ABSENCE_DAYS` and
+`TIJARA_DORMANCY_WARNING_DAYS` configure positive whole-day intervals. An issued
+warning keeps its original closure deadline even if settings change.
+
+Authenticated page loads, email sign-in and explicit player actions reset absence;
+snapshot reads, websocket reconnects, connection heartbeats, automatic UI events
+and economic automation do not. UI-only actions share the coalesced asynchronous
+refresh task. Successful gameplay commands also persist visits atomically. A
+return before the deadline cancels the pending warning notice and queued email;
+a return at or after the deadline cannot restore the old company.
+
+Linked accounts receive retryable warning email with an absolute UTC deadline
+and a game link. The warning is not a sign-in credential. Unlinked accounts have
+in-app notice only; the account panel states the inability to receive external
+warnings and the consequences of losing the device session. Delivery failure or
+an unread warning does not postpone closure. A full warning interval starts when
+the warning is recorded; a late first check never backdates it.
+
+A minute-level wall timer runs even while simulation progression is idle. Startup
+honours existing expired warnings before publishing the restored world. Voyages,
+cargo aging and asset liquidation still use the active-world clock. Existing
+companies without an absence record start a fresh baseline at their first check.
+
+Closure cancels ship automation and order-book commitments, releases invalid
+auction bids, detaches the account and removes economic activity. Ships and cargo
+enter the existing receivership process; residual estate cash leaves circulation.
+Dormant closures persist in `game_company_dormancy`, separate from bankruptcy
+events, and add neither a bankruptcy count nor a restart cooldown. Sponsor
+guarantees still settle against debt recorded at closure. The legacy
+`bankruptcy_ms` company field serves as the shared receivership marker; public
+closure reasons and owner notices distinguish dormancy from bankruptcy.
+
+Expired-lease liquidation now follows the order-book, auction and clearance
+sequence described above, with durable per-lease charge caps. Won-cargo grace
+and replacement leases use isolated allocations and preserve those caps.
+
+
+## Freshness-graded standing books
+
+Perishables now use the standing warehouse book. Biological freshness has four
+provisional grades: Fresh (at least 75%), Good (50–75%), Fair (25–50%), and
+Clearance (below 25%, still unspoiled). Buyers can require a minimum grade and
+remaining active-world lifetime, checked in their receiving storage. Linked
+remote buy orders copy the route rule's lifetime requirement.
+
+Each sell order retains one stock claim with separately priced lot portions.
+Only a portion whose grade or price changes loses priority; unchanged portions,
+partial-fill descendants, and quantity reductions keep it. Expired backing
+shrinks the remaining order without selling spoiled goods. Claim-aware stock
+extraction preserves other orders' allocations.
+
+Optional complete four-grade markdown schedules use a copied initial asking
+price, rounded upward to a cent, with an optional absolute floor. No schedule
+means the asking price stays fixed. Explicit rebasing affects remaining portions
+and resets priority. Preset names are trimmed and limited to 80 Unicode code
+points, matching the PostgreSQL constraint, and reject Unicode control and format
+characters. New presets use a server-generated identifier; a supplied identifier
+must name an existing preset owned by the caller. Players may save up to 50 account-owned
+presets and apply copies to selected orders or one-visit automated sell instructions. Editing or
+deleting a preset leaves applied terms unchanged. Automated sales release only
+lots whose grade minimum is met by the port bid; other cargo stays aboard.
+Migration `20261001000003_add_graded_books.exs` persists settings, portions,
+priorities and presets. Books and owner controls disclose grade and remaining
+life; accepting an amendment atomically replaces cash and cargo/space backing.
+
+
+## Port and cargo handling speeds
+
+Physical loading, unloading, owned-stock collection and warehouse storage now
+use the port roster's speed capability and cargo type. Provisional time per lot
+is 500/350/250 ms at slow/medium/fast ports. Perishables use 125% of ordinary
+handling time, scrap 150%, and pumped liquids 75%; each operation takes at least
+one second and fractional milliseconds round upward. These configurable values
+live in the generated catalogue's `handling` tuning. Tank cleaning still adds
+its existing separate minute and cost.
+
+The shared duration calculation also supplies trade/purchase affordability,
+mixed-manifest route estimates and receiving-port unloading freshness previews.
+Ports publish representative handling times, and trade controls show the
+selected quantity's duration. Accepted handling keeps its stored finish time
+through reload; berth and warehouse protection use that same deadline. Remote
+exchange ownership transfers still incur no physical handling time or fee.
+
+
+## Regional weather and revised voyage estimates
+
+Staggered storm schedules use an independent hash scaled across the full
+available start interval, rather than clustering in the beginning of each window.
+
+Weather now uses deterministic active-world storm windows in 24 geographic
+sectors, partitioning the actual sea path at sector boundaries, including the
+dateline. Provisional tuning gives each sector a 10% storm chance per 30-minute
+window, with a one-minute storm at a deterministic staggered start. The initial
+window is clear. The generated catalogue controls probability, period, duration
+and seed; `config :tijara_tides, :weather` may override those defaults. Storms
+occupy at most a quarter of their window, with a clear interval.
+
+Dispatch and purchase planning include currently known storms encountered along
+the route. Subsequent announced storms revise the arrival estimate underway.
+The ship snapshots its path, sailing duration and weather model; its bounded
+per-voyage pause timeline and current regional warnings persist in migration
+`20261001000004_add_weather_delays.exs`. Repeating ticks and restarts reconstruct
+the same timeline. Legacy voyages acquire weather only from their first observed
+weather tick, preserving previously travelled distance and fuel consumption.
+That first tick persists the reconstructed sea path; later catalogue geometry
+changes cannot rewrite the voyage's accepted movement.
+
+Actual movement, map markers, diversion starting points, fuel settlement, crew
+estimates and cargo arrival/unloading freshness all use the same pause timeline.
+Fuel consumption stops during weather waits; idle crew pay, refrigeration aging
+and maintenance continue. Storms cause delays without randomly losing cargo or
+ships. Cargo may still spoil through the normal aging rules. Ports publish
+current storm countdowns, dispatch previews show known delay, and public ship
+inspectors and owner fleet controls show weather waits and revised ETAs. Owners
+receive a structured notice when weather changes the estimate. No private
+manifest, cost or financial information is included in public weather disclosure.
+
+Funding revalidation indexes ready plans by ship and pending instructions by
+ship/port once per pass. Sailing forecasts snapshot JSON-compatible weather
+segments per voyage, including the first reconstruction of a legacy voyage;
+ticks reuse these segments, while a new departure or diversion builds its own.
+Operation-count tests bound instruction reads and route partition calls, and
+cached forecast tests compare results across paths, seeds and warning cutoffs.
