@@ -207,21 +207,22 @@ defmodule TijaraTides.Domain.Fleet do
     TijaraTides.Domain.Ship.capacity(%TijaraTides.Domain.Ship{cargo: cargo}, catalogue)
   end
 
-  def voyage_quote(ship, destination, catalogue, clock \\ nil)
+  def voyage_quote(ship, destination, catalogue, clock \\ nil, weather_cutoff \\ nil)
 
-  def voyage_quote(ship, destination, catalogue, clock) when is_binary(destination) do
+  def voyage_quote(ship, destination, catalogue, clock, weather_cutoff)
+      when is_binary(destination) do
     case catalogue["routes"][ship["port"] <> "|" <> destination] do
       nil ->
         nil
 
       route ->
-        route_quote(ship, route, catalogue, clock)
+        route_quote(ship, route, catalogue, clock, weather_cutoff)
     end
   end
 
-  def voyage_quote(_ship, _destination, _catalogue, _clock), do: nil
+  def voyage_quote(_ship, _destination, _catalogue, _clock, _weather_cutoff), do: nil
 
-  defp route_quote(ship, route, catalogue, clock) do
+  defp route_quote(ship, route, catalogue, clock, weather_cutoff \\ nil) do
     aged = clock || ship["last_cost_ms"] || 0
 
     class = classes()[ship["class"]]
@@ -239,7 +240,7 @@ defmodule TijaraTides.Domain.Fleet do
         route,
         duration,
         aged,
-        aged,
+        weather_cutoff || aged,
         TijaraTides.Domain.Weather.model(catalogue)
       )
 

@@ -112,6 +112,32 @@ defmodule TijaraTides.Domain.WeatherTest do
     assert stepped == settled
   end
 
+  test "future departure and purchase quotes disclose only weather known at the current clock" do
+    c = TijaraTides.Infrastructure.GameCatalogue.all()
+    c = c |> Map.put("weather", model()) |> put_in(["routes", "Jakarta|Singapore"], route())
+    row = Ship.Rows.encode(ship())
+    forecast = Fleet.voyage_quote(row, "Singapore", c, 20_500, 19_000)
+    assert forecast["weather_delay_ms"] == 0
+    assert forecast["weather"]["since_ms"] == 20_500
+    known = Fleet.voyage_quote(row, "Singapore", c, 20_500, 20_500)
+    assert known["weather_delay_ms"] == 500
+
+    purchase =
+      TijaraTides.Domain.Services.TradeSettlement.purchase_voyage(
+        row,
+        c["goods"]["fruit"],
+        2,
+        "Singapore",
+        [row],
+        19_000,
+        c
+      )
+
+    assert purchase["loading_ms"] == 1250
+    assert purchase["weather_delay_ms"] == 0
+    assert Fleet.voyage_quote(row, nil, c, 20_500, 19_000) == nil
+  end
+
   test "forecast shows only known storms and path regions handle the dateline" do
     assert Weather.forecast(route(), 10_000, 15_000, 15_000, model())["delay_ms"] == 0
     known = Weather.forecast(route(), 10_000, 20_500, 20_500, model())

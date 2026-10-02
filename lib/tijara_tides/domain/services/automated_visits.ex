@@ -200,7 +200,8 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
             %{ship | "status" => "docked"},
             trade.destination,
             catalogue,
-            changed.clock_ms + max(0, ship["arrive_ms"] - changed.clock_ms)
+            changed.clock_ms + max(0, ship["arrive_ms"] - changed.clock_ms),
+            changed.clock_ms
           )
 
         company = get(changed, "companies", ship["company_id"])

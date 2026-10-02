@@ -4,7 +4,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
   @moduledoc "Atomic manual trades across company cash, ship cargo and market liquidity, with journal postings."
   import TijaraTides.Domain.State
-  import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2, voyage_quote: 4]
+  import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2, voyage_quote: 5]
   import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 4, max_lots: 0]
   import TijaraTides.Domain.PortCargoMarketWorld, only: [quote: 4]
   import TijaraTides.Domain.PortCargoMarket, only: [handling_rate: 1]
@@ -152,7 +152,8 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
              destination,
              catalogue,
              clock + handling_ms(quantity, ship["port"], item["id"], catalogue) +
-               if(cleaning_cost(ship, item) > 0, do: 60_000, else: 0)
+               if(cleaning_cost(ship, item) > 0, do: 60_000, else: 0),
+             clock
            ),
          true <- voyage["duration_ms"] <= 86_400_000 do
       loading =

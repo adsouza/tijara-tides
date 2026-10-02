@@ -221,7 +221,13 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
 
   defp evaluate(plan, ctx) do
     voyage =
-      Fleet.voyage_quote(plan.ship, ctx.destination, ctx.catalogue, ctx.clock + plan.loading)
+      Fleet.voyage_quote(
+        plan.ship,
+        ctx.destination,
+        ctx.catalogue,
+        ctx.clock + plan.loading,
+        ctx.clock
+      )
 
     arrival = ctx.clock + plan.loading + voyage["duration_ms"]
 
