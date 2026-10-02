@@ -375,14 +375,17 @@ defmodule TijaraTides.Domain.Services.Exchange do
             {q["ask"],
              if(catalogue["goods"][o.good]["shelf_ms"] > 0,
                do:
-                 Enum.sum(
-                   for b <- q["freshness_batches"],
-                       OrderBook.eligible?(
-                         TijaraTides.Domain.PortCargoMarket.Rows.decode_batch(b),
-                         state.clock_ms,
-                         policy(state, o)
-                       ),
-                       do: b["quantity"]
+                 min(
+                   q["stock"],
+                   Enum.sum(
+                     for b <- q["freshness_batches"],
+                         OrderBook.eligible?(
+                           TijaraTides.Domain.PortCargoMarket.Rows.decode_batch(b),
+                           state.clock_ms,
+                           policy(state, o)
+                         ),
+                         do: b["quantity"]
+                   )
                  ),
                else: q["stock"]
              )},

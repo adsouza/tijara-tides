@@ -118,6 +118,55 @@ defmodule TijaraTides.Domain.GradedBooksTest do
 
   defp markdowns, do: %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
 
+  test "a future perishable merchant cannot fill stock held for NPC auctions", c do
+    m = State.get(c.state, "markets", "Jakarta|fruit")
+    {s, old} = CargoLots.create(c.state, "fruit", 50, 100)
+    {s, fresh} = CargoLots.create(s, "fruit", 50, 1000)
+
+    s =
+      State.put(s, "markets", "Jakarta|fruit", %{
+        m
+        | "merchant" => true,
+          "stock" => 100,
+          "batches" => [old, fresh]
+      })
+      |> State.put("merchant_warehouses", "Jakarta|fruit", %{
+        "id" => "Jakarta|fruit",
+        "port" => "Jakarta",
+        "good" => "fruit",
+        "storage" => "reefer",
+        "blocks" => 10,
+        "capacity" => 500,
+        "expires_ms" => 86_400_000,
+        "protected_ms" => 0,
+        "aging_bps" => 2500
+      })
+      |> State.put("auctions", "npc-held", %{
+        "company_id" => nil,
+        "status" => "scheduled",
+        "port" => "Jakarta",
+        "good" => "fruit",
+        "quantity" => 80
+      })
+
+    w = State.get(s, "warehouses", "bw")
+    s = State.put(s, "warehouses", "bw", %{w | "storage" => "reefer"})
+
+    {:ok, s, _} =
+      order(c, s, :b, "buy", 25, "buyer", %{
+        "price" => 100_000,
+        "min_grade" => 3,
+        "min_remaining_ms" => 4000
+      })
+
+    next = Exchange.advance(s, c.catalogue)
+    assert OrderBookWorld.fetch(next, "buyer").quantity == 5
+    assert State.get(next, "markets", "Jakarta|fruit")["stock"] == 80
+    assert Enum.sum(for b <- WarehouseWorld.fetch(next, "bw").cargo, do: b.quantity) == 20
+    assert Enum.all?(WarehouseWorld.fetch(next, "bw").cargo, &(&1.expires_ms == 4000))
+    assert Exchange.advance(next, c.catalogue).entities == next.entities
+  end
+
   test "an unportioned sell claim releases only the matched buyer's eligible lots", c do
     s = stock(c, c.state, [{2, 100}, {2, 1000}])
     {:ok, s, _} = order(c, s, :a, "sell", 4, "sell")

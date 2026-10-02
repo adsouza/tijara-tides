@@ -38,10 +38,15 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
   def release_stock(state, port, good, quantity, price, item, minimum \\ 0, policy \\ %{}) do
     market = fetch(state, port, good)
 
+    reserved =
+      if market.merchant, do: Map.get(reserved_lots(state), port <> "|" <> good, 0), else: 0
+
     if market.merchant and
          (not MerchantWarehouseWorld.active?(state, port <> "|" <> good) or
-            quantity > unreserved(state, market)),
+            quantity > max(0, market.stock - reserved)),
        do: raise(ArgumentError, "Merchant stock is not available in paid storage")
+
+    policy = Map.put(policy, :reserved_quantity, reserved)
 
     {lots, market, cargo} =
       Market.supply(lots(state), fetch(state, port, good), quantity, price, item, minimum, policy)
@@ -185,9 +190,6 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
     end)
   end
 
-  defp unreserved(state, market),
-    do: max(0, market.stock - Map.get(reserved_lots(state), market.port <> "|" <> market.good, 0))
-
   defp available(state, %Market{merchant: true} = market, reserved) do
     id = market.port <> "|" <> market.good
     active = MerchantWarehouseWorld.active?(state, id)
@@ -196,6 +198,8 @@ defmodule TijaraTides.Domain.PortCargoMarketWorld do
       market
       | warehouse_active: active,
         stock: if(active, do: max(0, market.stock - Map.get(reserved, id, 0)), else: 0),
+        batches:
+          if(active, do: Market.available_batches(market, Map.get(reserved, id, 0)), else: []),
         demand: min(market.demand, MerchantWarehouseWorld.free(state, id, market.stock))
     }
   end

@@ -34,6 +34,20 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     }
   end
 
+  @doc "Virtual FEFO stock remaining after quantity-only NPC auction reservations."
+  def available_batches(market, reserved) do
+    {free, _left} =
+      market.batches
+      |> Enum.sort_by(&(&1.expires_ms || 9_223_372_036_854_775_807))
+      |> Enum.reduce({[], max(0, reserved)}, fn b, {free, left} ->
+        held = min(left, b.quantity)
+        free = if held < b.quantity, do: free ++ [%{b | quantity: b.quantity - held}], else: free
+        {free, left - held}
+      end)
+
+    free
+  end
+
   @doc "Release supplier cargo, preserving perishable lot identities and split lineage."
   def supply(
         %Lots{} = lots,
@@ -60,18 +74,25 @@ defmodule TijaraTides.Domain.PortCargoMarket do
                  Enum.sum(Enum.map(market.batches, & &1.quantity)) == market.stock,
                do: raise(ArgumentError, "Market freshness batches must match its unexpired stock")
 
+        free =
+          Map.new(
+            available_batches(market, policy[:reserved_quantity] || 0),
+            &{&1.lot_id, &1.quantity}
+          )
+
         {qualifying, excluded} =
           Enum.split_with(
             market.batches,
-            &TijaraTides.Domain.OrderBook.eligible?(&1, lots.clock_ms, policy)
+            &(Map.get(free, &1.lot_id, 0) > 0 and
+                TijaraTides.Domain.OrderBook.eligible?(&1, lots.clock_ms, policy))
           )
 
         qualifying = Enum.sort_by(qualifying, &(&1.expires_ms || 9_223_372_036_854_775_807))
 
-        if Enum.sum(Enum.map(qualifying, & &1.quantity)) < quantity,
+        if Enum.sum(Enum.map(qualifying, &Map.fetch!(free, &1.lot_id))) < quantity,
           do: raise(ArgumentError, "Market supply does not meet minimum remaining life")
 
-        {next, taken, remaining} = Lots.take(lots, qualifying, quantity, market.good)
+        {next, taken, remaining} = take_available(lots, qualifying, quantity, market.good, free)
         {next, taken, remaining ++ excluded}
       else
         {next, lot} = Lots.create(lots, market.good, quantity, nil)
@@ -101,6 +122,24 @@ defmodule TijaraTides.Domain.PortCargoMarket do
          budget: market.budget + price * quantity,
          batches: remaining
      }, cargo}
+  end
+
+  # Split physical batches, preserving the full parent's lineage even when only
+  # part of that batch is offered. Virtual quote quantities are never lot parents.
+  defp take_available(lots, batches, quantity, good, free) do
+    {lots, taken, remaining, 0} =
+      Enum.reduce(batches, {lots, [], [], quantity}, fn b, {lots, taken, remaining, left} ->
+        n = min(left, Map.fetch!(free, b.lot_id))
+
+        if n == 0 do
+          {lots, taken, remaining ++ [b], left}
+        else
+          {lots, part, rest} = Lots.take(lots, [b], n, good)
+          {lots, taken ++ part, remaining ++ rest, left - n}
+        end
+      end)
+
+    {lots, taken, remaining}
   end
 
   @doc "Consume finite buyer demand and funds; only merchants retain purchased stock."
