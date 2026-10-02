@@ -206,8 +206,6 @@ defmodule TijaraTides.Domain.Services.Exchange do
 
   defp sweep(state, orders) do
     Enum.reduce(orders, state, fn o, s ->
-      company = get(s, "companies", o.company_id)
-
       available =
         if o.side == "sell" and map_size(o.portions) > 0,
           do:
@@ -224,8 +222,9 @@ defmodule TijaraTides.Domain.Services.Exchange do
       s = if available > 0, do: OrderBookWorld.synchronize(s, o.id), else: s
       o = OrderBookWorld.fetch(s, o.id)
 
-      if available == 0 or company["bankruptcy_ms"] != nil or
-           (o.expires_ms != nil and o.expires_ms <= s.clock_ms) or
+      # Receivership withdraws orders itself; this pass handles expiry, spoilage
+      # and backing ended by lease expiry.
+      if available == 0 or (o.expires_ms != nil and o.expires_ms <= s.clock_ms) or
            not WarehouseWorld.order_backed?(s, OrderBook.claim(o)) do
         withdraw(s, o)
       else
@@ -250,12 +249,11 @@ defmodule TijaraTides.Domain.Services.Exchange do
     )
   end
 
-  @doc "Matches a shared fill and order-visit budget; unfinished work resumes next tick."
+  @doc "Matches a shared fill and order-visit budget after the tick's reconcile pass; unfinished work resumes next tick."
   def advance(state, catalogue, limits \\ []) do
     fills = Keyword.get(limits, :fills, @fill_budget)
     visits = Keyword.get(limits, :orders, @order_budget)
     true = is_integer(fills) and fills > 0 and is_integer(visits) and visits > 0
-    state = reconcile(state)
     orders = Enum.sort_by(OrderBookWorld.orders(state), &OrderBook.priority/1)
     cursor = Map.get(state, :exchange_cursor)
 

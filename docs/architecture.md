@@ -973,9 +973,14 @@ uses it.
 
 Sell-order portions are derived from the warehouse FEFO allocation. The order
 book re-derives them from the warehouse and claim changes that a command or fill
-declares, for any owner, in the same transaction. The remaining tick passes are
-clock-driven: order expiry and freshness decay, auction closes, lease expiry and
-spoilage. An architecture test keeps reconcile sweeps out of command dispatch.
+declares, for any owner, in the same transaction. The remaining tick passes
+check only clock-driven conditions: order expiry and freshness decay, auction
+closes, lease expiry and spoilage. They no longer re-check ownership, stops,
+orders, bids or receivership. An architecture test keeps reconcile sweeps out of
+command dispatch. In test builds, `TijaraTides.SettledCheck` runs after every
+command and tick through a compile-time seam and fails when a transition leaves
+state that it should have released. Other builds compile the seam out, so the
+check cannot halt a world.
 
 
 ### Weather and voyage pauses

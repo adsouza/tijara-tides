@@ -90,14 +90,21 @@ defmodule TijaraTides.Domain.FundingTransitionsTest do
       |> then(&sail(c, &1, "Singapore"))
 
     assert State.get(s, "visit_budgets", "co:1:b")["remaining"] == 1000
+    s = %{s | clock_ms: s.clock_ms + 1000}
+
+    # The bare Fleet transition leaves the inbound budget; the oracle names it.
+    {:ok, bare, _} = Fleet.reroute(s, c.a, "co:1", "Colombo", 86_400_000, c.cat)
+    assert TijaraTides.SettledCheck.violations(bare, c.cat) == [{:budget, :stale, "co:1:b"}]
 
     s =
-      command(c, %{s | clock_ms: s.clock_ms + 1000}, %{
+      command(c, s, %{
         "action" => "reroute",
         "ship" => "co:1",
         "destination" => "Colombo",
         "fuel_limit" => 86_400_000
       })
+
+    assert TijaraTides.SettledCheck.violations(s, c.cat) == []
 
     assert State.get(s, "visit_budgets", "co:1:b") == nil
     settled!(s, c)

@@ -6,6 +6,10 @@ defmodule TijaraTides.Domain.Commands do
   import TijaraTides.Domain.Services.CompanyFormation, only: [create_company: 4]
   alias TijaraTides.Domain.{Trade}
 
+  # Test builds verify that each command released what it invalidated. The check is
+  # compiled out elsewhere, so it can never halt a production world.
+  @settled_check Application.compile_env(:tijara_tides, :settled_check)
+
   def execute(state, account, command, context, catalogue),
     do: execute(state, account, command, Map.put(context, :catalogue, catalogue))
 
@@ -13,6 +17,19 @@ defmodule TijaraTides.Domain.Commands do
     do: TijaraTides.Domain.AccountWorld.set_locale(state, account, locale)
 
   def execute(state, account, command, context) do
+    with {:ok, changed, reply} <- apply_command(state, account, command, context) do
+      {:ok, settled(state, changed, context.catalogue, command["action"]), reply}
+    end
+  end
+
+  if @settled_check do
+    defp settled(before, changed, catalogue, action),
+      do: apply(@settled_check, :assert_settled!, [before, changed, catalogue, action])
+  else
+    defp settled(_before, changed, _catalogue, _action), do: changed
+  end
+
+  defp apply_command(state, account, command, context) do
     before = state
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
     current_account = TijaraTides.Domain.State.get(state, "accounts", account["id"]) || account

@@ -877,39 +877,14 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       )
 
   defp prune_reservations(state, w, _catalogue) do
+    # Only time ends a claim here: receiving space ends with the lease, and stock
+    # claims shrink to the stock that is still fresh. Ownership, stops, orders,
+    # bids and receivership release their claims in their own transitions.
     valid_ids =
-      Enum.reduce(reservations(state, w), MapSet.new(), fn r, ids ->
-        s = state
-        ship = get(s, "ships", r.ship_id)
-        stop = r.stop_id && get(s, "route_stops", r.stop_id)
-
-        order = r.order_id && get(s, "exchange_orders", r.order_id)
-
-        owner_valid =
-          cond do
-            r.order_id ->
-              order && order["company_id"] == w.company_id
-
-            r.auction_id ->
-              a = get(s, "auctions", r.auction_id)
-              a && a["status"] == "scheduled" && a["company_id"] == w.company_id
-
-            r.bid_id ->
-              b = get(s, "auction_bids", r.bid_id)
-              b && b["company_id"] == w.company_id
-
-            true ->
-              ship && ship["company_id"] == w.company_id
-          end
-
-        valid =
-          owner_valid &&
-            (is_nil(r.stop_id) or (stop && stop["ship_id"] == r.ship_id && stop["port"] == w.port)) &&
-            (r.kind == "stock" or state.clock_ms < w.expires_ms) &&
-            (get(s, "companies", w.company_id)["bankruptcy_ms"] == nil or r.auction_id != nil)
-
-        if valid, do: MapSet.put(ids, r.id), else: ids
-      end)
+      for r <- reservations(state, w),
+          r.kind == "stock" or state.clock_ms < w.expires_ms,
+          into: MapSet.new(),
+          do: r.id
 
     transition =
       Warehouse.prune_reservations(

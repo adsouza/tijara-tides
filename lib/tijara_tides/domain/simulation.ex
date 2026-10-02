@@ -32,11 +32,13 @@ defmodule TijaraTides.Domain.Simulation do
       route_waits:
         &TijaraTides.Domain.Services.DepartureFunding.expire_route_waits(&1, catalogue),
       linked_orders: &TijaraTides.Domain.Services.LinkedOrders.advance(&1, catalogue),
-      exchange_reconcile: &TijaraTides.Domain.Services.Exchange.reconcile/1,
       estates: &TijaraTides.Domain.Services.Estates.advance(&1, catalogue),
       auctions: &TijaraTides.Domain.Services.Auctions.advance(&1, catalogue),
       merchant_warehouses: &TijaraTides.Domain.MerchantWarehouseWorld.advance(&1, catalogue),
       warehouses: &TijaraTides.Domain.WarehouseWorld.advance(&1, catalogue),
+      # After warehouse pruning, so orders follow pruned claims; before finance, so
+      # expired buy orders return their cash before payments are taken.
+      exchange_reconcile: &TijaraTides.Domain.Services.Exchange.reconcile/1,
       finance_after: &TijaraTides.Domain.Services.FinancialSettlement.settle/1,
       markets: &PortCargoMarketWorld.advance(&1, catalogue),
       exchange: &TijaraTides.Domain.Services.Exchange.advance(&1, catalogue),
@@ -55,5 +57,16 @@ defmodule TijaraTides.Domain.Simulation do
     measure.(:invitation_accrual, fn ->
       TijaraTides.Domain.AccountWorld.InvitationAccrual.observe(state, changed, catalogue, :all)
     end)
+    |> settled(state, catalogue)
+  end
+
+  # Test builds verify that the tick's transitions released what they invalidated.
+  @settled_check Application.compile_env(:tijara_tides, :settled_check)
+
+  if @settled_check do
+    defp settled(changed, before, catalogue),
+      do: apply(@settled_check, :assert_settled!, [before, changed, catalogue, "tick"])
+  else
+    defp settled(changed, _before, _catalogue), do: changed
   end
 end

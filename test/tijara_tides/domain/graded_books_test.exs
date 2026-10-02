@@ -215,7 +215,7 @@ defmodule TijaraTides.Domain.GradedBooksTest do
   test "aging resets changed portions while unchanged and split portions retain priority", c do
     s = stock(c, c.state, [{2, 900}, {2, 500}])
     {:ok, s, _} = order(c, s, :a, "sell", 4, "sell", %{"markdowns" => markdowns()})
-    s = Exchange.advance(%{s | clock_ms: 100, revision: 1}, c.catalogue)
+    s = %{s | clock_ms: 100, revision: 1} |> Exchange.reconcile() |> Exchange.advance(c.catalogue)
     portions = OrderBook.quotes(OrderBookWorld.fetch(s, "sell"))
     assert Enum.any?(portions, &(&1.actual_grade == 3 and &1.priority_ms == 0))
 
@@ -283,7 +283,10 @@ defmodule TijaraTides.Domain.GradedBooksTest do
     {:ok, s, _} = order(c, s, :a, "sell", 4, "sell")
 
     s =
-      %{s | clock_ms: 100} |> WarehouseWorld.advance(c.catalogue) |> Exchange.advance(c.catalogue)
+      %{s | clock_ms: 100}
+      |> WarehouseWorld.advance(c.catalogue)
+      |> Exchange.reconcile()
+      |> Exchange.advance(c.catalogue)
 
     assert OrderBookWorld.fetch(s, "sell").quantity == 2
     assert Enum.sum(Enum.map(WarehouseWorld.fetch(s, "aw").reservations, & &1.quantity)) == 2

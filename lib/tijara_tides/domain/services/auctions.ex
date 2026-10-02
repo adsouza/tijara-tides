@@ -249,23 +249,16 @@ defmodule TijaraTides.Domain.Services.Auctions do
               do: %{s | clock_ms: a.closes_ms},
               else: s
 
+          # Receivership withdraws bids itself, and closing re-checks every bid.
           cond do
-            a.company_id &&
-                (not seller_backed?(settlement, a) or
-                   (not live?(s, a.company_id) and s.clock_ms < a.opens_ms and
-                      not Estates.estate?(s, a.company_id))) ->
+            a.company_id && not seller_backed?(settlement, a) ->
               cancel(s, a)
 
             s.clock_ms >= a.closes_ms ->
               close(settlement, a, cat) |> Map.put(:clock_ms, s.clock_ms)
 
             true ->
-              Enum.reduce(AuctionWorld.bids(s, a.id), s, fn b, s ->
-                if not live?(s, b.company_id) or
-                     not backed_bid?(s, a, b),
-                   do: s |> release_bid(a, b) |> AuctionWorld.invalidate_bid(b),
-                   else: s
-              end)
+              s
           end
         end
       )

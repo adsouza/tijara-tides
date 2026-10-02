@@ -7,6 +7,7 @@ defmodule TijaraTides.Domain.TransitionReleasesTest do
   alias TijaraTides.Domain.{OrderBookWorld, State, Warehouse, WarehouseWorld}
   alias TijaraTides.Domain.Services.{Auctions, Bankruptcy, Exchange, RouteEditing}
   alias TijaraTides.Domain.Ship.CargoRows
+  alias TijaraTides.SettledCheck
 
   setup do
     cat =
@@ -191,8 +192,22 @@ defmodule TijaraTides.Domain.TransitionReleasesTest do
     assert [_] = AuctionWorld.company_bids(s, "aco")
     assert Game.get(s, "companies", "aco")["reserved"] > 0
 
+    assert SettledCheck.violations(s, cat) == []
+
+    # Receivership recorded without its releases is exactly what the oracle reports.
+    company = Game.get(s, "companies", "aco")
+    leaked = State.put(s, "companies", "aco", %{company | "bankruptcy_ms" => s.clock_ms})
+
+    assert [:bid, :claim, :order] =
+             SettledCheck.violations(leaked, cat) |> Enum.map(&elem(&1, 0)) |> Enum.uniq()
+
+    assert_raise ArgumentError, ~r/bankruptcy left unreleased state/, fn ->
+      SettledCheck.assert_settled!(s, leaked, cat, "bankruptcy")
+    end
+
     {:ok, s, _} = Bankruptcy.bankrupt(s, account(s, "a"), "forced")
 
+    assert SettledCheck.violations(s, cat) == []
     assert OrderBookWorld.company_orders(s, "aco") == []
     assert Game.get(s, "notices", "exchange:sell")["code"] == "exchange.cancelled"
     assert AuctionWorld.company_bids(s, "aco") == []
