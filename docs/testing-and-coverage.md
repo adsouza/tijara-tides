@@ -8,15 +8,18 @@ platform, including when a test or coverage threshold fails.
 
 The [mutation-testing pilot](mutation-testing-pilot.md) records the bounded Muex
 experiment and its expansion across finance, trading instructions, commit/replay,
-conflict recovery, and persistence failures. It records test improvements and the baseline and test-selection safeguards
-required before any mutation-score gate. Mutation testing remains opt-in.
+conflict recovery, and persistence failures. It records test improvements and
+the baseline and test-selection safeguards required before any mutation-score
+gate. Mutation testing remains opt-in.
 
 The [proposed test expansion](test-expansion-plan.md) builds on this policy with
 input and notice contracts, lifecycle interactions, SQL transitions, property
-tests with shrinking, generated sequences and mutation audits. It records
-implementation rounds and acceptance criteria. Review regressions now cover
-receiving freshness, late auction settlement, owner-visit coalescing, compiled
-ship dependencies, persisted-field contracts and operation counts. The bounded
+tests with shrinking, a shared stateful command fuzzer, generated sequences and
+mutation audits across existing code, including earlier finance, queues, markets,
+identity and reporting. It records implementation rounds and acceptance criteria.
+Review regressions now cover receiving freshness, late auction settlement,
+owner-visit coalescing, compiled ship dependencies, persisted-field contracts
+and operation counts. The bounded
 [gameplay mutation audit](mutation-testing-pilot.md#gameplay-review-regression-audit--2026-10-01)
 checks four deliberately broken behaviors. Broader shrinking and generated
 state-machine infrastructure remains follow-up work.
@@ -79,6 +82,27 @@ Branch coverage and condition coverage are separate requirements. Neither implie
 all combinations or paths have been tested, nor does this policy claim MC/DC.
 Mutation testing complements these tests by checking whether deliberately wrong
 behavior is detected; a mutation score is not a branch or condition percentage.
+
+### Stateful change review checklist
+
+Apply this checklist now to stateful changes, including work landing alongside
+the [test expansion](test-expansion-plan.md#round-0-review-checklist). Each review
+must answer:
+
+1. What decisions and input boundaries changed, and which named tests cover
+   them? Which outcomes are infeasible, and why?
+2. Which resources are acquired, consumed, transferred and released on every
+   exit path? Which inbound or committed obligations must remain?
+3. Which lifecycle phases, timers and clocks interact, and what reachable
+   sequence exercises them?
+4. Which SQL constraints and write order apply? What happens on replay,
+   restart and publication?
+5. What independent oracle checks the result, and which semantic fault would
+   it catch?
+
+The checklist is a current review requirement. Links to the expansion's completed
+detection matrix will be added in Round 5; that does not delay its use. This
+documentation does not supply automated branch or condition measurement.
 
 ### Automated measurement acceptance criteria
 
