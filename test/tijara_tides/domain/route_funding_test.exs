@@ -129,6 +129,22 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     q["fuel"] + q["canal_fees"]
   end
 
+  test "receivership stops departure with its own reason rather than a duration error", c do
+    s = route(c, c.s) |> prepare(c)
+    co = State.get(s, "companies", "co")
+    s = State.put(s, "companies", "co", %{co | "bankruptcy_ms" => 0})
+    next = DepartureFunding.advance(s, c.cat)
+
+    assert State.get(next, "visit_plans", "co:1|Jakarta")["departure_wait"] ==
+             "Company is in receivership"
+
+    assert State.entities(next, "departure_requests") == %{}
+
+    assert TijaraTides.Localization.with_locale("ar", fn ->
+             TijaraTides.Localization.text("Company is in receivership")
+           end) == "الشركة تحت الحراسة القضائية"
+  end
+
   test "route queries and commands agree on eligible receiving warehouses", c do
     s = route(c, c.s)
     w = State.get(s, "warehouses", "w")

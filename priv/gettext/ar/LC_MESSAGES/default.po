@@ -2932,3 +2932,6 @@ msgstr "غيّر الطقس وقت وصول %{ship} إلى %{destination}؛ مج
 
 msgid "Known weather delay: %{minutes} min; included in this estimate."
 msgstr "تأخير الطقس المعروف: %{minutes} دقيقة؛ مشمول في هذا التقدير."
+
+msgid "Company is in receivership"
+msgstr "الشركة تحت الحراسة القضائية"

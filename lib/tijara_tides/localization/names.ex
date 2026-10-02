@@ -79,6 +79,8 @@ defmodule TijaraTides.Localization.Names do
   def translate("No sea route is available to the onward destination"),
     do: gettext("No sea route is available to the onward destination")
 
+  def translate("Company is in receivership"), do: gettext("Company is in receivership")
+
   def translate("The onward voyage exceeds the maximum duration"),
     do: gettext("The onward voyage exceeds the maximum duration")
 

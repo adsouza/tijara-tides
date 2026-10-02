@@ -176,10 +176,11 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
           ShipWorld.wait_for_departure(
             s,
             plan["id"],
-            if(is_nil(quote),
-              do: "No sea route is available to the onward destination",
-              else: "The onward voyage exceeds the maximum duration"
-            )
+            cond do
+              company["bankruptcy_ms"] != nil -> "Company is in receivership"
+              is_nil(quote) -> "No sea route is available to the onward destination"
+              true -> "The onward voyage exceeds the maximum duration"
+            end
           )
         end
       end)
