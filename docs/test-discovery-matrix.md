@@ -158,3 +158,32 @@ than passing on unchanged revision after a rejection. Patches, selections and
 raw receipts are retained under `cover/test-expansion/round1b/`. CI uploads
 coverage and browser evidence after both suites. The pinned Chromium workflows
 take about five seconds locally; runtime-pair checks remain in CI.
+
+## Round 2 audit and evidence
+
+The audit retained existing scenarios where the assertions already supplied an
+independent oracle. The following selected gaps now have full-phase or adjacent
+boundary coverage; filenames below are under `test/tijara_tides/domain/`.
+
+| Area | Audited sufficient evidence | Gap closed in this round |
+|---|---|---|
+| Repeating visits | `RouteFundingTest`: failed fuel limit preserves both budgets, manual departure refunds 200 and reserves inbound 300, paused and running variants | Arrival and return lap now use every simulation phase, preserving visit 2 and one reservation |
+| Accumulation | Existing fixed-deadline partial accumulation and policy/repricing cases | New full-tick zero-balance handoff checks 149/150 ms, one active window and unchanged retry |
+| Award/receivership | Existing ordinary resale actually invokes estate cover; no-pool extension control; exact rent/proceeds cap and sunk amounts | Active-pool resale, grace and completion now run full ticks rather than selected phases |
+| Linked trading | Existing partial fill/handover, removed rule, Skip-owned collection, expiry and exact refund cases in `RouteFundingTest` | Reused; purchased identities and only unused reservations already asserted |
+| Freshness/weather/handling | Existing receiving-rate tests, frozen paths, committed handling profiles and late-close receiver aging | New normal purchases in dry/reefer holds check expiry minus one/at/plus one and one writeoff; command-started storm crosses cargo and instruction deadlines before arrival, releasing its 200 budget |
+| Finance/guarantees | Existing protected funds, partial payments, fixed grace, loss cap and refund-before-foreclosure | New command-driven pledge/restart/borrow/asset purchase/failure reaches sponsor settlement in a full zero-duration tick, asserts 5m loss exactly once and safe premature-bankruptcy rejection |
+| Berths/fleet | `PortBerthsTest`: finite capacity queues without cash/cargo movement and full tick admits next work; invalid head/FIFO, owner cancellation and committed-work guards. `ReroutingTest`: exact settled costs and retained geometry | Reused independent intermediate assertions; generated combinations follow in Round 4 |
+| Port economy | `ManufacturingTest`: exact stock/funds/capacity, one-input shortfall, persistent feedstock; `ParticipationTest`: fractional credits, coarse/fine equality and no production at zero participation | Reused; runtime SQL reload remains selected in Round 3 |
+| Identity | Existing same-device retry, owner fences, quota compaction and undelivered work | New invitation/sign-in cases at deadline minus one/at/plus one vary the other clock independently and prove quota refunds once |
+| Reporting/privacy | Existing neutral loans/assets, public-field exclusions, historical bankruptcy and period eligibility | New independently valued 100/200/300 events on adjacent quarter boundaries assert totals 100/500 and neutral borrowing |
+| Work/publication | `AutomationCostTest`: one instruction read across independent request counts, cached partition once and equivalent forecasts; persistence owner activity/failure tests | Reused deterministic counters; fresh-VM guard sensitivity and durable publication checks follow in Rounds 3/5 |
+
+Seven isolated faults fail and restored selections pass: missing departure
+release, active-pool cover, late timeout/spoilage boundaries, zero sponsor loss,
+shifted reporting period and wrong identity clock. The full tick assertions
+observe independent quantities/deadlines rather than only exception absence.
+Raw seed-12345 receipts and exact patches live in `cover/test-expansion/round2/`.
+The focused domain selections run in under one second locally; normal full
+checks retain the line gate. These scenarios supplement existing narrow helper
+tests rather than changing production rules.

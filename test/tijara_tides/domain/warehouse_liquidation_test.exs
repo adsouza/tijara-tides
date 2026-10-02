@@ -419,11 +419,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
 
     s =
       Enum.reduce([@day + 1, @day + 2, resale.opens_ms, resale.closes_ms], s, fn clock, s ->
-        next =
-          %{s | clock_ms: clock}
-          |> Estates.advance(c.catalogue)
-          |> Auctions.reconcile(c.catalogue)
-          |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
+        next = Game.advance(s, clock - s.clock_ms, c.catalogue)
 
         assert State.get(next, "warehouses", "award:won")["expires_ms"] == @day
 
@@ -435,11 +431,11 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
       end)
 
     assert AuctionWorld.fetch(s, "award-resale").status == "unsold"
-    s = advance(c, s, @grace)
+    s = Game.advance(s, @grace - s.clock_ms, c.catalogue)
     assert WarehouseLiquidation.pool(s, "award:won")["status"] == "liquidating"
     assert WarehouseWorld.estate_cover(s, "award:won", @grace + @day) == s
     [auction] = auctions(s, "award:won")
-    final = close(c, s, auction.closes_ms)
+    final = Game.advance(s, auction.closes_ms - s.clock_ms, c.catalogue)
     assert State.get(final, "warehouses", "award:won") == nil
     assert WarehouseLiquidation.pool(final, "award:won")["status"] == "completed"
     assert WarehouseLiquidation.pool(final, "award:won")["paid"] == 0

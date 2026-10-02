@@ -2,7 +2,8 @@
 
 Status: Round 0 is documented. Round 1a is implemented with seven bounded codec
 properties and independent structural/legacy tables. Round 1b adds payload,
-notice and SQL/browser form contracts. Rounds 2–5 remain planned.
+notice and SQL/browser form contracts. Round 2 adds audited full-tick lifecycle
+and adjacent-boundary scenarios. Rounds 3–5 remain planned.
 Each executable round is committed after its focused and normal checks. Runtime
 matrix verification remains a CI gate; local evidence uses Elixir 1.20.4/OTP 29.1.
 

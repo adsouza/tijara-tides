@@ -325,4 +325,71 @@ defmodule TijaraTides.Domain.GuaranteesTest do
     assert pledge["settlement"] == "claim"
     assert pledge["settlement_amount"] == 5_000_000
   end
+
+  test "commands and a full unchanged tick settle beneficiary failure on sponsor books exactly once",
+       c do
+    execute = fn state, actor, payload, id ->
+      TijaraTides.Domain.Commands.execute(state, Game.get(state, "accounts", actor), payload, %{
+        id: id,
+        catalogue: c.catalogue,
+        auction_seed: "guarantee-contract"
+      })
+    end
+
+    {:ok, pledged, _} =
+      execute.(
+        c.state,
+        "sponsor",
+        %{"action" => "guarantee", "account" => "beneficiary", "amount" => 5_000_000},
+        "g"
+      )
+
+    assert Game.get(pledged, "companies", "sponsor-company")["cash"] == 3_000_000
+
+    assert {:error, :guarantee_exists} =
+             execute.(
+               pledged,
+               "sponsor",
+               %{"action" => "guarantee", "account" => "beneficiary", "amount" => 5_000_000},
+               "duplicate"
+             )
+
+    {:ok, restarted, _} =
+      execute.(pledged, "beneficiary", %{"action" => "company", "name" => "Restart"}, "restart")
+
+    {:ok, borrowed, _} =
+      execute.(restarted, "beneficiary", %{"action" => "borrow", "amount" => 5_000_000}, "loan")
+
+    assert Game.get(borrowed, "companies", "restart")["profit"] == 0
+
+    assert {:error, :bankruptcy_cash_covers_debts} =
+             execute.(borrowed, "beneficiary", %{"action" => "bankruptcy"}, "premature")
+
+    {:ok, spent, _} =
+      execute.(
+        borrowed,
+        "beneficiary",
+        %{
+          "action" => "purchase_ship",
+          "class" => "freighter",
+          "port" => "Jakarta",
+          "price_limit" => 4_000_000
+        },
+        "asset"
+      )
+
+    assert Game.get(spent, "companies", "restart")["cash"] == 1_000_000
+    {:ok, failed, _} = execute.(spent, "beneficiary", %{"action" => "bankruptcy"}, "failure")
+    assert Game.get(failed, "companies", "sponsor-company")["profit"] == 0
+    assert Game.get(failed, "bankruptcy_events", "restart")["guaranteed_debt"] == 5_000_000
+    settled = Game.advance(failed, 0, c.catalogue)
+    assert Game.get(settled, "guarantees", "g")["status"] == "claimed"
+    assert Game.get(settled, "guarantees", "g")["forfeited"] == 5_000_000
+    assert Game.get(settled, "companies", "sponsor-company")["profit"] == -5_000_000
+    assert Game.get(settled, "companies", "sponsor-company")["cash"] == 3_000_000
+    again = Game.advance(settled, 0, c.catalogue)
+    assert again.entities == settled.entities
+    assert again.journal == settled.journal
+    assert Enum.count(again.journal, &(&1.kind == "guarantee_settlement")) == 1
+  end
 end

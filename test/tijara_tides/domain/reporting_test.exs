@@ -102,6 +102,27 @@ defmodule TijaraTides.Domain.ReportingTest do
     refute quarter(state, 1)["eligible"]
   end
 
+  test "independent adjacent boundary events are partitioned once and asset movements stay neutral" do
+    state =
+      Enum.reduce(
+        [{@quarter - 1, 100}, {@quarter, 200}, {@quarter + 1, 300}],
+        fixture(),
+        fn {clock, value}, state ->
+          Reporting.post(%{state | clock_ms: clock}, "c", [
+            {"sales_revenue", -value},
+            {"cash_available", value}
+          ])
+        end
+      )
+
+    state = Reporting.post(state, "c", [{"cash_available", 999}, {"loan_principal", -999}])
+    assert quarter(state, 0)["revenue"] == 100
+    assert quarter(state, 0)["profit"] == 100
+    assert quarter(state, 1)["revenue"] == 500
+    assert quarter(state, 1)["profit"] == 500
+    assert Reporting.advance(Reporting.advance(state)) == Reporting.advance(state)
+  end
+
   test "mid-period starts are unranked, later complete periods eligible, and years require all four quarters" do
     state = fixture(div(@quarter, 2))
     rows = reports(%{state | clock_ms: @quarter * 4})
