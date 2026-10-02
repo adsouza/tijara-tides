@@ -1,9 +1,9 @@
 # Proposed test expansion
 
-Status: Round 0 documents the review checklist and initial discovery inventory
-for immediate use; Rounds 1–5 remain proposed test implementation. Commit each
-verified round separately, with Round 1 split into two commits. This document
-does not add tests or change game behavior.
+Status: Round 0 is documented. Round 1a is implemented with seven bounded codec
+properties and independent structural/legacy tables. Rounds 1b–5 remain planned.
+Each executable round is committed after its focused and normal checks. Runtime
+matrix verification remains a CI gate; local evidence uses Elixir 1.20.4/OTP 29.1.
 
 ## Goal and current evidence
 

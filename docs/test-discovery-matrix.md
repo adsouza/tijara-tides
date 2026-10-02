@@ -98,3 +98,22 @@ report survivors and selection misses by area. Do not infer that an area is
 covered merely from a high aggregate score. Newly discovered counterexamples
 become checked-in regressions with replay metadata. Unselected work remains a
 prioritized backlog, with no claim that completion proves absence of latent bugs.
+
+## Round 1a evidence
+
+`CodecPropertiesTest` adds seven properties (50 cases and 100 shrink steps each)
+for visit budgets, departure requests, liquidation pools, loans, auctions, ships
+and accounts. `Domain.CodecCases` supplies independent row facts, optional fields
+and per-entity legacy defaults. Explicit examples cover zero, one and the signed
+SQL integer maximum. Structural tables cover missing/unknown fields and malformed
+row containers. These codecs intentionally preserve values; numeric/ownership
+admission is verified at command and SQL boundaries in subsequent rounds.
+
+StreamData 1.4.0 is locked and test-only. A mutation replacing encoded budget
+remaining funds with zero fails the semantic-field property and shrinks amount
+to 2, time to 0 and the optional flag to false; seed 12345 reproduces the same
+example twice. Local baseline: 350 generated codec cases in about 0.1 seconds;
+full `mix precommit` and disposable PostgreSQL coverage pass. The existing two
+CI runtime pairs remain unchanged; their results are not claimed from this
+local Elixir 1.20.4/OTP 29.1 run. Raw local receipts are under
+`cover/test-expansion/round1a/`; CI continues uploading `cover/`.
