@@ -34,7 +34,7 @@ defmodule TijaraTides.Domain.AccountWorld.Dormancy do
           {:ok, acc, _} =
             TijaraTides.Domain.Services.Bankruptcy.bankrupt(acc, account, "dormant", now)
 
-          TijaraTides.Domain.Services.Auctions.reconcile(acc, catalogue, company["id"])
+          acc
         else
           acc
         end

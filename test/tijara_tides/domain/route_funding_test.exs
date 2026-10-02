@@ -120,7 +120,7 @@ defmodule TijaraTides.Domain.RouteFundingTest do
   end
 
   defp policy(c, s, value) do
-    {:ok, s, _} = TijaraTides.Domain.AccountWorld.set_funding_policy(s, c.a, value)
+    {:ok, s, _} = DepartureFunding.set_policy(s, c.a, value, c.cat)
     s
   end
 
@@ -577,7 +577,7 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     s =
       DepartureFunding.advance(s, cat) |> Map.put(:clock_ms, 100) |> DepartureFunding.advance(cat)
 
-    s = policy(c, s, "reduced") |> DepartureFunding.reconcile(cat)
+    s = policy(c, s, "reduced")
     assert State.entities(s, "departure_requests") == %{} and cash(s) == 100
     s = free(s, fuel_required(c, s) + 1000) |> DepartureFunding.advance(cat)
     assert State.get(s, "visit_budgets", "co:1:b")["remaining"] == 1000
@@ -935,7 +935,7 @@ defmodule TijaraTides.Domain.RouteFundingTest do
       assert cash(sailed) == before_cash + 200 - 300 - quote["fuel"] - quote["canal_fees"]
       assert State.get(sailed, "visit_budgets", "co:1:b")["remaining"] == 300
       assert State.get(sailed, "visit_budgets", "co:1:b")["visit"] == 1
-      assert DepartureFunding.reconcile(sailed, c.cat).journal == sailed.journal
+      assert DepartureFunding.revalidate(sailed, ["co:1"], c.cat).journal == sailed.journal
 
       # Finish the actual voyage, then leave the next stop before finishing its visit.
       arrival = State.get(sailed, "ships", "co:1")["arrive_ms"]
@@ -974,7 +974,7 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     end
   end
 
-  test "stale stop budgets are ignored and reconciled before funding a resumed visit", c do
+  test "stale stop budgets are ignored and revalidated before funding a resumed visit", c do
     s = route(c, c.s)
 
     {:ok, s, _} =
@@ -990,10 +990,10 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     s = State.put(s, "ship_routes", "co:1", %{route | "visit" => 2})
     assert AutomationWorld.budget(s, State.get(s, "ships", "co:1"), "Jakarta") == nil
     before_cash = cash(s)
-    reconciled = DepartureFunding.reconcile(s, c.cat)
+    reconciled = DepartureFunding.revalidate(s, ["co:1"], c.cat)
     assert State.get(reconciled, "visit_budgets", "co:1:a") == nil
     assert cash(reconciled) == before_cash + 200
-    assert DepartureFunding.reconcile(reconciled, c.cat).journal == reconciled.journal
+    assert DepartureFunding.revalidate(reconciled, ["co:1"], c.cat).journal == reconciled.journal
 
     resumed = edit(c, s, "resume", "co:1", %{"operation" => "resume"})
     assert State.get(resumed, "visit_budgets", "co:1:a")["visit"] == 2
@@ -1047,14 +1047,13 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     before = cash(s)
     r = State.get(s, "ship_routes", "co:1")
 
-    s =
-      State.put(s, "ship_routes", "co:1", %{r | "wait_timed_out" => true})
-      |> DepartureFunding.reconcile(c.cat)
+    timed_out = State.put(s, "ship_routes", "co:1", %{r | "wait_timed_out" => true})
+    s = DepartureFunding.settle_ships(s, timed_out, c.cat)
 
     assert State.get(s, "visit_budgets", "co:1:a") == nil
     assert cash(s) == before + 200
     assert State.get(s, "route_stops", "co:1:a")["advance_budget"] == 200
-    assert DepartureFunding.reconcile(s, c.cat) == s
+    assert DepartureFunding.revalidate(s, ["co:1"], c.cat) == s
   end
 
   test "single instructions expiring before arrival release their budget", c do
@@ -1089,13 +1088,12 @@ defmodule TijaraTides.Domain.RouteFundingTest do
 
     s =
       %{s | clock_ms: 1}
-      |> ShipWorld.expire_instructions(c.cat)
-      |> DepartureFunding.reconcile(c.cat)
+      |> DepartureFunding.expire_instructions(c.cat)
 
     assert State.get(s, "ships", "co:1")["status"] == "sailing"
     assert State.get(s, "visit_budgets", "co:1|Singapore") == nil
     assert cash(s) == before + 200
-    assert DepartureFunding.reconcile(s, c.cat) == s
+    assert DepartureFunding.revalidate(s, ["co:1"], c.cat) == s
   end
 
   test "a link with no initial shortfall remains live if owned stock later leaves", c do

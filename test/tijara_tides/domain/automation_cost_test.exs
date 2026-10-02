@@ -42,7 +42,7 @@ defmodule TijaraTides.Domain.AutomationCostTest do
     end
   end
 
-  test "funding reconciliation reads the instruction table once for one or many requests" do
+  test "funding revalidation reads the instruction table once for one or many requests" do
     cat = TijaraTides.Infrastructure.GameCatalogue.all()
     s = Game.initialize(%{entities: %{}, clock_ms: 0, epoch: 1, revision: 0}, cat)
     {:ok, s, _} = Game.seed_invite(s, "invite")
@@ -91,7 +91,11 @@ defmodule TijaraTides.Domain.AutomationCostTest do
 
       {reconciled, reads} =
         counted({State, :entities, 2}, [{[:_, "ship_instructions"], [], []}], fn ->
-          DepartureFunding.reconcile(prepared, cat)
+          DepartureFunding.revalidate(
+            prepared,
+            Map.keys(State.entities(prepared, "departure_requests")),
+            cat
+          )
         end)
 
       assert reads == 1

@@ -6036,7 +6036,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert OrderBookWorld.fetch(final, "sell-food") == remaining
     assert hd(State.get(final, "warehouses", "bw")["cargo"])["unit_cost"] == 1000
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
-    assert Exchange.reconcile(final, seller["company_id"]).entities == final.entities
+    assert Exchange.reconcile(final).entities == final.entities
   end
 
   test "won-cargo replacement commits charges and preserves cargo on reload and replay", c do
@@ -6513,7 +6513,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
       assert :ok = FinancialLedger.audit(Repo, c.world_id)
 
-      # Simulate a persisted budget left over from a previous visit by the old code.
+      # Simulate a persisted budget left over from a previous visit by the old code;
+      # the ship's next funding revalidation releases it.
       row = State.get(restored, "visit_budgets", ship["id"] <> "b")
 
       stale =
@@ -6523,7 +6524,11 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, stale)
       assert {:ok, stale} = GameStore.reload(Repo, c.world_id, stale)
       company = State.get(stale, "companies", account["company_id"])
-      repaired = DepartureFunding.reconcile(stale, cat) |> Map.put(:revision, stale.revision + 1)
+
+      repaired =
+        DepartureFunding.revalidate(stale, [ship["id"]], cat)
+        |> Map.put(:revision, stale.revision + 1)
+
       assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, stale.epoch, stale, repaired)
       assert {:ok, repaired} = GameStore.reload(Repo, c.world_id, repaired)
       assert State.get(repaired, "visit_budgets", row["id"]) == nil

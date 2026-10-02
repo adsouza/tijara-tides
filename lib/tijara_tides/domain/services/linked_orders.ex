@@ -308,8 +308,6 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
   end
 
   def advance(state, catalogue) do
-    state = reconcile(state)
-
     Enum.reduce(
       State.entities(state, "remote_links") |> Enum.sort_by(&elem(&1, 0)),
       state,
@@ -340,17 +338,6 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
         end
       end
     )
-  end
-
-  def reconcile(state) do
-    Enum.reduce(State.entities(state, "remote_links"), state, fn {_, link}, s ->
-      rule = State.get(s, "route_rules", link["id"])
-      company = State.get(s, "companies", link["company_id"])
-
-      if is_nil(rule) or company["bankruptcy_ms"] != nil,
-        do: close(s, link, "removed", true) |> AutomationWorld.remove_link(link["id"]),
-        else: s
-    end)
   end
 
   def remove_ship(state, ship) do

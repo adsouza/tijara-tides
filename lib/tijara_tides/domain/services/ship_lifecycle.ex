@@ -8,6 +8,7 @@ defmodule TijaraTides.Domain.Services.ShipLifecycle do
       state
       |> AutomationWorld.release_ship(ship)
       |> LinkedOrders.remove_ship(ship)
+      |> WarehouseWorld.release_ship_claims(ship)
       |> ShipWorld.cancel_automation(ship)
 
   def retire(state, ship) do

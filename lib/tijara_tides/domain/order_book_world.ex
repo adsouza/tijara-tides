@@ -67,6 +67,28 @@ defmodule TijaraTides.Domain.OrderBookWorld do
     end
   end
 
+  @doc """
+  Sell portions are derived from their warehouse's cargo and claims. Any transition that
+  declares a change to either re-derives the portions of that warehouse's sell orders,
+  in the same transaction so split lots still trace to their parent portions.
+  """
+  def synchronize_changed(before, state) do
+    warehouses =
+      for {{kind, id}, _} <- TijaraTides.Domain.ChangeSet.since(before, state),
+          kind in ["warehouses", "warehouse_reservations"],
+          source <- [before, state],
+          row = get_in(source, [:entities, kind, id]),
+          row != nil,
+          uniq: true,
+          do: {row["company_id"], if(kind == "warehouses", do: id, else: row["warehouse_id"])}
+
+    Enum.reduce(Enum.sort(warehouses), state, fn {company, warehouse}, s ->
+      owned(s, "exchange_orders", "company_id", company)
+      |> Enum.filter(&(&1["warehouse_id"] == warehouse and &1["side"] == "sell"))
+      |> Enum.reduce(s, &synchronize(&2, &1["id"]))
+    end)
+  end
+
   defp ancestor_portion(portions, id, parents) do
     portions[id] || if(parents[id], do: ancestor_portion(portions, parents[id], parents))
   end

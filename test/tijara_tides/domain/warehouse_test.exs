@@ -634,7 +634,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
     state = WarehouseWorld.advance(%{state | clock_ms: 2000}, c.catalogue)
     assert Game.get(state, "warehouse_reservations", "stock")["quantity"] == 2
     state = TijaraTides.Domain.State.delete(state, "route_stops", "stop")
-    state = WarehouseWorld.reconcile_reservations(state, c.catalogue, "company")
+    state = WarehouseWorld.release_stop_claims(state, "company", ["stop"])
     assert Game.get(state, "warehouse_reservations", "stock") == nil
   end
 

@@ -40,6 +40,9 @@ defmodule TijaraTides.Domain.Services.Bankruptcy do
               do: TijaraTides.Domain.Services.ShipLifecycle.cancel_automation(acc, id),
               else: acc
           end)
+          |> TijaraTides.Domain.Services.Exchange.cancel_company_orders(company["id"])
+          |> TijaraTides.Domain.Services.Auctions.release_company_bids(company["id"])
+          |> TijaraTides.Domain.WarehouseWorld.release_insolvent_claims(company["id"])
 
         state =
           if reason == "dormant" do
@@ -60,11 +63,6 @@ defmodule TijaraTides.Domain.Services.Bankruptcy do
               escrow
             )
           end
-
-        state =
-          if reason == "dormant",
-            do: TijaraTides.Domain.Services.Exchange.reconcile(state, company["id"]),
-            else: state
 
         {:ok, state, %{if(reason == "dormant", do: "dormant", else: "bankrupt") => company["id"]}}
     end

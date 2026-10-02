@@ -174,6 +174,17 @@ defmodule TijaraTides.Domain.Services.Auctions do
   defp accept_prepared_bid(s, previous, proposed),
     do: AuctionWorld.replace_bid(s, previous, proposed)
 
+  @doc "Receivership withdraws the company's open bids and returns their escrow and space."
+  def release_company_bids(s, company_id) do
+    Enum.reduce(AuctionWorld.company_bids(s, company_id), s, fn b, s ->
+      a = AuctionWorld.fetch(s, b.auction_id)
+
+      if a && AuctionWorld.open?(a),
+        do: s |> release_bid(a, b) |> AuctionWorld.invalidate_bid(b),
+        else: s
+    end)
+  end
+
   def withdraw_bid(s, account, id) do
     a = AuctionWorld.fetch(s, id)
     b = a && AuctionWorld.bid(s, id, account["company_id"])
@@ -225,32 +236,12 @@ defmodule TijaraTides.Domain.Services.Auctions do
 
   def reconcile(s, cat), do: sweep(s, cat, AuctionWorld.all(s))
 
-  @doc "Post-command sweep: the acting company's own lots and the ones it has bid on."
-  def reconcile(s, _cat, nil), do: s
-
-  def reconcile(s, cat, company_id) do
-    mine = AuctionWorld.company_auctions(s, company_id)
-
-    bid_on =
-      for b <- AuctionWorld.company_bids(s, company_id),
-          a = AuctionWorld.fetch(s, b.auction_id),
-          do: a
-
-    sweep(s, cat, Enum.uniq_by(mine ++ bid_on, & &1.id))
-  end
-
   defp sweep(s, cat, auctions) do
     s =
       Enum.reduce(
         auctions |> Enum.filter(&AuctionWorld.open?/1) |> Enum.sort_by(&{&1.closes_ms, &1.id}),
         s,
         fn a, s ->
-          s =
-            if (a.liquidation_id == nil and Estates.estate?(s, a.company_id) and a.warehouse_id) &&
-                 get(s, "warehouses", a.warehouse_id),
-               do: WarehouseWorld.estate_cover(s, a.warehouse_id, a.closes_ms),
-               else: s
-
           # A late tick settles liquidation sales at their disclosed close. The
           # buyer's storage then ages that cargo through the remaining tick.
           settlement =

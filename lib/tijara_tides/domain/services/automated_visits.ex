@@ -7,8 +7,8 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
   alias TijaraTides.Domain.{Fleet, Trade}
   alias TijaraTides.Domain.Services.TradeSettlement, as: Trading
   @open ["planned", "waiting"]
-  def advance(state, catalogue) do
-    state = ShipWorld.prepare_visits(state, catalogue)
+  def advance(before, catalogue) do
+    state = TijaraTides.Domain.Services.DepartureFunding.prepare_visits(before, catalogue)
     # Stable order across restarts; sell instructions always precede purchases.
     entities(state, "ship_instructions")
     |> Map.values()
@@ -19,6 +19,7 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
     |> Enum.sort_by(&{if(&1["side"] == "sell", do: 0, else: 1), &1["created_ms"], &1["id"]})
     |> Enum.reduce(state, &attempt(&2, &1, catalogue))
     |> TijaraTides.Domain.Services.DepartureFunding.advance(catalogue)
+    |> then(&TijaraTides.Domain.OrderBookWorld.synchronize_changed(before, &1))
   end
 
   defp attempt(state, order, catalogue) do

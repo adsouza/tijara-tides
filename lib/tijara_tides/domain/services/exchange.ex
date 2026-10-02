@@ -201,17 +201,8 @@ defmodule TijaraTides.Domain.Services.Exchange do
     end
   end
 
+  @doc "Clock-driven pass: expiry, freshness decay and lease-expiry backing loss."
   def reconcile(state), do: sweep(state, OrderBookWorld.orders(state))
-
-  @doc "Post-command sweep: only the acting company's orders can have lost their backing."
-  def reconcile(state, nil), do: state
-
-  def reconcile(state, company_id),
-    do:
-      sweep(
-        state,
-        OrderBookWorld.company_orders(state, company_id)
-      )
 
   defp sweep(state, orders) do
     Enum.reduce(orders, state, fn o, s ->
@@ -236,19 +227,27 @@ defmodule TijaraTides.Domain.Services.Exchange do
       if available == 0 or company["bankruptcy_ms"] != nil or
            (o.expires_ms != nil and o.expires_ms <= s.clock_ms) or
            not WarehouseWorld.order_backed?(s, OrderBook.claim(o)) do
-        s
-        |> unback(o)
-        |> OrderBookWorld.cancel(o.id)
-        |> TijaraTides.Domain.Services.RemoteOrderSettlement.order_cancelled(o.id)
-        |> Notices.notice(
-          company["account_id"],
-          "exchange:" <> o.id,
-          {"exchange.cancelled", %{"port" => o.port}}
-        )
+        withdraw(s, o)
       else
         s
       end
     end)
+  end
+
+  @doc "Receivership withdraws every standing order and releases its cash and storage."
+  def cancel_company_orders(state, company_id),
+    do: Enum.reduce(OrderBookWorld.company_orders(state, company_id), state, &withdraw(&2, &1))
+
+  defp withdraw(state, o) do
+    state
+    |> unback(o)
+    |> OrderBookWorld.cancel(o.id)
+    |> TijaraTides.Domain.Services.RemoteOrderSettlement.order_cancelled(o.id)
+    |> Notices.notice(
+      get(state, "companies", o.company_id)["account_id"],
+      "exchange:" <> o.id,
+      {"exchange.cancelled", %{"port" => o.port}}
+    )
   end
 
   @doc "Matches a shared fill and order-visit budget; unfinished work resumes next tick."
@@ -402,7 +401,8 @@ defmodule TijaraTides.Domain.Services.Exchange do
     end
   end
 
-  defp settle_pair(state, buy, sell, n, price, catalogue) do
+  defp settle_pair(before, buy, sell, n, price, catalogue) do
+    state = before
     {claim, _available} = eligible_sale(state, buy, sell)
     {state, cargo} = WarehouseWorld.exchange_out(state, claim, n)
     cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
@@ -416,23 +416,23 @@ defmodule TijaraTides.Domain.Services.Exchange do
     |> OrderBookWorld.fill(buy, n)
     |> OrderBookWorld.fill(sell, n)
     |> traded(buy, n, price)
-    |> reconcile(sell.company_id)
+    |> then(&OrderBookWorld.synchronize_changed(before, &1))
     |> TijaraTides.Domain.Services.LiquidationSettlement.refresh(sell.warehouse_id, catalogue)
   end
 
-  defp settle_npc(state, o, n, price, catalogue) do
+  defp settle_npc(before, o, n, price, catalogue) do
     state =
       if o.side == "buy" do
         {s, cargo} =
           PortCargoMarketWorld.release_stock(
-            state,
+            before,
             o.port,
             o.good,
             n,
             price,
             catalogue["goods"][o.good],
             0,
-            policy(state, o)
+            policy(before, o)
           )
 
         s
@@ -440,7 +440,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
         |> buyer_cash(o, n, price)
         |> TijaraTides.Domain.Services.RemoteOrderSettlement.record_fill(o, n, catalogue)
       else
-        {s, cargo} = WarehouseWorld.exchange_out(state, OrderBook.claim(o), n)
+        {s, cargo} = WarehouseWorld.exchange_out(before, OrderBook.claim(o), n)
         cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
 
         s
@@ -451,7 +451,7 @@ defmodule TijaraTides.Domain.Services.Exchange do
     state
     |> OrderBookWorld.fill(o, n)
     |> traded(o, n, price)
-    |> reconcile(o.company_id)
+    |> then(&OrderBookWorld.synchronize_changed(before, &1))
     |> TijaraTides.Domain.Services.LiquidationSettlement.refresh(o.warehouse_id, catalogue)
   end
 

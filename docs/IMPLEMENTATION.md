@@ -1029,7 +1029,7 @@ inspectors and owner fleet controls show weather waits and revised ETAs. Owners
 receive a structured notice when weather changes the estimate. No private
 manifest, cost or financial information is included in public weather disclosure.
 
-Funding reconciliation indexes ready plans by ship and pending instructions by
+Funding revalidation indexes ready plans by ship and pending instructions by
 ship/port once per pass. Sailing forecasts snapshot JSON-compatible weather
 segments per voyage, including the first reconstruction of a legacy voyage;
 ticks reuse these segments, while a new departure or diversion builds its own.

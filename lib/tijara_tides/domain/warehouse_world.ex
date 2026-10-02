@@ -876,13 +876,6 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         Warehouse.clear_reservations(%{w | reservations: reservations(state, w)})
       )
 
-  # Also called after commands so sold ships and removed stops never leave dangling claims.
-  def reconcile_reservations(state, catalogue, company_id) do
-    Enum.reduce(owned(state, "warehouses", "company_id", company_id), state, fn row, s ->
-      prune_reservations(s, load(state, row), catalogue)
-    end)
-  end
-
   defp prune_reservations(state, w, _catalogue) do
     valid_ids =
       Enum.reduce(reservations(state, w), MapSet.new(), fn r, ids ->
@@ -925,12 +918,65 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         valid_ids
       )
 
-    next = apply_transition(state, transition)
+    state
+    |> apply_transition(transition)
+    |> notify_released(w, Enum.map(transition.put, & &1.id) ++ transition.delete)
+  end
 
-    Enum.reduce(Enum.map(transition.put, & &1.id) ++ transition.delete, next, fn id, s ->
+  @doc "Receivership ends every claim except the receiver's own auction lots."
+  def release_insolvent_claims(state, company_id),
+    do: release_claims(state, company_id, &is_nil(&1.auction_id))
+
+  @doc "A ship leaving its owner's fleet stops holding stock or receiving space."
+  def release_ship_claims(state, ship_id) do
+    case get(state, "ships", ship_id) do
+      nil ->
+        state
+
+      ship ->
+        release_claims(state, ship["company_id"], fn r ->
+          r.ship_id == ship_id and is_nil(r.order_id) and is_nil(r.auction_id) and
+            is_nil(r.bid_id)
+        end)
+    end
+  end
+
+  @doc "Claims made for a route stop end with that stop."
+  def release_stop_claims(state, _company_id, []), do: state
+
+  def release_stop_claims(state, company_id, stop_ids) do
+    removed = MapSet.new(stop_ids)
+
+    release_claims(
+      state,
+      company_id,
+      &(&1.stop_id != nil and MapSet.member?(removed, &1.stop_id))
+    )
+  end
+
+  defp release_claims(state, company_id, released?) do
+    Enum.reduce(owned(state, "warehouses", "company_id", company_id), state, fn row, s ->
+      w = load(s, row)
+
+      case for(r <- w.reservations, released?.(r), do: r.id) do
+        [] ->
+          s
+
+        ids ->
+          s
+          |> apply_transition(Warehouse.release_reservations(w, ids))
+          |> notify_released(w, Enum.reject(ids, &String.starts_with?(&1, "linked:")))
+      end
+    end)
+  end
+
+  defp notify_released(state, w, ids) do
+    account = get(state, "companies", w.company_id)["account_id"]
+
+    Enum.reduce(ids, state, fn id, s ->
       TijaraTides.Domain.Notices.notice(
         s,
-        get(s, "companies", w.company_id)["account_id"],
+        account,
         "reservation:" <> id,
         {"warehouse.reservation_released", %{"port" => w.port}}
       )

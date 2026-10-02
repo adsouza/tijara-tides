@@ -956,6 +956,26 @@ root owns configured stop budgets and completion of each route visit. Commands
 and ticks use these same transitions. The ledger verifier and SQL transaction
 validate the final combined candidate before publication.
 
+### Transition-owned releases
+
+A transition releases what it invalidates in the same candidate; commands do not
+sweep the world afterwards. Receivership withdraws the company's standing orders,
+open bids and non-auction warehouse claims. Ship disposal releases the ship's
+manual claims, and route edits release the claims of removed stops.
+`DepartureFunding` coordinates each ship transition with funding consequences:
+route edits, budgets, sailing, rerouting, onward changes, instruction
+cancellation and expiry, and wait timeouts. It revalidates budgets and departure
+requests only for the ships whose rows that transition declared changed. A
+policy change revalidates the company's requests. Readiness also depends on
+handling, berths and pending orders, so allocation rechecks a request when it
+uses it.
+
+Sell-order portions are derived from the warehouse FEFO allocation. The order
+book re-derives them from the warehouse and claim changes that a command or fill
+declares, for any owner, in the same transaction. The remaining tick passes are
+clock-driven: order expiry and freshness decay, auction closes, lease expiry and
+spoilage. An architecture test keeps reconcile sweeps out of command dispatch.
+
 
 ### Weather and voyage pauses
 

@@ -1,6 +1,7 @@
 defmodule TijaraTides.Domain.Services.DepartureFunding do
   @moduledoc "Oldest-affordable departures with atomic fuel/budget funding and bounded accumulation."
   alias TijaraTides.Domain.{State, Automation, AutomationWorld, ShipWorld, Fleet, Notices}
+  alias TijaraTides.Domain.{AccountWorld, ChangeSet}
   alias TijaraTides.Domain.Services.{FinancialSettlement, LinkedOrders}
 
   defp requirement(quote, spec, policy),
@@ -12,11 +13,16 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
       )
 
   @doc "Manual departures still honor an explicitly configured advance budget."
-  def manual_sail(state, account, ship_id, destination, limit, catalogue) do
-    state =
-      state
-      |> reconcile(catalogue)
-      |> FinancialSettlement.settle([account["company_id"]])
+  def manual_sail(state, account, ship_id, destination, limit, catalogue),
+    do:
+      settled(
+        state,
+        catalogue,
+        &fund_manual_sail(&1, account, ship_id, destination, limit, catalogue)
+      )
+
+  defp fund_manual_sail(state, account, ship_id, destination, limit, catalogue) do
+    state = FinancialSettlement.settle(state, [account["company_id"]])
 
     ship = State.get(state, "ships", ship_id)
 
@@ -109,7 +115,7 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
 
         with {:ok, s} <- result do
           s = TijaraTides.Domain.ShipWorld.set_advance_budget(s, id, stop != nil, amount)
-          {:ok, reconcile(s, catalogue), %{}}
+          {:ok, settle_ships(state, s, catalogue), %{}}
         end
     end
   end
@@ -151,7 +157,7 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
   end
 
   def advance(state, catalogue, company_id \\ :all) do
-    state = state |> finish_visits(catalogue) |> reconcile(catalogue) |> mark_pending_departures()
+    state = state |> finish_visits(catalogue) |> mark_pending_departures()
 
     plans =
       ready_plans(state) |> Enum.filter(&(company_id == :all or &1["company_id"] == company_id))
@@ -193,48 +199,135 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
     |> Enum.reduce(state, fn {company, _}, s -> allocate(s, company, catalogue) end)
   end
 
-  def reconcile(state, catalogue) do
-    state = LinkedOrders.reconcile(state)
+  @automation_kinds ~w(ships ship_routes route_stops ship_instructions visit_plans visit_budgets departure_requests)
 
+  @doc """
+  Funding consequences of a transition: a budget stays reserved only for the visit it
+  funds, and a departure request only while it still describes the next departure.
+  Only ships whose automation rows the transition changed are revalidated.
+  """
+  def settle_ships(before, state, catalogue),
+    do: revalidate(state, changed_ships(before, state), catalogue)
+
+  defp changed_ships(before, state) do
+    for {{kind, id}, _} <- ChangeSet.since(before, state),
+        kind in @automation_kinds,
+        source <- [before, state],
+        row = get_in(source, [:entities, kind, id]),
+        row != nil,
+        uniq: true,
+        do: if(kind in ["ships", "ship_routes"], do: id, else: row["ship_id"])
+  end
+
+  def revalidate(state, [], _catalogue), do: state
+
+  def revalidate(state, ship_ids, catalogue) do
     state =
-      Enum.reduce(State.entities(state, "visit_budgets"), state, fn {_, row}, s ->
-        ship = State.get(s, "ships", row["ship_id"])
-        stop = row["stop_id"] && State.get(s, "route_stops", row["stop_id"])
-        plan = State.get(s, "visit_plans", row["id"])
-        route = ship && State.get(s, "ship_routes", ship["id"])
-        company = State.get(s, "companies", row["company_id"])
-
-        valid =
-          ship && ship["company_id"] == row["company_id"] && company["bankruptcy_ms"] == nil &&
-            if(row["stop_id"], do: stop && route && route["status"] != "draft", else: plan != nil) &&
-            AutomationWorld.current_visit?(s, row) &&
-            not visit_ended?(s, ship, route, row)
-
-        if valid, do: s, else: AutomationWorld.release_visit(s, row)
+      Enum.reduce(Enum.sort(ship_ids), state, fn id, s ->
+        Enum.reduce(ship_budgets(s, id), s, fn row, s ->
+          if budget_valid?(s, row), do: s, else: AutomationWorld.release_visit(s, row)
+        end)
       end)
 
-    plans_by_ship = Map.new(ready_plans(state), &{&1["ship_id"], &1})
+    revalidate_requests(state, ship_ids, catalogue)
+  end
 
-    Enum.reduce(State.entities(state, "departure_requests"), state, fn {_, row}, s ->
-      ship = State.get(s, "ships", row["ship_id"])
-      plan = plans_by_ship[row["ship_id"]]
-      company = State.get(s, "companies", row["company_id"])
-      account = company && State.get(s, "accounts", company["account_id"])
-      current = if ship && plan, do: spec(s, ship, plan["onward"])
+  defp ship_budgets(state, ship_id) do
+    case State.get(state, "ships", ship_id) do
+      nil ->
+        State.entities(state, "visit_budgets")
+        |> Map.values()
+        |> Enum.filter(&(&1["ship_id"] == ship_id))
 
-      quote =
-        if ship && plan, do: Fleet.voyage_quote(ship, plan["onward"], catalogue, state.clock_ms)
+      ship ->
+        State.owned(state, "visit_budgets", "company_id", ship["company_id"])
+        |> Enum.filter(&(&1["ship_id"] == ship_id))
+    end
+  end
 
-      valid =
-        current && quote && company["bankruptcy_ms"] == nil &&
-          row["destination"] == current.port && row["stop_id"] == current.stop_id &&
-          row["visit"] == current.visit && row["configured"] == current.configured &&
-          row["policy"] == (account["funding_policy"] || "wait") &&
-          row["required"] ==
-            requirement(quote, current, row["policy"])
+  defp budget_valid?(s, row) do
+    ship = State.get(s, "ships", row["ship_id"])
+    stop = row["stop_id"] && State.get(s, "route_stops", row["stop_id"])
+    plan = State.get(s, "visit_plans", row["id"])
+    route = ship && State.get(s, "ship_routes", ship["id"])
+    company = State.get(s, "companies", row["company_id"])
 
-      if valid, do: s, else: AutomationWorld.abandon_request(s, row)
-    end)
+    ship && ship["company_id"] == row["company_id"] && company["bankruptcy_ms"] == nil &&
+      if(row["stop_id"], do: stop && route && route["status"] != "draft", else: plan != nil) &&
+      AutomationWorld.current_visit?(s, row) &&
+      not visit_ended?(s, ship, route, row)
+  end
+
+  defp revalidate_requests(state, ship_ids, catalogue) do
+    rows =
+      for id <- Enum.sort(ship_ids), row = State.get(state, "departure_requests", id), do: row
+
+    if rows == [] do
+      state
+    else
+      plans_by_ship = Map.new(ready_plans(state), &{&1["ship_id"], &1})
+
+      Enum.reduce(rows, state, fn row, s ->
+        if request_valid?(s, row, plans_by_ship[row["ship_id"]], catalogue),
+          do: s,
+          else: AutomationWorld.abandon_request(s, row)
+      end)
+    end
+  end
+
+  defp request_valid?(s, row, plan, catalogue) do
+    ship = State.get(s, "ships", row["ship_id"])
+    company = State.get(s, "companies", row["company_id"])
+    account = company && State.get(s, "accounts", company["account_id"])
+    current = if ship && plan, do: spec(s, ship, plan["onward"])
+    quote = if ship && plan, do: Fleet.voyage_quote(ship, plan["onward"], catalogue, s.clock_ms)
+
+    current && quote && company["bankruptcy_ms"] == nil &&
+      row["destination"] == current.port && row["stop_id"] == current.stop_id &&
+      row["visit"] == current.visit && row["configured"] == current.configured &&
+      row["policy"] == (account["funding_policy"] || "wait") &&
+      row["required"] == requirement(quote, current, row["policy"])
+  end
+
+  @doc "A policy change re-prices nothing in place: waiting requests restart under the new policy."
+  def set_policy(state, account, policy, catalogue) do
+    with {:ok, changed, reply} <- AccountWorld.set_funding_policy(state, account, policy) do
+      ships =
+        for row <- State.owned(changed, "departure_requests", "company_id", account["company_id"]),
+            do: row["ship_id"]
+
+      {:ok, revalidate_requests(changed, ships, catalogue), reply}
+    end
+  end
+
+  @doc "Ship transitions whose funding consequences this coordinator owns."
+  def reroute(state, account, ship, destination, limit, catalogue),
+    do:
+      settled(state, catalogue, &Fleet.reroute(&1, account, ship, destination, limit, catalogue))
+
+  def change_onward(state, account, ship, port, onward, catalogue, auto_depart),
+    do:
+      settled(
+        state,
+        catalogue,
+        &ShipWorld.change_onward(&1, account, ship, port, onward, catalogue, auto_depart)
+      )
+
+  def cancel_instruction(state, account, id, catalogue),
+    do: settled(state, catalogue, &ShipWorld.cancel_instruction(&1, account, id, catalogue))
+
+  def expire_instructions(state, catalogue),
+    do: settle_ships(state, ShipWorld.expire_instructions(state, catalogue), catalogue)
+
+  def expire_route_waits(state, catalogue),
+    do: settle_ships(state, ShipWorld.expire_route_waits(state, catalogue), catalogue)
+
+  def prepare_visits(state, catalogue),
+    do: settle_ships(state, ShipWorld.prepare_visits(state, catalogue), catalogue)
+
+  defp settled(state, catalogue, transition) do
+    with {:ok, changed, reply} <- transition.(state),
+         do: {:ok, settle_ships(state, changed, catalogue), reply}
   end
 
   defp visit_ended?(state, ship, route, row) do
@@ -255,6 +348,13 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
   defp allocate(state, company_id, catalogue) do
     settings = Automation.settings(catalogue)
     state = FinancialSettlement.settle(state, [company_id])
+    # Readiness changes with handling, berths and pending orders; check it where it is used.
+    state =
+      revalidate_requests(
+        state,
+        Enum.map(requests(state, company_id), & &1["ship_id"]),
+        catalogue
+      )
 
     state =
       Enum.reduce(requests(state, company_id), state, fn row, s ->
@@ -363,6 +463,7 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
         {:ok, changed, _} ->
           changed
           |> AutomationWorld.complete_request(row["id"])
+          |> then(&settle_ships(state, &1, catalogue))
           |> Notices.notice(
             account["id"],
             "auto-depart:" <> ship["id"] <> "|" <> ship["port"],

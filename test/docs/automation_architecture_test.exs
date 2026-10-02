@@ -117,6 +117,37 @@ defmodule TijaraTides.AutomationArchitectureTest do
     for next <- graph[module], do: acyclic!(next, graph, [module | path])
   end
 
+  test "commands run no reconcile sweep; only clock-driven tick passes remain" do
+    sweeps = [
+      {Exchange, :reconcile, 1},
+      {TijaraTides.Domain.Services.Auctions, :reconcile, 2},
+      {WarehouseWorld, :advance, 2}
+    ]
+
+    {:ok, modules} = :application.get_key(:tijara_tides, :modules)
+
+    callers =
+      for module <- modules,
+          String.starts_with?(Atom.to_string(module), "Elixir.TijaraTides.Domain."),
+          beam = :code.where_is_file(~c"#{module}.beam"),
+          beam != :non_existing,
+          {:ok, {^module, [imports: imports]}} = :beam_lib.chunks(beam, [:imports]),
+          call <- imports,
+          call in sweeps,
+          uniq: true,
+          do: module
+
+    # Exchange.advance and Auctions.advance call their passes locally.
+    assert callers == [TijaraTides.Domain.Simulation]
+
+    {:ok, {_, [imports: commands]}} =
+      :beam_lib.chunks(:code.where_is_file(~c"#{TijaraTides.Domain.Commands}.beam"), [:imports])
+
+    refute Enum.any?(commands, fn {_, function, _} ->
+             function |> Atom.to_string() |> String.contains?("reconcile")
+           end)
+  end
+
   test "reservation models cannot call world adapters, row codecs or workflows" do
     for module <- [LiquidationPool, VisitBudget, DepartureRequest, RemoteLink] do
       project_calls =

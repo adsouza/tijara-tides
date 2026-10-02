@@ -221,6 +221,15 @@ defmodule TijaraTides.Domain.Warehouse do
   def clear_reservations(%__MODULE__{} = w),
     do: transition(w, [], Enum.map(w.reservations, & &1.id))
 
+  def release_reservations(%__MODULE__{} = w, ids) do
+    held = MapSet.new(w.reservations, & &1.id)
+
+    unless Enum.all?(ids, &MapSet.member?(held, &1)),
+      do: raise(ArgumentError, "Released claims must belong to this warehouse")
+
+    transition(w, [], ids)
+  end
+
   def prune_reservations(%__MODULE__{} = w, now, valid_ids) do
     available =
       w.cargo
