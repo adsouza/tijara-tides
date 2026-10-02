@@ -14,7 +14,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   @storage_classes ["dry", "reefer", "liquid"]
   @max_lots CargoRules.max_lots()
   alias TijaraTides.Domain.Warehouse
-  alias TijaraTides.Domain.Warehouse.{Rows, ReservationRows, Transition}
+  alias TijaraTides.Domain.Warehouse.Rows
+  alias TijaraTides.Domain.WarehouseWorld.Claims
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
   defp load(state, row) do
@@ -26,7 +27,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         external_volume:
           shared_external_volume(
             Map.values(entities(state, "warehouses")),
-            Map.values(entities(state, "warehouse_reservations")),
+            Claims.all(state),
             w,
             state.clock_ms
           )
@@ -275,12 +276,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   end
 
   defp relocate_award(state, old, new) do
-    state =
-      Enum.reduce(entities(state, "warehouse_reservations"), state, fn {id, row}, s ->
-        if row["warehouse_id"] == old,
-          do: put(s, "warehouse_reservations", id, %{row | "warehouse_id" => new}),
-          else: s
-      end)
+    state = Claims.relocate(state, old, new)
 
     state
     |> TijaraTides.Domain.OrderBookWorld.relocate_storage(old, new)
@@ -427,7 +423,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
 
           state =
             if blocks == w.blocks,
-              do: state |> clear_reservations(w) |> delete("warehouses", id),
+              do: state |> Claims.clear(w) |> delete("warehouses", id),
               else: save(state, next)
 
           {:ok, state, %{"refund" => refund}}
@@ -520,7 +516,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
           state = Liquidation.before_remove(state, w.id)
 
           state =
-            consume_reservations(
+            Claims.consume(
               state,
               w,
               ship["id"],
@@ -602,12 +598,12 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   def synchronize(state), do: synchronize_awards(state)
 
   @doc "Rent, renewal, time-ended claims and the expiry notice for one lease."
-  def advance_term(state, id, catalogue) do
+  def advance_term(state, id) do
     row = get(state, "warehouses", id)
     {state, w} = roll_term(state, load(state, row))
     {state, w} = accrue(state, w)
     {state, w} = prepare_renewal(state, w)
-    state = prune_reservations(state, w, catalogue)
+    state = Claims.prune(state, w)
 
     state =
       if row["prepaid"] > 0 and w.prepaid == 0 and w.next_days == nil do
@@ -661,7 +657,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         "warehouse:" <> w.id,
         {"warehouse.cleared", %{"port" => w.port, "refund" => value - charges}}
       )
-      |> clear_reservations(w)
+      |> Claims.clear(w)
       |> delete("warehouses", w.id)
       |> CompanyFinanceWorld.post(w.company_id, "warehouse_clearance", [
         {"inventory", -cost},
@@ -676,40 +672,9 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     end
   end
 
-  alias TijaraTides.Domain.Warehouse.Reservation
-
-  def reservations(state, w) when is_map(state) do
-    reservations(owned(state, "warehouse_reservations", "company_id", w.company_id), w)
-    |> Enum.map(fn r ->
-      auction = r.auction_id && get(state, "auctions", r.auction_id)
-      %{r | expires_ms: if(auction, do: auction["expires_ms"])}
-    end)
-  end
-
-  def reservations(rows, w) when is_list(rows) do
-    rows
-    |> Enum.filter(&(&1["warehouse_id"] == w.id))
-    |> Enum.map(&ReservationRows.decode/1)
-    |> Enum.sort_by(&{&1.created_ms, &1.id})
-  end
-
-  def reserved_volume(state, w, catalogue, ship_id \\ nil, good \\ nil),
-    do:
-      Warehouse.reserved_volume(
-        %{w | reservations: reservations(state, w)},
-        catalogue,
-        ship_id,
-        good
-      )
-
-  def reserved_quantity(state, w, kind, good, except_ship \\ nil),
-    do:
-      Warehouse.reserved_quantity(
-        %{w | reservations: reservations(state, w)},
-        kind,
-        good,
-        except_ship
-      )
+  defdelegate reservations(state_or_rows, w), to: Claims
+  defdelegate reserved_volume(state, w, catalogue, ship_id \\ nil, good \\ nil), to: Claims
+  defdelegate reserved_quantity(state, w, kind, good, except_ship \\ nil), to: Claims
 
   @doc "Choose this ship's earmarked stock first, then other available owned stock."
   def collection_source(state, ship, good, minimum \\ 0, catalogue \\ %{}) do
@@ -757,153 +722,27 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   end
 
   @doc "Earmark a committed remote fill; its incoming capacity has already been consumed."
-  def earmark_remote_fill(state, link, order, quantity, catalogue) do
-    id = "linked:" <> link["order_id"]
-    w = fetch(state, order.warehouse_id)
-    old = get(state, "warehouse_reservations", id)
-
-    r = %Reservation{
-      id: id,
-      warehouse_id: w.id,
-      company_id: w.company_id,
-      ship_id: link["ship_id"],
-      stop_id: link["stop_id"],
-      good: order.good,
-      kind: "stock",
-      quantity: quantity + if(old, do: old["quantity"], else: 0),
-      created_ms: if(old, do: old["created_ms"], else: state.clock_ms)
-    }
-
-    w = %{w | reservations: Enum.reject(w.reservations, &(&1.id == id))}
-    apply_transition(state, Warehouse.earmark_fill(w, r, state.clock_ms, catalogue))
-  end
-
-  def release_link_stock(state, ship, stop, good, keep \\ 0) do
-    claims =
-      entities(state, "warehouse_reservations")
-      |> Map.values()
-      |> Enum.filter(
-        &(&1["ship_id"] == ship and &1["stop_id"] == stop and &1["good"] == good and
-            String.starts_with?(&1["id"], "linked:"))
-      )
-      |> Enum.sort_by(&{&1["created_ms"], &1["id"]})
-
-    Enum.reduce(claims, {state, keep}, fn row, {s, remaining} ->
-      n = min(row["quantity"], remaining)
-
-      s =
-        if n == 0,
-          do: delete(s, "warehouse_reservations", row["id"]),
-          else: put(s, "warehouse_reservations", row["id"], %{row | "quantity" => n})
-
-      {s, remaining - n}
-    end)
-    |> elem(0)
-  end
-
-  def reserve(state, account, cmd, id, catalogue) do
-    with %{"company_id" => owner} = row <- get(state, "warehouses", cmd["warehouse"]),
-         true <- owner == account["company_id"],
-         %{"company_id" => ^owner} = ship <- get(state, "ships", cmd["ship"]),
-         %{} = item <- catalogue["goods"][cmd["good"]],
-         n when is_integer(n) and n > 0 and n <= @max_lots <- cmd["quantity"],
-         kind when kind in ["stock", "capacity"] <- cmd["kind"] do
-      w = load(state, row)
-
-      stop_id = if cmd["stop_id"] not in [nil, ""], do: cmd["stop_id"]
-      stop = stop_id && get(state, "route_stops", stop_id)
-
-      cond do
-        get(state, "companies", owner)["bankruptcy_ms"] != nil ->
-          {:error, :finance_no_company}
-
-        state.clock_ms >= w.expires_ms ->
-          {:error, :warehouse_expired}
-
-        state.clock_ms < w.protected_ms ->
-          {:error, :warehouse_handling}
-
-        not compatible?(w, item) or not CargoRules.compatible_class?(ship, item) ->
-          {:error, :incompatible_cargo}
-
-        stop_id != nil and
-            (is_nil(stop) or stop["ship_id"] != ship["id"] or stop["port"] != w.port) ->
-          {:error, :warehouse_invalid}
-
-        get(state, "warehouse_reservations", id) != nil ->
-          {:error, :warehouse_invalid}
-
-        true ->
-          r = %Reservation{
-            id: id,
-            warehouse_id: w.id,
-            company_id: owner,
-            ship_id: ship["id"],
-            good: item["id"],
-            kind: kind,
-            quantity: n,
-            created_ms: state.clock_ms,
-            stop_id: stop_id
-          }
-
-          case Warehouse.reserve(w, r, state.clock_ms, catalogue) do
-            {:ok, transition} -> {:ok, apply_transition(state, transition), %{}}
-            error -> error
-          end
-      end
-    else
-      _ -> {:error, :warehouse_invalid}
-    end
-  end
-
-  def cancel_reservation(state, account, id) do
-    case get(state, "warehouse_reservations", id) do
-      %{"company_id" => owner} = r ->
-        if owner != account["company_id"] or r["order_id"] != nil or r["auction_id"] != nil or
-             r["bid_id"] != nil or String.starts_with?(id, "linked:"),
-           do: {:error, :warehouse_invalid},
-           else: {:ok, delete(state, "warehouse_reservations", id), %{}}
-
-      _ ->
-        {:error, :warehouse_invalid}
-    end
-  end
-
-  defp consume_reservations(state, w, ship_id, good, kind, quantity),
-    do: apply_transition(state, Warehouse.consume_reservations(w, ship_id, good, kind, quantity))
-
-  defp clear_reservations(state, w),
+  def earmark_remote_fill(state, link, order, quantity, catalogue),
     do:
-      apply_transition(
+      Claims.earmark_remote_fill(
         state,
-        Warehouse.clear_reservations(%{w | reservations: reservations(state, w)})
+        fetch(state, order.warehouse_id),
+        link,
+        order,
+        quantity,
+        catalogue
       )
 
-  defp prune_reservations(state, w, _catalogue) do
-    # Only time ends a claim here: receiving space ends with the lease, and stock
-    # claims shrink to the stock that is still fresh. Ownership, stops, orders,
-    # bids and receivership release their claims in their own transitions.
-    valid_ids =
-      for r <- reservations(state, w),
-          r.kind == "stock" or state.clock_ms < w.expires_ms,
-          into: MapSet.new(),
-          do: r.id
+  defdelegate release_link_stock(state, ship, stop, good, keep \\ 0), to: Claims
 
-    transition =
-      Warehouse.prune_reservations(
-        %{w | reservations: reservations(state, w)},
-        state.clock_ms,
-        valid_ids
-      )
+  def reserve(state, account, cmd, id, catalogue),
+    do: Claims.reserve(state, fetch(state, cmd["warehouse"]), account, cmd, id, catalogue)
 
-    state
-    |> apply_transition(transition)
-    |> notify_released(w, Enum.map(transition.put, & &1.id) ++ transition.delete)
-  end
+  defdelegate cancel_reservation(state, account, id), to: Claims, as: :cancel
 
   @doc "Receivership ends every claim except the receiver's own auction lots."
   def release_insolvent_claims(state, company_id),
-    do: release_claims(state, company_id, &is_nil(&1.auction_id))
+    do: Claims.release_where(state, leases(state, company_id), &is_nil(&1.auction_id))
 
   @doc "A ship leaving its owner's fleet stops holding stock or receiving space."
   def release_ship_claims(state, ship_id) do
@@ -912,7 +751,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         state
 
       ship ->
-        release_claims(state, ship["company_id"], fn r ->
+        Claims.release_where(state, leases(state, ship["company_id"]), fn r ->
           r.ship_id == ship_id and is_nil(r.order_id) and is_nil(r.auction_id) and
             is_nil(r.bid_id)
         end)
@@ -925,41 +764,15 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   def release_stop_claims(state, company_id, stop_ids) do
     removed = MapSet.new(stop_ids)
 
-    release_claims(
+    Claims.release_where(
       state,
-      company_id,
+      leases(state, company_id),
       &(&1.stop_id != nil and MapSet.member?(removed, &1.stop_id))
     )
   end
 
-  defp release_claims(state, company_id, released?) do
-    Enum.reduce(owned(state, "warehouses", "company_id", company_id), state, fn row, s ->
-      w = load(s, row)
-
-      case for(r <- w.reservations, released?.(r), do: r.id) do
-        [] ->
-          s
-
-        ids ->
-          s
-          |> apply_transition(Warehouse.release_reservations(w, ids))
-          |> notify_released(w, Enum.reject(ids, &String.starts_with?(&1, "linked:")))
-      end
-    end)
-  end
-
-  defp notify_released(state, w, ids) do
-    account = get(state, "companies", w.company_id)["account_id"]
-
-    Enum.reduce(ids, state, fn id, s ->
-      TijaraTides.Domain.Notices.notice(
-        s,
-        account,
-        "reservation:" <> id,
-        {"warehouse.reservation_released", %{"port" => w.port}}
-      )
-    end)
-  end
+  defp leases(state, company_id),
+    do: Enum.map(owned(state, "warehouses", "company_id", company_id), &load(state, &1))
 
   defdelegate renewal_window_ms(), to: Warehouse
   defdelegate renewal_open?(w, now), to: Warehouse
@@ -1155,14 +968,10 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     if order.liquidation and not Liquidation.active?(state, order.warehouse_id),
       do: raise(ArgumentError, "Liquidation claim requires an active pool")
 
-    case Warehouse.back_order(fetch(state, order.warehouse_id), order, state.clock_ms, catalogue) do
-      {:ok, transition} -> {:ok, apply_transition(state, transition)}
-      error -> error
-    end
+    Claims.back_order(state, fetch(state, order.warehouse_id), order, catalogue)
   end
 
-  def release_trade(state, %Claim{} = order),
-    do: delete(state, "warehouse_reservations", Claim.reservation_id(order))
+  defdelegate release_trade(state, order), to: Claims
 
   def order_backed?(state, %Claim{} = order) do
     case fetch(state, order.warehouse_id) do
@@ -1190,7 +999,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         do: Warehouse.release_liquidation_cargo(lots(state), w, order, n),
         else: Warehouse.release_claim_cargo(lots(state), w, order, n)
 
-    {state |> record_lots(lots) |> save(next) |> apply_transition(transition), cargo}
+    {state |> record_lots(lots) |> save(next) |> Claims.store(transition), cargo}
   end
 
   @doc "Expired allocations follow actual occupied space without changing their snapshotted rate."
@@ -1203,21 +1012,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     save(state, %{w | blocks: blocks})
   end
 
-  def release_collection_claims(state, id) do
-    w = fetch(state, id)
-
-    reservations(state, w)
-    |> Enum.filter(&(&1.auction_id == nil))
-    |> Enum.reduce(state, fn r, s ->
-      s
-      |> delete("warehouse_reservations", r.id)
-      |> TijaraTides.Domain.Notices.notice(
-        get(s, "companies", w.company_id)["account_id"],
-        "reservation:" <> r.id,
-        {"warehouse.reservation_released", %{"port" => w.port}}
-      )
-    end)
-  end
+  def release_collection_claims(state, id),
+    do: Claims.release_collection(state, fetch(state, id))
 
   def release_liquidated(state, id) do
     w = fetch(state, id)
@@ -1262,7 +1058,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
     w = fetch(state, order.warehouse_id)
     transition = Warehouse.consume_order(w, order, n)
     next = receive_conditioned(w, cargo, state.clock_ms)
-    state |> save(next) |> apply_transition(transition)
+    state |> save(next) |> Claims.store(transition)
   end
 
   defp receive_conditioned(w, cargo, now) do
@@ -1274,14 +1070,6 @@ defmodule TijaraTides.Domain.WarehouseWorld do
         row |> CargoRows.coerce() |> TijaraTides.Domain.CargoFreshness.recondition(now, rate)
       end)
     )
-  end
-
-  defp apply_transition(state, %Transition{} = transition) do
-    state = Enum.reduce(transition.delete, state, &delete(&2, "warehouse_reservations", &1))
-
-    Enum.reduce(transition.put, state, fn r, s ->
-      put(s, "warehouse_reservations", r.id, ReservationRows.encode(r))
-    end)
   end
 
   defp lots(state),

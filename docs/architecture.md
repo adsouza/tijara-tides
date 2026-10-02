@@ -924,14 +924,15 @@ and `Services.WarehouseLiquidation` for sales coordination.
 `Services.WarehouseLeases` runs the warehouse tick phase: each lease's term in
 `WarehouseWorld`, then liquidation preparation, spoilage or receivership
 clearance, then sales. It also prepares the pool before pricing an award
-replacement. Warehouse allocation, cargo and claims remain owned by
-`WarehouseWorld`; standing fills remain owned by `Exchange`/`OrderBookWorld`, and
-auction terms/results by `AuctionWorld`. Reservation freshness is reconstructed
-from the auction's immutable expiry. The pure warehouse model computes virtual
-FEFO allocations before releasing actual batches, so cancelled lower-grade lots
-cannot consume stock promised to another auction. Proceeds use existing reserved
-cash until the pool completes; all stages share the existing `CommitExecutor`
-transaction and ledger checks.
+replacement. Warehouse allocation and cargo remain owned by `WarehouseWorld`, and
+claims by its lower layer `WarehouseWorld.Claims`, which receives loaded leases
+and never calls back into the root; standing fills remain owned by
+`Exchange`/`OrderBookWorld`, and auction terms/results by `AuctionWorld`.
+Reservation freshness is reconstructed from the auction's immutable expiry. The
+pure warehouse model computes virtual FEFO allocations before releasing actual
+batches, so cancelled lower-grade lots cannot consume stock promised to another
+auction. Proceeds use existing reserved cash until the pool completes; all stages
+share the existing `CommitExecutor` transaction and ledger checks.
 
 ## Automation reservation ownership
 

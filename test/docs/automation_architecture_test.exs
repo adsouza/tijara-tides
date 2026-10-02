@@ -94,6 +94,8 @@ defmodule TijaraTides.AutomationArchitectureTest do
     reachable = project_dependencies(ShipWorld, MapSet.new())
     refute ShipWorld in reachable
     refute Fleet in dependencies(WarehouseWorld)
+    # Claims are the lower layer of the warehouse aggregate: leases are passed in.
+    refute WarehouseWorld in dependencies(WarehouseWorld.Claims)
   end
 
   defp project_dependencies(module, visited), do: walk_dependencies([module], visited, [])

@@ -5,7 +5,8 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
     for {root, owned} <- [
           {"auction_world", ~w(auctions auction_bids)},
           {"order_book_world", ~w(exchange_orders exchange_trades)},
-          {"warehouse_world", ~w(warehouses warehouse_reservations)},
+          {"warehouse_world", ~w(warehouses)},
+          {"warehouse_world/claims", ~w(warehouse_reservations)},
           {"warehouse_liquidation_world", ~w(warehouse_liquidations)},
           {"automation_world", ~w(remote_links visit_budgets departure_requests)},
           {"weather_world", ~w(weather)},

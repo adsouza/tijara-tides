@@ -13,7 +13,7 @@ defmodule TijaraTides.Domain.Services.WarehouseLeases do
   end
 
   defp advance_lease(state, id, catalogue) do
-    state = WarehouseWorld.advance_term(state, id, catalogue)
+    state = WarehouseWorld.advance_term(state, id)
     state = WarehouseLiquidation.prepare(state, WarehouseWorld.fetch(state, id), catalogue)
     state = WarehouseWorld.settle_term(state, id, catalogue)
 
