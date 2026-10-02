@@ -292,8 +292,7 @@ defmodule TijaraTidesWeb.GameLive do
       |> Map.update("min_grade", nil, &report_number/1)
       |> then(fn cmd ->
         if params["freshness_minutes"] not in [nil, ""],
-          do:
-            Map.put(cmd, "min_remaining_ms", report_number(params["freshness_minutes"]) * 60_000),
+          do: Map.put(cmd, "min_remaining_ms", freshness_minimum(params)),
           else: cmd
       end)
       |> then(fn cmd ->
@@ -344,7 +343,7 @@ defmodule TijaraTidesWeb.GameLive do
           Map.put(
             command,
             "expires_ms",
-            socket.assigns.view.public["clock_ms"] + report_number(value) * 60_000
+            socket.assigns.view.public["clock_ms"] + (report_number(value) || -1) * 60_000
           )
       end
 

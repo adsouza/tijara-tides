@@ -5077,6 +5077,78 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "malformed exchange minute input rejects the command without crashing its LiveView", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "input-company",
+        %{"action" => "company", "name" => "Input", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    state = :sys.get_state(c.server).game
+
+    price =
+      TijaraTides.Domain.Warehouse.quote(
+        TijaraTides.Domain.WarehouseWorld.used(state, "Jakarta", "reefer"),
+        "reefer",
+        1,
+        1
+      )
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "input-lease",
+        %{
+          "action" => "warehouse_lease",
+          "port" => "Jakarta",
+          "storage" => "reefer",
+          "blocks" => 1,
+          "days" => 1,
+          "price" => price
+        },
+        c.server
+      )
+
+    [warehouse] = Map.keys(:sys.get_state(c.server).game.entities["warehouses"])
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+
+    params = %{
+      "action" => "exchange_place",
+      "warehouse" => warehouse,
+      "good" => "fruit",
+      "side" => "buy",
+      "quantity" => "1",
+      "price" => "0.01",
+      "min_grade" => "0"
+    }
+
+    original = :sys.get_state(c.server).game.entities["exchange_orders"]
+
+    for invalid <- ["bad", "99999999999999", [], %{}, false] do
+      render_hook(view, "exchange", Map.put(params, "freshness_minutes", invalid))
+      assert Process.alive?(view.pid)
+      assert render(view) =~ "freshness"
+      assert :sys.get_state(c.server).game.entities["exchange_orders"] == original
+    end
+
+    render_hook(view, "exchange", Map.put(params, "minutes", "bad"))
+    assert Process.alive?(view.pid)
+    assert :sys.get_state(c.server).game.entities["exchange_orders"] == original
+    render_hook(view, "exchange", Map.put(params, "freshness_minutes", "1"))
+    [order] = Map.values(:sys.get_state(c.server).game.entities["exchange_orders"])
+    assert order["min_remaining_ms"] == 60_000
+  end
+
   test "late perishable liquidation settlement commits once and survives reload", c do
     alias TijaraTides.Domain.{
       State,
