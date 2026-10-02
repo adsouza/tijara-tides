@@ -175,9 +175,6 @@ msgstr "متاح في مرحلة لاحقة من تطوير السوق"
 msgid "Available invitations: %{value1}"
 msgstr "الدعوات المتاحة: %{value1}"
 
-msgid "Available invitations: 0"
-msgstr "الدعوات المتاحة: 0"
-
 msgid "Average capital employed"
 msgstr "متوسط رأس المال المستخدم"
 
@@ -2576,28 +2573,12 @@ msgid "Onward to %{port}"
 msgstr "المتابعة إلى %{port}"
 
 #, elixir-autogen, elixir-format
-msgid "Next invitation in %{time} of active-world time (hours:minutes:seconds), if your company stays active and solvent."
-msgstr "دعوتك التالية بعد %{time} من وقت العالم النشط (ساعات:دقائق:ثوانٍ)، إذا واصلت شركتك النشاط والوفاء بالتزاماتها المالية."
-
-#, elixir-autogen, elixir-format
 msgid "Invitation earning is paused while your account is suspended."
 msgstr "توقّف اكتساب الدعوات مؤقتًا أثناء تعليق حسابك."
 
 #, elixir-autogen, elixir-format
-msgid "Form a company and complete an economic action worth at least $100. A new invitation takes two days of active, solvent operation."
-msgstr "أنشئ شركة وأكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل. يستغرق اكتساب دعوة جديدة يومين من النشاط مع الوفاء بالالتزامات المالية."
-
-#, elixir-autogen, elixir-format
-msgid "Clear unpaid bills and loan arrears to resume earning. A new invitation takes two days of active, solvent operation."
-msgstr "سدّد الفواتير غير المدفوعة ومتأخرات القروض لاستئناف اكتساب الدعوات. يستغرق اكتساب دعوة جديدة يومين من النشاط مع الوفاء بالالتزامات المالية."
-
-#, elixir-autogen, elixir-format
 msgid "Invitation earning resumes when an outstanding invitation is accepted. Unused invitations return on expiry."
 msgstr "يُستأنف اكتساب الدعوات عندما تُقبل دعوة معلّقة. تعود الدعوات غير المستخدمة عند انتهاء صلاحيتها."
-
-#, elixir-autogen, elixir-format
-msgid "Complete an economic action worth at least $100 to start earning. A new invitation takes two days of active, solvent operation."
-msgstr "أكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل لبدء اكتساب الدعوات. يستغرق اكتساب دعوة جديدة يومين من النشاط مع الوفاء بالالتزامات المالية."
 
 #, elixir-autogen, elixir-format
 msgid "An unused invitation returns in %{time} of active-world time (hours:minutes:seconds), unless accepted first."
@@ -2742,6 +2723,21 @@ msgstr "ميزانية شراء مسبقة في %{port} ($، اختيارية)"
 
 msgid "Automatic departure funding policy"
 msgstr "سياسة تمويل الإبحار التلقائي"
+
+msgid "How these policies work"
+msgstr "كيف تعمل هذه السياسات"
+
+msgid "Choose what happens when fuel and canal fees can be funded, but the full configured purchase budget cannot."
+msgstr "اختر ما يحدث عندما يتوفر تمويل الوقود ورسوم القنوات، ولا يتوفر كامل ميزانية الشراء المحددة."
+
+msgid "Keep the ship in port until fuel, canal fees and the full purchase budget are available. This preserves the planned buying capacity, but delays deliveries. The ship retries automatically; you are notified when it is blocked and when it departs."
+msgstr "أبقِ السفينة في الميناء حتى يتوفر تمويل الوقود ورسوم القنوات وكامل ميزانية الشراء. يحافظ ذلك على القدرة الشرائية المخطط لها، لكنه يؤخر تسليم البضائع. تعيد السفينة المحاولة تلقائياً؛ ويصلك إشعار عندما يتعذر إبحارها وعندما تبحر."
+
+msgid "Fund fuel and canal fees, then reserve the remaining cash for purchases, up to the configured budget. The ship keeps moving, but may buy less or nothing. Its purchase budget is not automatically topped up at arrival."
+msgstr "موّل الوقود ورسوم القنوات، ثم احجز النقد المتبقي للمشتريات بما لا يتجاوز الميزانية المحددة. تواصل السفينة رحلتها، لكنها قد تشتري كمية أقل أو لا تشتري شيئاً. لا تُزاد ميزانية الشراء تلقائياً عند الوصول."
+
+msgid "Fund fuel and canal fees and sail without new purchases for that visit. This preserves cash and avoids waiting for a purchase budget, but leaves buying targets unfilled. Unfilled remote buy orders linked to the visit are cancelled; completed fills remain available for collection."
+msgstr "موّل الوقود ورسوم القنوات وأبحر دون مشتريات جديدة خلال هذه الزيارة. يحافظ ذلك على النقد ويجنب الانتظار لتوفير ميزانية شراء، لكنه يترك أهداف الشراء غير مكتملة. تُلغى الأجزاء غير المنفذة من أوامر الشراء البعيدة المرتبطة بالزيارة؛ وتبقى المشتريات المنفذة متاحة للاستلام."
 
 msgid "Choose a valid departure funding policy."
 msgstr "اختر سياسة تمويل إبحار صالحة."
@@ -2935,3 +2931,43 @@ msgstr "تأخير الطقس المعروف: %{minutes} دقيقة؛ مشمول
 
 msgid "Company is in receivership"
 msgstr "الشركة تحت الحراسة القضائية"
+
+#, elixir-autogen, elixir-format
+msgid "Next invitation"
+msgstr "الدعوة التالية"
+
+#, elixir-autogen, elixir-format
+msgid "Active-world time remaining (hours:minutes:seconds)"
+msgstr "وقت العالم النشط المتبقي (ساعات:دقائق:ثوانٍ)"
+
+#, elixir-autogen, elixir-format
+msgid "Earning"
+msgstr "جارٍ اكتساب الدعوة"
+
+#, elixir-autogen, elixir-format
+msgid "Not earning yet"
+msgstr "لم يبدأ اكتساب الدعوة بعد"
+
+#, elixir-autogen, elixir-format
+msgid "Paused"
+msgstr "متوقف مؤقتًا"
+
+#, elixir-autogen, elixir-format
+msgid "Hours:minutes:seconds of active-world time. Pauses while the world is stopped."
+msgstr "ساعات:دقائق:ثوانٍ من وقت العالم النشط. يتوقف العد التنازلي أثناء توقف العالم."
+
+#, elixir-autogen, elixir-format
+msgid "Counts down while your company stays active and solvent."
+msgstr "يتناقص الوقت ما دامت شركتك نشطة وتفي بالتزاماتها المالية."
+
+#, elixir-autogen, elixir-format
+msgid "Form a company and complete an economic action worth at least $100 to start earning."
+msgstr "أنشئ شركة وأكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل لبدء اكتساب الدعوات."
+
+#, elixir-autogen, elixir-format
+msgid "Clear unpaid bills and loan arrears to resume earning. Progress restarts from two days."
+msgstr "سدّد الفواتير غير المدفوعة ومتأخرات القروض لاستئناف اكتساب الدعوات. يبدأ العد مجددًا من يومين."
+
+#, elixir-autogen, elixir-format
+msgid "Complete an economic action worth at least $100 to start earning."
+msgstr "أكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل لبدء اكتساب الدعوات."

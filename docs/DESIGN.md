@@ -139,11 +139,14 @@ retroactive awards. Earned invitation entitlements belong to the inviter and
 cannot be transferred between accounts.
 Each earned grant notifies its owner and points them to the account menu to send
 the invitation. The notice commits with the grant and is not repeated by retries.
-When no invitations are available, the account menu shows the remaining
-active-world earning time or the action needed to resume earning, and the earliest
-unused invitation expiry, before email verification. Earning estimates assume
-continued active, solvent operation; expiry estimates assume the invitation
-remains unused. World pauses preserve both countdowns.
+The account menu always shows a prominent hours:minutes:seconds countdown to the
+next earned invitation, including before email verification and while available
+invitations remain. Show whether it is earning, not yet earning or paused, with
+the action needed to start or resume. Blocked states show the full two-day earning
+requirement rather than a running deadline. Also show the earliest unused
+invitation expiry. Earning estimates assume continued active, solvent operation;
+expiry estimates assume the invitation remains unused. World pauses preserve
+both countdowns.
 The resulting invite codes can be shared with prospective players. Invitations
 expire if unused, and each account holds only a small number
 outstanding, so they cannot be hoarded and released as a coordinated wave of
@@ -1762,6 +1765,12 @@ for collection because the ship still visits that stop. Do not cancel unrelated
 warehouse orders. Apply the cancellation once for that visit; cash it releases
 does not silently reverse the decision to skip purchases. Fully fund fuel before
 departure.
+
+The fleet's policy selector has a collapsed disclosure explaining the trade-offs
+between waiting for the full budget, departing with a strict reduced budget and
+skipping new purchases. Include the global scope, full fuel funding and owned
+cargo delivery/collection guidance inside that disclosure. Preserve its open
+state through live updates.
 
 Remote buy orders may optionally be linked to a particular ship collection stop.
 Filled goods from a linked order count toward that stop's loading target and are

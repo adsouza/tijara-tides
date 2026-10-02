@@ -201,11 +201,49 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             </label>
             <button class="rounded border px-3 py-2">{gettext("Save policy")}</button>
           </.form>
-          <p class="mb-3 text-xs text-slate-400">
-            {gettext(
-              "This policy applies to all automatic departures. Fuel is always fully funded. Reduced budgets stay strict at arrival; skipped visits can still deliver and collect owned cargo."
-            )}
-          </p>
+          <details
+            id="departure-funding-help"
+            phx-mounted={JS.ignore_attributes("open")}
+            class="mb-3 text-sm text-slate-400"
+          >
+            <summary class="cursor-pointer">{gettext("How these policies work")}</summary>
+            <p class="my-2">
+              {gettext(
+                "Choose what happens when fuel and canal fees can be funded, but the full configured purchase budget cannot."
+              )}
+            </p>
+            <dl class="space-y-2">
+              <div>
+                <dt class="font-semibold">{gettext("Wait and notify")}</dt>
+                <dd>
+                  {gettext(
+                    "Keep the ship in port until fuel, canal fees and the full purchase budget are available. This preserves the planned buying capacity, but delays deliveries. The ship retries automatically; you are notified when it is blocked and when it departs."
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt class="font-semibold">{gettext("Sail with a reduced budget")}</dt>
+                <dd>
+                  {gettext(
+                    "Fund fuel and canal fees, then reserve the remaining cash for purchases, up to the configured budget. The ship keeps moving, but may buy less or nothing. Its purchase budget is not automatically topped up at arrival."
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt class="font-semibold">{gettext("Skip purchases")}</dt>
+                <dd>
+                  {gettext(
+                    "Fund fuel and canal fees and sail without new purchases for that visit. This preserves cash and avoids waiting for a purchase budget, but leaves buying targets unfilled. Unfilled remote buy orders linked to the visit are cancelled; completed fills remain available for collection."
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <p class="my-2">
+              {gettext(
+                "This policy applies to all automatic departures. Fuel is always fully funded. Reduced budgets stay strict at arrival; skipped visits can still deliver and collect owned cargo."
+              )}
+            </p>
+          </details>
           <form id="fleet-filter" phx-change="fleet-status" class="mb-3 text-sm">
             <label for="fleet-status">{gettext("Ship status")}</label>
             <select

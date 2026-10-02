@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 148
+Heuristic requirement sentences in DESIGN.md at generation: 151
 
 ## Screens
 
@@ -56,7 +56,7 @@ told after the fact, without being asked to approve it.
 
 | # | Requirement | Section | Kind | Screen |
 |---|-------------|---------|------|--------|
-| 147 | When no invitations are available, the account menu shows the remaining active-world earning time or the action needed to resume earning, and the earliest unused invitation expiry, before email verification. | 2 | display | Company and account |
+| 147 | The account menu always shows a prominent hours:minutes:seconds countdown to the next earned invitation, including before email verification and while available invitations remain. | 2 | display | Company and account |
 | 146 | Each earned grant notifies its owner and points them to the account menu to send the invitation. | 2 | notification | Notifications |
 | 141 | The Ports column includes a collapsed Warehouses disclosure whose open state survives live updates. | 11 | display | Port panel |
 | 145 | The Ports column provides a collapsed Luxury auctions disclosure with scheduled | 7 | input | Auction house |

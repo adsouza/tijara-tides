@@ -132,17 +132,14 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             </div>
           </section>
           <.expectation
-            :if={@view.private["account"]["invite_quota"] < 1}
             forecast={@view.private["invitation_forecast"]}
+            available={@view.private["account"]["invite_quota"]}
           />
           <section
             :if={@view.private["account"]["email"]}
             id="invitations"
             class="my-4 space-y-2"
           >
-            <h2 :if={@view.private["account"]["invite_quota"] > 0} class="text-xl">
-              <.emoji symbol="🎟️" />{gettext("Invitations")}
-            </h2>
             <p class="text-sm text-slate-400">
               {gettext(
                 "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
@@ -153,11 +150,6 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               class="flex flex-wrap items-end gap-3"
             >
               <div class="min-w-0 flex-[1_1_16rem] space-y-1">
-                <p>
-                  {gettext("Available invitations: %{value1}",
-                    value1: @view.private["account"]["invite_quota"]
-                  )}
-                </p>
                 <.form
                   :if={Application.get_env(:tijara_tides, :email_enabled, false)}
                   for={%{}}
@@ -535,6 +527,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
   end
 
   attr :forecast, :map, required: true
+  attr :available, :integer, default: 0
 
   def expectation(assigns) do
     assigns =
@@ -547,7 +540,33 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
     ~H"""
     <section id="invitation-expectation" class="my-4 space-y-2">
       <h2 class="text-xl"><.emoji symbol="🎟️" />{gettext("Invitations")}</h2>
-      <p>{gettext("Available invitations: 0")}</p>
+      <p>{gettext("Available invitations: %{value1}", value1: display_number(@available))}</p>
+      <div :if={@forecast["remaining_ms"] != nil} class="rounded border border-slate-600 p-3">
+        <p class="text-sm">{gettext("Next invitation")}</p>
+        <div class="my-1 flex flex-wrap items-center gap-3">
+          <span
+            id="invitation-countdown"
+            role="timer"
+            aria-live="off"
+            aria-label={gettext("Active-world time remaining (hours:minutes:seconds)")}
+            dir="ltr"
+            class="text-2xl font-semibold tabular-nums"
+          >{active_countdown(@forecast["remaining_ms"])}</span>
+          <span class="text-sm text-slate-400">
+            <%= case @forecast["status"] do %>
+              <% "earning" -> %>
+                {gettext("Earning")}
+              <% status when status in ["inactive", "no_company"] -> %>
+                {gettext("Not earning yet")}
+              <% _ -> %>
+                {gettext("Paused")}
+            <% end %>
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">
+          {gettext("Hours:minutes:seconds of active-world time. Pauses while the world is stopped.")}
+        </p>
+      </div>
       <p class="text-sm text-slate-400">{invitation_expectation(@forecast)}</p>
       <p :if={@forecast["refund_ms"] != nil} class="text-sm text-slate-400">
         {gettext(
