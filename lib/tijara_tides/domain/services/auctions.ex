@@ -251,15 +251,22 @@ defmodule TijaraTides.Domain.Services.Auctions do
                do: WarehouseWorld.estate_cover(s, a.warehouse_id, a.closes_ms),
                else: s
 
+          # A late tick settles liquidation sales at their disclosed close. The
+          # buyer's storage then ages that cargo through the remaining tick.
+          settlement =
+            if a.liquidation_id && a.expires_ms && s.clock_ms >= a.closes_ms,
+              do: %{s | clock_ms: a.closes_ms},
+              else: s
+
           cond do
             a.company_id &&
-                (not seller_backed?(s, a) or
+                (not seller_backed?(settlement, a) or
                    (not live?(s, a.company_id) and s.clock_ms < a.opens_ms and
                       not Estates.estate?(s, a.company_id))) ->
               cancel(s, a)
 
             s.clock_ms >= a.closes_ms ->
-              close(s, a, cat)
+              close(settlement, a, cat) |> Map.put(:clock_ms, s.clock_ms)
 
             true ->
               Enum.reduce(AuctionWorld.bids(s, a.id), s, fn b, s ->

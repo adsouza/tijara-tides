@@ -122,6 +122,46 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
       Auctions.reconcile(%{s | clock_ms: clock}, c.catalogue)
       |> WarehouseWorld.advance(c.catalogue)
 
+  test "late ticks settle perishable liquidation at the close before aging in the buyer's storage",
+       c do
+    cat = Map.put(c.catalogue, "warehouse_liquidation", %{"window_ms" => 10_000})
+    c = %{c | catalogue: cat}
+    expiry = @grace + 11_001
+
+    s =
+      lease(c, c.state, "source")
+      |> then(&lease(c, &1, "buyer", "b", 10, "reefer", 3))
+      |> stock("source", [{"fruit", 2, expiry, 100}])
+      |> then(&advance(c, &1, @grace))
+
+    [a] = auctions(s, "source")
+    assert a.closes_ms < expiry
+    s = %{s | clock_ms: a.opens_ms}
+
+    {:ok, s, _} =
+      Auctions.bid(
+        s,
+        State.get(s, "accounts", "b"),
+        %{"auction" => a.id, "warehouse" => "buyer", "price" => 10_000},
+        "winning",
+        cat
+      )
+
+    late = a.closes_ms + 2000
+    assert late > expiry
+    sold = Game.advance(s, late - s.clock_ms, cat)
+    assert AuctionWorld.fetch(sold, a.id).status == "sold"
+    assert AuctionWorld.fetch(sold, a.id).winner_id == "bco"
+    cargo = State.get(sold, "warehouses", "award:" <> a.id)["cargo"]
+    assert Enum.sum(for b <- cargo, do: b["quantity"]) == 2
+    assert hd(cargo)["expires_ms"] == a.closes_ms + 4 * (expiry - a.closes_ms)
+    assert WarehouseLiquidation.pool(sold, "source")["status"] == "completed"
+    assert Game.advance(sold, 0, cat).entities == sold.entities
+    spoiled = Game.advance(sold, hd(cargo)["expires_ms"] - late, cat)
+    assert State.get(spoiled, "warehouses", "award:" <> a.id)["cargo"] == []
+    assert Game.advance(spoiled, 0, cat).entities == spoiled.entities
+  end
+
   test "buy orders fill in price/time priority before auctions and receiving cargo survives the same tick",
        c do
     s =
@@ -507,7 +547,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     assert WarehouseLiquidation.pool(s, "cold")["status"] == "completed"
   end
 
-  test "a late close does not replace a promised fresh lot with leftovers from a cancelled lot",
+  test "a late close preserves the promised fresh lot when an earlier lot settles unsold",
        c do
     s =
       lease(c, c.state, "cold", "a", 176, "reefer")
@@ -532,7 +572,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
       )
 
     s = close(c, s, @grace + 14_000_000)
-    assert AuctionWorld.fetch(s, first.id).status == "cancelled"
+    assert AuctionWorld.fetch(s, first.id).status == "unsold"
     assert AuctionWorld.fetch(s, second.id).status == "sold"
     [cargo] = State.get(s, "warehouses", "award:" <> second.id)["cargo"]
     assert cargo["freshness"]["origin_expires_ms"] == @grace + 20_000_000

@@ -5077,6 +5077,150 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "late perishable liquidation settlement commits once and survives reload", c do
+    alias TijaraTides.Domain.{
+      State,
+      Warehouse,
+      WarehouseWorld,
+      CargoLots,
+      CompanyFinanceWorld,
+      AuctionWorld
+    }
+
+    alias TijaraTides.Domain.Services.{Auctions, WarehouseLiquidation}
+    alias TijaraTides.Infrastructure.Persistence.{CommandStore, FinancialLedger}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "late-seller",
+        %{
+          "action" => "company",
+          "name" => "Late seller",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    {:ok, code} = GameServer.seed(c.server)
+    {:ok, %{"session" => buyer_token}} = GameServer.redeem(code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        buyer_token,
+        "late-buyer",
+        %{
+          "action" => "company",
+          "name" => "Late buyer",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    before = :sys.get_state(c.server).game
+
+    cat =
+      Map.put(:sys.get_state(c.server).catalogue, "warehouse_liquidation", %{
+        "window_ms" => 10_000
+      })
+
+    seller = GameServer.snapshot(token, c.server).private["account"]
+    buyer = GameServer.snapshot(buyer_token, c.server).private["account"]
+    next = Map.put(before, :lot_allocation, CommandStore.allocate_lot_ids(%{repo: Repo}, 16))
+
+    next =
+      Enum.reduce(
+        [{seller, "late-source", "dry", 1}, {buyer, "late-receiver", "reefer", 3}],
+        next,
+        fn {account, id, storage, days}, state ->
+          {:ok, state, _} =
+            WarehouseWorld.lease(
+              state,
+              account,
+              %{
+                "port" => "Jakarta",
+                "storage" => storage,
+                "blocks" => 2,
+                "days" => days,
+                "price" =>
+                  Warehouse.quote(
+                    WarehouseWorld.used(state, "Jakarta", storage),
+                    storage,
+                    2,
+                    days
+                  )
+              },
+              id,
+              cat
+            )
+
+          state
+        end
+      )
+
+    w = State.get(next, "warehouses", "late-source")
+    grace = w["expires_ms"] + w["grace_ms"]
+    expiry = grace + 11_001
+    {next, lot} = CargoLots.create(next, "fruit", 2, expiry)
+
+    next =
+      State.put(next, "warehouses", w["id"], %{
+        w
+        | "cargo" => [Map.merge(lot, %{"good" => "fruit", "unit_cost" => 100})]
+      })
+      |> CompanyFinanceWorld.post(seller["company_id"], "purchase", [
+        {"inventory", 200},
+        {"cash_available", -200}
+      ])
+
+    market = State.get(next, "markets", "Jakarta|fruit")
+
+    next =
+      State.put(next, "markets", "Jakarta|fruit", %{
+        market
+        | "demand" => 0,
+          "stock" => 0,
+          "batches" => []
+      })
+
+    next = WarehouseWorld.advance(%{next | clock_ms: grace}, cat)
+    [a] = Enum.filter(AuctionWorld.all(next), &(&1.liquidation_id == w["id"]))
+
+    {:ok, next, _} =
+      Auctions.bid(
+        %{next | clock_ms: a.opens_ms},
+        buyer,
+        %{"auction" => a.id, "warehouse" => "late-receiver", "price" => 10_000},
+        "late-winning",
+        cat
+      )
+
+    next = %{next | revision: before.revision + 1}
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)
+    late = a.closes_ms + 2000
+
+    settled =
+      Game.advance(
+        Map.put(restored, :lot_allocation, CommandStore.allocate_lot_ids(%{repo: Repo}, 1024)),
+        late - restored.clock_ms,
+        cat
+      )
+      |> Map.put(:revision, restored.revision + 1)
+
+    assert AuctionWorld.fetch(settled, a.id).status == "sold"
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, settled)
+    assert {:ok, final} = GameStore.reload(Repo, c.world_id, settled)
+    [cargo] = State.get(final, "warehouses", "award:" <> a.id)["cargo"]
+    assert cargo["expires_ms"] == a.closes_ms + 4 * (expiry - a.closes_ms)
+    assert WarehouseLiquidation.pool(final, w["id"])["status"] == "completed"
+    assert Game.advance(final, 0, cat).entities == final.entities
+    assert :ok = FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "refrigerated partial transfers preserve biological age and lot lineage across reload",
        c do
     alias TijaraTides.Domain.{
