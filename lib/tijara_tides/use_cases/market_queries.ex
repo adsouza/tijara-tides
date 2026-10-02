@@ -1,6 +1,6 @@
 defmodule TijaraTides.UseCases.MarketQueries do
   @moduledoc "Pure market comparisons, cargo projections and trade estimates."
-  alias TijaraTides.Domain.{Fleet, Trading, CargoRules}
+  alias TijaraTides.Domain.{Fleet, Trading, CargoRules, Ship}
   import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2]
 
   @doc "Read-only market spreads for choosing a destination; quantities are market availability, not executable orders."
@@ -107,7 +107,7 @@ defmodule TijaraTides.UseCases.MarketQueries do
         end)
 
       lots = capacity - remaining
-      proceeds = lots * (buyer["bid"] - buyer["handling_fee"])
+      proceeds = Trading.sale_proceeds(buyer, lots)
 
       if lots > 0 do
         %{
@@ -135,8 +135,7 @@ defmodule TijaraTides.UseCases.MarketQueries do
     end
   end
 
-  defp buyer_capacity(%{"manual" => true} = buyer),
-    do: min(buyer["demand"], div(buyer["buyer_budget"], max(1, buyer["bid"])))
+  defp buyer_capacity(%{"manual" => true} = buyer), do: Trading.sale_capacity(buyer)
 
   defp buyer_capacity(_), do: 0
 
@@ -187,12 +186,17 @@ defmodule TijaraTides.UseCases.MarketQueries do
             unloading_upkeep =
               Enum.sum(
                 Enum.map(fleet, fn s ->
-                  div(handling * definitions.classes[s["class"]]["crew"] * 2 + 119_999, 120_000) +
+                  sailing =
+                    if s["status"] == "sailing" and s["id"] != ship["id"],
+                      do: Fleet.moving_time(s, arrival, arrival + handling),
+                      else: 0
+
+                  Ship.crew_estimate(s, sailing, handling - sailing) +
                     Fleet.maintenance_estimate(s, arrival, arrival + handling)
                 end)
               )
 
-            lots * (buyer["bid"] - buyer["handling_fee"]) -
+            Trading.sale_proceeds(buyer, lots) -
               Trading.purchase_total(source, ship, item, lots) - voyage["required"] -
               unloading_upkeep
           end
@@ -236,10 +240,21 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
   def trade_limits(view, ship, destination, catalogue) do
     if ship && ship["status"] in ["docked", "loading", "unloading"] && view.private do
-      space = Fleet.capacity(ship, catalogue)
-      class = Fleet.classes()[ship["class"]]
-      company = view.private["company"]
-      cash = company["cash"] - company["reserved"]
+      private = view.private
+
+      # The purchase command's own funding terms, including this visit's budget.
+      terms =
+        Trading.purchasing_terms(
+          private["company"],
+          Trading.current_budget(
+            Map.values(private["visit_budgets"] || %{}),
+            private["ship_routes"] || %{},
+            private["route_stops"] || %{},
+            ship,
+            ship["port"]
+          ),
+          ship
+        )
 
       Map.new(
         for {good, item} <- catalogue["goods"], side <- ["buy", "sell"] do
@@ -247,7 +262,7 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
           limit =
             cond do
-              !q["manual"] ->
+              !q["manual"] or Trading.trade_admission(ship, side) != :ok ->
                 0
 
               side == "sell" ->
@@ -256,22 +271,16 @@ defmodule TijaraTides.UseCases.MarketQueries do
                     for batch <- ship["cargo"], batch["good"] == good, do: batch["quantity"]
                   )
 
-                Enum.min([10_000, aboard, q["demand"], div(q["buyer_budget"], max(1, q["bid"]))])
+                Enum.min([CargoRules.max_lots(), aboard, Trading.sale_capacity(q)])
 
-              company["unpaid"] > 0 || !CargoRules.compatible_cargo?(ship, item) ->
+              terms.blocked || !CargoRules.compatible_cargo?(ship, item) ->
                 0
 
               true ->
                 capacity =
-                  max(
-                    0,
-                    Enum.min([
-                      10_000,
-                      q["stock"],
-                      div(class["weight"] - space.weight, item["weight_kg"]),
-                      div(class["volume"] - space.volume, item["volume_l"])
-                    ])
-                  )
+                  Trading.purchase_limits(q, ship, item, view.public["clock_ms"], 0, catalogue)
+                  |> Map.values()
+                  |> Enum.min()
 
                 largest_trade(0, capacity, fn quantity ->
                   voyage =
@@ -286,7 +295,11 @@ defmodule TijaraTides.UseCases.MarketQueries do
                     )
 
                   voyage &&
-                    Trading.purchase_total(q, ship, item, quantity) + voyage["required"] <= cash
+                    Trading.purchase_shortfall(
+                      terms,
+                      Trading.purchase_total(q, ship, item, quantity),
+                      voyage["required"]
+                    ) == nil
                 end)
             end
 
@@ -320,11 +333,15 @@ defmodule TijaraTides.UseCases.MarketQueries do
         catalogue
       )
 
-  def handling_time(quote, quantity),
+  @doc "Displayed handling time, including tank cleaning when a purchase would charge it."
+  def handling_time(quote, quantity, ship, item, side),
     do:
-      CargoRules.handling_ms(
-        quantity,
-        quote["handling_profile"] || CargoRules.handling_profile(nil, nil, %{})
+      CargoRules.loading_ms(
+        CargoRules.handling_ms(
+          quantity,
+          quote["handling_profile"] || CargoRules.handling_profile(nil, nil, %{})
+        ),
+        if(side == "buy", do: CargoRules.cleaning_cost(ship["last_liquid"], item), else: 0)
       )
 
   def port_handling(catalogue, port),

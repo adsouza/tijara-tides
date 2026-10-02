@@ -1196,7 +1196,16 @@ expired, foreign, wrong-port and incompatible storage never become receiving
 options merely because a component renders their rows. Warehouse transfer and
 reservation offers likewise come from `Warehouse.transfer_limits` and
 `Warehouse.reservation_limit`, the limits the transfer and reserve commands
-enforce, so an offered quantity never exceeds what those commands accept.
+enforce, so an offered quantity never exceeds what those commands accept. Trade
+offers and voyage plans follow the same rule: `Trading.purchase_limits`,
+`Trading.purchasing_terms` and `Trading.purchase_shortfall` (with the visit
+budget found by `Trading.current_budget`), `Trading.voyage_requirement`,
+`Trading.purchased_cargo`, `Ship.trade_admission`,
+`PortCargoMarket.sale_capacity` and `sale_proceeds`, `CargoRules.loading_ms`
+and `cleaning_cost`, and `Ship.crew_estimate` are called by both the commands
+and the queries. Contract tests in `test/tijara_tides/use_cases/` check that an
+offered or planned quantity is accepted and one more is refused, and that a
+planned sale still succeeds on arrival.
 
 `LiquidationPool`, `VisitBudget`, `DepartureRequest` and `RemoteLink` are pure
 typed models. They own accrual, exact clearance remainders, reservation resizing

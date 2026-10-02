@@ -6,6 +6,7 @@ defmodule TijaraTides.Domain.Fleet do
   import TijaraTides.Domain.State
   @voyage_speedup 600
   @minimum_voyage_ms 6_000
+  @max_voyage_ms 86_400_000
 
   @useful_life_ms ShipMaintenance.useful_life_ms()
   @residual_bps ShipMaintenance.residual_bps()
@@ -15,6 +16,9 @@ defmodule TijaraTides.Domain.Fleet do
   defdelegate maintenance_estimate(ship, from_ms, to_ms), to: ShipMaintenance, as: :estimate
   defdelegate maintenance_forecast(ship, now), to: ShipMaintenance, as: :forecast
   defdelegate maintenance_curve(), to: ShipMaintenance, as: :curve
+
+  @doc "The longest voyage a ship may begin; departures, purchases and planners share it."
+  def max_voyage_ms, do: @max_voyage_ms
 
   def sale_value(ship, now) do
     basis = ship["acquisition_value"] || ship["build_value"] || ship["book_value"]
@@ -286,7 +290,7 @@ defmodule TijaraTides.Domain.Fleet do
          true <- ship["status"] == "sailing",
          %{} = quote <- reroute_quote(ship, destination, state.clock_ms, catalogue),
          true <- is_integer(limit) and limit >= quote["fuel"],
-         true <- quote["duration_ms"] <= 86_400_000 do
+         true <- quote["duration_ms"] <= @max_voyage_ms do
       delta = quote["fuel"] - (ship["fuel_total"] - ship["fuel_burned"])
 
       if company["cash"] - company["reserved"] < delta + quote["canal_fees"] or
@@ -395,7 +399,7 @@ defmodule TijaraTides.Domain.Fleet do
       limit < estimate["fuel"] ->
         {:error, {:departure_fuel_limit, estimate["fuel"], limit}}
 
-      estimate["duration_ms"] > 86_400_000 ->
+      estimate["duration_ms"] > @max_voyage_ms ->
         {:error, {:departure_too_long, estimate["duration_ms"]}}
 
       company["unpaid"] > 0 ->

@@ -73,11 +73,7 @@ defmodule TijaraTides.Domain.Warehouse do
 
   def receiving_allowed?(%__MODULE__{}, _company, _port, _item, _now), do: false
 
-  def cleaning_cost(last_liquid, item) do
-    if item["hold"] == "liquid" and last_liquid not in [nil, item["id"]],
-      do: if("vegetable_oil" in [last_liquid, item["id"]], do: 25_000, else: 5000),
-      else: 0
-  end
+  defdelegate cleaning_cost(last_liquid, item), to: TijaraTides.Domain.CargoRules
 
   def extension_open?(w, now),
     do: not w.award_grace and now < w.expires_ms and is_nil(w.next_days)

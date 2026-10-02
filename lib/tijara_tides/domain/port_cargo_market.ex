@@ -34,6 +34,18 @@ defmodule TijaraTides.Domain.PortCargoMarket do
     }
   end
 
+  @doc "Lots a buyer takes at its bid: its demand, and what its budget pays for. Sales and read models share it."
+  def sale_capacity(quote) do
+    demand = max(0, quote["demand"])
+
+    if quote["bid"] > 0,
+      do: min(demand, max(0, div(quote["buyer_budget"], quote["bid"]))),
+      else: demand
+  end
+
+  @doc "What a sale of `quantity` pays the seller: the bid less port handling per lot."
+  def sale_proceeds(quote, quantity), do: quantity * (quote["bid"] - quote["handling_fee"])
+
   @doc "Virtual FEFO stock remaining after quantity-only NPC auction reservations."
   def available_batches(market, reserved) do
     {free, _left} =

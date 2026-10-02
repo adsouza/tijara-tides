@@ -72,13 +72,21 @@ defmodule TijaraTides.UseCases.GameQueries do
   defdelegate trade_defaults(view, ship, destination, limits),
     to: TijaraTides.UseCases.MarketQueries
 
+  @doc "Lots a port's buyer takes now, as the sale command limits them."
+  defdelegate sale_capacity(quote), to: TijaraTides.Domain.Trading
+
+  @doc "Whether the ship can take a new manual trade on this side now, as berth allocation decides."
+  defdelegate trade_admission(ship, side), to: TijaraTides.Domain.Trading
+
   defdelegate trade_limits(view, ship, destination, catalogue),
     to: TijaraTides.UseCases.MarketQueries
 
   defdelegate purchase_voyage(ship, item, quantity, destination, fleet, clock, catalogue),
     to: TijaraTides.UseCases.MarketQueries
 
-  defdelegate handling_time(quote, quantity), to: TijaraTides.UseCases.MarketQueries
+  defdelegate handling_time(quote, quantity, ship, item, side),
+    to: TijaraTides.UseCases.MarketQueries
+
   defdelegate port_handling(catalogue, port), to: TijaraTides.UseCases.MarketQueries
 
   defdelegate trade_freshness(quote, ship, side, good, quantity, clock),

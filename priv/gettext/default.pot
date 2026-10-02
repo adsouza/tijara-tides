@@ -46,12 +46,12 @@ msgstr ""
 msgid "%{value1} %{value2}: %{value3}/%{value4} lots · %{value5}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:458
+#: lib/tijara_tides_web/components/game/ports_panel.ex:457
 #, elixir-autogen, elixir-format
 msgid "%{value1} bid"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:489
+#: lib/tijara_tides_web/components/game/ports_panel.ex:488
 #, elixir-autogen, elixir-format
 msgid "%{value1} gross on %{value2} lots"
 msgstr ""
@@ -61,7 +61,7 @@ msgstr ""
 msgid "%{value1} kg"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:426
+#: lib/tijara_tides_web/components/game/ports_panel.ex:425
 #, elixir-autogen, elixir-format
 msgid "%{value1} kg · %{value2}"
 msgstr ""
@@ -81,7 +81,7 @@ msgstr ""
 msgid "%{value1} lots"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:494
+#: lib/tijara_tides_web/components/game/ports_panel.ex:493
 #, elixir-autogen, elixir-format
 msgid "%{value1} lots demand"
 msgstr ""
@@ -91,7 +91,7 @@ msgstr ""
 msgid "%{value1} lots · %{value2}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:653
+#: lib/tijara_tides_web/components/game/ports_panel.ex:652
 #, elixir-autogen, elixir-format
 msgid "%{value1} lots: first expiry in %{value2} min now; estimated %{value3} min remaining after %{value4} min handling."
 msgstr ""
@@ -122,7 +122,7 @@ msgstr ""
 msgid "%{value1} tonnes · %{value2} m³ capacity"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:642
+#: lib/tijara_tides_web/components/game/ports_panel.ex:641
 #, elixir-autogen, elixir-format
 msgid "%{value1} total"
 msgstr ""
@@ -132,7 +132,7 @@ msgstr ""
 msgid "%{value1} — Manifest"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:466
+#: lib/tijara_tides_web/components/game/ports_panel.ex:465
 #, elixir-autogen, elixir-format
 msgid "%{value1}%{value2} gross profit / lot"
 msgstr ""
@@ -147,7 +147,7 @@ msgstr ""
 msgid "%{value1}: estimated time to first expiry — %{value2} min at arrival; %{value3} min after unloading."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:403
+#: lib/tijara_tides_web/components/game/ports_panel.ex:402
 #, elixir-autogen, elixir-format
 msgid "(lots)"
 msgstr ""
@@ -162,7 +162,7 @@ msgstr ""
 msgid "A shared world awaits"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:402
+#: lib/tijara_tides_web/components/game/ports_panel.ex:401
 #, elixir-autogen, elixir-format
 msgid "Aboard"
 msgstr ""
@@ -283,7 +283,7 @@ msgstr ""
 msgid "Available cash"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:507
+#: lib/tijara_tides_web/components/game/ports_panel.ex:506
 #, elixir-autogen, elixir-format
 msgid "Available in a later market milestone"
 msgstr ""
@@ -399,7 +399,7 @@ msgstr ""
 msgid "Cargo"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:397
+#: lib/tijara_tides_web/components/game/ports_panel.ex:396
 #, elixir-autogen, elixir-format
 msgid "Cargo / lot size"
 msgstr ""
@@ -440,7 +440,7 @@ msgstr ""
 msgid "Choose a destination in the voyage controls before adding instructions."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:377
+#: lib/tijara_tides_web/components/game/ports_panel.ex:376
 #, elixir-autogen, elixir-format
 msgid "Choose a destination port before buying."
 msgstr ""
@@ -545,7 +545,7 @@ msgstr ""
 msgid "Depreciation"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:321
+#: lib/tijara_tides_web/components/game/ports_panel.ex:320
 #, elixir-autogen, elixir-format
 msgid "Destination bids: %{value1}. Gross profit excludes handling and voyage costs; demand and prices may change before arrival."
 msgstr ""
@@ -623,7 +623,7 @@ msgstr ""
 msgid "Establish company"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:663
+#: lib/tijara_tides_web/components/game/ports_panel.ex:662
 #, elixir-autogen, elixir-format
 msgid "Estimates may change before settlement."
 msgstr ""
@@ -638,7 +638,7 @@ msgstr ""
 msgid "Existing buy instructions disagree. Purchases are paused until you choose one onward port."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:660
+#: lib/tijara_tides_web/components/game/ports_panel.ex:659
 #, elixir-autogen, elixir-format
 msgid "Expected to expire during handling."
 msgstr ""
@@ -663,7 +663,7 @@ msgstr ""
 msgid "Fleet and ship details"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:357
+#: lib/tijara_tides_web/components/game/ports_panel.ex:356
 #, elixir-autogen, elixir-format
 msgid "For %{value1} lots of %{value2}, keep %{value3} for %{value4}: fuel %{value5}, canals %{value6}, estimated fleet upkeep %{value7} through loading and arrival."
 msgstr ""
@@ -890,7 +890,7 @@ msgstr ""
 msgid "No cargo available"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:380
+#: lib/tijara_tides_web/components/game/ports_panel.ex:379
 #, elixir-autogen, elixir-format
 msgid "No cargo is available to %{value1} here right now."
 msgstr ""
@@ -1440,7 +1440,7 @@ msgstr ""
 msgid "Total profit"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:405
+#: lib/tijara_tides_web/components/game/ports_panel.ex:404
 #, elixir-autogen, elixir-format
 msgid "Trade"
 msgstr ""
@@ -1613,12 +1613,12 @@ msgstr ""
 msgid "· expires in %{value1}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:430
+#: lib/tijara_tides_web/components/game/ports_panel.ex:429
 #, elixir-autogen, elixir-format
 msgid "· handling %{value1} / lot"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:643
+#: lib/tijara_tides_web/components/game/ports_panel.ex:642
 #, elixir-autogen, elixir-format
 msgid "— insufficient available funds"
 msgstr ""
@@ -2383,7 +2383,7 @@ msgid_plural "%{count} ships"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:399
+#: lib/tijara_tides_web/components/game/ports_panel.ex:398
 #, elixir-autogen, elixir-format
 msgid "Buy / supply"
 msgstr ""
@@ -2468,7 +2468,7 @@ msgstr ""
 msgid " (current)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:573
+#: lib/tijara_tides_web/components/game/ports_panel.ex:572
 #, elixir-autogen, elixir-format
 msgid "%{cargo} quantity"
 msgstr ""
@@ -2478,7 +2478,7 @@ msgstr ""
 msgid "%{region}: %{count} ports"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:558
+#: lib/tijara_tides_web/components/game/ports_panel.ex:557
 #, elixir-autogen, elixir-format
 msgid "%{side} %{cargo} quantity slider"
 msgstr ""
@@ -2499,7 +2499,7 @@ msgstr ""
 msgid "Buy maximum"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:635
+#: lib/tijara_tides_web/components/game/ports_panel.ex:634
 #, elixir-autogen, elixir-format
 msgid "Choose a valid destination and leave enough cash for fuel, canal fees, and estimated fleet upkeep after purchasing. Includes handling and any tanker cleaning fee."
 msgstr ""
@@ -2524,7 +2524,7 @@ msgstr ""
 msgid "In progress"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:638
+#: lib/tijara_tides_web/components/game/ports_panel.ex:637
 #, elixir-autogen, elixir-format
 msgid "Includes handling and any tanker cleaning fee."
 msgstr ""
@@ -2549,22 +2549,22 @@ msgstr ""
 msgid "No demand"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:589
+#: lib/tijara_tides_web/components/game/ports_panel.ex:588
 #, elixir-autogen, elixir-format
 msgid "No feasible purchase: check destination, funds, stock, and capacity"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:592
+#: lib/tijara_tides_web/components/game/ports_panel.ex:591
 #, elixir-autogen, elixir-format
 msgid "No feasible sale: check cargo, demand, and buyer funds"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:391
+#: lib/tijara_tides_web/components/game/ports_panel.ex:390
 #, elixir-autogen, elixir-format
 msgid "Port demand"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:390
+#: lib/tijara_tides_web/components/game/ports_panel.ex:389
 #, elixir-autogen, elixir-format
 msgid "Port supply"
 msgstr ""
@@ -2586,7 +2586,7 @@ msgid "Sell all aboard"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:476
-#: lib/tijara_tides_web/components/game/ports_panel.ex:422
+#: lib/tijara_tides_web/components/game/ports_panel.ex:421
 #, elixir-autogen, elixir-format
 msgid "View markets for %{cargo}"
 msgstr ""
@@ -4084,17 +4084,17 @@ msgstr ""
 msgid "This order retries automatically. Price, cargo, demand and funds must still allow the full quantity. Cancel it before placing another trade or departing."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:443
+#: lib/tijara_tides_web/components/game/ports_panel.ex:442
 #, elixir-autogen, elixir-format
 msgid "Can buy now: %{lots} lots · demand: %{demand} · buyer funds: %{funds}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:583
+#: lib/tijara_tides_web/components/game/ports_panel.ex:582
 #, elixir-autogen, elixir-format
 msgid "Cancel the queued trade before placing another order."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:400
+#: lib/tijara_tides_web/components/game/ports_panel.ex:399
 #, elixir-autogen, elixir-format
 msgid "Sell / buyer capacity"
 msgstr ""
@@ -4124,12 +4124,12 @@ msgstr ""
 msgid "Cancel queued departure"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:600
+#: lib/tijara_tides_web/components/game/ports_panel.ex:599
 #, elixir-autogen, elixir-format
 msgid "Queue purchase"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:601
+#: lib/tijara_tides_web/components/game/ports_panel.ex:600
 #, elixir-autogen, elixir-format
 msgid "Queue sale"
 msgstr ""
@@ -4261,7 +4261,7 @@ msgstr ""
 msgid "Ship name:"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:306
+#: lib/tijara_tides_web/components/game/ports_panel.ex:305
 #: lib/tijara_tides_web/components/game/presentation.ex:387
 #, elixir-autogen, elixir-format
 msgid "Wait until the tanker finishes loading or unloading before buying liquid cargo."
@@ -4856,7 +4856,7 @@ msgstr ""
 msgid "Use percentages below"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/ports_panel.ex:605
+#: lib/tijara_tides_web/components/game/ports_panel.ex:604
 #, elixir-autogen, elixir-format
 msgid "Estimated handling: %{minutes} min"
 msgstr ""

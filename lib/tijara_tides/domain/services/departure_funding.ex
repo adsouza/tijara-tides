@@ -171,7 +171,8 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
         account = State.get(s, "accounts", company["account_id"])
         policy = account["funding_policy"] || "wait"
 
-        if quote && quote["duration_ms"] <= 86_400_000 && company["bankruptcy_ms"] == nil do
+        if quote && quote["duration_ms"] <= Fleet.max_voyage_ms() &&
+             company["bankruptcy_ms"] == nil do
           required =
             requirement(quote, spec, policy)
 

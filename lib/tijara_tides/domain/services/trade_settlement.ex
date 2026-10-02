@@ -9,6 +9,109 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   import TijaraTides.Domain.PortCargoMarketWorld, only: [quote: 4]
   import TijaraTides.Domain.PortCargoMarket, only: [handling_rate: 1]
 
+  @doc """
+  The cargo a purchase of `quantity` loads. Perishables come from the market's
+  soonest-expiring qualifying lots, aged at the ship's hold rate; fewer lots than
+  requested means fresh stock is short. The purchase check and voyage planners
+  share it, so a plan never assumes cargo outlasts what the purchase delivers.
+  """
+  def purchased_cargo(quote, ship, item, quantity, clock, minimum, catalogue) do
+    if (item["shelf_ms"] || 0) > 0 do
+      rate = TijaraTides.Domain.CargoRules.hold_rate(ship, catalogue)
+
+      (quote["freshness_batches"] || [])
+      |> Enum.filter(&TijaraTides.Domain.CargoRules.qualifies_batch?(&1, clock, minimum, rate))
+      |> Enum.reduce({[], quantity}, fn b, {taken, left} ->
+        n = min(left, b["quantity"])
+
+        if n > 0 do
+          aged =
+            TijaraTides.Domain.CargoFreshness.recondition(
+              %{expires_ms: b["expires_ms"], freshness: b["freshness"]},
+              clock,
+              rate,
+              item
+            )
+
+          {taken ++ [%{"good" => item["id"], "quantity" => n, "expires_ms" => aged.expires_ms}],
+           left - n}
+        else
+          {taken, left}
+        end
+      end)
+      |> elem(0)
+    else
+      [%{"good" => item["id"], "quantity" => quantity}]
+    end
+  end
+
+  @doc """
+  Most lots one purchase may take under each limit: lots per command, market
+  stock, the ship's hold, and stock that stays fresh in this hold. The buy command
+  rejects more than a limit with that limit's error; read models offer the least.
+  """
+  def purchase_limits(quote, ship, item, clock, minimum, catalogue) do
+    class = classes()[ship["class"]]
+    space = capacity(ship, catalogue)
+    stock = max(0, quote["stock"])
+
+    %{
+      lots: max_lots(),
+      stock: stock,
+      hold:
+        max(
+          0,
+          min(
+            div(class["weight"] - space.weight, item["weight_kg"]),
+            div(class["volume"] - space.volume, item["volume_l"])
+          )
+        ),
+      fresh:
+        if((item["shelf_ms"] || 0) > 0,
+          do:
+            Enum.sum(
+              for b <- purchased_cargo(quote, ship, item, stock, clock, minimum, catalogue),
+                  do: b["quantity"]
+            ),
+          else: stock
+        )
+    }
+  end
+
+  @doc """
+  The cash a purchase may spend under the visit's budget. A strict budget spends
+  only its reserved remainder and leaves the voyage funded from free cash; a skip
+  decision or unpaid bills block purchases. Purchases and read models share it.
+  """
+  def purchasing_terms(company, budget, ship) do
+    available = company["cash"] - company["reserved"]
+
+    strict =
+      budget != nil and budget["strict"] == true and budget["ship_id"] == ship["id"] and
+        budget["port"] == ship["port"] and budget["company_id"] == company["id"]
+
+    %{
+      available: available,
+      purchase_cash: if(strict, do: budget["remaining"], else: available),
+      strict: strict,
+      blocked: (budget != nil and budget["skip"] == true) or company["unpaid"] > 0
+    }
+  end
+
+  @doc "The funding check a purchase of `total` fails, with the onward voyage needing `required`."
+  def purchase_shortfall(terms, total, required) do
+    cond do
+      terms.blocked or terms.purchase_cash < total ->
+        :purchase
+
+      required != nil and terms.available - if(terms.strict, do: 0, else: total) < required ->
+        :voyage
+
+      true ->
+        nil
+    end
+  end
+
   def execute(
         state,
         account,
@@ -146,28 +249,31 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
     loaded =
       Map.update!(ship, "cargo", &(&1 ++ [%{"good" => item["id"], "quantity" => quantity}]))
 
-    with true <- is_binary(destination) and destination != ship["port"],
-         %{} = voyage <-
-           voyage_quote(
-             loaded,
-             destination,
-             catalogue,
-             clock + handling_ms(quantity, ship["port"], item["id"], catalogue) +
-               if(cleaning_cost(ship, item) > 0, do: 60_000, else: 0),
-             clock
-           ),
-         true <- voyage["duration_ms"] <= 86_400_000 do
-      loading =
-        handling_ms(quantity, ship["port"], item["id"], catalogue) +
-          if(cleaning_cost(ship, item) > 0, do: 60_000, else: 0)
+    loading =
+      TijaraTides.Domain.CargoRules.loading_ms(
+        handling_ms(quantity, ship["port"], item["id"], catalogue),
+        cleaning_cost(ship, item)
+      )
 
+    voyage_requirement(loaded, loading, destination, fleet, clock, catalogue)
+  end
+
+  @doc """
+  The onward voyage a loaded ship must fund before it buys: fuel, canal fees and
+  crew and maintenance upkeep for the whole fleet until it arrives. `nil` when
+  there is no allowed voyage. Purchases and voyage planners share it.
+  """
+  def voyage_requirement(loaded, loading, destination, fleet, clock, catalogue) do
+    with true <- is_binary(destination) and destination != loaded["port"],
+         %{} = voyage <- voyage_quote(loaded, destination, catalogue, clock + loading, clock),
+         true <- voyage["duration_ms"] <= TijaraTides.Domain.Fleet.max_voyage_ms() do
       horizon = loading + voyage["duration_ms"]
 
       upkeep =
         Enum.reduce(fleet, 0, fn vessel, total ->
           sailing =
             cond do
-              vessel["id"] == ship["id"] ->
+              vessel["id"] == loaded["id"] ->
                 voyage["sailing_ms"] || voyage["duration_ms"]
 
               vessel["status"] == "sailing" ->
@@ -177,17 +283,14 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
                 0
             end
 
-          numerator =
-            (horizon + sailing) * classes()[vessel["class"]]["crew"] + vessel["crew_remainder"]
-
-          total + div(numerator + 119_999, 120_000) +
+          total + TijaraTides.Domain.Ship.crew_estimate(vessel, sailing, horizon - sailing) +
             TijaraTides.Domain.ShipMaintenance.estimate(vessel, clock, clock + horizon)
         end)
 
       Map.merge(voyage, %{
         "loading_ms" => loading,
         "maintenance_estimate" =>
-          TijaraTides.Domain.ShipMaintenance.estimate(ship, clock + loading, clock + horizon),
+          TijaraTides.Domain.ShipMaintenance.estimate(loaded, clock + loading, clock + horizon),
         "upkeep" => upkeep,
         "required" => voyage["fuel"] + voyage["canal_fees"] + upkeep
       })
@@ -196,12 +299,8 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
     end
   end
 
-  defp cleaning_cost(ship, item) do
-    if classes()[ship["class"]]["hold"] == "liquid" and
-         ship["last_liquid"] not in [nil, item["id"]],
-       do: if("vegetable_oil" in [ship["last_liquid"], item["id"]], do: 25_000, else: 5000),
-       else: 0
-  end
+  defp cleaning_cost(ship, item),
+    do: TijaraTides.Domain.CargoRules.cleaning_cost(ship["last_liquid"], item)
 
   defp buy(
          state,
@@ -218,9 +317,6 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
          budget_id,
          catalogue
        ) do
-    class = classes()[ship["class"]]
-    space = capacity(ship, catalogue)
-
     cleaning = cleaning_cost(ship, item)
 
     cost = quote["ask"] * quantity
@@ -237,12 +333,12 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
         do: get(state, "visit_budgets", budget_id),
         else: TijaraTides.Domain.AutomationWorld.budget(state, ship, ship["port"])
 
-    strict =
-      budget && budget["strict"] && budget["ship_id"] == ship["id"] &&
-        budget["port"] == ship["port"] && budget["company_id"] == company["id"]
+    terms = purchasing_terms(company, budget, ship)
+    limits = purchase_limits(quote, ship, item, state.clock_ms, minimum, catalogue)
+    strict = terms.strict
 
-    purchasing_cash =
-      if strict, do: budget["remaining"], else: company["cash"] - company["reserved"]
+    shortfall =
+      purchase_shortfall(terms, cost + handling + cleaning, voyage && voyage["required"])
 
     cond do
       not market["seller"] ->
@@ -251,38 +347,25 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       not compatible_cargo?(ship, item) ->
         {:error, :incompatible_cargo}
 
-      space.weight + quantity * item["weight_kg"] > class["weight"] or
-          space.volume + quantity * item["volume_l"] > class["volume"] ->
+      quantity > limits.hold ->
         {:error, :capacity_exceeded}
 
       quote["ask"] > limit ->
         {:error, :price_changed}
 
-      quote["stock"] < quantity ->
+      quantity > limits.stock ->
         {:error, :insufficient_supply}
 
-      item["shelf_ms"] > 0 and
-          Enum.sum(
-            for b <- quote["freshness_batches"],
-                TijaraTides.Domain.CargoRules.qualifies_batch?(
-                  b,
-                  state.clock_ms,
-                  minimum,
-                  TijaraTides.Domain.CargoRules.hold_rate(ship, catalogue)
-                ),
-                do: b["quantity"]
-          ) < quantity ->
+      quantity > limits.fresh ->
         {:error, :insufficient_fresh_cargo}
 
-      purchasing_cash < cost + handling + cleaning or (not is_nil(budget) and budget["skip"]) or
-          company["unpaid"] > 0 ->
+      shortfall == :purchase ->
         {:error, :insufficient_cash}
 
       is_nil(voyage) ->
         {:error, :purchase_destination_required}
 
-      company["cash"] - company["reserved"] - if(strict, do: 0, else: cost + handling + cleaning) <
-          voyage["required"] ->
+      shortfall == :voyage ->
         {:error,
          {:purchase_voyage_funds, destination, voyage["required"],
           company["cash"] - company["reserved"] - cost - handling - cleaning}}
@@ -379,7 +462,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       Enum.sum(for b <- qualified, do: b["quantity"]) < quantity ->
         {:error, :price_changed}
 
-      quote["demand"] < quantity or quote["buyer_budget"] < quote["bid"] * quantity ->
+      quantity > TijaraTides.Domain.PortCargoMarket.sale_capacity(quote) ->
         {:error, :insufficient_demand}
 
       true ->
@@ -395,7 +478,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
         cost = Enum.sum(Enum.map(sold, &(&1["quantity"] * &1["unit_cost"])))
 
-        proceeds = quote["bid"] * quantity - handling
+        proceeds = TijaraTides.Domain.PortCargoMarket.sale_proceeds(quote, quantity)
 
         state =
           state

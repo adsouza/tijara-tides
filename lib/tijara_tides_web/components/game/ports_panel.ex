@@ -300,8 +300,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
       @ship && @ship["port"] == @selected_port && @ship["status"] != "sailing" %>
     <% tanker_purchase_blocked =
       @port_market_side == "buy" && selected_ship_here &&
-        @ship["status"] in ["loading", "unloading"] &&
-        @definitions.classes[@ship["class"]]["hold"] == "liquid" %>
+        GameQueries.trade_admission(@ship, "buy") == {:error, :tanker_purchase_handling} %>
     <p :if={tanker_purchase_blocked} id="tanker-purchase-handling" class="mb-2 text-sm text-amber-300">
       {gettext("Wait until the tanker finishes loading or unloading before buying liquid cargo.")}
     </p>
@@ -436,13 +435,13 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
               {money(q[if(@port_market_side == "buy", do: "ask", else: "bid")])} / {display_number(
                 if(@port_market_side == "buy",
                   do: q["stock"],
-                  else: min(q["demand"], div(q["buyer_budget"], max(1, q["bid"])))
+                  else: GameQueries.sale_capacity(q)
                 )
               )}
               <p :if={@port_market_side == "sell"} class="text-xs text-slate-400">
                 {gettext(
                   "Can buy now: %{lots} lots · demand: %{demand} · buyer funds: %{funds}",
-                  lots: display_number(min(q["demand"], div(q["buyer_budget"], max(1, q["bid"])))),
+                  lots: display_number(GameQueries.sale_capacity(q)),
                   demand: display_number(q["demand"]),
                   funds: finance_money(q["buyer_budget"])
                 )}
@@ -603,7 +602,7 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                   else: l10n(String.capitalize(side))}</button>
                 <p :if={quantity > 0} class="basis-full text-xs text-slate-400">
                   {gettext("Estimated handling: %{minutes} min",
-                    minutes: minutes(GameQueries.handling_time(q, quantity))
+                    minutes: minutes(GameQueries.handling_time(q, quantity, @ship, item, side))
                   )}
                 </p>
                 <%= if side == "buy" and available > 0 and quantity > 0 do %>

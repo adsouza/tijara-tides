@@ -73,7 +73,8 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
        "cargo" => [],
        "class" => "small_freighter",
        "status" => "docked",
-       "port" => "Singapore"
+       "port" => "Singapore",
+       "crew_remainder" => 0
      }}
   end
 
@@ -455,7 +456,9 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
         &(&1.port == "Colombo")
       )
 
-    assert row.plan.spent + row.plan.costs <= 6000
+    # Funding follows the purchase command's voyage requirement, which excludes
+    # unloading; the voyage plan contract test pins that against the command.
+    assert row.plan.spent < 6000
     assert hd(row.plan.purchases).lots < 20
     queued = Map.put(ship, "pending_side", "buy")
 

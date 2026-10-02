@@ -105,13 +105,27 @@ defmodule TijaraTides.Domain.AutomationWorld do
     )
   end
 
-  @doc "A stop reservation belongs only to its selected visit, including the inbound voyage."
-  def current_visit?(state, row) do
-    if row["stop_id"] do
-      route = State.get(state, "ship_routes", row["ship_id"])
-      stop = State.get(state, "route_stops", row["stop_id"])
-      ship = State.get(state, "ships", row["ship_id"])
+  @doc "The budget funding this ship's current visit to `port`, from rows the caller supplies."
+  def current_budget(budgets, routes, stops, ship, port) do
+    Enum.find(
+      budgets,
+      &(&1["ship_id"] == ship["id"] and &1["port"] == port and
+          current_row?(&1, routes[ship["id"]], &1["stop_id"] && stops[&1["stop_id"]], ship))
+    )
+  end
 
+  @doc "A stop reservation belongs only to its selected visit, including the inbound voyage."
+  def current_visit?(state, row),
+    do:
+      current_row?(
+        row,
+        State.get(state, "ship_routes", row["ship_id"]),
+        row["stop_id"] && State.get(state, "route_stops", row["stop_id"]),
+        State.get(state, "ships", row["ship_id"])
+      )
+
+  defp current_row?(row, route, stop, ship) do
+    if row["stop_id"] do
       not is_nil(route) and not is_nil(stop) and not is_nil(ship) and
         route["status"] != "draft" and not route["visit_finished"] and
         not route["wait_timed_out"] and row["visit"] == route["visit"] and

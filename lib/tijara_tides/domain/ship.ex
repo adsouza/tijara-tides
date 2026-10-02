@@ -9,6 +9,7 @@ defmodule TijaraTides.Domain.Ship do
   alias __MODULE__.CargoBatch
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
+  @wage_period_ms 120_000
   @fields ~w(acquired_ms acquisition_value planned_destination weather voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
@@ -61,7 +62,7 @@ defmodule TijaraTides.Domain.Ship do
     %{
       next
       | status: "loading",
-        arrive_ms: now + handling + if(cleaning > 0, do: 60_000, else: 0),
+        arrive_ms: now + CargoRules.loading_ms(handling, cleaning),
         last_liquid: last
     }
   end
@@ -205,10 +206,9 @@ defmodule TijaraTides.Domain.Ship do
 
     idle_ms = now - ship.last_cost_ms - moving_ms
 
-    crew_numerator =
-      ship.crew_remainder + moving_ms * class["crew"] * 2 + idle_ms * class["crew"]
+    crew_numerator = crew_numerator(class["crew"], moving_ms, idle_ms, ship.crew_remainder)
 
-    crew = if not bankrupt, do: div(crew_numerator, 120_000), else: 0
+    crew = if not bankrupt, do: div(crew_numerator, @wage_period_ms), else: 0
 
     maintenance =
       if not bankrupt,
@@ -253,7 +253,7 @@ defmodule TijaraTides.Domain.Ship do
       ship
       | fuel_burned: fuel_burned,
         last_cost_ms: now,
-        crew_remainder: rem(crew_numerator, 120_000),
+        crew_remainder: rem(crew_numerator, @wage_period_ms),
         cargo: cargo
     }
 
@@ -348,6 +348,35 @@ defmodule TijaraTides.Domain.Ship do
       do: raise(ArgumentError, "Weather cannot rewrite settled voyage movement")
 
     %{ship | weather: weather, arrive_ms: arrival, voyage_path: path}
+  end
+
+  @doc "Crew wage units owed: sailing costs twice the idle rate; every wage period costs one unit."
+  def crew_numerator(crew, moving_ms, idle_ms, remainder),
+    do: remainder + moving_ms * crew * 2 + idle_ms * crew
+
+  @doc "Crew wages for a ship row over a window, rounded up; estimates and funding share it."
+  def crew_estimate(ship, moving_ms, idle_ms) do
+    crew = ShipClass.all()[ship["class"]]["crew"]
+
+    div(
+      crew_numerator(crew, moving_ms, idle_ms, ship["crew_remainder"]) + @wage_period_ms - 1,
+      @wage_period_ms
+    )
+  end
+
+  @doc "Whether a ship row can take a new manual trade now; berths and read models share it."
+  def trade_admission(ship, side) do
+    cond do
+      ship["pending_side"] ->
+        {:error, :berth_order_pending}
+
+      ship["status"] in ["loading", "unloading"] and side == "buy" and
+          ShipClass.all()[ship["class"]]["hold"] == "liquid" ->
+        {:error, :tanker_purchase_handling}
+
+      true ->
+        :ok
+    end
   end
 
   def cargo_available(%__MODULE__{cargo: cargo}, good),

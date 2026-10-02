@@ -75,6 +75,19 @@ defmodule TijaraTides.Domain.CargoRules do
   def handling_ms(quantity, port, good, catalogue),
     do: handling_ms(quantity, handling_profile(port, good, catalogue))
 
+  @cleaning_ms 60_000
+
+  @doc "Cleaning a tank that last held a different liquid; purchases and collection charge it."
+  def cleaning_cost(last_liquid, item) do
+    if item["hold"] == "liquid" and last_liquid not in [nil, item["id"]],
+      do: if("vegetable_oil" in [last_liquid, item["id"]], do: 25_000, else: 5000),
+      else: 0
+  end
+
+  @doc "Time to load cargo: port handling, plus tank cleaning when it is charged."
+  def loading_ms(handling_ms, cleaning_cost),
+    do: handling_ms + if(cleaning_cost > 0, do: @cleaning_ms, else: 0)
+
   @doc "Lots one command may move, whether traded with a market or transferred to storage."
   def max_lots, do: 10_000
 

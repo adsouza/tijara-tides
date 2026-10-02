@@ -76,7 +76,7 @@ defmodule TijaraTides.UseCases.LifecycleCommandsTest do
   end
 
   test "return before deadline clears warnings, return at deadline commits closure first" do
-    alias TijaraTides.Domain.{AccountWorld, State}
+    alias TijaraTides.Domain.State
     {game, catalogue} = absent_company()
     warned = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(game, 100, catalogue)
 
