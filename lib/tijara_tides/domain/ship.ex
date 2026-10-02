@@ -321,7 +321,15 @@ defmodule TijaraTides.Domain.Ship do
     since = (ship.weather && ship.weather["since_ms"]) || now - elapsed
 
     weather =
-      TijaraTides.Domain.Weather.forecast(route, duration, ship.depart_ms, now, model, since)
+      TijaraTides.Domain.Weather.forecast(
+        route,
+        duration,
+        ship.depart_ms,
+        now,
+        model,
+        since,
+        ship.weather && ship.weather["segments"]
+      )
 
     arrival = ship.depart_ms + duration + weather["delay_ms"]
 

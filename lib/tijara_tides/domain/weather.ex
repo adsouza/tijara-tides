@@ -67,27 +67,31 @@ defmodule TijaraTides.Domain.Weather do
   end
 
   @doc "Only storms already announced by cutoff can revise the current forecast."
-  def forecast(route, sailing_ms, departure, cutoff, model, since \\ nil) do
+  def forecast(route, sailing_ms, departure, cutoff, model, since \\ nil, cached_segments \\ nil) do
     since = since || departure
 
     skip =
       cutoff < model["first_slot"] * model["period_ms"] or
         (departure == cutoff and map_size(active(cutoff, model)) == 0)
 
+    parts =
+      cached_segments ||
+        if is_list(route["coordinates"]) and length(route["coordinates"]) >= 2,
+          do: Enum.map(segments(route), &Tuple.to_list/1),
+          else: []
+
     {holds, _finish} =
       Enum.reduce(
-        if(not skip and is_list(route["coordinates"]) and length(route["coordinates"]) >= 2,
-          do: segments(route),
-          else: []
-        ),
+        if(skip, do: [], else: parts),
         {[], departure},
-        fn {sector, from, into}, {holds, cursor} ->
+        fn [sector, from, into], {holds, cursor} ->
           move = max(0, round(into * sailing_ms) - round(from * sailing_ms))
           cross(sector, move, cursor, cutoff, model, since, holds)
         end
       )
 
     %{
+      "segments" => parts,
       "sailing_ms" => sailing_ms,
       "model" => model,
       "since_ms" => since,

@@ -212,9 +212,11 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
         if valid, do: s, else: AutomationWorld.release_visit(s, row)
       end)
 
+    plans_by_ship = Map.new(ready_plans(state), &{&1["ship_id"], &1})
+
     Enum.reduce(State.entities(state, "departure_requests"), state, fn {_, row}, s ->
       ship = State.get(s, "ships", row["ship_id"])
-      plan = Enum.find(ready_plans(s), &(&1["ship_id"] == row["ship_id"]))
+      plan = plans_by_ship[row["ship_id"]]
       company = State.get(s, "companies", row["company_id"])
       account = company && State.get(s, "accounts", company["account_id"])
       current = if ship && plan, do: spec(s, ship, plan["onward"])
@@ -418,14 +420,12 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
   end
 
   defp mark_pending_departures(state) do
+    pending_visits = pending_visits(state)
+
     Enum.reduce(State.entities(state, "visit_plans"), state, fn {_, plan}, s ->
       ship = State.get(s, "ships", plan["ship_id"])
 
-      pending =
-        Enum.any?(State.entities(s, "ship_instructions"), fn {_, o} ->
-          o["ship_id"] == plan["ship_id"] && o["port"] == plan["port"] &&
-            o["status"] in ["planned", "waiting"]
-        end)
+      pending = MapSet.member?(pending_visits, {plan["ship_id"], plan["port"]})
 
       cond do
         not plan["auto_depart"] or is_nil(ship) or ship["port"] != plan["port"] or
@@ -448,7 +448,16 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
     end)
   end
 
+  defp pending_visits(state),
+    do:
+      State.entities(state, "ship_instructions")
+      |> Map.values()
+      |> Enum.filter(&(&1["status"] in ["planned", "waiting"]))
+      |> MapSet.new(&{&1["ship_id"], &1["port"]})
+
   defp ready_plans(state) do
+    pending = pending_visits(state)
+
     State.entities(state, "visit_plans")
     |> Map.values()
     |> Enum.filter(fn plan ->
@@ -456,22 +465,18 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
 
       plan["auto_depart"] && ship && ship["port"] == plan["port"] && ship["status"] == "docked" &&
         ship["pending_side"] == nil && ShipWorld.automation_enabled?(state, ship["id"]) &&
-        not Enum.any?(State.entities(state, "ship_instructions"), fn {_, o} ->
-          o["ship_id"] == ship["id"] && o["port"] == ship["port"] &&
-            o["status"] in ["planned", "waiting"]
-        end)
+        not MapSet.member?(pending, {ship["id"], ship["port"]})
     end)
     |> Enum.sort_by(& &1["ship_id"])
   end
 
   def finish_visits(state, catalogue) do
+    pending_ships = pending_visits(state) |> MapSet.new(&elem(&1, 0))
+
     Enum.reduce(State.entities(state, "ship_routes"), state, fn {id, route}, s ->
       ship = State.get(s, "ships", id)
 
-      pending =
-        Enum.any?(State.entities(s, "ship_instructions"), fn {_, o} ->
-          o["ship_id"] == id && o["status"] in ["planned", "waiting"]
-        end)
+      pending = MapSet.member?(pending_ships, id)
 
       if route["status"] != "draft" && route["phase"] == "buying" && not route["visit_finished"] &&
            ship && ship["status"] == "docked" && not pending do
@@ -490,14 +495,12 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
   end
 
   defp finish_single_visits(state) do
+    pending_visits = pending_visits(state)
+
     Enum.reduce(State.entities(state, "visit_budgets"), state, fn {_, row}, s ->
       ship = State.get(s, "ships", row["ship_id"])
 
-      pending =
-        Enum.any?(State.entities(s, "ship_instructions"), fn {_, o} ->
-          o["ship_id"] == row["ship_id"] && o["port"] == row["port"] &&
-            o["status"] in ["planned", "waiting"]
-        end)
+      pending = MapSet.member?(pending_visits, {row["ship_id"], row["port"]})
 
       if is_nil(row["stop_id"]) && ship && ship["port"] == row["port"] &&
            ship["status"] == "docked" && not pending,
