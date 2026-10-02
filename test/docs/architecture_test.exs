@@ -1,12 +1,12 @@
 defmodule Docs.ArchitectureTest do
   use ExUnit.Case, async: true
 
-  test "README entry point links the canonical architecture and resolves its diagram modules" do
+  test "README and the root pointer link the canonical architecture, whose diagram modules resolve" do
     readme = File.read!("README.md")
-    overview = File.read!("ARCHITECTURE.md")
-    assert readme =~ "ARCHITECTURE.md"
-    assert overview =~ "](docs/architecture.md)"
-    assert File.exists?("docs/architecture.md")
+    pointer = File.read!("ARCHITECTURE.md")
+    overview = File.read!("docs/architecture.md")
+    assert readme =~ "](docs/architecture.md)"
+    assert pointer =~ "](docs/architecture.md)"
     [_, diagram] = Regex.run(~r/```text\n(.*?)```/s, overview)
     modules = Regex.scan(~r/\b(?:Infrastructure|UseCases|Domain)\.[A-Z][\w.]*/, diagram)
     assert length(modules) > 5

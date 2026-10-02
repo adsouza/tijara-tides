@@ -16,7 +16,7 @@ appstreamcli validate --no-net "$task_stage/usr/share/metainfo/io.github.adsouza
 "$(dirname "$0")/check-appstream-launcher.py" \
   "$task_stage/usr/share/metainfo/io.github.adsouza.tijara-tides.metainfo.xml" \
   "$(basename "$desktop")"
-# This client must never acquire Armchair Metropolist's local BEAM sidecar.
+# The client ships only its own binary, never a local BEAM sidecar.
 test "$(find "$task_stage/usr/bin" -maxdepth 1 -type f | wc -l)" -eq 1
 ldd "$task_stage/usr/bin/tijara-tides" > "$task_stage/ldd.txt"
 cat "$task_stage/ldd.txt"

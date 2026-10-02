@@ -1,4 +1,8 @@
-# Domain boundaries and command/query architecture
+# Architecture
+
+Tijara Tides combines a compiler-enforced layered architecture, a pure domain
+model, OTP state ownership, PubSub delivery, a thin LiveView UI, and automated
+checks.
 
 Tijara Tides is a modular monolith with a pure domain, a transport-independent
 application layer, PostgreSQL adapters, and Phoenix LiveView presentation. One
@@ -6,6 +10,129 @@ GenServer remains the authoritative writer for each running world. The world is
 the current transaction boundary; the modules below are responsibility boundaries,
 not independently deployed services. Account, Ship, CompanyFinance and
 PortCargoMarket have explicit aggregate roots; their changes commit in the shared world transaction.
+
+## Layers
+
+```text
+Browser / native webview
+  → TijaraTidesWeb.GameLive and GameSessionController
+  → UseCases.Game → UseCases.GameRuntime (application-owned runtime port)
+Infrastructure.GameRuntime implements UseCases.GameRuntime
+  → Infrastructure.GameServer (transport and world ownership)
+  → UseCases.GameCommands / LifecycleCommands (command workflows)
+  → Domain.Commands → Domain.Account / Domain.Trading / Domain.Fleet
+
+UseCases.GameCommands / LifecycleCommands
+  → UseCases.CommitExecutor → UseCases.CommandStore (persistence port)
+Infrastructure.Persistence.CommandStore implements UseCases.CommandStore
+  → Infrastructure.Persistence.GameStore (atomic PostgreSQL transaction)
+
+TijaraTidesWeb.GameLive → UseCases.GameQueries (pure read calculations)
+Infrastructure.GameServer → UseCases.WorldProjection (committed public cache)
+```
+
+The application depends on the persistence port; the infrastructure adapter
+implements it. Application code has no dependency on the PostgreSQL adapter.
+`Domain.Game` is a compatibility facade, not a home for new rules.
+
+`boundary` enforces dependencies during compilation. The domain purity test
+inspects BEAM imports for process and framework calls. Domain operations receive
+explicit time, identifiers, and static catalogue data; they perform no I/O.
+`Domain.ReadState` exposes reads across the boundary; `Domain.State` mutators
+remain internal, with no generic mutation delegates on the public facade.
+Infrastructure owns PostgreSQL, credential hashing, scheduling, and publication.
+`WorldServer` tracks temporary browser presence for authenticated play views;
+the home page subscribes to its public count without registering itself.
+Play views attach by browser guest identity after an authenticated snapshot,
+detach when authentication is lost, and are removed on process termination.
+This roster remains separate from durable gameplay state.
+
+## Ownership and synchronization
+
+One `GameServer` owns the durable ocean world. Startup increments a database
+ownership epoch, restores entities and the committed simulation clock, and leaves
+progression paused until an authenticated client connects. Five-second ticks
+continue while the server stays awake after disconnect. Restart adds no elapsed
+wall time. Database failures stop progression and commands rather than producing
+uncommitted results.
+
+PostgreSQL stores typed relational tables for accounts, companies, ships,
+markets, sessions, invitations, and notices. Ship cargo and perishable market
+stock use permanent lot identities and separate ordered location rows; foreign keys enforce ownership and catalogue
+references. `GameRows` maps these records to the pure domain model. Each
+transaction locks the world row, verifies the owner epoch, writes changed
+columns and batches, and records the account/request fingerprint and result.
+Only variable command-result receipts retain JSONB. Pure domain operations emit
+balanced journal events and new lot identities alongside state changes. The
+same transaction persists these, verifies ledger reconciliation, and writes the
+receipt. Pending events are cleared after commit; historical journals and lot
+lineage stay in PostgreSQL rather than accumulating in world-process memory.
+Startup audits ledger totals before serving gameplay. The active identity cache
+omits expired sessions and completed invitation/email history; lifecycle commands
+restore relevant durable records through the command-store port for retries.
+A superseded process cannot commit. Same-request retries replay the committed
+result; a changed payload under the same request ID is rejected. Publication and
+acknowledgement follow commit. Keep one server instance; fencing is overlap
+protection, not a multi-instance availability mechanism.
+
+Accounts outlive browser connections. Invitations are single-use and only their
+hashes are stored. A signed, HTTP-only cookie carries an opaque random device
+credential; server-side session lookup and expiry authorize every command. The
+anonymous invitation form pre-issues that private credential before any
+redemption mutation. Redemption retries match both the invitation's account and
+the existing device session, without creating another account or extending its
+expiry. A revoked session cannot be recreated by retrying the invitation.
+
+Pre-issuing moves that credential into the browser before it authorizes
+anything, so its exposure begins at the form rather than at the redemption
+response. The window is longer, not the capability: the value is inert until an
+invitation is redeemed with it, it travels in the same signed, HTTP-only,
+SameSite=Lax cookie as the session it becomes, and reading it before redemption
+grants what reading it afterwards would. Minting on POST would shorten that
+window and restore the unrecoverable lost-response failure pre-issuing exists to
+prevent.
+
+Public projections omit balances and cargo. PubSub announces revisions only;
+subscribers fetch their own authorized projection. Static route and map data are
+versioned assets. Email identity linking is implemented; Google linking remains
+unimplemented. Financial report pages use the application report-query port, with
+owner filtering and bounded pagination in PostgreSQL. Only current report
+accumulators occupy world memory. Commit preparation and query consistency are
+described under [command execution](#command-execution-and-atomicity) and [query
+responsibilities](#query-responsibilities-and-consistency).
+
+When enabled, Repo and Readiness start before Telemetry, PubSub, WorldServer,
+GameServer, and Endpoint under `rest_for_one`. Owner crashes restart Endpoint so
+clients reconnect. Storage failure leaves gameplay unavailable and `/statusz`
+unhealthy; restart after repairing the failure. Configured storage is migrated before the supervision tree starts; migration
+failure prevents startup.
+
+See [implementation scope](IMPLEMENTATION.md) and
+[database operations](database.md) for playtest rules and verification.
+
+## Runtime and deployment choices
+
+- One world runs, started under the application supervisor. A dynamic registry
+  of worlds is unnecessary until multiple worlds become a requirement.
+- Players cannot manually pause, reset, or stop the shared world. Future
+  simulation continues while the server remains awake, including the idle
+  interval after the last player disconnects. Hosting suspension or outages
+  pause it globally; it resumes without catch-up when a player returns.
+- Both the browser and the Tauri desktop client connect to the remote server;
+  there is no local authoritative simulation. The desktop client bundles only a
+  connection screen, uses native Rust menus for recovery, and grants remote pages
+  no native APIs. See [desktop packaging](desktop.md) for macOS, .deb, and
+  Flatpak details.
+- Persistence commits individual entity changes with command receipts and a
+  fenced shared-world clock; it never snapshots the whole world.
+
+## Verification overview
+
+Tests cover the original guest lobby, company and trade rules, privacy, voyage
+bounds, concurrent invitation redemption, retry conflicts, transaction rollback,
+ownership fencing, restart recovery, and a complete LiveView trade journey.
+CI checks both supported Elixir/OTP pairs, disposable PostgreSQL integration,
+generated catalogue consistency, assets, and a production release.
 
 ## Responsibilities
 
@@ -222,19 +349,80 @@ and summaries remain atomically committed; this is CQRS, not event sourcing.
 
 ## Change and verification rules
 
-- Domain code cannot depend on processes, storage, transport or wall-clock access;
-  the strict `Boundary` configuration enforces dependency separation.
+New code follows Clean Architecture, domain-driven design and command–query
+separation as practised here. The rules below are requirements, not preferences.
+Where a test enforces a rule it is named; a change that needs an exception updates
+this section and the guard in the same commit, with the reason.
+
+### Dependency direction (Clean Architecture)
+
+- Domain code cannot depend on processes, storage, transport, logging or
+  wall-clock access; operations receive time, identifiers and catalogue data. The
+  strict `Boundary` configuration and the domain purity test enforce this.
 - Application workflows depend on domain rules and persistence ports, not Ecto
   or Phoenix. Infrastructure implements those ports.
+- Web code calls use cases only, never `Domain` modules. LiveView owns selection,
+  formatting and layout, not game rules.
+
+### Aggregates and invariants (DDD)
+
+- Every table has one owning root. Only that module writes its rows, through
+  named transitions; `test/docs/market_aggregate_boundary_test.exs` and the other
+  boundary tests list the owners. A new table adds its owner there.
+- Rules live in pure typed models (`Warehouse`, `VisitBudget`, `LiquidationPool`
+  and similar). They never call `State`, `ReadState`, row codecs or world modules.
+- `*World` roots never call `Services.*`. Coordinators in `Services` sequence
+  roots; a root may call another root's reads and hooks without forming a cycle.
+  `test/docs/automation_architecture_test.exs` enforces this and the
+  coordinator dependency lists.
+- A lower layer inside an aggregate receives loaded entities instead of calling
+  back into its root, as `WarehouseWorld.Claims` does.
+- A transition releases everything it invalidates (claims, orders, bids, budgets,
+  requests) in the same candidate. Never add a reconcile sweep to command
+  dispatch; tick passes check only clock-driven conditions. In test builds
+  `TijaraTides.SettledCheck` verifies this after every command and tick; extend
+  it when you add a transition-owned invariant.
+- A root rereads the facts that decide a transition; it does not trust a value
+  its caller computed. Mutations are explicit puts and deletes recorded in the
+  `ChangeSet`; nothing infers a deletion from absence.
+- Consequences that depend on what a transition touched read the declared
+  `ChangeSet`, not a scan of the world (`DepartureFunding.settle_ships`,
+  `OrderBookWorld.synchronize_changed`).
+
+### Commands and queries
+
+- Commands change state and return a minimal reply. Queries never write, and they
+  read projections, not `State`.
+- Queries format and select. A rule a query needs (a maximum quantity, a price,
+  a fee, a duration, an eligibility check) is the pure domain function the
+  command enforces, called from both sides. Add a contract test showing the
+  offered value is accepted and one more is refused, as
+  `test/tijara_tides/use_cases/warehouse_offers_test.exs` does.
+
+### Cross-cutting concerns
+
+- Logging, telemetry, authentication and failure policy live in
+  `OperationBoundary`, `Observation` and `Authentication`, not in domain code.
+- A raise or database constraint reachable from a tick or commit pauses the whole
+  world. Validate player input in the domain with the same measure the
+  constraint uses (for example code points, not graphemes), and keep invariant
+  assertions that would halt a world in test-only seams.
+
+### Persistence
+
+- Domain row codecs write complete rows. The adapter maps representation only; it
+  never invents a domain value. Add a field with a domain default to the adapter's
+  required list rather than giving it a fallback.
 - Preserve command fingerprints and durable receipt results across refactors.
-- Put economic estimates beside the domain rules they reuse or in pure query
-  projections; presentation formats the result.
+
+### Verification
+
 - Prove atomicity, replay, failure behavior and privacy with tests, not only module
   naming. Existing PostgreSQL tests cover conservation, rollback, owner fencing,
   restart recovery and request replay. Workflow tests inject both replay paths and
   commit failures; browser tests cover the query-driven UI.
-- This refactor needs no SQL migration, data reset or gameplay rebalance. Existing
-  startup ownership fencing and deployment procedures remain applicable.
+- When adding a guard or an oracle, delete one real behavior it protects and check
+  that a test fails. A check that no test drives is not protection.
 
 ## Single-visit ship instructions
 
