@@ -353,14 +353,17 @@ defmodule TijaraTides.Domain.Services.Exchange do
   defp compatible_quantity(state, first, second) do
     {buy, sell} = if first.side == "buy", do: {first, second}, else: {second, first}
 
-    WarehouseWorld.order_cargo(state, OrderBook.claim(sell))
-    |> Enum.filter(
-      &((sell.lot_ids == nil or &1.lot_id in sell.lot_ids) and
-          OrderBook.eligible?(&1, state.clock_ms, policy(state, buy)))
-    )
-    |> Enum.map(& &1.quantity)
-    |> Enum.sum()
+    eligible_sale(state, buy, sell) |> elem(1)
   end
+
+  defp eligible_sale(state, buy, sell),
+    do:
+      OrderBook.sale_allocation(
+        sell,
+        WarehouseWorld.order_cargo(state, OrderBook.claim(sell)),
+        state.clock_ms,
+        policy(state, buy)
+      )
 
   defp npc_offer(state, o, catalogue) do
     q = PortCargoMarketWorld.quote(state, catalogue, o.port, o.good)
@@ -397,7 +400,8 @@ defmodule TijaraTides.Domain.Services.Exchange do
   end
 
   defp settle_pair(state, buy, sell, n, price, catalogue) do
-    {state, cargo} = WarehouseWorld.exchange_out(state, OrderBook.claim(sell), n)
+    {claim, _available} = eligible_sale(state, buy, sell)
+    {state, cargo} = WarehouseWorld.exchange_out(state, claim, n)
     cost = Enum.sum(for b <- cargo, do: b.quantity * b.unit_cost)
     acquired = Enum.map(cargo, &CargoRows.encode(%{&1 | unit_cost: price}))
 

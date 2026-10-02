@@ -118,6 +118,28 @@ defmodule TijaraTides.Domain.GradedBooksTest do
 
   defp markdowns, do: %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
 
+  test "an unportioned sell claim releases only the matched buyer's eligible lots", c do
+    s = stock(c, c.state, [{2, 100}, {2, 1000}])
+    {:ok, s, _} = order(c, s, :a, "sell", 4, "sell")
+    sell = OrderBookWorld.fetch(s, "sell")
+    assert sell.lot_ids == nil
+    batches = WarehouseWorld.order_cargo(s, OrderBook.claim(sell))
+    policy = %{min_grade: 3, min_remaining_ms: 4000, receiving_bps: 2500}
+    {claim, available} = OrderBook.sale_allocation(sell, batches, s.clock_ms, policy)
+    assert available == 2
+    assert claim.lot_ids == Enum.map(Enum.filter(batches, &(&1.expires_ms == 1000)), & &1.lot_id)
+    {taken, [cargo]} = WarehouseWorld.exchange_out(s, claim, 1)
+    assert cargo.expires_ms == 1000
+
+    assert Enum.sum(
+             for b <- WarehouseWorld.fetch(taken, "aw").cargo, b.expires_ms == 100, do: b.quantity
+           ) == 2
+
+    old = Enum.find(batches, &(&1.expires_ms == 100))
+    {none, 0} = OrderBook.sale_allocation(%{sell | lot_ids: [old.lot_id]}, batches, 0, policy)
+    assert none.lot_ids == []
+  end
+
   test "mixed-grade backing fills only eligible portions at their resting prices", c do
     s = stock(c, c.state, [{2, 900}, {2, 500}])
     {:ok, s, _} = order(c, s, :a, "sell", 4, "sell", %{"markdowns" => markdowns()})

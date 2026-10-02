@@ -57,6 +57,18 @@ defmodule TijaraTides.Domain.OrderBook do
       )
   end
 
+  @doc "Select the same eligible physical lots for both matching and settlement."
+  def sale_allocation(%__MODULE__{side: "sell"} = sell, batches, now, policy) do
+    batches =
+      Enum.filter(batches, fn b ->
+        b.good == sell.good and (sell.lot_ids == nil or b.lot_id in sell.lot_ids) and
+          eligible?(b, now, policy)
+      end)
+
+    {%{claim(sell) | lot_ids: Enum.map(batches, & &1.lot_id)},
+     Enum.sum(Enum.map(batches, & &1.quantity))}
+  end
+
   def effective_price(o, grade) do
     if o.markdowns,
       do:
