@@ -3,6 +3,9 @@ excluded = if System.get_env("TIJARA_TEST_DB_PORT"), do: [], else: [:game_databa
 excluded =
   if System.get_env("TIJARA_BROWSER_TEST_PORT"), do: excluded, else: [:browser | excluded]
 
+excluded =
+  if System.get_env("TIJARA_FUZZ_EXTENDED"), do: excluded, else: [:extended_fuzzer | excluded]
+
 ExUnit.start(exclude: excluded)
 
 # Ecto accepts version/module pairs. Load each file once, then reuse its module

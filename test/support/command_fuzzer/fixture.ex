@@ -5,7 +5,8 @@ defmodule TijaraTides.CommandFuzzer do
       TijaraTides.Domain,
       TijaraTides.UseCases,
       TijaraTides.Infrastructure,
-      TijaraTides.CompanyFixture
+      TijaraTides.CompanyFixture,
+      TijaraTides.SqlReplay
     ]
 
   alias TijaraTides.Domain.{Game, Journal, ReadState}
@@ -74,7 +75,13 @@ defmodule TijaraTides.CommandFuzzer do
     @behaviour TijaraTides.UseCases.CommandStore
     def receipt(ops, account, id, fingerprint), do: ops.receipt.(account, id, fingerprint)
     def commit(ops, before, after_state, receipt), do: ops.commit.(before, after_state, receipt)
-    def allocate_lot_ids(_, count), do: Enum.map(1..count, &"fixture-lot:#{&1}")
+    def allocate_lot_ids(_, 0), do: []
+
+    def allocate_lot_ids(_, count) do
+      run = System.unique_integer([:positive, :monotonic])
+      Enum.map(1..count, &"fixture-lot:#{run}:#{&1}")
+    end
+
     def reload(_, game), do: {:ok, game}
     def restore(_, game, _), do: game
   end

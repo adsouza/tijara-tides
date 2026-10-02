@@ -4,10 +4,27 @@ defmodule TijaraTides.CommandFuzzer.Inventory do
   def commands(source \\ File.read!("lib/tijara_tides/domain/commands.ex")) do
     ast = Code.string_to_quoted!(source)
 
+    {_, dynamic} =
+      Macro.prewalk(ast, MapSet.new(), fn
+        {:in, _, [{name, _, _}, alternatives]} = node, acc when is_list(alternatives) ->
+          if Enum.all?(alternatives, &is_binary/1),
+            do: {node, MapSet.put(acc, name)},
+            else: {node, acc}
+
+        node, acc ->
+          {node, acc}
+      end)
+
     {_, actions} =
       Macro.prewalk(ast, MapSet.new(), fn
         {"action", action} = node, acc when is_binary(action) ->
           {node, MapSet.put(acc, action)}
+
+        {"action", {name, _, _}} = node, acc ->
+          unless MapSet.member?(dynamic, name),
+            do: raise(ArgumentError, "Unresolved dynamic command action: #{name}")
+
+          {node, acc}
 
         {:in, _, [{:action, _, _}, alternatives]} = node, acc when is_list(alternatives) ->
           {node, Enum.reduce(alternatives, acc, &MapSet.put(&2, &1))}
@@ -132,24 +149,84 @@ defmodule TijaraTides.CommandFuzzer.Inventory do
   end
 
   def command_contracts do
-    generated =
-      ~w(company rename_ship markdown_preset_save markdown_preset_delete borrow repay recast funding_policy route instruction cancel_instruction sail buy sell cancel_berth_trade warehouse_lease warehouse_transfer warehouse_release exchange_place exchange_amend exchange_cancel bankruptcy)
+    sequence =
+      ~w(company rename_ship markdown_preset_save markdown_preset_delete borrow repay recast funding_policy route sail reroute buy sell cancel_berth_trade warehouse_lease warehouse_transfer warehouse_release bankruptcy locale visit_budget guarantee purchase_ship)
+
+    boundary = ~w(instruction cancel_instruction exchange_place exchange_amend exchange_cancel)
 
     excluded =
-      ~w(locale auction_consign auction_revise auction_withdraw auction_bid auction_withdraw_bid plan_destination reroute warehouse_reserve warehouse_cancel_reservation warehouse_replace warehouse_extend warehouse_renew warehouse_auto_renew visit_budget guarantee sell_ship instruction_onward purchase_ship invite)
+      ~w(auction_consign auction_revise auction_withdraw auction_bid auction_withdraw_bid plan_destination warehouse_reserve warehouse_cancel_reservation warehouse_replace warehouse_extend warehouse_renew warehouse_auto_renew sell_ship instruction_onward invite)
 
     Map.new(
-      Enum.map(generated, &{&1, %{mode: :planned, boundary: :admission, follow_up: 4}}) ++
+      Enum.map(sequence, &{&1, %{mode: :sequence, backends: [:pure, :sql]}}) ++
+        Enum.map(
+          boundary,
+          &{&1,
+           %{
+             mode: :boundary_contract,
+             reason:
+               "Round 1b raw form/admission contracts; linked and instruction sequences remain dedicated deterministic tests",
+             follow_up: "Next generated cohort after measured runtime"
+           }}
+        ) ++
         Enum.map(
           excluded,
           &{&1,
            %{
              mode: :excluded,
-             reason: "Dedicated deterministic coverage; outside the initial sequence cohort",
-             follow_up: "Prioritized after measured Round 4 cohort"
+             reason:
+               "Dedicated domain/SQL lifecycle tests; not a model-supported sequence in this bounded cohort",
+             follow_up:
+               "Next inventory expansion: auctions, lease replacement, invitation lifecycle"
            }}
         )
     )
+  end
+
+  def route_operations(source \\ File.read!("lib/tijara_tides/domain/ship_world/route_plans.ex")) do
+    {_, operations} =
+      Macro.prewalk(Code.string_to_quoted!(source), MapSet.new(), fn
+        {"operation", value} = node, acc when is_binary(value) ->
+          {node, MapSet.put(acc, value)}
+
+        {:in, _, [{:operation, _, _}, values]} = node, acc when is_list(values) ->
+          {node, Enum.reduce(values, acc, &MapSet.put(&2, &1))}
+
+        {:==, _, [{:operation, _, _}, value]} = node, acc when is_binary(value) ->
+          {node, MapSet.put(acc, value)}
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    operations
+  end
+
+  def route_contracts do
+    sequence = ~w(add_stop add_rule remove_rule start pause resume)
+    excluded = ~w(update_rule set_wait remove_stop stop_after delete)
+
+    Map.new(
+      Enum.map(sequence, &{&1, :sequence}) ++
+        Enum.map(
+          excluded,
+          &{&1,
+           {:excluded, "Dedicated RoutePlans/ShipRoutes tests and raw add/update buy/sell forms",
+            "Expand symbolic edits after initial cohort timing"}}
+        )
+    )
+  end
+
+  def harness_contracts do
+    %{
+      tick: [:pure, :sql],
+      observe: [:pure, :sql],
+      replay: [:sql],
+      restart: [:sql],
+      wall:
+        {:excluded,
+         "Separate wall-clock boundary contracts in IdentityHistoryTest; generated identity actions are not in this cohort"}
+    }
   end
 
   def form_contracts do

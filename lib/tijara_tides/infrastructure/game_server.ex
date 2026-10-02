@@ -134,16 +134,21 @@ defmodule TijaraTides.Infrastructure.GameServer do
     repo = Keyword.get(opts, :repo, Repo)
     enabled = Keyword.get(opts, :enabled, Application.get_env(:tijara_tides, :start_repo, false))
 
+    monotonic_clock =
+      Keyword.get(opts, :monotonic_clock, fn -> System.monotonic_time(:millisecond) end)
+
     state = %{
       repo: repo,
       wall_clock: Keyword.get(opts, :wall_clock, fn -> System.system_time(:millisecond) end),
+      monotonic_clock: monotonic_clock,
+      auction_seed: Keyword.get(opts, :auction_seed, &request_id/0),
       world_id: Keyword.get(opts, :world_id, "ocean"),
       status: :not_configured,
       game: nil,
       projection: nil,
       catalogue: GameCatalogue.all(),
       active: false,
-      last_mono: System.monotonic_time(:millisecond),
+      last_mono: monotonic_clock.(),
       tick_ms: Keyword.get(opts, :tick_ms, 3000),
       tick_schedule: TijaraTides.Infrastructure.TickSchedule.new(opts),
       timer: nil,
@@ -301,8 +306,8 @@ defmodule TijaraTides.Infrastructure.GameServer do
              %{
                state
                | active: true,
-                 last_mono: System.monotonic_time(:millisecond),
-                 tick_due_mono: System.monotonic_time(:millisecond) + state.tick_ms,
+                 last_mono: state.monotonic_clock.(),
+                 tick_due_mono: state.monotonic_clock.() + state.tick_ms,
                  timer: :erlang.start_timer(state.tick_ms, self(), :tick)
              }}
 
@@ -493,7 +498,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
     OperationBoundary.run(
       :progression,
       fn ->
-        now = System.monotonic_time(:millisecond)
+        now = state.monotonic_clock.()
         TijaraTides.Infrastructure.Measurements.tick_lag(state.tick_due_mono, now)
         elapsed = max(0, now - state.last_mono)
 
@@ -526,7 +531,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   def handle_info(_message, state), do: {:noreply, state}
 
   defp schedule_tick(state, started) do
-    finished = System.monotonic_time(:millisecond)
+    finished = state.monotonic_clock.()
     lag = if state.tick_due_mono, do: max(0, started - state.tick_due_mono), else: 0
 
     schedule =
@@ -544,7 +549,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
   defp context(state),
     do: %{
       id: request_id(),
-      auction_seed: request_id(),
+      auction_seed: state.auction_seed.(),
       wall_ms: state.wall_clock.(),
       catalogue: state.catalogue
     }
@@ -615,7 +620,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
     elapsed = max(0, game.clock_ms - state.game.clock_ms)
     next = accept_game(state, game)
     Phoenix.PubSub.broadcast(TijaraTides.PubSub, @topic, {:game_changed, game.revision})
-    %{next | last_mono: min(System.monotonic_time(:millisecond), state.last_mono + elapsed)}
+    %{next | last_mono: min(state.monotonic_clock.(), state.last_mono + elapsed)}
   end
 
   defp accept_game(state, game) do

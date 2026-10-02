@@ -212,3 +212,33 @@ uncommitted revision, and omit private exception messages from logs.
 owner using a real PostgreSQL epoch change. Its subsequent tick cannot advance
 stored clock/revision or publish a change. Existing transaction rollback and
 ledger tests cover failures inside the SQL unit of work.
+
+### Stateful discovery and replay
+
+The shared runner in `test/support/command_fuzzer/` checks symbolic action
+preconditions against a small independent model before resolving identities.
+Removing a creator during shrinking skips its now-invalid dependents. Assertions,
+model-valid rejections, internal errors and unexpected halts always propagate.
+Progress prefixes remain outside the shrinkable suffix and count inside the
+trace budget. The command/route/form inventories fail on unclassified additions.
+
+Ordinary checks run the four lifecycle properties and broad command property;
+the disposable database suite also runs the four SQL properties and fixed
+receipt/restart traces. SQL servers belong to individual cases and shrink
+attempts, never to property-level `setup`. Failure cleanup is exercised directly.
+The constructor clock/valuation seams keep SQL ticks reproducible without sleeps.
+
+For the bounded optional sweep and corpus replay:
+
+```sh
+TIJARA_FUZZ_EXTENDED=1 TIJARA_FUZZ_CORPUS=1 mix test test/tijara_tides/use_cases/extended_fuzzer_test.exs --seed 12345
+```
+
+This runs 100 cases with at most 60 actions and 100 shrink steps; corpus admission
+is capped at 50 versioned records. Failure diagnostics are written before
+reraising under `cover/property-failures/<family>/<case>/`. Preserve the original
+and final failing traces; replay the final input to identify its invariant before
+promoting it to a checked-in regression. Runner sensitivity fixtures are labelled
+separately from confirmed production defects. See the
+[executed discovery matrix](test-discovery-matrix.md#round-4-executed-cohort) for
+milestones, exclusions and measured evidence.

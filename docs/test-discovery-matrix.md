@@ -239,3 +239,51 @@ count assertion (8,571 instead of 8,572). Restored selections pass. An unscoped
 lot-drop experiment broke world startup and is classified as setup failure, not
 an assertion kill. Focused SQL/migration checks take about six seconds locally;
 full SQL verification passes with 949 tests and 93.88% line coverage.
+
+## Round 4 executed cohort
+
+`LifecycleFuzzerTest` uses four fixed `:rand` traces per family (60 actions),
+plus four StreamData properties (20 cases, 30 actions, 100 shrink steps).
+`SqlFuzzerTest` uses two fixed traces per family (25 actions), four SQL
+properties (five cases, 15 actions, 20 shrink steps), and two broad SQL replays.
+`LifecycleFuzzerTest` also runs the broad 20-case command property. Each prefix
+requires five accepted commands and the declared economic milestones; ticks,
+fixture grants and skipped dependencies do not satisfy command progress.
+
+| Family | Independent facts and required path | Deliberate detection evidence |
+|---|---|---|
+| Finance and guarantees | Borrowing is cash and debt, not profit; partial principal payment; beneficiary restart; sponsor escrow acquisition followed by release or capped claim | Existing finance/guarantee regressions; Round 2 zero-loss fault; runner rejects wrong cash deltas |
+| Berths, trade and rerouting | Actual queue admission, duplicate rejection, cancellation without movement, committed handling, return after reroute with cargo retained | Queue milestones in both backends; independent quantity/port checks after deadlines |
+| Route funding | Configured budgets, rejected underfunded departure, release on manual departure, full return lap and new visit identity | Conservation after every action; return visit must have exactly its configured amount and visit 2 |
+| Leases and liquidation | Ordinary lease/purchase/store, expiry, grace, estate transition, auction clearance and completion | Fixed grace deadline and independently calculated reference proceeds, charges and estate sink |
+| Broad commands | Model-valid debt acquisition/payment/release, followed by generated combinations and independently declared violations | `FuzzerContractTest`: unbacked reservation, real rescued planner error, shrunk preset lifetime fault |
+
+The model deliberately does not duplicate interest scheduling, NPC price curves
+or auction settlement. Those retain independent named tests from Rounds 2–3.
+The route skeleton selects the complete-return-visit milestone. Linked partial
+fills/handoffs retain the named `RouteFundingTest` and SQL regressions; generating
+linked exchange counterparts is the next sequence-cohort extension. It is not
+claimed by the current route generator.
+
+`CommandInventoryTest` checks every dispatch action, route operation and literal
+form event. `Inventory.command_contracts/0` records sequence generators, boundary
+contracts and exclusions with follow-ups. Pure replay/restart are unsupported and
+recorded as skips; SQL runs actual receipt/recovery checkpoints. Each SQL replay
+and shrink attempt starts a fresh UUID world and stops its child in `after`,
+including a deliberately failing replay followed by a clean new case.
+
+Versioned original/minimized diagnostics include symbolic and resolved actions,
+replies, clocks, invariant, seed, source revision, generator/fixture versions and
+valuation seed under `cover/property-failures/`. They contain no session tokens.
+The optional corpus keeps at most 50 declared semantic-interest combinations;
+these are not branch coverage measurements. Historical payload and runner
+sensitivity fixtures live in `test/fixtures/property_regressions/command_fuzzer/`.
+
+Round 4 local receipts: `mix precommit` passes 857 tests/properties; disposable
+PostgreSQL coverage passes 974 with 94.00% line coverage in 48.8 seconds, and
+both browser workflows pass in 4.4 seconds. No compiler warnings occurred.
+The focused ordinary cohort takes 3.7 seconds; SQL traces/properties take about
+12 seconds without coverage. The opt-in 100-case sweep plus corpus replay passes
+in 0.8 seconds on this host. These are local measurements, not CI promises or
+measurements for the two CI runtime pairs. Raw logs are under
+`cover/test-expansion/round4/`.
