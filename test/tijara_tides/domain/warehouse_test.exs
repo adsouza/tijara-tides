@@ -82,6 +82,51 @@ defmodule TijaraTides.Domain.WarehouseTest do
     ])
   end
 
+  test "collection and source selection use custom receiving hold conditions in both directions",
+       c do
+    cat = put_in(c.catalogue, ["refrigeration", "aging_bps"], 5000)
+    state = put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")
+    state = lease(c, state) |> then(&stock(&1, "lease", [{"fruit", 2, 30_000}]))
+    ship = Game.get(state, "ships", "company:1")
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 60_000, cat).id == "lease"
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 60_001, cat) == nil
+
+    cmd = %{
+      "warehouse" => "lease",
+      "ship" => ship["id"],
+      "good" => "fruit",
+      "quantity" => 1,
+      "side" => "collect",
+      "min_remaining_ms" => 60_000
+    }
+
+    {:ok, loaded, _} = WarehouseWorld.transfer(state, c.account, cmd, cat)
+    assert hd(Game.get(loaded, "ships", ship["id"])["cargo"])["expires_ms"] == 60_000
+
+    w = WarehouseWorld.fetch(state, "lease")
+    cold = Enum.map(w.cargo, &TijaraTides.Domain.CargoFreshness.recondition(&1, 0, 2500))
+
+    state =
+      TijaraTides.Domain.State.put(
+        state,
+        "warehouses",
+        "lease",
+        Warehouse.Rows.encode(%{w | cargo: cold})
+      )
+
+    state = put_in(state, [:entities, "ships", "company:1", "class"], "freighter")
+    ship = Game.get(state, "ships", "company:1")
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 30_001, cat) == nil
+
+    assert {:error, :insufficient_cargo} =
+             WarehouseWorld.transfer(state, c.account, %{cmd | "min_remaining_ms" => 30_001}, cat)
+
+    {:ok, loaded, _} =
+      WarehouseWorld.transfer(state, c.account, %{cmd | "min_remaining_ms" => 30_000}, cat)
+
+    assert hd(Game.get(loaded, "ships", ship["id"])["cargo"])["expires_ms"] == 30_000
+  end
+
   test "collection selects earliest qualifying life, preserves excluded lots and acquisition costs",
        c do
     state = put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")
@@ -96,7 +141,7 @@ defmodule TijaraTides.Domain.WarehouseTest do
       "good" => "fruit",
       "quantity" => 3,
       "side" => "collect",
-      "min_remaining_ms" => 60_000
+      "min_remaining_ms" => 240_000
     }
 
     {:ok, loaded, _} = WarehouseWorld.transfer(state, c.account, command, c.catalogue)
@@ -149,13 +194,13 @@ defmodule TijaraTides.Domain.WarehouseTest do
       "good" => "fruit",
       "quantity" => 1,
       "side" => "collect",
-      "min_remaining_ms" => 60_000
+      "min_remaining_ms" => 240_000
     }
 
     assert {:error, :insufficient_cargo} =
              WarehouseWorld.transfer(state, c.account, command, c.catalogue)
 
-    assert WarehouseWorld.collection_source(state, ship, "fruit", 60_000) == nil
+    assert WarehouseWorld.collection_source(state, ship, "fruit", 240_000) == nil
     assert Game.get(state, "warehouse_reservations", "other-claim")["quantity"] == 2
     assert Game.get(state, "ships", "company:1")["cargo"] == []
     assert WarehouseWorld.collection_source(state, ship, "fruit", 0).id == "lease"

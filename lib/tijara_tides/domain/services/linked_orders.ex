@@ -163,10 +163,11 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
             Enum.sum(
               for b <- w.cargo,
                   b.good == rule["good"],
-                  CargoRules.qualifies?(
-                    b.expires_ms,
+                  CargoRules.qualifies_batch?(
+                    b,
                     state.clock_ms,
-                    rule["min_remaining_ms"] || 0
+                    rule["min_remaining_ms"] || 0,
+                    CargoRules.hold_rate(ship, catalogue)
                   ),
                   do: b.quantity
             )

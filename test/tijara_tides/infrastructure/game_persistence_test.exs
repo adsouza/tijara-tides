@@ -5163,6 +5163,41 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert warm["freshness"]["origin_expires_ms"] == origin
     assert warm["freshness"]["harvest_ms"] == cold["freshness"]["harvest_ms"]
     assert warm["expires_ms"] < cold["expires_ms"]
+    next = Game.advance(next, handling, cat)
+
+    target =
+      TijaraTides.Domain.CargoFreshness.recondition(
+        TijaraTides.Domain.Ship.CargoRows.decode(warm),
+        next.clock_ms,
+        2500
+      )
+
+    command = %{
+      "warehouse" => "warm-storage",
+      "ship" => ship["id"],
+      "side" => "collect",
+      "good" => "fruit",
+      "quantity" => 2,
+      "min_remaining_ms" => target.expires_ms - next.clock_ms
+    }
+
+    assert {:error, :insufficient_cargo} =
+             WarehouseWorld.transfer(
+               next,
+               a,
+               %{command | "min_remaining_ms" => command["min_remaining_ms"] + 1},
+               cat
+             )
+
+    assert {:ok, next, _} = WarehouseWorld.transfer(next, a, command, cat)
+    assert State.get(next, "warehouses", "warm-storage")["cargo"] == []
+
+    assert Enum.any?(
+             State.get(next, "ships", ship["id"])["cargo"],
+             &(&1["lot_id"] == warm["lot_id"] and &1["expires_ms"] == target.expires_ms)
+           )
+
+    next = Game.advance(next, handling, cat)
     next = %{next | revision: before.revision + 1}
     assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, next)
     assert {:ok, restored} = GameStore.reload(Repo, c.world_id, next)

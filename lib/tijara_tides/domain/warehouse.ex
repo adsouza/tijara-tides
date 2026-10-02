@@ -262,11 +262,18 @@ defmodule TijaraTides.Domain.Warehouse do
     %{w | cargo: w.cargo ++ cargo}
   end
 
-  def release_cargo(%Lots{} = lots, %__MODULE__{} = w, good, quantity, minimum \\ 0) do
+  def release_cargo(
+        %Lots{} = lots,
+        %__MODULE__{} = w,
+        good,
+        quantity,
+        minimum \\ 0,
+        receiving_bps \\ 10_000
+      ) do
     {fresh, excluded} =
       Enum.split_with(
         w.cargo,
-        &TijaraTides.Domain.CargoRules.qualifies?(&1.expires_ms, lots.clock_ms, minimum)
+        &TijaraTides.Domain.CargoRules.qualifies_batch?(&1, lots.clock_ms, minimum, receiving_bps)
       )
 
     unless TijaraTides.Domain.CargoRules.valid_remaining?(minimum) and is_integer(quantity) and

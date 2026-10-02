@@ -53,7 +53,14 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
 
       source =
         if order["side"] == "buy",
-          do: WarehouseWorld.collection_source(state, ship, order["good"], trade.min_remaining_ms)
+          do:
+            WarehouseWorld.collection_source(
+              state,
+              ship,
+              order["good"],
+              trade.min_remaining_ms,
+              catalogue
+            )
 
       # Pure probes are discarded. Only the final successful fill is committed.
       result = fn quantity ->
@@ -227,7 +234,14 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
 
     source =
       if trade.side == "buy",
-        do: WarehouseWorld.collection_source(state, ship, trade.good, trade.min_remaining_ms)
+        do:
+          WarehouseWorld.collection_source(
+            state,
+            ship,
+            trade.good,
+            trade.min_remaining_ms,
+            catalogue
+          )
 
     case execute_fill(
            Map.put(state, :lot_allocation, {:local, 1}),

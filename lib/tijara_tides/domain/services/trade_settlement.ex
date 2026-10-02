@@ -263,10 +263,11 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       item["shelf_ms"] > 0 and
           Enum.sum(
             for b <- quote["freshness_batches"],
-                TijaraTides.Domain.CargoRules.qualifies?(
-                  b["expires_ms"],
+                TijaraTides.Domain.CargoRules.qualifies_batch?(
+                  b,
                   state.clock_ms,
-                  minimum
+                  minimum,
+                  TijaraTides.Domain.CargoRules.hold_rate(ship, catalogue)
                 ),
                 do: b["quantity"]
           ) < quantity ->
@@ -294,7 +295,8 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
             quantity,
             quote["ask"],
             item,
-            minimum
+            minimum,
+            %{receiving_bps: TijaraTides.Domain.CargoRules.hold_rate(ship, catalogue)}
           )
 
         state =

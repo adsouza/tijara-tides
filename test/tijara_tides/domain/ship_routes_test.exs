@@ -128,7 +128,7 @@ defmodule TijaraTides.Domain.ShipRoutesTest do
         "good" => "fruit",
         "quantity_mode" => "maximum",
         "limit" => 1_000_000,
-        "min_remaining_ms" => 3_600_000
+        "min_remaining_ms" => 14_400_000
       })
 
     {state, lot} = TijaraTides.Domain.CargoLots.create(state, "fruit", 3, 3_599_999)

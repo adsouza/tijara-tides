@@ -49,6 +49,8 @@ defmodule TijaraTides.Domain.PortCargoMarket do
              TijaraTides.Domain.CargoRules.valid_remaining?(minimum),
            do: raise(ArgumentError, "Market cannot supply the requested cargo quantity or price")
 
+    policy = Map.update(policy, :min_remaining_ms, minimum, &max(&1, minimum))
+
     {lots, taken, remaining} =
       if item["shelf_ms"] > 0 or market.merchant do
         unless Enum.all?(
@@ -61,8 +63,7 @@ defmodule TijaraTides.Domain.PortCargoMarket do
         {qualifying, excluded} =
           Enum.split_with(
             market.batches,
-            &(TijaraTides.Domain.CargoRules.qualifies?(&1.expires_ms, lots.clock_ms, minimum) and
-                TijaraTides.Domain.OrderBook.eligible?(&1, lots.clock_ms, policy))
+            &TijaraTides.Domain.OrderBook.eligible?(&1, lots.clock_ms, policy)
           )
 
         qualifying = Enum.sort_by(qualifying, &(&1.expires_ms || 9_223_372_036_854_775_807))

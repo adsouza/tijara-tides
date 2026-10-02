@@ -462,7 +462,15 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       # Collection offers only unspoiled lots, so take/4 must walk that same list: given the
       # whole manifest it matches on good alone and drains expired batches the count excluded.
       {fresh, _stale} =
-        Enum.split_with(w.cargo, &CargoRules.qualifies?(&1.expires_ms, state.clock_ms, minimum))
+        Enum.split_with(
+          w.cargo,
+          &CargoRules.qualifies_batch?(
+            &1,
+            state.clock_ms,
+            minimum,
+            CargoRules.hold_rate(ship, catalogue)
+          )
+        )
 
       available =
         if side == "store",
@@ -529,7 +537,14 @@ defmodule TijaraTides.Domain.WarehouseWorld do
               {s, receive_conditioned(w, cargo, state.clock_ms)}
             else
               {lots, next, cargo} =
-                Warehouse.release_cargo(lots(state), w, item["id"], n, minimum)
+                Warehouse.release_cargo(
+                  lots(state),
+                  w,
+                  item["id"],
+                  n,
+                  minimum,
+                  CargoRules.hold_rate(ship, catalogue)
+                )
 
               s = record_lots(state, lots)
 
@@ -694,7 +709,7 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       )
 
   @doc "Choose this ship's earmarked stock first, then other available owned stock."
-  def collection_source(state, ship, good, minimum \\ 0) do
+  def collection_source(state, ship, good, minimum \\ 0, catalogue \\ %{}) do
     owned(state, "warehouses", "company_id", ship["company_id"])
     |> Enum.filter(&(&1["port"] == ship["port"]))
     |> Enum.map(&load(state, &1))
@@ -702,7 +717,13 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       state.clock_ms < w.expires_ms + w.grace_ms and
         Enum.sum(
           for b <- w.cargo,
-              b.good == good and CargoRules.qualifies?(b.expires_ms, state.clock_ms, minimum),
+              b.good == good and
+                CargoRules.qualifies_batch?(
+                  b,
+                  state.clock_ms,
+                  minimum,
+                  CargoRules.hold_rate(ship, catalogue)
+                ),
               do: b.quantity
         ) > reserved_quantity(state, w, "stock", good, ship["id"])
     end)
@@ -716,7 +737,13 @@ defmodule TijaraTides.Domain.WarehouseWorld do
       expiry =
         w.cargo
         |> Enum.filter(
-          &(&1.good == good and CargoRules.qualifies?(&1.expires_ms, state.clock_ms, minimum))
+          &(&1.good == good and
+              CargoRules.qualifies_batch?(
+                &1,
+                state.clock_ms,
+                minimum,
+                CargoRules.hold_rate(ship, catalogue)
+              ))
         )
         |> Enum.map(&(&1.expires_ms || 9_223_372_036_854_775_807))
         |> Enum.min()

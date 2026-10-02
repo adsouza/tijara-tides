@@ -908,7 +908,9 @@ perishables without slowing spoilage. Buyers can require a minimum remaining
 shelf life as well as a maximum price. Freshness grades use shared percentage
 bands of shelf life remaining across perishables. Always show estimated real
 time remaining under current storage conditions as well; buyers can specify a
-minimum remaining lifetime appropriate to their planned voyage. Refrigeration
+minimum remaining lifetime appropriate to their planned voyage. At settlement,
+check this minimum under the receiving warehouse or ship hold conditions,
+including purchases and collections; do not use the source storage rate. Refrigeration
 changes aging speed rather than resetting batch age. Exact grade thresholds,
 aging rates, and shelf lives remain tuning decisions.
 

@@ -48,14 +48,12 @@ defmodule TijaraTides.Domain.OrderBook do
       is_integer(grade) and grade in 0..3 and TijaraTides.Domain.CargoRules.valid_remaining?(life)
 
   def eligible?(batch, now, policy) do
-    target =
-      TijaraTides.Domain.CargoFreshness.recondition(batch, now, policy[:receiving_bps] || 10_000)
-
     grade(batch, now) >= (policy[:min_grade] || 0) and
-      TijaraTides.Domain.CargoRules.qualifies?(
-        target.expires_ms,
+      TijaraTides.Domain.CargoRules.qualifies_batch?(
+        batch,
         now,
-        policy[:min_remaining_ms] || 0
+        policy[:min_remaining_ms] || 0,
+        policy[:receiving_bps] || 10_000
       )
   end
 

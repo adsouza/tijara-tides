@@ -155,7 +155,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
       add(c, state, "fresh", %{
         "good" => "fruit",
         "quantity" => 2,
-        "min_remaining_ms" => 3_600_000
+        "min_remaining_ms" => 14_400_000
       })
 
     state = arrive(c, state) |> fruit_supply([{5, 3_599_999}])
@@ -172,7 +172,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     assert ShipInstructions.advance(waiting, c.catalogue) == waiting
     filled = waiting |> fruit_supply([{5, 3_600_000}]) |> ShipInstructions.advance(c.catalogue)
     assert Game.get(filled, "ship_instructions", "fresh")["filled"] == 2
-    assert Game.get(filled, "ship_instructions", "fresh")["min_remaining_ms"] == 3_600_000
+    assert Game.get(filled, "ship_instructions", "fresh")["min_remaining_ms"] == 14_400_000
 
     assert hd(Game.get(filled, "ships", "company:1")["cargo"])["freshness"]["origin_expires_ms"] ==
              state.clock_ms + 3_600_000
@@ -188,7 +188,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
       add(c, state, "fresh", %{
         "good" => "fruit",
         "quantity" => 3,
-        "min_remaining_ms" => 3_600_000
+        "min_remaining_ms" => 14_400_000
       })
 
     state = arrive(c, state) |> fruit_supply([{1, 7_200_000}, {4, 3_599_999}, {1, 3_600_000}])
@@ -224,7 +224,7 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     state = fruit_state(c, c.state)
 
     {:ok, state, _} =
-      add(c, state, "fresh", %{"good" => "fruit", "min_remaining_ms" => 3_600_000})
+      add(c, state, "fresh", %{"good" => "fruit", "min_remaining_ms" => 14_400_000})
 
     state = arrive(c, state) |> fruit_supply([{5, 3_599_999}])
 

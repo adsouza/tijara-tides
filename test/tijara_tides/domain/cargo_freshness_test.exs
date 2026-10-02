@@ -26,6 +26,18 @@ defmodule TijaraTides.Domain.CargoFreshnessTest do
     assert CargoRows.decode(CargoRows.encode(warm)) == warm
   end
 
+  test "minimum life uses the receiver's rate and never revives spoiled batches" do
+    assert CargoRules.qualifies_batch?(batch(), 0, 4000, 2500)
+    refute CargoRules.qualifies_batch?(batch(), 0, 4001, 2500)
+    cold = CargoFreshness.recondition(batch(), 0, 2500, fruit())
+    assert cold.expires_ms == 4000
+    assert CargoRules.qualifies_batch?(cold, 2000, 500, 10_000)
+    refute CargoRules.qualifies_batch?(cold, 2000, 501, 10_000)
+    refute CargoRules.qualifies_batch?(cold, 4000, 0, 2500)
+    assert CargoRules.qualifies_batch?(%{batch() | expires_ms: nil}, 1000, 2_592_000_000, 2500)
+    assert batch().expires_ms == 1000
+  end
+
   test "partial sales inherit exact age and immutable split identity" do
     cold = CargoFreshness.recondition(batch(), 200, 3333, fruit())
     {lots, [sold], [kept]} = CargoBatch.take(%{clock_ms: 701, new_lots: []}, [cold], 1, "fruit")

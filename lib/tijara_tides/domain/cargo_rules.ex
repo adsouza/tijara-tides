@@ -87,6 +87,24 @@ defmodule TijaraTides.Domain.CargoRules do
   def qualifies?(nil, _clock, _minimum), do: true
   def qualifies?(expiry, clock, minimum), do: expiry > clock and expiry - clock >= minimum
 
+  @doc "Minimum life under the receiving conditions, without changing the source batch."
+  def qualifies_batch?(batch, clock, minimum, receiving_bps) do
+    batch =
+      if Map.has_key?(batch, "expires_ms"),
+        do: %{expires_ms: batch["expires_ms"], freshness: batch["freshness"]},
+        else: batch
+
+    qualifies?(batch.expires_ms, clock, 0) and
+      qualifies?(
+        TijaraTides.Domain.CargoFreshness.recondition(batch, clock, receiving_bps).expires_ms,
+        clock,
+        minimum
+      )
+  end
+
+  def hold_rate(ship, catalogue \\ %{}),
+    do: TijaraTides.Domain.CargoFreshness.rate(ShipClass.all()[ship["class"]]["hold"], catalogue)
+
   def freshness(batches, quantity, clock, elapsed) do
     {expiries, _} =
       Enum.reduce(batches, {[], max(0, quantity)}, fn batch, {expiries, left} ->
