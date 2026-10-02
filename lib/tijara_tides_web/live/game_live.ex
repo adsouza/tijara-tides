@@ -769,6 +769,7 @@ defmodule TijaraTidesWeb.GameLive do
     run(
       socket,
       params
+      |> Map.take(~w(request_id side good quantity limit budget onward preset))
       |> Map.put("action", "instruction")
       |> Map.put("ship", socket.assigns.selected_ship)
       |> Map.put(
@@ -783,7 +784,6 @@ defmodule TijaraTidesWeb.GameLive do
       |> Map.update("limit", 0, &instruction_cents/1)
       |> Map.update("budget", 0, &(integer(&1) * 100))
       |> Map.put("min_remaining_ms", freshness_minimum(params))
-      |> Map.delete("freshness_minutes")
       |> Map.put(
         "expires_in_ms",
         if(params["expiry_minutes"] in [nil, ""],

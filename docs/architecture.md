@@ -272,9 +272,13 @@ together. No successful command acknowledgement or revision publication precedes
 that commit.
 
 Invalid or expired sessions return `:invalid_session`; non-map payloads return
-`:invalid_command_payload`, payloads over 12 keys return
+`:invalid_command_payload`, payloads over 12 keys (13 for route commands) return
 `:too_many_command_fields`, and payloads over 4096 encoded bytes return
 `:command_payload_too_large`. These validation errors do not touch persistence.
+The next-port instruction form builds a command from an explicit list of fields;
+LiveView's `_unused_*` metadata and raw minute inputs stay at the web boundary.
+Only converted freshness and expiry durations enter the command or its receipt
+fingerprint.
 
 A business rejection leaves the current state available and unchanged. An unrecoverable commit
 failure stops normal world operation; an unexpected storage or domain exception

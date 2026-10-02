@@ -2898,6 +2898,109 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     Enum.each([lobby, spectator, second], &GenServer.stop(&1.pid, :normal))
   end
 
+  test "browser instruction submissions exclude form metadata and replay normalized durations",
+       c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, %{"company_id" => company}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "formation",
+        %{
+          "action" => "company",
+          "name" => "Browser instructions",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    ship = company <> ":1"
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "load-cargo",
+               %{
+                 "action" => "buy",
+                 "ship" => ship,
+                 "good" => "lumber",
+                 "quantity" => 2,
+                 "limit" => 1_000_000,
+                 "destination" => "Singapore"
+               },
+               c.server
+             )
+
+    advance(c.server, 60_000)
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    render_click(view, "ship", %{"id" => ship})
+    select_destination(view, "Singapore")
+    selector = "[id='instruction-form-#{ship}']"
+
+    for {side, terms} <- [
+          {"sell", %{"preset" => "", "expiry_minutes" => ""}},
+          {"buy", %{"budget" => "10000", "freshness_minutes" => "75", "expiry_minutes" => "2"}}
+        ] do
+      [_, request] =
+        Regex.run(
+          ~r/value="([^"]+)"/,
+          view |> element(selector <> " input[name=request_id]") |> render()
+        )
+
+      params =
+        Map.merge(
+          %{
+            "request_id" => request,
+            "side" => side,
+            "good" => "lumber",
+            "quantity" => "1",
+            "limit" => "10000",
+            "onward" => "Jakarta"
+          },
+          terms
+        )
+
+      # LiveViewTest's form helper omits the browser's untouched-input markers.
+      metadata = Map.new(params, fn {field, _} -> {"_unused_" <> field, ""} end)
+      browser_params = params |> Map.merge(metadata) |> Map.put("_target", ["side"])
+      html = render_submit(view, "add-instruction", browser_params)
+      refute html =~ "The command contains too many fields"
+      snapshot = GameServer.snapshot(token, c.server)
+      order = Enum.find(Map.values(snapshot.private["ship_instructions"]), &(&1["side"] == side))
+      assert order != nil
+      assert order["port"] == "Singapore"
+      assert order["quantity"] == 1
+      assert order["limit"] == 1_000_000
+
+      if side == "buy" do
+        assert order["budget"] == 1_000_000
+        assert order["min_remaining_ms"] == 4_500_000
+        assert order["expires_ms"] == snapshot.public["clock_ms"] + 120_000
+      else
+        assert order["expires_ms"] == nil
+      end
+
+      # UI metadata and equivalent minute formatting must not change the receipt.
+      replay = Map.put(params, "expiry_minutes", if(side == "buy", do: "002", else: ""))
+      render_submit(view, "add-instruction", replay)
+
+      assert GameServer.snapshot(token, c.server).public["revision"] ==
+               snapshot.public["revision"]
+    end
+
+    game = :sys.get_state(c.server).game
+    assert {:ok, restored} = GameStore.reload(Repo, c.world_id, game)
+    assert restored.entities["ship_instructions"] == game.entities["ship_instructions"]
+    assert map_size(restored.entities["ship_instructions"]) == 2
+  end
+
   test "minimum shelf life forms, route edits and private terms survive replay and restart", c do
     Application.put_env(:tijara_tides, :game_server, c.server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
@@ -2978,7 +3081,6 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "limit" => 1_000_000,
       "budget" => 1_000_000,
       "onward" => "Singapore",
-      "expiry_minutes" => "",
       "expires_in_ms" => nil,
       "min_remaining_ms" => 4_500_000
     }
@@ -3147,7 +3249,6 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "limit" => 0,
       "budget" => 1_000_000,
       "onward" => "Singapore",
-      "expiry_minutes" => "2",
       "min_remaining_ms" => 0,
       "expires_in_ms" => 120_000
     }
