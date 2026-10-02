@@ -126,8 +126,12 @@ defmodule TijaraTides.Domain.LiquidationPool do
   end
 
   def complete(%__MODULE__{} = p, charges, net, estate, now) do
-    unless p.status == "liquidating" and charges + net == p.proceeds and net >= 0,
-      do: raise(ArgumentError, "Invalid liquidation settlement")
+    unless p.status == "liquidating" and is_integer(charges) and charges >= 0 and
+             is_integer(net) and net >= 0 and is_boolean(estate) and
+             is_integer(now) and now >= max(p.last_ms, p.grace_end_ms) and
+             charges == min(p.proceeds, p.rent_due + p.handling_due) and
+             charges + net == p.proceeds,
+           do: raise(ArgumentError, "Invalid liquidation settlement")
 
     %{
       p

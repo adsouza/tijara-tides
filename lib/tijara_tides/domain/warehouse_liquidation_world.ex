@@ -63,9 +63,19 @@ defmodule TijaraTides.Domain.WarehouseLiquidationWorld do
 
   def begin(state, id), do: put(state, LiquidationPool.begin(fetch(state, id), state.clock_ms))
 
-  def complete(state, id, charges, net, estate),
-    do:
-      put(state, LiquidationPool.complete(fetch(state, id), charges, net, estate, state.clock_ms))
+  def complete(state, id, charges, net, estate) do
+    model = fetch(state, id)
+    company = State.get(state, "companies", model.company_id)
+
+    unless company && estate == (company["bankruptcy_ms"] != nil),
+      do:
+        raise(
+          ArgumentError,
+          "Liquidation settlement must match its financial owner's receivership"
+        )
+
+    put(state, LiquidationPool.complete(model, charges, net, estate, state.clock_ms))
+  end
 
   def replace(state, id, charges),
     do: put(state, LiquidationPool.replace(fetch(state, id), charges, state.clock_ms))

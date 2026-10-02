@@ -76,6 +76,43 @@ defmodule TijaraTides.Domain.ReservationModelsTest do
     assert split.clearance_remainders["fruit"] == %{"numerator" => 1, "denominator" => 12}
   end
 
+  test "completion rejects forged charges, clocks and estate classification" do
+    p = pool() |> LiquidationPool.begin(28) |> LiquidationPool.sale(100, 2)
+
+    for {charges, net, estate, now} <- [
+          {-1, 101, false, 40},
+          {1, 99, false, 40},
+          {3, 97, false, 40},
+          {2.0, 98, false, 40},
+          {2, 98, :estate, 40},
+          {2, 98, false, 27}
+        ] do
+      assert_raise ArgumentError, fn -> LiquidationPool.complete(p, charges, net, estate, now) end
+    end
+
+    for bankrupt <- [nil, 0] do
+      state = %{
+        clock_ms: 40,
+        entities: %{
+          "warehouse_liquidations" => %{p.id => LiquidationPool.Rows.encode(p)},
+          "companies" => %{p.company_id => %{"bankruptcy_ms" => bankrupt}}
+        }
+      }
+
+      estate = bankrupt != nil
+
+      assert_raise ArgumentError, fn ->
+        TijaraTides.Domain.WarehouseLiquidationWorld.complete(state, p.id, 2, 98, not estate)
+      end
+
+      next = TijaraTides.Domain.WarehouseLiquidationWorld.complete(state, p.id, 2, 98, estate)
+      row = next.entities["warehouse_liquidations"][p.id]
+      assert row["charged"] == 2
+      assert row["paid"] == if(estate, do: 0, else: 98)
+      assert row["sunk"] == if(estate, do: 98, else: 0)
+    end
+  end
+
   test "liquidation completion conserves proceeds and seals economic transitions" do
     p = pool()
     assert_raise ArgumentError, fn -> LiquidationPool.begin(p, p.grace_end_ms - 1) end
@@ -84,7 +121,7 @@ defmodule TijaraTides.Domain.ReservationModelsTest do
       p
       |> LiquidationPool.begin(p.grace_end_ms)
       |> LiquidationPool.sale(100, 2)
-      |> LiquidationPool.complete(10, 90, false, 40)
+      |> LiquidationPool.complete(2, 98, false, 40)
 
     assert closed.charged + closed.paid + closed.sunk == closed.proceeds
     assert LiquidationPool.accrue(closed, 1000) == closed
