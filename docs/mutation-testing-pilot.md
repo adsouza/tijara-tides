@@ -259,3 +259,32 @@ dependencies and CI remain unchanged. Keep the audit opt-in: the uncovered-condi
 selection miss must be addressed before treating an automatic score as a gate.
 The separate branch/condition review requirement still applies; these mutation
 results do not supply measured branch or condition coverage.
+
+## Gameplay review regression audit — 2026-10-01
+
+The gameplay review fixes received a bounded manual mutation audit on
+`codex/gameplay-automation`. Each mutation was applied alone, its named focused
+ExUnit file was run, and the original source bytes were restored in `finally`.
+The combined four-file baseline passed before and after the audit. All four
+mutants failed behavioral assertions; none was counted through a compile error
+or timeout. This is detection of this sample, not a system-wide mutation score.
+
+| Mutation | Focused regression that rejected it |
+|---|---|
+| Force receiving aging to ordinary speed | CargoFreshnessTest: minimum life uses the receiver's rate and never revives spoiled batches |
+| Ignore saved voyage segments on every tick | AutomationCostTest: a legacy sailing path is partitioned once, then cached across ticks and serialization |
+| Accept any nonnegative charges that conserve proceeds | ReservationModelsTest: completion rejects forged charges, clocks and estate classification |
+| Skip required persisted-field validation | GameRowsBatchingTest: required reservation and preset fields cannot inherit defaults from other entity kinds |
+
+The focused baseline exposed a test setup dependency that a full-suite run had
+hidden: installing an Erlang trace pattern before loading Weather could count
+zero partition calls. The counter now ensures the target module is loaded and
+asserts that its trace pattern was installed. No dependency-based test selection
+was used for this audit; each target's entire named file ran.
+
+Generated forecast cases compare cached and uncached results across three paths,
+five seeds and four cutoffs. Funding operation-count cases use 1, 25 and 100
+requests. These bounded invariant checks complement the lifecycle, LiveView and
+real-PostgreSQL regressions added for the review. The broader shrinking and
+state-machine infrastructure in the test expansion proposal remains follow-up
+work; mutation testing stays opt-in.

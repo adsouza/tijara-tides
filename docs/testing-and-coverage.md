@@ -14,8 +14,12 @@ required before any mutation-score gate. Mutation testing remains opt-in.
 The [proposed test expansion](test-expansion-plan.md) builds on this policy with
 input and notice contracts, lifecycle interactions, SQL transitions, property
 tests with shrinking, generated sequences and mutation audits. It records
-implementation rounds and acceptance criteria; those additions are not yet
-implemented.
+implementation rounds and acceptance criteria. Review regressions now cover
+receiving freshness, late auction settlement, owner-visit coalescing, compiled
+ship dependencies, persisted-field contracts and operation counts. The bounded
+[gameplay mutation audit](mutation-testing-pilot.md#gameplay-review-regression-audit--2026-10-01)
+checks four deliberately broken behaviors. Broader shrinking and generated
+state-machine infrastructure remains follow-up work.
 
 For a focused coverage run:
 

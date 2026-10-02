@@ -5,8 +5,9 @@ defmodule TijaraTides.Domain.AutomationCostTest do
 
   # Count calls in this process, instead of asserting a machine-dependent runtime.
   defp counted(mfa, pattern, run) do
+    Code.ensure_loaded!(elem(mfa, 0))
     tracer = spawn(fn -> collect(0) end)
-    :erlang.trace_pattern(mfa, pattern, [:local])
+    assert :erlang.trace_pattern(mfa, pattern, [:local]) == 1
     :erlang.trace(self(), true, [:call, {:tracer, tracer}])
 
     try do
