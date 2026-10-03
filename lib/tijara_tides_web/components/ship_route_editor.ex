@@ -62,6 +62,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
             >{gettext("Selected stop")}</span></strong>
             <button
               type="button"
+              id={"route-remove-stop-" <> stop["id"]}
               phx-click="route"
               phx-value-operation="remove_stop"
               phx-value-stop={stop["id"]}
@@ -209,6 +210,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
             >{gettext("Edit")}</button>
             <button
               type="button"
+              id={"route-remove-rule-" <> rule["id"]}
               phx-click="route"
               phx-value-operation="remove_rule"
               phx-value-rule={rule["id"]}
@@ -428,6 +430,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
       <div :if={@model.route} class="my-2 flex flex-wrap gap-2 text-sm">
         <button
           :if={@model.route["status"] == "running"}
+          id="route-pause"
           phx-click="route"
           phx-value-operation="pause"
           phx-value-request_id={@request_id}
@@ -435,12 +438,14 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
         >{gettext("Pause route")}</button>
         <button
           :if={@model.route["status"] == "running" && !@model.route["stop_after"]}
+          id="route-finish-after-visit"
           phx-click="route"
           phx-value-operation="stop_after"
           phx-value-request_id={@request_id}
           class="rounded border px-2 py-1"
         >{gettext("Stop after this visit")}</button>
         <button
+          id="route-delete"
           phx-click="route"
           phx-value-operation="delete"
           phx-value-request_id={@request_id}
@@ -509,6 +514,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
         )}
         <button
           :if={order["status"] in ["planned", "waiting"]}
+          id={"route-cancel-instruction-" <> order["id"]}
           phx-click="cancel-instruction"
           phx-value-id={order["id"]}
           class="ml-2 rounded border px-2 py-1"

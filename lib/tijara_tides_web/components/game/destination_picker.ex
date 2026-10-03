@@ -96,6 +96,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                   <th scope="row" class="destination-port">
                     <button
                       type="button"
+                      id={"destination-preview-" <> URI.encode_www_form(row.port)}
                       phx-click="preview"
                       phx-value-destination={row.port}
                       aria-pressed={to_string(row.port == @destination)}

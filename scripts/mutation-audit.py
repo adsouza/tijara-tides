@@ -101,7 +101,7 @@ def touch_source(path, text, stamp):
     os.utime(path, (stamp, stamp))
 
 
-def curated(work, env, out, start, count):
+def curated(work, base_env, out, start, count):
     catalogue = json.loads((FIXTURES / "catalogue.json").read_text())
     selected = catalogue[start:start + count]
     if not selected:
@@ -120,6 +120,8 @@ def curated(work, env, out, start, count):
             raise SystemExit("Curated source must be inside isolated lib/")
         original = path.read_text()
         tests = item["tests"]
+        # A fault may opt its detecting tests in, such as the CI-only control sweep.
+        env = {**base_env, **item.get("env", {})}
         baseline = run(work, env, out, name + "-baseline", test_args(tests), 120)
         if baseline["exit"] != 0:
             raise SystemExit(f"Unmutated baseline failed: {baseline['log']}")
@@ -312,7 +314,8 @@ def main():
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     env = environment()
-    for key in ("TIJARA_TEST_DB_PORT", "MIX_BUILD_PATH", "MIX_BUILD_ROOT", "TIJARA_FUZZ_EXTENDED", "TIJARA_BROWSER_TEST_PORT", "TIJARA_CONTROL_SWEEP"):
+    for key in ("TIJARA_TEST_DB_PORT", "MIX_BUILD_PATH", "MIX_BUILD_ROOT", "TIJARA_FUZZ_EXTENDED", "TIJARA_BROWSER_TEST_PORT", "TIJARA_CONTROL_SWEEP",
+                "TIJARA_CONTROL_SWEEP_FOCUS"):
         env.pop(key, None)
     env.update(MIX_ENV="test", ERL_FLAGS="+S 4")
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()

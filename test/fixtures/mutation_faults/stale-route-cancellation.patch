@@ -1,0 +1,11 @@
+--- lib/tijara_tides_web/components/ship_route_editor.ex
++++ lib/tijara_tides_web/components/ship_route_editor.ex
+@@ -516,7 +516,7 @@
+           :if={order["status"] in ["planned", "waiting"]}
+           id={"route-cancel-instruction-" <> order["id"]}
+           phx-click="cancel-instruction"
+-          phx-value-id={order["id"]}
++          phx-value-id={order["id"] <> "-stale"}
+           class="ml-2 rounded border px-2 py-1"
+         >{gettext("Cancel order")}</button>
+       </div>

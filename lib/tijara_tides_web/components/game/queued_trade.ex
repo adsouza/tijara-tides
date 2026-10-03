@@ -72,6 +72,7 @@ defmodule TijaraTidesWeb.GameUI.QueuedTrade do
       </p>
       <button
         type="button"
+        id={"cancel-berth-trade-" <> @id}
         phx-click="cancel-berth-trade"
         phx-value-id={@ship["id"]}
         class="mt-2 rounded border px-3 py-1"

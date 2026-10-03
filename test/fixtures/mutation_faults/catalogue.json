@@ -322,5 +322,19 @@
     "sql": false,
     "area": "review",
     "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "stale-route-cancellation",
+    "patch": "stale-route-cancellation.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/control_sweep_test.exs"
+    ],
+    "sql": true,
+    "area": "control-sweep",
+    "witness": "route-cancel-instruction-",
+    "env": {
+      "TIJARA_CONTROL_SWEEP": "1",
+      "TIJARA_CONTROL_SWEEP_FOCUS": "route_waiting:route-cancel-instruction-"
+    }
   }
 ]

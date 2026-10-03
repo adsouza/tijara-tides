@@ -93,4 +93,57 @@ defmodule TijaraTides.UseCases.CommandInventoryTest do
     refute facts["report-page"].command?
     assert MapSet.new(~w(sail reroute)) == facts["sail"].actions
   end
+
+  test "command discovery follows direct submissions and delegated helpers without cycles" do
+    facts = FormFields.handler_facts()
+
+    for event <- ~w(preview port-destination) do
+      assert facts[event].command?
+      assert facts[event].actions == MapSet.new(["plan_destination"])
+    end
+
+    source = """
+    def handle_event("entry", params, socket), do: handle_event("submit", params, socket)
+    def handle_event("submit", params, socket), do: remember(socket, params)
+    def handle_event("display", params, socket), do: display(socket, params)
+    def handle_event("qualified", _, socket) do
+      TijaraTides.UseCases.Game.command(socket.token, "request", %{"action" => "borrow"})
+    end
+    def handle_event("unrelated", _, socket), do: Other.command(socket, "request", %{})
+    defp remember(socket, params) do
+      cycle(socket, params)
+      Game.command(socket.token, "request", %{"action" => "plan_destination"})
+    end
+    defp cycle(socket, params), do: remember(socket, params)
+    defp display(socket, params), do: {socket, params}
+    """
+
+    discovered = FormFields.handler_facts(source)
+    assert discovered["entry"].command?
+    assert discovered["submit"].command?
+    assert discovered["entry"].actions == MapSet.new(["plan_destination"])
+    refute discovered["display"].command?
+    assert discovered["qualified"].command?
+    assert discovered["qualified"].actions == MapSet.new(["borrow"])
+    refute discovered["unrelated"].command?
+  end
+
+  test "command click producers retain separate template and rendered identities" do
+    records = Enum.filter(FormFields.forms(), &(&1.event == "cancel-instruction"))
+
+    assert Enum.sort(Enum.map(records, & &1.id_prefix)) ==
+             ["fleet-cancel-instruction-", "route-cancel-instruction-"]
+
+    html = """
+    <button id="fleet-cancel-instruction-order" phx-click="cancel-instruction"
+            phx-value-id="order">Cancel instruction</button>
+    <button id="route-cancel-instruction-order" phx-click="cancel-instruction"
+            phx-value-id="order">Cancel route order</button>
+    """
+
+    controls = TijaraTides.ControlSweep.controls(html, FormFields.handler_facts())
+
+    assert Enum.sort(Enum.map(controls, & &1.id)) ==
+             ["fleet-cancel-instruction-order", "route-cancel-instruction-order"]
+  end
 end

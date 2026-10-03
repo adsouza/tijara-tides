@@ -238,6 +238,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
         </p>
         <button
           :if={a["bid"] && a["status"] == "scheduled" && @auction.clock < a["closes_ms"]}
+          id={"auction-withdraw-bid-" <> a["id"]}
           phx-click="auction"
           phx-value-action="auction_withdraw_bid"
           phx-value-auction={a["id"]}

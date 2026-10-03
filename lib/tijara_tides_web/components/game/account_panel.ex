@@ -181,6 +181,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                 class="py-2 text-slate-400"
               >{gettext("or")}</span>
               <button
+                id="send-invitation"
                 phx-click="invite"
                 phx-value-request_id={@request_id}
                 class="rounded border border-teal-700 px-4 py-2"

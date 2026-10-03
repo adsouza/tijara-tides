@@ -63,7 +63,8 @@ its handler through a value read; otherwise it would be lost silently. Action
 values come from hidden inputs, submit buttons, `phx-value-action` and literal
 handler assignments. A value bound from an assign must be declared with the
 guard that limits it, and a command form whose action cannot be determined
-raises. Only events whose handler reaches `run/2` are commands.
+raises. Command events reach `run/2` or `Game.command/3`, including through
+local helpers and delegated event handlers.
 
 Separately, the SQL-backed exchange sweep finds every rendered exchange form,
 submits each as rendered in its own world and requires a commit. A further SQL
@@ -73,17 +74,30 @@ Withdraw button also sends the revise fields.
 The rendered command control sweep (`control_sweep` tag) generalizes both. Its
 unit is a control, not an action: a form is identified by the literal prefix of
 its template id and the action and route operation a given submit button sends,
-and a click by its event, action, operation and `phx-value-*` keys. The required
-units come from `FormFields`, so a new button cannot escape it, and two controls
-sending the same action are each pressed. Legal-command scenarios render every
-unit except two declared exclusions (guarantee pledges and berth-queue
-cancellation, which need suspended or capped invitees and congested berths).
-Each unit is submitted in its own world through its real control, with only the
-inputs a player must supply: blank required fields, placeholder selects and a
-short declared list. Command telemetry must report exactly one commit, and SQL
-rows must match. Disabled controls are skipped because they offer no submission.
-Every command form needs a stable id with a literal prefix. CI runs the sweep
-with `python3 scripts/test-game-db.py --control-sweep`; local checks do not.
+and a click by its template id prefix, event, action, operation and
+`phx-value-*` keys. Every command form and click producer needs a stable id with
+its own literal prefix, and no prefix may be a prefix of another. The required
+units come from `FormFields`, so a new button cannot escape the sweep, and two
+controls sending the same action are each pressed.
+
+Legal-command scenarios render every unit, with no exclusions. An exclusion must
+record the shortest paths tried: guarantee pledges (an invitee bankrupt five
+times) and berth-queue cancellation (a second purchase while loading) were once
+excluded as unreachable, and the second hid a duplicate DOM id that LiveViewTest
+now reports. Each unit is submitted in its own world through its real control,
+including the clicked element's rendered values, with only the inputs a player
+must supply: blank required fields, placeholder selects and a short declared
+list. Disabled controls are skipped because they offer no submission. Command
+telemetry must report exactly one commit, and SQL rows must match.
+
+CI runs the sweep; local checks do not. `TIJARA_CONTROL_SWEEP_FOCUS` set to
+`scenario:id-prefix` renders one scenario and presses only matching units,
+without the coverage assertions. The curated `stale-route-cancellation` fault
+uses it to show that corrupting the route cancellation ID fails the sweep.
+
+```sh
+python3 scripts/test-game-db.py --control-sweep
+```
 
 For a focused coverage run:
 
@@ -307,7 +321,7 @@ count by themselves. Replays require an explicit `--start` index.
 ```sh
 python3 scripts/mutation-audit.py curated --start 0 --count 12 --out cover/mutation-audit/curated-0
 python3 scripts/mutation-audit.py curated --start 12 --count 12 --out cover/mutation-audit/curated-12
-python3 scripts/mutation-audit.py curated --start 24 --count 8 --out cover/mutation-audit/curated-24
+python3 scripts/mutation-audit.py curated --start 24 --count 9 --out cover/mutation-audit/curated-24
 python3 scripts/mutation-audit.py generated --out cover/mutation-audit/generated
 python3 scripts/mutation-audit.py replay --report cover/mutation-audit/generated/generated.json --start 24 --extra-test test/tijara_tides/domain/market_quote_properties_test.exs --out cover/mutation-audit/replay-24
 ```

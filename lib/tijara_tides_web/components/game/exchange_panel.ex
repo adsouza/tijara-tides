@@ -301,6 +301,7 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
               <button class="rounded border border-teal-700 px-2 py-1">{gettext("Amend order")}</button>
               <button
                 type="button"
+                id={"exchange-cancel-" <> o["id"]}
                 phx-click="exchange"
                 phx-value-action="exchange_cancel"
                 phx-value-order={o["id"]}
@@ -369,6 +370,7 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
           <button
             :if={preset["id"]}
             type="button"
+            id={"exchange-delete-preset-" <> preset["id"]}
             phx-click="exchange"
             phx-value-action="markdown_preset_delete"
             phx-value-preset={preset["id"]}

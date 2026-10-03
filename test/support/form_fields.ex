@@ -96,8 +96,8 @@ defmodule TijaraTides.FormFields do
   `run/2` keeps only the fields `CommandPayload` admits for the submitted action, so any
   other field must be converted by the handler (read explicitly) or it is silently lost.
   A field admitted by a sibling action of the same form, such as a second submit button,
-  is expected. Only events whose handler reaches `run/2` submit commands; a command form
-  whose action cannot be determined raises.
+  is expected. Command events reach `run/2` or `Game.command/3` through helpers; a command
+  form whose action cannot be determined raises.
   """
   def dropped(
         forms \\ forms(),
@@ -181,7 +181,7 @@ defmodule TijaraTides.FormFields do
 
   defp add_item(record, {:call, component}), do: %{record | calls: [component | record.calls]}
 
-  defp record(event, where, kind \\ :click, id_prefix \\ nil),
+  defp record(event, where, kind, id_prefix),
     do: %{
       event: event,
       where: where,
@@ -286,7 +286,7 @@ defmodule TijaraTides.FormFields do
     |> elem(0)
   end
 
-  # The literal start of a form id: "auction-revise-" for {"auction-revise-" <> a["id"]}.
+  # The literal start of a control id: "auction-revise-" for {"auction-revise-" <> a["id"]}.
   defp id_prefix(nil), do: nil
   defp id_prefix(id) when is_binary(id), do: id
 
@@ -369,7 +369,7 @@ defmodule TijaraTides.FormFields do
         []
 
       {:expr, expr} ->
-        pushes(expr, where)
+        pushes(expr, where, id_prefix(attrs["id"]))
 
       event ->
         fields = for {"phx-value-" <> field, _} <- attrs, do: field
@@ -388,7 +388,7 @@ defmodule TijaraTides.FormFields do
 
         [
           %{
-            record(event, "#{where} phx-click=#{event}")
+            record(event, "#{where} phx-click=#{event}", :click, id_prefix(attrs["id"]))
             | fields: MapSet.new(fields),
               actions: MapSet.new(actions),
               operations: MapSet.new(operations)
@@ -398,7 +398,7 @@ defmodule TijaraTides.FormFields do
   end
 
   # JS.push("event", value: %{key: ...}) sends its literal map keys.
-  defp pushes(expr, where) do
+  defp pushes(expr, where, prefix) do
     {_, found} =
       Macro.prewalk(Code.string_to_quoted!(expr), [], fn
         {{:., _, [{:__aliases__, _, [:JS]}, :push]}, _, [event | opts]} = node, acc
@@ -411,7 +411,13 @@ defmodule TijaraTides.FormFields do
             end
 
           {node,
-           [%{record(event, "#{where} JS.push(#{event})") | fields: MapSet.new(keys)} | acc]}
+           [
+             %{
+               record(event, "#{where} JS.push(#{event})", :click, prefix)
+               | fields: MapSet.new(keys)
+             }
+             | acc
+           ]}
 
         node, acc ->
           {node, acc}
@@ -542,10 +548,12 @@ defmodule TijaraTides.FormFields do
       explicit =
         if variable, do: explicit_reads(variable, body, locals, MapSet.new()), else: MapSet.new()
 
+      {command?, actions} = command_facts(body, locals, MapSet.new())
+
       fact = %{
         explicit: MapSet.union(keys, explicit),
-        actions: fixed_actions(body),
-        command?: runs?(body, locals, MapSet.new())
+        actions: actions,
+        command?: command?
       }
 
       Map.update(acc, event, fact, fn other ->
@@ -558,39 +566,54 @@ defmodule TijaraTides.FormFields do
     end)
   end
 
-  # Whether a body reaches run/2, the single command submission path, through local calls.
-  defp runs?(body, locals, visited) do
-    {_, found} =
-      Macro.prewalk(body, false, fn
-        {:run, _, [_, _]} = node, _ ->
-          {node, true}
+  # Follow local helpers to both submission paths, retaining every fixed action.
+  defp command_facts(body, locals, visited) do
+    {_, facts} =
+      body
+      |> unpipe()
+      |> Macro.prewalk({false, fixed_actions(body)}, fn
+        {:run, _, [_, _]} = node, {_, actions} ->
+          {node, {true, actions}}
 
-        {fun, _, args} = node, false when is_atom(fun) and is_list(args) ->
-          key = {fun, length(args)}
+        {{:., _, [{:__aliases__, _, module}, :command]}, _, [_, _, _]} = node,
+        {command?, actions} ->
+          {node, {command? or module in [[:Game], [:TijaraTides, :UseCases, :Game]], actions}}
 
-          # Delegating to handle_event("other", ...) follows only that event's clauses.
-          clauses =
+        {fun, _, args} = node, {command?, actions} when is_atom(fun) and is_list(args) ->
+          # A delegated event follows only its clauses; other helpers follow every clause.
+          key =
             case {fun, args} do
-              {:handle_event, [event | _]} when is_binary(event) ->
-                for {[^event | _], _} = clause <- Map.get(locals, key, []), do: clause
+              {:handle_event, [event | _]} when is_binary(event) -> {fun, length(args), event}
+              _ -> {fun, length(args)}
+            end
+
+          clauses =
+            case key do
+              {:handle_event, arity, event} ->
+                for {[^event | _], _} = clause <- Map.get(locals, {:handle_event, arity}, []),
+                    do: clause
 
               _ ->
                 Map.get(locals, key, [])
             end
 
-          if clauses != [] and key not in visited,
-            do:
-              {node,
-               Enum.any?(clauses, fn {_, inner} ->
-                 runs?(inner, locals, MapSet.put(visited, key))
-               end)},
-            else: {node, false}
+          facts =
+            if key in visited do
+              {command?, actions}
+            else
+              Enum.reduce(clauses, {command?, actions}, fn {_, inner}, {found?, fixed} ->
+                {inner?, inner_actions} = command_facts(inner, locals, MapSet.put(visited, key))
+                {found? or inner?, MapSet.union(fixed, inner_actions)}
+              end)
+            end
+
+          {node, facts}
 
         node, acc ->
           {node, acc}
       end)
 
-    found
+    facts
   end
 
   # Value reads only; forwarding the whole map is not a read of any particular field.

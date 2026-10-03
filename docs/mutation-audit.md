@@ -129,6 +129,11 @@ also pass alone in a fresh VM (ten tests, about 0.1 seconds); the compiled back-
 and repeated-work faults fail their guards. The ordinary full suite verifies
 those modules again without relying on prior test loading.
 
+A 33rd curated fault, `stale-route-cancellation`, was added with the rendered
+command control sweep. Its catalogue entry opts the CI-only sweep in and focuses
+it on the waiting-route scenario's cancellation button through per-fault
+environment variables; corrupting that button's ID is detected.
+
 ## Normal verification and measured cost
 
 `mix precommit` passes 874 tests/properties in 9.6 seconds. The disposable

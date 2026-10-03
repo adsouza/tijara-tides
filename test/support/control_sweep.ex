@@ -4,8 +4,9 @@ defmodule TijaraTides.ControlSweep do
 
   `controls/2` reads rendered LiveView HTML into one entry per way a player can submit a
   command: each submit form (one entry per named submit button) and each `phx-click`
-  element whose event reaches `GameLive.run/2`. `outcomes/1` records command telemetry
-  so a sweep can tell a commit from a rejection and see the rejection reason.
+  element whose event reaches a command submission, directly or through helpers.
+  `outcomes/1` records command telemetry so a sweep can tell a commit from a
+  rejection and see the rejection reason.
   """
 
   use Boundary
@@ -73,6 +74,7 @@ defmodule TijaraTides.ControlSweep do
 
       %{
         kind: :click,
+        id: element |> LazyHTML.attribute("id") |> List.first(),
         event: event,
         key: {event, action, values["operation"]},
         values: values,
