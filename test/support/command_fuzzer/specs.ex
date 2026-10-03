@@ -83,7 +83,10 @@ defmodule TijaraTides.CommandFuzzer.Specs do
         :remove_rule ->
           %{"action" => "route", "ship" => b.ship, "operation" => "remove_rule", "rule" => b.rule}
 
-        op when op in [:start, :pause, :resume] ->
+        :pause ->
+          %{"action" => "route", "ship" => b.ship, "operation" => "pause"}
+
+        op when op in [:start, :resume] ->
           %{
             "action" => "route",
             "ship" => b.ship,

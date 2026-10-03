@@ -62,7 +62,8 @@ defmodule TijaraTides.CompanyFixture do
 
   def command(token, request, command, server) do
     alias TijaraTides.Infrastructure.{GameServer, Persistence.GameStore}
-    result = GameServer.command(token, request, command, server)
+    # Port and package configure fixture funding; they are not formation command fields.
+    result = GameServer.command(token, request, Map.drop(command, ~w(port package)), server)
 
     case result do
       {:ok, %{"company_id" => company}} ->

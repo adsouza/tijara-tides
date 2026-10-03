@@ -40,6 +40,7 @@ mix setup                          # dependencies and assets
 mix phx.server                     # run locally on port 4000
 mix precommit                      # format check, forced compile with warnings as errors, gettext check, tests
 python3 scripts/test-game-db.py    # full suite including database tests, on a disposable PostgreSQL cluster
+python3 scripts/test-game-db.py --control-sweep  # CI-only: press every rendered command control
 mix test path/to/file_test.exs     # one file (database tests are excluded without the script)
 scripts/check-local.sh             # automatic docs-only or full local validation
 scripts/check-local.sh --full      # force all local gates

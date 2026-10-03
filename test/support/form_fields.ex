@@ -8,72 +8,190 @@ defmodule TijaraTides.FormFields do
   a field through its head pattern, `params["field"]`, `Map.get/2,3`, `Map.take/2`,
   or a local function receiving `params`. Passing `params` anywhere else forwards
   every field except literal `Map.drop/2` keys. Unresolvable names raise.
+
+  `dropped/3` adds the admission dimension: `GameLive.run/2` keeps only fields the
+  submitted action's `CommandPayload` schema admits, so each form field must be
+  admitted by one of the form's actions or converted by its handler.
   """
 
-  use Boundary
+  use Boundary, deps: [TijaraTides.UseCases]
 
   @web "lib/tijara_tides_web/**/*.ex"
   @handlers "lib/tijara_tides_web/live/game_live.ex"
   @controls ~w(input select textarea button)
 
+  # Action values bound from assigns rather than literal :for lists, with the guard
+  # that limits them. An undeclared dynamic action value raises.
+  @dynamic_actions %{
+    # handle_event("port-market-side", ...) only assigns "buy" or "sell".
+    {"ports_panel.ex", "side"} => ~w(buy sell)
+  }
+
   @doc "Every web source as {path, contents}."
   def sources, do: for(path <- Path.wildcard(@web), do: {path, File.read!(path)})
 
-  @doc "Event => MapSet of field names sent by templates. LiveView's own lv: events are omitted."
-  def sent(sources \\ sources()) do
+  @doc """
+  Every submit form and click that reaches handle_event, as a record of its event,
+  location, sent fields and the literal `action` and `operation` values it can submit.
+  Controls rendered by a function component belong to the forms that call it.
+  LiveView's own lv: events are omitted.
+  """
+  def forms(sources \\ sources()) do
     scanned =
       sources
       |> Enum.flat_map(fn {path, source} -> templates(source, path) end)
       |> Enum.map(fn {component, template, where} ->
-        {component, where, template_fields(template, where)}
+        {component, where, template_scan(template, where)}
       end)
 
-    # Named controls outside a form belong to the submit forms that call their component.
+    # Same-named components merge their calls; two that render named controls are ambiguous.
     loose =
       Enum.reduce(scanned, %{}, fn {component, where, result}, acc ->
         if result.loose == [],
           do: acc,
           else:
-            Map.update(acc, component, {where, result.loose}, fn {other, _} ->
-              raise ArgumentError, "Ambiguous component .#{component} at #{other} and #{where}"
+            Map.update(acc, component, {where, result.loose}, fn {other, items} ->
+              if controls?(items) and controls?(result.loose),
+                do:
+                  raise(
+                    ArgumentError,
+                    "Ambiguous component .#{component} at #{other} and #{where}"
+                  )
+
+              {if(controls?(items), do: other, else: where), items ++ result.loose}
             end)
       end)
 
-    calls = Enum.flat_map(scanned, fn {_, _, result} -> result.calls end)
+    records = Enum.flat_map(scanned, fn {_, _, result} -> result.records end)
+    called = records |> Enum.flat_map(& &1.calls) |> reachable(loose, MapSet.new())
 
-    for {component, {where, _}} <- loose,
-        not Enum.any?(calls, &(elem(&1, 1) == component)),
+    for {component, {where, items}} <- loose,
+        controls?(items),
+        component not in called,
         do:
           raise(
             ArgumentError,
             "Named controls in .#{component} are never inside a submit form (#{where})"
           )
 
-    nested =
-      for {event, component} <- calls,
-          {_where, fields} <- [Map.get(loose, component, {nil, []})],
-          field <- component_fields(component, fields, loose, MapSet.new()),
-          do: {event, field}
-
-    (Enum.flat_map(scanned, fn {_, _, result} -> result.fields end) ++ nested)
-    |> Enum.reject(fn {event, _} -> String.starts_with?(event, "lv:") end)
-    |> Enum.reduce(%{}, fn {event, field}, acc ->
-      Map.update(acc, event, MapSet.new([field]), &MapSet.put(&1, field))
+    records
+    |> Enum.reject(&String.starts_with?(&1.event, "lv:"))
+    |> Enum.map(fn record ->
+      record.calls
+      |> Enum.flat_map(&component_items(&1, loose, MapSet.new()))
+      |> Enum.reduce(Map.delete(record, :calls), &add_item(&2, &1))
     end)
   end
 
-  defp component_fields(component, fields, loose, seen) do
+  @doc "Event => MapSet of field names sent by its forms and clicks."
+  def sent(sources \\ sources()) do
+    Enum.reduce(forms(sources), %{}, fn record, acc ->
+      Map.update(acc, record.event, record.fields, &MapSet.union(&1, record.fields))
+    end)
+  end
+
+  @doc """
+  Fields a form sends that its actions do not admit and its handler never reads.
+
+  `run/2` keeps only the fields `CommandPayload` admits for the submitted action, so any
+  other field must be converted by the handler (read explicitly) or it is silently lost.
+  A field admitted by a sibling action of the same form, such as a second submit button,
+  is expected. Only events whose handler reaches `run/2` submit commands; a command form
+  whose action cannot be determined raises.
+  """
+  def dropped(
+        forms \\ forms(),
+        handlers \\ File.read!(@handlers),
+        admitted \\ &TijaraTides.UseCases.CommandPayload.admitted/1
+      ) do
+    facts = handler_facts(handlers)
+
+    for record <- forms, fact = facts[record.event], fact.command? do
+      actions = MapSet.union(record.actions, fact.actions)
+
+      if MapSet.size(actions) == 0,
+        do: raise(ArgumentError, "Cannot determine the command action for #{record.where}")
+
+      admitted =
+        for action <- actions,
+            operation <- operations(action, record),
+            reduce: MapSet.new(["request_id"]) do
+          acc ->
+            case admitted.(%{
+                   "action" => action,
+                   "operation" => operation
+                 }) do
+              nil ->
+                raise ArgumentError,
+                      "No admission schema for #{action} #{operation} at #{record.where}"
+
+              fields ->
+                MapSet.union(acc, MapSet.new(fields))
+            end
+        end
+
+      for field <- record.fields,
+          field not in admitted,
+          field not in fact.explicit,
+          do: {record.event, record.where, field}
+    end
+    |> List.flatten()
+  end
+
+  defp operations("route", %{operations: operations, where: where}) do
+    if MapSet.size(operations) == 0,
+      do: raise(ArgumentError, "Route form without a literal operation at #{where}")
+
+    operations
+  end
+
+  defp operations(_action, _record), do: [nil]
+
+  defp controls?(items), do: Enum.any?(items, &(not match?({:call, _}, &1)))
+
+  defp reachable([], _loose, seen), do: seen
+
+  defp reachable([component | rest], loose, seen) do
+    if component in seen do
+      reachable(rest, loose, seen)
+    else
+      {_where, items} = Map.get(loose, component, {nil, []})
+      inner = for {:call, called} <- items, do: called
+      reachable(inner ++ rest, loose, MapSet.put(seen, component))
+    end
+  end
+
+  defp component_items(component, loose, seen) do
     if component in seen, do: raise(ArgumentError, "Recursive component .#{component}")
+    {_where, items} = Map.get(loose, component, {nil, []})
 
-    Enum.flat_map(fields, fn
-      {:call, inner} ->
-        {_where, inner_fields} = Map.get(loose, inner, {nil, []})
-        component_fields(inner, inner_fields, loose, MapSet.put(seen, component))
-
-      field ->
-        [field]
+    Enum.flat_map(items, fn
+      {:call, inner} -> component_items(inner, loose, MapSet.put(seen, component))
+      item -> [item]
     end)
   end
+
+  defp add_item(record, {:field, field}), do: %{record | fields: MapSet.put(record.fields, field)}
+
+  defp add_item(record, {:action, value}),
+    do: %{record | actions: MapSet.put(record.actions, value)}
+
+  defp add_item(record, {:operation, value}),
+    do: %{record | operations: MapSet.put(record.operations, value)}
+
+  defp add_item(record, {:call, component}), do: %{record | calls: [component | record.calls]}
+
+  defp record(event, where, kind \\ :click, id_prefix \\ nil),
+    do: %{
+      event: event,
+      where: where,
+      kind: kind,
+      id_prefix: id_prefix,
+      fields: MapSet.new(),
+      actions: MapSet.new(),
+      operations: MapSet.new(),
+      calls: []
+    }
 
   @doc "Event => :all | {:only, MapSet} | {:all_except, MapSet} read by handle_event clauses."
   def read(source \\ File.read!(@handlers)) do
@@ -130,61 +248,122 @@ defmodule TijaraTides.FormFields do
     found
   end
 
-  defp template_fields(template, where) do
+  # Produces form and click records, plus controls a component renders outside any form.
+  defp template_scan(template, where) do
     template
     |> tags()
-    |> Enum.reduce({%{fields: [], loose: [], calls: []}, :outside}, fn
-      {:close, form}, {acc, _} when form in ["form", ".form"] ->
+    |> Enum.reduce({%{records: [], loose: [], bindings: %{}}, :outside}, fn
+      {:close, form}, {acc, current} when form in ["form", ".form"] ->
+        acc = if is_map(current), do: %{acc | records: [current | acc.records]}, else: acc
         {acc, :outside}
 
       {:open, form, attrs}, {acc, _} when form in ["form", ".form"] ->
-        {acc, {:form, literal_event(attrs, "phx-submit", where)}}
+        case literal_event(attrs, "phx-submit", where) do
+          # phx-change-only and plain HTTP forms do not reach handle_event on submit.
+          nil ->
+            {acc, :ignored}
 
-      {:open, "." <> component, attrs}, {acc, form} ->
-        component = component |> String.split(".") |> List.last()
+          event ->
+            {acc,
+             record(event, "#{where} ##{id_label(attrs["id"])}", :form, id_prefix(attrs["id"]))}
+        end
 
-        acc =
-          case form do
-            {:form, nil} -> acc
-            {:form, event} -> %{acc | calls: [{event, component} | acc.calls]}
-            :outside -> %{acc | loose: [{:call, component} | acc.loose]}
-          end
+      {:open, tag, attrs}, {acc, current} ->
+        acc = %{acc | bindings: bind(attrs[":for"], acc.bindings)}
+        resolve = &literal_values(&1, acc.bindings, where)
+        acc = %{acc | records: clicks(attrs, where, resolve) ++ acc.records}
+        items = items(tag, attrs, where, resolve)
 
-        {%{acc | fields: click_fields(attrs, where) ++ acc.fields}, form}
-
-      {:open, tag, attrs}, {acc, form} ->
-        acc = %{acc | fields: click_fields(attrs, where) ++ acc.fields}
-
-        acc =
-          case control_fields(tag, attrs, form, where) do
-            {:loose, field} -> %{acc | loose: [field | acc.loose]}
-            fields -> %{acc | fields: fields ++ acc.fields}
-          end
-
-        {acc, form}
+        case current do
+          :outside -> {%{acc | loose: items ++ acc.loose}, current}
+          :ignored -> {acc, current}
+          record -> {acc, Enum.reduce(items, record, &add_item(&2, &1))}
+        end
 
       _, state ->
         state
     end)
     |> elem(0)
-    |> Map.update!(:loose, fn loose ->
-      if Enum.all?(loose, &match?({:call, _}, &1)), do: [], else: loose
-    end)
   end
 
-  defp control_fields(tag, attrs, form, where) when tag in @controls do
-    case {form, attrs["name"]} do
-      {_, nil} -> []
-      {:outside, name} -> {:loose, field_name(name, where)}
-      # phx-change-only and plain HTTP forms do not reach handle_event on submit.
-      {{:form, nil}, _} -> []
-      {{:form, event}, name} -> [{event, field_name(name, where)}]
+  # The literal start of a form id: "auction-revise-" for {"auction-revise-" <> a["id"]}.
+  defp id_prefix(nil), do: nil
+  defp id_prefix(id) when is_binary(id), do: id
+
+  defp id_prefix({:expr, expr}) do
+    case Code.string_to_quoted!(expr) do
+      literal when is_binary(literal) -> literal
+      {:<>, _, [prefix, _]} when is_binary(prefix) -> prefix
+      {:<<>>, _, [prefix | _]} when is_binary(prefix) -> prefix
+      _ -> nil
     end
   end
 
-  defp control_fields(_tag, _attrs, _form, _where), do: []
+  defp id_label({:expr, expr}), do: "{" <> expr <> "}"
+  defp id_label(nil), do: "(no id)"
+  defp id_label(id), do: id
 
-  defp click_fields(attrs, where) do
+  # :for={var <- ["a", "b"]} binds var to literals; any other generator is dynamic.
+  defp bind({:expr, expr}, bindings) do
+    case Code.string_to_quoted!(expr) do
+      {:<-, _, [{var, _, context}, list]} when is_atom(var) and is_atom(context) ->
+        value = if is_list(list) and Enum.all?(list, &is_binary/1), do: list, else: :dynamic
+        Map.put(bindings, Atom.to_string(var), value)
+
+      _ ->
+        bindings
+    end
+  end
+
+  defp bind(_, bindings), do: bindings
+
+  defp items("." <> component, _attrs, _where, _resolve),
+    do: [{:call, component |> String.split(".") |> List.last()}]
+
+  defp items(tag, attrs, where, resolve) when tag in @controls do
+    case attrs["name"] do
+      nil ->
+        []
+
+      name ->
+        field = field_name(name, where)
+
+        values =
+          if field in ["action", "operation"], do: resolve.(attrs["value"]), else: []
+
+        [{:field, field} | Enum.map(values, &{String.to_atom(field), &1})]
+    end
+  end
+
+  defp items(_tag, _attrs, _where, _resolve), do: []
+
+  # A submitted action or operation must be literal or an expression choosing between literals.
+  defp literal_values(value, _bindings, _where) when is_binary(value), do: [value]
+
+  defp literal_values({:expr, expr}, bindings, where) do
+    case Code.string_to_quoted!(expr) do
+      {var, _, context} when is_atom(var) and is_atom(context) ->
+        file = where |> String.split(":") |> hd() |> Path.basename()
+
+        case {Map.get(bindings, Atom.to_string(var)),
+              @dynamic_actions[{file, Atom.to_string(var)}]} do
+          {values, _} when is_list(values) -> values
+          {_, values} when is_list(values) -> values
+          _ -> raise ArgumentError, "Declare dynamic action value {#{expr}} at #{where}"
+        end
+
+      ast ->
+        case results(ast) do
+          :unresolved -> raise ArgumentError, "Unresolved action value {#{expr}} at #{where}"
+          values -> values
+        end
+    end
+  end
+
+  defp literal_values(_value, _bindings, where),
+    do: raise(ArgumentError, "Action control without value at #{where}")
+
+  defp clicks(attrs, where, resolve) do
     case attrs["phx-click"] do
       nil ->
         []
@@ -193,7 +372,28 @@ defmodule TijaraTides.FormFields do
         pushes(expr, where)
 
       event ->
-        for {"phx-value-" <> field, _} <- attrs, do: {event, field}
+        fields = for {"phx-value-" <> field, _} <- attrs, do: field
+
+        actions =
+          case attrs["phx-value-action"] do
+            nil -> []
+            value -> resolve.(value)
+          end
+
+        operations =
+          case attrs["phx-value-operation"] do
+            nil -> []
+            value -> resolve.(value)
+          end
+
+        [
+          %{
+            record(event, "#{where} phx-click=#{event}")
+            | fields: MapSet.new(fields),
+              actions: MapSet.new(actions),
+              operations: MapSet.new(operations)
+          }
+        ]
     end
   end
 
@@ -210,7 +410,8 @@ defmodule TijaraTides.FormFields do
               _ -> raise ArgumentError, "Unresolved JS.push value at #{where}"
             end
 
-          {node, Enum.map(keys, &{event, &1}) ++ acc}
+          {node,
+           [%{record(event, "#{where} JS.push(#{event})") | fields: MapSet.new(keys)} | acc]}
 
         node, acc ->
           {node, acc}
@@ -327,6 +528,171 @@ defmodule TijaraTides.FormFields do
   defp skip_to(text, marker), do: text |> String.split(marker, parts: 2) |> List.last()
 
   # -- handlers -------------------------------------------------------------
+
+  @doc "Event => fields its handler reads by value (conversions) and actions it sets itself."
+  def handler_facts(source \\ File.read!(@handlers)) do
+    ast = Code.string_to_quoted!(source)
+    locals = local_functions(ast)
+
+    ast
+    |> handle_event_clauses()
+    |> Enum.reduce(%{}, fn {event, pattern, body}, acc ->
+      {keys, variable} = pattern_keys(pattern)
+
+      explicit =
+        if variable, do: explicit_reads(variable, body, locals, MapSet.new()), else: MapSet.new()
+
+      fact = %{
+        explicit: MapSet.union(keys, explicit),
+        actions: fixed_actions(body),
+        command?: runs?(body, locals, MapSet.new())
+      }
+
+      Map.update(acc, event, fact, fn other ->
+        %{
+          explicit: MapSet.union(other.explicit, fact.explicit),
+          actions: MapSet.union(other.actions, fact.actions),
+          command?: other.command? or fact.command?
+        }
+      end)
+    end)
+  end
+
+  # Whether a body reaches run/2, the single command submission path, through local calls.
+  defp runs?(body, locals, visited) do
+    {_, found} =
+      Macro.prewalk(body, false, fn
+        {:run, _, [_, _]} = node, _ ->
+          {node, true}
+
+        {fun, _, args} = node, false when is_atom(fun) and is_list(args) ->
+          key = {fun, length(args)}
+
+          # Delegating to handle_event("other", ...) follows only that event's clauses.
+          clauses =
+            case {fun, args} do
+              {:handle_event, [event | _]} when is_binary(event) ->
+                for {[^event | _], _} = clause <- Map.get(locals, key, []), do: clause
+
+              _ ->
+                Map.get(locals, key, [])
+            end
+
+          if clauses != [] and key not in visited,
+            do:
+              {node,
+               Enum.any?(clauses, fn {_, inner} ->
+                 runs?(inner, locals, MapSet.put(visited, key))
+               end)},
+            else: {node, false}
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    found
+  end
+
+  # Value reads only; forwarding the whole map is not a read of any particular field.
+  defp explicit_reads(name, body, locals, visited) do
+    {_, keys} =
+      body
+      |> unpipe()
+      |> Macro.prewalk(MapSet.new(), fn node, acc ->
+        case value_read(node, name, locals, visited) do
+          {:read, keys} -> {node, MapSet.union(acc, keys)}
+          :none -> {node, acc}
+        end
+      end)
+
+    keys
+  end
+
+  defp value_read({{:., _, [Access, :get]}, _, [var, key]}, name, _, _) when is_binary(key),
+    do: if(variable?(var, name), do: {:read, MapSet.new([key])}, else: :none)
+
+  defp value_read({{:., _, [{:__aliases__, _, [:Map]}, fun]}, _, [var, key | _]}, name, _, _)
+       when fun in [:get, :fetch, :fetch!, :has_key?, :pop, :pop!] and is_binary(key),
+       do: if(variable?(var, name), do: {:read, MapSet.new([key])}, else: :none)
+
+  defp value_read({fun, _, args}, name, locals, visited) when is_atom(fun) and is_list(args) do
+    key = {fun, length(args)}
+
+    case Enum.find_index(args, &variable?(&1, name)) do
+      index when is_integer(index) and is_map_key(locals, key) ->
+        if key in visited do
+          :none
+        else
+          {:read,
+           locals[key]
+           |> Enum.flat_map(fn {params, body} ->
+             {keys, variable} = pattern_keys(Enum.at(params, index))
+
+             inner =
+               if variable,
+                 do: explicit_reads(variable, body, locals, MapSet.put(visited, key)),
+                 else: MapSet.new()
+
+             MapSet.to_list(MapSet.union(keys, inner))
+           end)
+           |> MapSet.new()}
+        end
+
+      _ ->
+        :none
+    end
+  end
+
+  defp value_read(_, _, _, _), do: :none
+
+  # Literal actions a handler assigns: Map.put(_, "action", "x") or %{"action" => "x"}.
+  defp fixed_actions(body) do
+    {_, actions} =
+      body
+      |> unpipe()
+      |> Macro.prewalk(MapSet.new(), fn
+        {{:., _, [{:__aliases__, _, [:Map]}, :put]}, _, [_, "action", action]} = node, acc ->
+          {node, MapSet.union(acc, strings(action))}
+
+        {:%{}, _, pairs} = node, acc ->
+          case List.keyfind(pairs, "action", 0) do
+            {"action", action} -> {node, MapSet.union(acc, strings(action))}
+            nil -> {node, acc}
+          end
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    actions
+  end
+
+  # Literals an action expression can evaluate to, e.g. if(sailing, do: "reroute", else: "sail").
+  # Conditions are not results; any other expression shape is unresolved.
+  defp strings(expression) do
+    case results(expression) do
+      :unresolved ->
+        raise ArgumentError, "Unresolved action expression #{Macro.to_string(expression)}"
+
+      values ->
+        MapSet.new(values)
+    end
+  end
+
+  defp results(value) when is_binary(value), do: [value]
+
+  defp results({kind, _, [_condition, branches]})
+       when kind in [:if, :unless] and is_list(branches),
+       do: combine([results(branches[:do]), results(branches[:else])])
+
+  defp results({:case, _, [_subject, [do: clauses]]}),
+    do: combine(for {:->, _, [_pattern, body]} <- clauses, do: results(body))
+
+  defp results({:__block__, _, expressions}), do: results(List.last(expressions))
+  defp results(_), do: :unresolved
+
+  defp combine(results),
+    do: if(:unresolved in results, do: :unresolved, else: Enum.concat(results))
 
   defp handle_event_clauses(ast) do
     {_, clauses} =

@@ -31,9 +31,7 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
       fingerprint: "fingerprint",
       payload: %{
         "action" => "company",
-        "name" => "Voyager",
-        "port" => "Jakarta",
-        "package" => "general"
+        "name" => "Voyager"
       }
     }
 
@@ -258,7 +256,7 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
       TijaraTides.CompanyFixture.execute(
         c.game,
         Game.get(c.game, "accounts", "account"),
-        c.request.payload,
+        Map.merge(c.request.payload, %{"port" => "Jakarta", "package" => "general"}),
         c.context,
         c.context.catalogue
       )

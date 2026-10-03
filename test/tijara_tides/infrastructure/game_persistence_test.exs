@@ -2827,9 +2827,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     formation = %{
       "action" => "company",
-      "name" => "Fresh Start",
-      "port" => "Singapore",
-      "package" => "general"
+      "name" => "Fresh Start"
     }
 
     assert {:error, :bankruptcy_cooldown} =
@@ -4007,9 +4005,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     command = %{
       "action" => "company",
-      "name" => "Durable Shipping",
-      "port" => "Jakarta",
-      "package" => "general"
+      "name" => "Durable Shipping"
     }
 
     request = GameServer.request_id()

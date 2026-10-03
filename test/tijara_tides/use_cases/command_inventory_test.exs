@@ -41,18 +41,26 @@ defmodule TijaraTides.UseCases.CommandInventoryTest do
 
   test "every field a form or click sends is read by its event handler" do
     assert FormFields.unread() == []
+  end
 
-    # A handler allowlist that drops a sent field is detected.
-    handlers = File.read!("lib/tijara_tides_web/live/game_live.ex")
+  test "every form field is admitted by one of its actions or converted by its handler" do
+    assert FormFields.dropped() == []
+    forms = FormFields.forms()
 
-    narrowed =
-      String.replace(handlers, " markdowns preset name rebase)", " markdowns preset rebase)")
+    # A schema that loses a field the form sends is detected, not silently dropped.
+    narrowed = fn
+      %{"action" => "markdown_preset_save"} -> ~w(action preset markdowns price_floor)
+      payload -> TijaraTides.UseCases.CommandPayload.admitted(payload)
+    end
 
-    refute narrowed == handlers
+    assert [{"exchange", where, "name"}] =
+             FormFields.dropped(
+               forms,
+               File.read!("lib/tijara_tides_web/live/game_live.ex"),
+               narrowed
+             )
 
-    assert FormFields.unread(FormFields.sent(), FormFields.read(narrowed)) == [
-             {"exchange", "name"}
-           ]
+    assert where =~ "exchange_panel.ex"
 
     # A new field inside a component rendered by a submit form is attributed to that form.
     sources =
@@ -72,8 +80,17 @@ defmodule TijaraTides.UseCases.CommandInventoryTest do
           other
       end)
 
-    assert FormFields.unread(FormFields.sent(sources), FormFields.read()) == [
-             {"exchange", "probe"}
-           ]
+    assert sources
+           |> FormFields.forms()
+           |> FormFields.dropped()
+           |> Enum.map(&elem(&1, 2))
+           |> Enum.uniq() ==
+             ["probe"]
+
+    # A field the handler converts by value is not dropped even though no schema admits it.
+    facts = FormFields.handler_facts()
+    assert "reserve_dollars" in facts["auction"].explicit
+    refute facts["report-page"].command?
+    assert MapSet.new(~w(sail reroute)) == facts["sail"].actions
   end
 end

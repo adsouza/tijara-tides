@@ -271,7 +271,6 @@ defmodule TijaraTidesWeb.GameLive do
 
     command =
       params
-      |> Map.drop(["_target"])
       |> Map.update("quantity", nil, &report_number/1)
       |> Map.update("price", nil, &exchange_price/1)
       |> Map.reject(fn {_, v} -> is_nil(v) end)
@@ -285,9 +284,6 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event("exchange", params, socket) do
     command =
       params
-      |> Map.take(
-        ~w(action request_id order warehouse good side quantity price price_floor min_grade min_remaining_ms expires_ms markdowns preset name rebase)
-      )
       |> Map.update("quantity", nil, &report_number/1)
       |> Map.update("price", nil, &exchange_price/1)
       |> Map.update("price_floor", nil, &exchange_price/1)
@@ -368,7 +364,6 @@ defmodule TijaraTidesWeb.GameLive do
 
     command =
       params
-      |> Map.drop(["_target"])
       |> Map.update("quantity", nil, &report_number/1)
       |> Map.update("blocks", nil, &report_number/1)
       |> Map.update("days", nil, &report_number/1)
@@ -603,7 +598,8 @@ defmodule TijaraTidesWeb.GameLive do
     end
   end
 
-  def handle_event("invite", params, socket), do: run(socket, Map.put(params, "action", "invite"))
+  def handle_event("invite", params, socket),
+    do: run(socket, Map.put(params, "action", "invite"))
 
   def handle_event("edit-instruction", params, socket) do
     previous = Map.get(socket.assigns.instruction_drafts, socket.assigns.selected_ship, %{})
@@ -724,9 +720,6 @@ defmodule TijaraTidesWeb.GameLive do
   def handle_event("route", params, socket) do
     command =
       params
-      |> Map.take(
-        ~w(operation port stop rule side good quantity_mode linked_warehouse_id request_id)
-      )
       |> Map.merge(%{"action" => "route", "ship" => socket.assigns.selected_ship})
 
     command =
@@ -771,7 +764,6 @@ defmodule TijaraTidesWeb.GameLive do
     run(
       socket,
       params
-      |> Map.take(~w(request_id side good quantity limit budget onward preset))
       |> Map.put("action", "instruction")
       |> Map.put("ship", socket.assigns.selected_ship)
       |> Map.put(
@@ -963,6 +955,8 @@ defmodule TijaraTidesWeb.GameLive do
 
   defp run(socket, command) do
     {request, command} = Map.pop(command, "request_id", socket.assigns.request_id)
+    # The action's admission schema is the only field list; LiveView metadata stops here.
+    command = Game.select_command_fields(command)
 
     case Game.command(socket.assigns.token, request, command) do
       {:ok, result} ->

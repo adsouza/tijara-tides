@@ -147,6 +147,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
             a["status"] == "scheduled" and a["mine"] and !a["liquidation"] and
               @auction.clock < a["opens_ms"]
           }
+          id={"auction-revise-" <> a["id"]}
           phx-submit="auction"
           class="my-2 flex flex-wrap items-end gap-2"
         >
@@ -192,6 +193,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
             a["status"] == "scheduled" and !a["mine"] and @auction.clock >= a["opens_ms"] and
               @auction.clock < a["closes_ms"] and (a["ship_id"] != nil or a["warehouses"] != [])
           }
+          id={"auction-bid-" <> a["id"]}
           phx-submit="auction"
           class="my-2 flex flex-wrap items-end gap-2"
         >

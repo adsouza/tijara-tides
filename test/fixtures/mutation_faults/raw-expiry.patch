@@ -1,10 +1,17 @@
 --- lib/tijara_tides_web/live/game_live.ex
 +++ lib/tijara_tides_web/live/game_live.ex
-@@ -772,6 +772,7 @@
-       socket,
-       params
-       |> Map.take(~w(request_id side good quantity limit budget onward preset))
-+      |> Map.put("expiry_minutes", params["expiry_minutes"])
-       |> Map.put("action", "instruction")
-       |> Map.put("ship", socket.assigns.selected_ship)
-       |> Map.put(
+@@ -778,13 +778,7 @@
+       |> Map.update("limit", 0, &instruction_cents/1)
+       |> Map.update("budget", 0, &(integer(&1) * 100))
+       |> Map.put("min_remaining_ms", freshness_minimum(params))
+-      |> Map.put(
+-        "expires_in_ms",
+-        if(params["expiry_minutes"] in [nil, ""],
+-          do: nil,
+-          else: (report_number(params["expiry_minutes"]) || -1) * 60_000
+-        )
+-      )
++      |> Map.put("expires_in_ms", params["expiry_minutes"])
+     )
+   end
+ 

@@ -1,10 +1,10 @@
 defmodule TijaraTides.CommandFuzzer.Contracts do
   @moduledoc "Independent input examples shared by payload and lifecycle exploration."
 
-  def names(limit) do
-    # 47 graphemes of three code points each straddle the 140-code-point cap.
+  def names(limit, cap \\ 140) do
+    # Combining names straddle the independently declared storage cap.
     triple = "e\u0301\u0323"
-    at_cap = String.duplicate(triple, 46) <> "e\u0301"
+    at_cap = String.duplicate(triple, div(cap, 3)) <> String.duplicate("a", rem(cap, 3))
 
     valid = ["A", "  Vessel  ", "تجارة", "e\u0301", "🚢", String.duplicate("x", limit), at_cap]
 
@@ -18,7 +18,7 @@ defmodule TijaraTides.CommandFuzzer.Contracts do
       "",
       "   ",
       String.duplicate("x", limit + 1),
-      String.duplicate(triple, 47),
+      at_cap <> "a",
       "a\0b",
       "a\tb",
       "a\nb",
@@ -51,11 +51,12 @@ defmodule TijaraTides.CommandFuzzer.Contracts do
   def limit(:company), do: 60
   def limit(_), do: 80
 
-  # Stated independently of PlayerNames: every stored name also fits 140 code points.
-  def code_point_cap, do: 140
+  # Stated independently of PlayerNames and SQL.
+  def code_point_cap(:company), do: 120
+  def code_point_cap(_), do: 140
 
   def name_accepted?(kind, name),
     do:
       String.length(name) <= limit(kind) and
-        length(String.codepoints(name)) <= code_point_cap()
+        length(String.codepoints(name)) <= code_point_cap(kind)
 end

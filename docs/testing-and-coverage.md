@@ -54,9 +54,36 @@ Two checks guard the template-to-handler seam without hand-kept field lists.
 clause: each field a submit form, function component inside one, `phx-value-*`
 or `JS.push` value sends must be read by that event's handler through its head
 pattern, an access, `Map.take/2` or a local helper. Unresolvable names and named
-controls outside any submit form raise. Separately, the SQL-backed exchange
-sweep finds every rendered exchange form, submits each as rendered in its own
-world and requires a commit.
+controls outside any submit form raise.
+
+`FormFields.dropped/3` adds the admission dimension. Because `GameLive.run/2`
+keeps only fields the submitted action admits, every field a form sends must be
+admitted by one of that form's actions or route operations, or be converted by
+its handler through a value read; otherwise it would be lost silently. Action
+values come from hidden inputs, submit buttons, `phx-value-action` and literal
+handler assignments. A value bound from an assign must be declared with the
+guard that limits it, and a command form whose action cannot be determined
+raises. Only events whose handler reaches `run/2` are commands.
+
+Separately, the SQL-backed exchange sweep finds every rendered exchange form,
+submits each as rendered in its own world and requires a commit. A further SQL
+test withdraws a won luxury consignment through the shared revise form, whose
+Withdraw button also sends the revise fields.
+
+The rendered command control sweep (`control_sweep` tag) generalizes both. Its
+unit is a control, not an action: a form is identified by the literal prefix of
+its template id and the action and route operation a given submit button sends,
+and a click by its event, action, operation and `phx-value-*` keys. The required
+units come from `FormFields`, so a new button cannot escape it, and two controls
+sending the same action are each pressed. Legal-command scenarios render every
+unit except two declared exclusions (guarantee pledges and berth-queue
+cancellation, which need suspended or capped invitees and congested berths).
+Each unit is submitted in its own world through its real control, with only the
+inputs a player must supply: blank required fields, placeholder selects and a
+short declared list. Command telemetry must report exactly one commit, and SQL
+rows must match. Disabled controls are skipped because they offer no submission.
+Every command form needs a stable id with a literal prefix. CI runs the sweep
+with `python3 scripts/test-game-db.py --control-sweep`; local checks do not.
 
 For a focused coverage run:
 
@@ -256,6 +283,15 @@ promoting it to a checked-in regression. Runner sensitivity fixtures are labelle
 separately from confirmed production defects. See the
 [executed discovery matrix](test-discovery-matrix.md#round-4-executed-cohort) for
 milestones, exclusions and measured evidence.
+
+Command admission schemas are checked against the complete dispatch and route
+operation inventory. Table tests reject unknown, atom and misplaced keys for
+every variant; bounded properties mutate extra fields and retry the corrected
+request. SQL tests check unchanged rows, revision and receipts on rejection,
+including a retry after restart. Complete instruction, exchange and route
+payloads exercise the size ceiling with all optional terms together. Company
+names at 120 code points exercise default hull purchases and suffix collisions;
+migration tests verify both refusal of legacy oversized names and SQL caps.
 
 ### Bounded mutation audit
 

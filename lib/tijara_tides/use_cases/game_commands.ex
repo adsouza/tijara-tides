@@ -5,7 +5,7 @@ defmodule TijaraTides.UseCases.GameCommands do
   committed outcomes. Persistence and invitation credentials are supplied ports.
   """
   alias TijaraTides.Domain.Commands
-  alias TijaraTides.UseCases.{Authentication, CommandRequest, CommitExecutor}
+  alias TijaraTides.UseCases.{Authentication, CommandPayload, CommandRequest, CommitExecutor}
 
   def execute(state, account, command, context) do
     state =
@@ -58,7 +58,7 @@ defmodule TijaraTides.UseCases.GameCommands do
 
   defp run_once(game, session_hash, request, context, {store, storage}, invitation) do
     with {:ok, account} <- Authentication.required(game, session_hash, context.wall_ms),
-         :ok <- validate_payload(request.payload) do
+         :ok <- CommandPayload.validate(request.payload) do
       %{hash: invite_hash, decorate: decorate} = invitation.(account["id"], request.id)
 
       case store.receipt(storage, account["id"], request.id, request.fingerprint) do
@@ -109,21 +109,5 @@ defmodule TijaraTides.UseCases.GameCommands do
     error ->
       TijaraTides.UseCases.Observation.command_exception(error, __STACKTRACE__)
       {:error, :command_failed}
-  end
-
-  defp validate_payload(payload) do
-    cond do
-      not is_map(payload) ->
-        {:error, :invalid_command_payload}
-
-      map_size(payload) > if(payload["action"] == "route", do: 13, else: 12) ->
-        {:error, :too_many_command_fields}
-
-      byte_size(:erlang.term_to_binary(payload)) > 4096 ->
-        {:error, :command_payload_too_large}
-
-      true ->
-        :ok
-    end
   end
 end

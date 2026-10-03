@@ -7,7 +7,7 @@ defmodule TijaraTides.UseCases.CommandPayloadPropertiesTest do
 
   test "name table covers accepted boundaries and safely rejected values in three commands" do
     for kind <- [:company, :ship, :preset],
-        {name, expected} <- Contracts.names(Contracts.limit(kind)) do
+        {name, expected} <- Contracts.names(Contracts.limit(kind), Contracts.code_point_cap(kind)) do
       check_name(kind, name, expected)
     end
   end
@@ -34,7 +34,8 @@ defmodule TijaraTides.UseCases.CommandPayloadPropertiesTest do
             max_shrinking_steps: 100
           ) do
       name = String.duplicate(unit, count)
-      # Graphemes are capped per kind; every stored name also fits the SQL code-point cap.
+
+      # Graphemes are capped per kind; stored names also fit their independent SQL code-point caps.
       expected = if Contracts.name_accepted?(kind, name), do: :ok, else: :error
       check_name(kind, name, expected)
     end
@@ -72,7 +73,7 @@ defmodule TijaraTides.UseCases.CommandPayloadPropertiesTest do
     end
   end
 
-  property "envelope mutations reject at their boundary and extra semantic fields can be admitted" do
+  property "envelope mutations reject at their boundary including unknown fields" do
     check all(
             variation <- member_of([:shape, :fields, :bytes, :session, :extra]),
             max_runs: 50,
@@ -97,21 +98,16 @@ defmodule TijaraTides.UseCases.CommandPayloadPropertiesTest do
             {valid, :invalid_session, "wrong"}
 
           :extra ->
-            {Map.put(valid, "extra", false), :ok, "session"}
+            {Map.put(valid, "extra", false), :unknown_command_fields, "session"}
         end
 
-      if expected == :ok do
-        assert {:ok, result} = Fuzzer.run(game, catalogue, payload)
-        assert result.reply == %{"company_id" => "allocated"}
-      else
-        assert {:error, ^expected} =
-                 Fuzzer.run(game, catalogue, payload,
-                   session: session,
-                   commit: fn _, _, _ -> flunk("envelope committed") end
-                 )
+      assert {:error, ^expected} =
+               Fuzzer.run(game, catalogue, payload,
+                 session: session,
+                 commit: fn _, _, _ -> flunk("envelope committed") end
+               )
 
-        assert {:ok, _} = Fuzzer.run(game, catalogue, valid)
-      end
+      assert {:ok, _} = Fuzzer.run(game, catalogue, valid)
     end
   end
 

@@ -87,23 +87,31 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
   } do
     store_legacy(legacy_state())
     Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_261_001_000_004, log: false)
-    long = String.duplicate("x", 141)
+    caps = [{"game_companies", "Company", 120}, {"game_ships", "Ship", 140}]
 
-    for table <- ~w(game_companies game_ships) do
-      [[id, name]] = MigrationRepo.query!("SELECT id,name FROM #{table} ORDER BY id LIMIT 1").rows
-      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [long, id])
+    # One code point over a cap refuses the migration; legacy names exactly at it migrate.
+    for {table, kind, cap} <- caps do
+      [[id]] = MigrationRepo.query!("SELECT id FROM #{table} ORDER BY id LIMIT 1").rows
 
-      assert_raise Postgrex.Error, ~r/exceed 140 code points/, fn ->
+      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [
+        String.duplicate("x", cap + 1),
+        id
+      ])
+
+      assert_raise Postgrex.Error, ~r/#{kind} names exceed #{cap} code points/, fn ->
         Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
       end
 
-      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [name, id])
+      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [
+        String.duplicate("x", cap),
+        id
+      ])
     end
 
     Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
-    at_cap = String.duplicate("x", 140)
 
-    for table <- ~w(game_companies game_ships) do
+    for {table, _kind, cap} <- caps do
+      at_cap = String.duplicate("x", cap)
       [[id]] = MigrationRepo.query!("SELECT id FROM #{table} ORDER BY id LIMIT 1").rows
       MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [at_cap, id])
 

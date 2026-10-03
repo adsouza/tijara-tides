@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 
 # Never let local validation connect to production storage.
 unset DATABASE_URL DATABASE_URL_POOLED TIJARA_LOCAL_DB_PORT TIJARA_TEST_DB_PORT
-unset MIX_ENV PHX_SERVER TIJARA_BROWSER_TEST_PORT
+unset MIX_ENV PHX_SERVER TIJARA_BROWSER_TEST_PORT TIJARA_CONTROL_SWEEP
 export LC_ALL=C
 export PATH="/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:$PATH"
 

@@ -3,7 +3,7 @@
 @@ -8,6 +8,6 @@
      is_binary(name) and String.valid?(name) and name != "" and
        String.length(name) <= max_graphemes and
-       length(String.codepoints(name)) <= @max_code_points and
+       length(String.codepoints(name)) <= max_code_points and
 -      not String.match?(name, ~r/[\p{Cc}\p{Cf}]/u)
 +      true
    end

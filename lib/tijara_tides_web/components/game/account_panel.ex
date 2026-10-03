@@ -446,6 +446,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                 <.form
                   :if={can_repay}
                   for={%{}}
+                  id={"repay-" <> loan["id"]}
                   phx-submit="repay"
                   class="shrink-0"
                 >
@@ -506,6 +507,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             <.form
               :if={@view.private["finance"]["can_declare_bankruptcy"]}
               for={%{}}
+              id="bankruptcy-form"
               phx-submit="bankruptcy"
             >
               <input type="hidden" name="request_id" value={@request_id} />

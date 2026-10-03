@@ -1085,8 +1085,14 @@ msgstr "تعذر استخدام الدعوة. تحقق من الرمز ومن ت
 msgid "The action could not be completed. Please refresh and try again."
 msgstr "تعذر إكمال الإجراء. حدّث الصفحة وحاول مجدداً."
 
-msgid "The command contains too many fields (maximum 12)."
-msgstr "يحتوي الأمر على حقول كثيرة جداً (الحد الأقصى 12)."
+msgid "The command contains too many fields."
+msgstr "يحتوي الأمر على حقول كثيرة جداً."
+
+msgid "The command contains fields that this action does not accept."
+msgstr "يحتوي الأمر على حقول لا يقبلها هذا الإجراء."
+
+msgid "This action is not available in this version of the game. Refresh the page and try again."
+msgstr "هذا الإجراء غير متاح في هذا الإصدار من اللعبة. حدّث الصفحة وحاول مجدداً."
 
 msgid "The command payload is too large (maximum 4096 bytes)."
 msgstr "حجم بيانات الأمر كبير جداً (الحد الأقصى 4096 بايت)."

@@ -168,12 +168,10 @@ design, but trading and fleet are not independent contexts: they currently
 participate in shared synchronous invariants.
 
 `Domain.PlayerNames` validates every player-chosen name before commit. Company
-names allow 60 graphemes; hull and preset names allow 80. Every name must also
-fit 140 code points, the measure of the company, ship and preset SQL
-constraints, and malformed UTF-8 and Unicode control/format characters are
-rejected. Browser command handlers select semantic fields before parsing, so
-untouched-input metadata cannot change admission or durable receipt
-fingerprints.
+names allow 60 graphemes and 120 code points, leaving room for generated hull
+suffixes. Hull and preset names allow 80 graphemes and 140 code points. The
+code-point caps match SQL constraints. Malformed UTF-8 and Unicode
+control/format characters are rejected.
 
 ## Authentication and authorization
 
@@ -280,13 +278,27 @@ together. No successful command acknowledgement or revision publication precedes
 that commit.
 
 Invalid or expired sessions return `:invalid_session`; non-map payloads return
-`:invalid_command_payload`, payloads over 12 keys (13 for route commands) return
-`:too_many_command_fields`, and payloads over 4096 encoded bytes return
-`:command_payload_too_large`. These validation errors do not touch persistence.
-The next-port instruction form builds a command from an explicit list of fields;
-LiveView's `_unused_*` metadata and raw minute inputs stay at the web boundary.
-Only converted freshness and expiry durations enter the command or its receipt
-fingerprint.
+`:invalid_command_payload`. `UseCases.CommandPayload` admits only explicit
+string keys for the selected action and, for routes, the selected operation.
+Unknown keys return `:unknown_command_fields`, including nil-valued keys, atom
+keys and fields belonging to another action. Unsupported actions or route
+operations return `:unsupported_command`. The envelope permits at least 12 keys
+or all supported fields for that shape, whichever is larger; larger payloads
+return `:too_many_command_fields`. Payloads over 4096 encoded bytes return
+`:command_payload_too_large`. Authentication precedes admission; envelope bounds
+precede field checks. Validation precedes invitation credentials, receipt lookup
+and planning, including retries, and does not touch persistence. Domain rules
+still validate required fields and values. Inventory tests require a schema for
+every action and route operation.
+
+The same schema is the browser's only field list. `GameLive.run/2` passes every
+command through `CommandPayload.select/1`, which keeps the fields the submitted
+action admits, so handlers hold no field lists of their own. A form with several
+submit buttons may send its sibling actions' fields; they are dropped for the
+action actually submitted. Handlers convert raw inputs such as minutes, dollar
+amounts and freshness choices into domain terms. Those raw inputs and LiveView's
+`_target` and `_unused_*` metadata are not admitted, so only converted values
+enter the command or its receipt fingerprint.
 
 A business rejection leaves the current state available and unchanged. An unrecoverable commit
 failure stops normal world operation; an unexpected storage or domain exception

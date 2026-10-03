@@ -312,7 +312,7 @@ def main():
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     env = environment()
-    for key in ("TIJARA_TEST_DB_PORT", "MIX_BUILD_PATH", "MIX_BUILD_ROOT", "TIJARA_FUZZ_EXTENDED", "TIJARA_BROWSER_TEST_PORT"):
+    for key in ("TIJARA_TEST_DB_PORT", "MIX_BUILD_PATH", "MIX_BUILD_ROOT", "TIJARA_FUZZ_EXTENDED", "TIJARA_BROWSER_TEST_PORT", "TIJARA_CONTROL_SWEEP"):
         env.pop(key, None)
     env.update(MIX_ENV="test", ERL_FLAGS="+S 4")
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()

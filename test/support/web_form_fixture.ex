@@ -17,7 +17,8 @@ defmodule TijaraTides.WebFormFixture do
   alias TijaraTides.Infrastructure.GameServer
   @endpoint TijaraTidesWeb.Endpoint
 
-  def fixture(c) do
+  @doc "An authenticated browser session in world `c`, before any company exists."
+  def session(c) do
     previous = Application.get_env(:tijara_tides, :game_server)
     Application.put_env(:tijara_tides, :game_server, c.server)
 
@@ -30,7 +31,11 @@ defmodule TijaraTides.WebFormFixture do
     conn =
       build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
 
-    token = Plug.Conn.get_session(conn, :account_token)
+    {conn, Plug.Conn.get_session(conn, :account_token)}
+  end
+
+  def fixture(c) do
+    {conn, token} = session(c)
 
     {:ok, %{"company_id" => company}} =
       TijaraTides.CompanyFixture.command(

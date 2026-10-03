@@ -43,6 +43,8 @@ jobs:
           set -o pipefail
           mkdir -p cover
           python3 scripts/test-game-db.py --cover | tee cover/elixir-summary.txt
+      - name: Rendered command control sweep with disposable PostgreSQL
+        run: python3 scripts/test-game-db.py --control-sweep
       - name: Runtime catalogue matches its generator
         run: |
           python3 -m venv /tmp/tijara-catalogue

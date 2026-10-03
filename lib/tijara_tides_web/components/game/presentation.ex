@@ -557,7 +557,13 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       instruction_not_active:
         gettext("That instruction is no longer active or does not belong to your company."),
       invalid_command_payload: gettext("The command payload must be an object."),
-      too_many_command_fields: gettext("The command contains too many fields (maximum 12)."),
+      too_many_command_fields: gettext("The command contains too many fields."),
+      unknown_command_fields:
+        gettext("The command contains fields that this action does not accept."),
+      unsupported_command:
+        gettext(
+          "This action is not available in this version of the game. Refresh the page and try again."
+        ),
       command_payload_too_large:
         gettext("The command payload is too large (maximum 4096 bytes)."),
       invalid_session: gettext("Your session is invalid or has expired. Please sign in again."),

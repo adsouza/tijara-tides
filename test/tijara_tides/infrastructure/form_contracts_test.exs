@@ -11,6 +11,42 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
     Sql.repo()
   end
 
+  test "unknown fields leave SQL state unchanged and corrected requests commit" do
+    Sql.with_world(fn c ->
+      {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+      game = :sys.get_state(c.server).game
+      valid = Contracts.name_command(:company, "Safe")
+
+      for key <- ["extra", "port", "request_id"] do
+        assert {:error, :unknown_command_fields} =
+                 GameServer.command(token, "fields", Map.put(valid, key, nil), c.server)
+
+        assert :sys.get_state(c.server).game == game
+        assert GameServer.readiness(c.server) == :ready
+        Sql.assert_rows(c, game)
+
+        assert [[0]] =
+                 Repo.query!("SELECT count(*) FROM game_receipts WHERE world_id=$1", [c.world]).rows
+      end
+
+      Sql.command(c, token, "fields", valid)
+      c = Sql.restart(c)
+      before = :sys.get_state(c.server).game
+      Sql.command(c, token, "fields", valid)
+      assert :sys.get_state(c.server).game == before
+
+      assert {:error, :unknown_command_fields} =
+               GameServer.command(token, "fields", Map.put(valid, "extra", false), c.server)
+
+      assert :sys.get_state(c.server).game == before
+
+      assert [[1]] =
+               Repo.query!("SELECT count(*) FROM game_receipts WHERE world_id=$1", [c.world]).rows
+
+      Sql.assert_rows(c, before)
+    end)
+  end
+
   for variant <- [
         :instruction_buy,
         :instruction_sell,
@@ -98,11 +134,11 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
         assert GameServer.readiness(c.server) == :ready
       end
 
-      # 47 graphemes and exactly 140 code points: inside the company grapheme limit.
-      at_cap = String.duplicate("e\u0301\u0323", 46) <> "e\u0301"
+      # 40 graphemes and exactly 120 code points leave room for a default hull suffix.
+      at_cap = String.duplicate("e\u0301\u0323", 40)
       Sql.command(c, token, "safe-company", Contracts.name_command(:company, at_cap))
 
-      assert [[140]] =
+      assert [[120]] =
                Repo.query!("SELECT length(name) FROM game_companies WHERE world_id=$1", [c.world]).rows
 
       for {name, accepted?} <- [
@@ -177,6 +213,30 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
     end
   end
 
+  test "withdrawing from the rendered revise form commits despite its revise fields" do
+    Sql.with_world(fn c ->
+      f = fixture(c)
+      {auction, port} = consign_won_luxury(f)
+      render_click(f.view, "ship", %{"id" => f.ship})
+      # The auction panel lists the selected port's auctions.
+      render_click(f.view, "port", %{"id" => port})
+      revise = "[id='auction-revise-#{auction}']"
+      assert has_element?(f.view, revise <> " input[name=quantity]")
+      assert has_element?(f.view, revise <> " input[name=price]")
+      before = :sys.get_state(c.server).game.revision
+
+      # The Withdraw button submits every revise field alongside its own action.
+      f.view |> form(revise) |> render_submit(%{"action" => "auction_withdraw"})
+
+      refute has_element?(f.view, "#flash-error")
+      game = :sys.get_state(c.server).game
+      assert game.revision == before + 1
+      assert game.entities["auctions"][auction]["status"] == "cancelled"
+      Sql.assert_rows(c, game)
+      GenServer.stop(f.view.pid, :normal)
+    end)
+  end
+
   test "the rendered route start form commits an automatically departing route" do
     Sql.with_world(fn c ->
       f = fixture(c)
@@ -216,6 +276,62 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
       refute c.world == world
       assert :sys.get_state(c.server).game.entities["companies"] in [nil, %{}]
     end)
+  end
+
+  # Luxury goods reach a warehouse only through auctions: win one lot, then consign it.
+  defp consign_won_luxury(f) do
+    alias TijaraTides.Domain.Warehouse
+
+    :sys.replace_state(f.c.server, fn s ->
+      %{
+        s
+        | catalogue:
+            Map.put(s.catalogue, "auctions", %{"interval_ms" => 10_000, "window_ms" => 10_000})
+      }
+    end)
+
+    Sql.advance(f.c.server, 1)
+    public = GameServer.snapshot(f.token, f.c.server).public
+    listing = Enum.find(public["auctions"], &(&1["good"] == "whisky" and is_nil(&1["seller"])))
+    assert listing, "No world whisky listing"
+    port = listing["port"]
+    used = Map.get(public["warehouse_utilization"], port <> "|dry", 0)
+    owned = Map.keys(GameServer.snapshot(f.token, f.c.server).private["warehouses"])
+
+    Sql.command(f.c, f.token, "luxury-lease", %{
+      "action" => "warehouse_lease",
+      "port" => port,
+      "storage" => "dry",
+      "blocks" => 1,
+      "days" => 3,
+      "price" => Warehouse.quote(used, "dry", 1, 3)
+    })
+
+    [warehouse] =
+      Map.keys(GameServer.snapshot(f.token, f.c.server).private["warehouses"]) -- owned
+
+    Sql.advance(f.c.server, listing["opens_ms"] - :sys.get_state(f.c.server).game.clock_ms + 1)
+
+    Sql.command(f.c, f.token, "luxury-bid", %{
+      "action" => "auction_bid",
+      "auction" => listing["id"],
+      "warehouse" => warehouse,
+      "price" => listing["reserve"]
+    })
+
+    Sql.advance(f.c.server, listing["closes_ms"] - :sys.get_state(f.c.server).game.clock_ms + 1)
+    before = Map.keys(:sys.get_state(f.c.server).game.entities["auctions"])
+
+    Sql.command(f.c, f.token, "luxury-consign", %{
+      "action" => "auction_consign",
+      "warehouse" => "award:" <> listing["id"],
+      "good" => "whisky",
+      "quantity" => 1,
+      "price" => 1_000_000_000
+    })
+
+    [auction] = Map.keys(:sys.get_state(f.c.server).game.entities["auctions"]) -- before
+    {auction, port}
   end
 
   # One resting sell order and one preset make every exchange form kind render.
