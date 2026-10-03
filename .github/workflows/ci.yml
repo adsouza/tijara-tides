@@ -15,9 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Local validation tooling contracts
-        run: |
-          python3 scripts/test-validation-scope.py
-          python3 scripts/test-mutation-audit.py
+        run: python3 scripts/test-validation-scope.py
       - name: Generated docs match their generators
         run: |
           python3 scripts/gen-ports-roster.py
@@ -36,6 +34,9 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('mix.lock') }}
           restore-keys: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-
       - run: mix deps.get --check-locked
+      # Its classifier tests compile and run a probe Mix project, so Elixir must be set up.
+      - name: Mutation-audit tooling contracts
+        run: python3 scripts/test-mutation-audit.py
       - run: mix precommit
       - name: Full Elixir suite and line coverage with disposable PostgreSQL
         shell: bash
