@@ -415,7 +415,6 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
           name="operation"
           value={if @model.route["status"] == "draft", do: "start", else: "resume"}
         /><input type="hidden" name="request_id" value={@request_id} />
-        <input type="hidden" name="auto_depart" value="true" />
         <span class="text-xs text-slate-400">{gettext(
           "Ships continue automatically after trades and handling finish."
         )}</span>

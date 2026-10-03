@@ -16,10 +16,12 @@ these local receipts do not establish their results.
 uses its own disposable PostgreSQL cluster. Mutations never touch the working
 source, local playtest storage or deployed storage. Each invocation has one
 worker. Curated invocations accept at most twelve exact patches; the generated
-audit accepts twenty candidates per source and sixty total. Mutant execution has
-a 30-second limit. Unmutated/restored baselines and full-applicable survivor
-triage have a separate 120-second diagnostic limit. Full SQL triage took about
-40 seconds locally, so it cannot honestly share the shorter mutant budget.
+audit accepts twenty candidates per source and sixty total. Each mutant first
+compiles under the 120-second diagnostic limit, so recompiling dependents never
+consumes its 30-second test limit. Unmutated/restored baselines and
+full-applicable survivor triage share the 120-second diagnostic limit. Full SQL
+triage took about 40 seconds locally, so it cannot honestly share the shorter
+mutant budget.
 
 Muex 0.11.2 is checksum pinned in an isolated tool project; it does not enter the
 application dependency list or lock. The exporter uses comparison, Boolean and

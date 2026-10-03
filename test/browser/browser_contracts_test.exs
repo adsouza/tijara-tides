@@ -17,7 +17,7 @@ defmodule TijaraTides.BrowserContractsTest do
           workflow: unquote(workflow),
           ship: f.ship,
           warehouse: f.warehouse,
-          url: "http://127.0.0.1:" <> System.fetch_env!("TIJARA_BROWSER_TEST_PORT"),
+          url: url(),
           cookie: f.cookie
         }
 
@@ -54,5 +54,10 @@ defmodule TijaraTides.BrowserContractsTest do
         end
       end)
     end
+  end
+
+  defp url do
+    {:ok, {ip, port}} = TijaraTidesWeb.Endpoint.server_info(:http)
+    "http://#{:inet.ntoa(ip)}:#{port}"
   end
 end

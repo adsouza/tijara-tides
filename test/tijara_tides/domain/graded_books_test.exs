@@ -295,13 +295,17 @@ defmodule TijaraTides.Domain.GradedBooksTest do
              2
   end
 
-  test "preset names validate the persisted value in code points", c do
+  test "preset names cap graphemes at 80 and the persisted value at 140 code points", c do
     alias TijaraTides.Domain.MarkdownPresetWorld, as: Presets
 
-    for unit <- ["e\u0301", "👍🏽", "🚢", "a"] do
-      width = length(String.codepoints(unit))
-      name = String.duplicate(unit, div(80, width)) <> String.duplicate("x", rem(80, width))
-      assert length(String.codepoints(name)) == 80
+    for {unit, graphemes, code_points} <- [
+          {"e\u0301", 70, 140},
+          {"👍🏽", 70, 140},
+          {"🚢", 80, 80},
+          {"a", 80, 80}
+        ] do
+      name = String.duplicate(unit, graphemes)
+      assert {String.length(name), length(String.codepoints(name))} == {graphemes, code_points}
 
       {:ok, s, _} =
         Presets.save(
@@ -317,7 +321,7 @@ defmodule TijaraTides.Domain.GradedBooksTest do
                Presets.save(
                  s,
                  c.a,
-                 %{"preset" => "unicode", "name" => name <> "x", "markdowns" => markdowns()},
+                 %{"preset" => "unicode", "name" => name <> unit, "markdowns" => markdowns()},
                  "unused"
                )
 

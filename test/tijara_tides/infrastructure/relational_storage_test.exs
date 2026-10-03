@@ -82,6 +82,44 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     end
   end
 
+  test "name storage cap refuses over-long legacy names, then constrains every name table", %{
+    migrations: migrations
+  } do
+    store_legacy(legacy_state())
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_261_001_000_004, log: false)
+    long = String.duplicate("x", 141)
+
+    for table <- ~w(game_companies game_ships) do
+      [[id, name]] = MigrationRepo.query!("SELECT id,name FROM #{table} ORDER BY id LIMIT 1").rows
+      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [long, id])
+
+      assert_raise Postgrex.Error, ~r/exceed 140 code points/, fn ->
+        Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+      end
+
+      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [name, id])
+    end
+
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+    at_cap = String.duplicate("x", 140)
+
+    for table <- ~w(game_companies game_ships) do
+      [[id]] = MigrationRepo.query!("SELECT id FROM #{table} ORDER BY id LIMIT 1").rows
+      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [at_cap, id])
+
+      assert_raise Postgrex.Error, ~r/#{table}_name_length/, fn ->
+        MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [at_cap <> "x", id])
+      end
+    end
+
+    assert [[definition]] =
+             MigrationRepo.query!(
+               "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='game_markdown_presets_name_check'"
+             ).rows
+
+    assert definition =~ "140"
+  end
+
   test "sequence migration preserves identities and exceeds counters and existing lots", %{
     migrations: migrations
   } do

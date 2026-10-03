@@ -49,6 +49,15 @@ Chromium cohort are implemented. Run `python3 scripts/test-browser.py` after
 server. Install Chromium with `npx playwright install chromium`. Browser artifacts
 under `cover/browser-contracts/` contain field names only.
 
+Two checks guard the template-to-handler seam without hand-kept field lists.
+`TijaraTides.FormFields` reads every `~H` template and `GameLive.handle_event/3`
+clause: each field a submit form, function component inside one, `phx-value-*`
+or `JS.push` value sends must be read by that event's handler through its head
+pattern, an access, `Map.take/2` or a local helper. Unresolvable names and named
+controls outside any submit form raise. Separately, the SQL-backed exchange
+sweep finds every rendered exchange form, submits each as rendered in its own
+world and requires a commit.
+
 For a focused coverage run:
 
 ```sh
@@ -254,9 +263,10 @@ The opt-in runner applies exact curated patches only in disposable copies and
 uses Muex 0.11.2 operators in a separate tool project. The application dependency
 list and lock stay unchanged. Curated batches contain at most twelve patches;
 generated audits contain at most twenty candidates per source and sixty total.
-One worker tests each mutant with seed 12345 and a 30-second limit. Baselines,
-restoration and full-applicable survivor triage are separate checks with a
-120-second limit; they do not increase the detection count by themselves.
+One worker compiles each mutant within 120 seconds, then tests it with seed 12345
+and a 30-second limit. Baselines, restoration and full-applicable survivor triage
+are separate checks with a 120-second limit; they do not increase the detection
+count by themselves. Replays require an explicit `--start` index.
 
 ```sh
 python3 scripts/mutation-audit.py curated --start 0 --count 12 --out cover/mutation-audit/curated-0
@@ -276,7 +286,10 @@ Replays verify the original source hash and exact patch hash before testing.
 
 Compile errors, fixture/startup failures, timeouts and harness failures never
 count as detections. `scripts/test-mutation-audit.py` checks that classification
-contract in local full checks and CI. Inspect each detecting assertion before
-recording it in the discovery matrix. Operator generation is deliberately
-bounded and excludes no unproven survivor as “equivalent.” The
-[mutation audit report](mutation-audit.md) records the selected sample and gaps.
+contract in local full checks and CI against logs from real `mix compile` and
+`mix test` runs in a throwaway project, including `setup` and `setup_all`
+crashes and a timeout, and checks the command-line range and provenance
+refusals. Inspect each detecting assertion before recording it in the discovery
+matrix. Operator generation is deliberately bounded and excludes no unproven
+survivor as “equivalent.” The [mutation audit report](mutation-audit.md) records
+the selected sample and gaps.

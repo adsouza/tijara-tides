@@ -19,8 +19,7 @@ defmodule TijaraTides.Domain.Services.CompanyFormation do
       AccountWorld.restart_at(state, account) > state.clock_ms ->
         {:error, :bankruptcy_cooldown}
 
-      not String.valid?(name) or name == "" or String.length(name) > 60 or
-          String.match?(name, ~r/[\p{Cc}\p{Cf}]/u) ->
+      not TijaraTides.Domain.PlayerNames.valid?(name, 60) ->
         {:error, :invalid_name}
 
       Enum.any?(entities(state, "companies"), fn {_, c} ->

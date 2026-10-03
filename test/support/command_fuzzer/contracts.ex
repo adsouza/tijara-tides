@@ -2,7 +2,11 @@ defmodule TijaraTides.CommandFuzzer.Contracts do
   @moduledoc "Independent input examples shared by payload and lifecycle exploration."
 
   def names(limit) do
-    valid = ["A", "  Vessel  ", "تجارة", "e\u0301", "🚢", String.duplicate("x", limit)]
+    # 47 graphemes of three code points each straddle the 140-code-point cap.
+    triple = "e\u0301\u0323"
+    at_cap = String.duplicate(triple, 46) <> "e\u0301"
+
+    valid = ["A", "  Vessel  ", "تجارة", "e\u0301", "🚢", String.duplicate("x", limit), at_cap]
 
     invalid = [
       <<255>>,
@@ -14,6 +18,7 @@ defmodule TijaraTides.CommandFuzzer.Contracts do
       "",
       "   ",
       String.duplicate("x", limit + 1),
+      String.duplicate(triple, 47),
       "a\0b",
       "a\tb",
       "a\nb",
@@ -45,4 +50,12 @@ defmodule TijaraTides.CommandFuzzer.Contracts do
   def name_error(:preset), do: :exchange_freshness_invalid
   def limit(:company), do: 60
   def limit(_), do: 80
+
+  # Stated independently of PlayerNames: every stored name also fits 140 code points.
+  def code_point_cap, do: 140
+
+  def name_accepted?(kind, name),
+    do:
+      String.length(name) <= limit(kind) and
+        length(String.codepoints(name)) <= code_point_cap()
 end

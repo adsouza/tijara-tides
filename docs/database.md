@@ -404,3 +404,23 @@ The financial verifier requires cash backing for remaining sailing fuel,
 standing orders, bids, liquidation proceeds, visit budgets and departure
 accumulations together. Releasing cash while those commitments remain is rejected
 inside the transaction, including otherwise balanced journal entries.
+
+### Player name storage cap
+
+`20261002000000_cap_player_name_storage.exs` caps company, ship and preset names
+at 140 code points: it widens the `game_markdown_presets` name check from 80 and
+adds `game_companies_name_length` and `game_ships_name_length`. The domain
+allows 60 graphemes per company name and 80 per hull or preset name, and
+`Domain.PlayerNames` rejects any name over 140 code points before commit, so no
+command or tick can reach these constraints.
+
+The migration refuses to run while any existing company or ship name exceeds 140
+code points. A `NOT VALID` check would not help: PostgreSQL checks every updated
+row, so the next world commit rewriting an over-long company would fail and
+pause the world. Before deploying, find and rename such rows:
+
+```sql
+SELECT 'company' AS kind, world_id, id, name FROM game_companies WHERE length(name) > 140
+UNION ALL
+SELECT 'ship', world_id, id, name FROM game_ships WHERE length(name) > 140;
+```

@@ -2,7 +2,8 @@
 """Bounded opt-in audit. Every source mutation lives in a disposable checkout.
 
 Curated: at most 12 exact patches per invocation. Generated: pinned Muex operators,
-20 candidates/source and 60/audit. One worker, 30 seconds/mutant, seed 12345.
+20 candidates/source and 60/audit. One worker, seed 12345. Each mutant compiles
+under the 120-second diagnostic budget; its tests then get 30 seconds.
 Baseline/restoration and survivor triage are separate checks, never counted as kills.
 """
 import argparse
@@ -62,7 +63,7 @@ def classify(result, witness=None):
         return "timeout"
     if re.search(r"Compilation error|\*\* \((?:CompileError|SyntaxError|TokenMissingError)\)", text):
         return "invalid_compile"
-    if re.search(r"failed to start child|could not start child|setup_all/|setup/", text):
+    if re.search(r"failed to start child|could not start child|failure on setup_all callback|\.__ex_unit_setup_(?:all_)?\d+/1", text):
         return "setup_failure"
     if result["exit"] == 0:
         return "survived"
@@ -78,6 +79,15 @@ def isolated(directory):
     (work / "deps").symlink_to(ROOT / "deps", target_is_directory=True)
     shutil.copytree(ROOT / "_build", work / "_build", symlinks=True)
     return work
+
+
+def mutant(work, env, out, label, args, witness=None):
+    # Recompiling dependents must not consume the 30-second test budget.
+    build = run(work, env, out, label + "-compile", ["mix", "compile"], 120)
+    if build["exit"] != 0:
+        return build, classify(build, witness)
+    fault = run(work, env, out, label, args)
+    return fault, classify(fault, witness)
 
 
 def test_args(tests):
@@ -122,8 +132,8 @@ def curated(work, env, out, start, count):
             stamp = max(stamp + 1, int(time.time()) + 1)
             os.utime(path, (stamp, stamp))
             shutil.copy(patch, out / patch.name)
-            fault = run(work, env, out, name + "-fault", test_args(tests))
-            classification = classify(fault, item["witness"])
+            fault, classification = mutant(work, env, out, name + "-fault", test_args(tests),
+                                           item["witness"])
         finally:
             stamp += 1
             touch_source(path, original, stamp)
@@ -177,7 +187,11 @@ def provenance(source, line):
     result = subprocess.run(["git", "blame", "--porcelain", "-L", f"{line},{line}", "HEAD", "--", source],
                             cwd=ROOT, capture_output=True, text=True, check=True)
     commit = result.stdout.split()[0]
-    earlier = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "5ad0399"], cwd=ROOT).returncode == 0
+    ancestry = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "5ad0399"], cwd=ROOT,
+                              capture_output=True, text=True)
+    if ancestry.returncode not in (0, 1):
+        raise SystemExit(f"Provenance base 5ad0399 is unavailable; fetch full history: {ancestry.stderr.strip()}")
+    earlier = ancestry.returncode == 0
     return {"origin_commit": commit, "predates_automation_review_base": earlier}
 
 
@@ -208,8 +222,7 @@ def generated(work, directory, env, out):
             try:
                 stamp += 1
                 touch_source(path, item["mutated"], stamp)
-                fault = run(work, env, out, label + "-fault", test_args(tests))
-                classification = classify(fault)
+                fault, classification = mutant(work, env, out, label + "-fault", test_args(tests))
                 triage = None
                 if classification == "survived":
                     applicable = tests + ["test/tijara_tides/infrastructure/game_persistence_test.exs",
@@ -263,8 +276,7 @@ def replay(work, env, out, report, index, extra_tests, named_only=False):
         raise SystemExit(f"Replay baseline failed: {baseline['log']}")
     try:
         touch_source(path, item["mutated"], stamp + 1)
-        fault = run(work, env, out, "replay-fault", args)
-        classification = classify(fault)
+        fault, classification = mutant(work, env, out, "replay-fault", args)
     finally:
         touch_source(path, original, stamp + 2)
     restored = run(work, env, out, "replay-restored", args, 120)
@@ -282,17 +294,21 @@ def replay(work, env, out, report, index, extra_tests, named_only=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["curated", "generated", "replay"])
-    parser.add_argument("--start", type=int, default=0)
+    parser.add_argument("--start", type=int)
     parser.add_argument("--count", type=int, default=12)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--report", type=Path)
     parser.add_argument("--extra-test", action="append", default=[])
     parser.add_argument("--named-only", action="store_true", help="Replay without StreamData properties for a fixed-cohort comparison")
     args = parser.parse_args()
-    if args.mode == "replay" and not args.report:
+    if args.mode == "replay" and (not args.report or args.start is None):
         parser.error("replay requires --report and --start INDEX")
-    if args.start < 0 or not 1 <= args.count <= 12:
-        parser.error("Curated ranges require start >= 0 and count between 1 and 12")
+    if args.mode == "curated" and args.start is None:
+        args.start = 0
+    if args.start is not None and args.start < 0:
+        parser.error("--start must be >= 0")
+    if args.mode == "curated" and not 1 <= args.count <= 12:
+        parser.error("Curated ranges require count between 1 and 12")
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     env = environment()

@@ -1,11 +1,10 @@
---- lib/tijara_tides/domain/markdown_preset_world.ex
-+++ lib/tijara_tides/domain/markdown_preset_world.ex
-@@ -19,7 +19,7 @@
- 
-       # PostgreSQL length(text) counts code points, not extended graphemes.
-       not is_binary(name) or not String.valid?(name) or name == "" or
--        length(String.codepoints(name)) > 80 or String.match?(name, ~r/[\p{Cc}\p{Cf}]/u) ->
-+        String.length(name) > 80 or String.match?(name, ~r/[\p{Cc}\p{Cf}]/u) ->
-         {:error, :exchange_freshness_invalid}
- 
-       is_nil(schedule) or not OrderBook.schedule?(schedule) or not is_integer(floor) or
+--- lib/tijara_tides/domain/player_names.ex
++++ lib/tijara_tides/domain/player_names.ex
+@@ -7,7 +7,6 @@
+   def valid?(name, max_graphemes) do
+     is_binary(name) and String.valid?(name) and name != "" and
+       String.length(name) <= max_graphemes and
+-      length(String.codepoints(name)) <= @max_code_points and
+       not String.match?(name, ~r/[\p{Cc}\p{Cf}]/u)
+   end
+ end

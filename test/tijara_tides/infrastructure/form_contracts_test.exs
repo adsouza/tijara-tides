@@ -23,7 +23,9 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
         :route_update_buy,
         :route_update_sell,
         :borrow,
-        :recast
+        :recast,
+        :markdown_preset_new,
+        :markdown_preset_rename
       ] do
     test "valid #{variant} form commits its intended terms and exact replay" do
       Sql.with_world(fn c ->
@@ -96,19 +98,17 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
         assert GameServer.readiness(c.server) == :ready
       end
 
-      Sql.command(
-        c,
-        token,
-        "safe-company",
-        Contracts.name_command(:company, String.duplicate("e\u0301", 60))
-      )
+      # 47 graphemes and exactly 140 code points: inside the company grapheme limit.
+      at_cap = String.duplicate("e\u0301\u0323", 46) <> "e\u0301"
+      Sql.command(c, token, "safe-company", Contracts.name_command(:company, at_cap))
 
-      assert [[120]] =
+      assert [[140]] =
                Repo.query!("SELECT length(name) FROM game_companies WHERE world_id=$1", [c.world]).rows
 
       for {name, accepted?} <- [
-            {String.duplicate("e\u0301", 40), true},
-            {String.duplicate("e\u0301", 41), false},
+            # 70 graphemes reach the 140-code-point SQL cap; 71 exceed it.
+            {String.duplicate("e\u0301", 70), true},
+            {String.duplicate("e\u0301", 71), false},
             {"a\0b", false}
           ] do
         before = :sys.get_state(c.server).game
@@ -117,7 +117,7 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
         if accepted? do
           Sql.command(c, token, "safe-preset", payload)
 
-          assert [[80]] =
+          assert [[140]] =
                    Repo.query!(
                      "SELECT length(name) FROM game_markdown_presets WHERE world_id=$1",
                      [c.world]
@@ -136,6 +136,66 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
                ]).rows
 
       Sql.assert_rows(c, :sys.get_state(c.server).game)
+    end)
+  end
+
+  test "every rendered exchange form commits when submitted as rendered" do
+    # Order identities differ per world, so forms are addressed by kind and position.
+    slots =
+      Sql.with_world(fn c ->
+        {html, f} = exchange_sweep_view(c)
+        GenServer.stop(f.view.pid, :normal)
+        html |> exchange_form_ids() |> Enum.map(&exchange_form_kind/1) |> slots()
+      end)
+
+    # Each kind of exchange form the panel offers must be present to be swept.
+    assert slots |> Enum.map(&elem(&1, 0)) |> MapSet.new() ==
+             MapSet.new(~w(place amend preset-new preset-edit))
+
+    assert {"place", 1} in slots
+
+    for {kind, position} = slot <- slots do
+      Sql.with_world(fn c ->
+        {html, f} = exchange_sweep_view(c)
+        before = :sys.get_state(c.server).game.revision
+
+        id =
+          html
+          |> exchange_form_ids()
+          |> Enum.filter(&(exchange_form_kind(&1) == kind))
+          |> Enum.at(position)
+
+        assert id, "Rendered form #{inspect(slot)} disappeared"
+
+        f.view |> form("#" <> id, required_fill(html, id)) |> render_submit()
+
+        refute has_element?(f.view, "#flash-error"), "Rendered form #{id} was rejected"
+        assert :sys.get_state(c.server).game.revision == before + 1, id
+        Sql.assert_rows(c, :sys.get_state(c.server).game)
+        GenServer.stop(f.view.pid, :normal)
+      end)
+    end
+  end
+
+  test "the rendered route start form commits an automatically departing route" do
+    Sql.with_world(fn c ->
+      f = fixture(c)
+
+      for port <- ["Jakarta", "Singapore"],
+          do:
+            Sql.command(f.c, f.token, "stop-" <> port, %{
+              "action" => "route",
+              "ship" => f.ship,
+              "operation" => "add_stop",
+              "port" => port
+            })
+
+      # Selecting the ship refreshes synchronously; background refreshes are asynchronous.
+      render_click(f.view, "ship", %{"id" => f.ship})
+      f.view |> form("[id='route-start-#{f.ship}']") |> render_submit()
+      refute has_element?(f.view, "#flash-error")
+      assert :sys.get_state(c.server).game.entities["ship_routes"][f.ship]["auto_depart"] == true
+      GenServer.stop(f.view.pid, :normal)
     end)
   end
 
@@ -158,6 +218,69 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
     end)
   end
 
+  # One resting sell order and one preset make every exchange form kind render.
+  defp exchange_sweep_view(c) do
+    f = fixture(c)
+
+    Sql.command(f.c, f.token, "sweep-order", %{
+      "action" => "exchange_place",
+      "warehouse" => f.warehouse,
+      "good" => "lumber",
+      "side" => "sell",
+      "quantity" => 1,
+      "price" => 1_000_000
+    })
+
+    Sql.command(f.c, f.token, "sweep-preset", Contracts.name_command(:preset, "Sweep"))
+    # Selecting the ship refreshes synchronously; background refreshes are asynchronous.
+    render_click(f.view, "ship", %{"id" => f.ship})
+    render_change(f.view, "exchange-good", %{"good" => "lumber"})
+    {render(f.view), f}
+  end
+
+  defp exchange_form_ids(html) do
+    html
+    |> LazyHTML.from_fragment()
+    |> LazyHTML.query("form[phx-submit=exchange]")
+    |> LazyHTML.attribute("id")
+  end
+
+  defp slots(kinds),
+    do:
+      kinds
+      |> Enum.group_by(& &1)
+      |> Enum.flat_map(fn {k, l} -> for i <- 0..(length(l) - 1), do: {k, i} end)
+
+  defp exchange_form_kind("exchange-place-" <> _), do: "place"
+  defp exchange_form_kind("exchange-amend-" <> _), do: "amend"
+  defp exchange_form_kind("markdown-preset-new"), do: "preset-new"
+  defp exchange_form_kind("markdown-preset-" <> _), do: "preset-edit"
+
+  # Blank required fields get the smallest valid sample for their input type.
+  defp required_fill(html, id) do
+    html
+    |> LazyHTML.from_fragment()
+    |> LazyHTML.query("form[id='#{id}'] input[required]")
+    |> Enum.flat_map(fn input ->
+      [name] = LazyHTML.attribute(input, "name")
+
+      case {LazyHTML.attribute(input, "value"), LazyHTML.attribute(input, "type")} do
+        {[value], _} when value != "" ->
+          []
+
+        {_, ["number"]} ->
+          [{name, Enum.at(LazyHTML.attribute(input, "min"), 0, "1") |> max_one()}]
+
+        _ ->
+          [{name, "Sweep #{System.unique_integer([:positive])}"}]
+      end
+    end)
+    |> URI.encode_query()
+    |> Plug.Conn.Query.decode()
+  end
+
+  defp max_one(value), do: if(value in ["", "0"], do: "1", else: value)
+
   defp submit!(view, event, params) do
     html = render_submit(view, event, params)
     refute has_element?(view, "#flash-error"), "A valid or equivalent submission was rejected"
@@ -179,6 +302,38 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
 
     {"recast", %{"request_id" => "form-recast", "loan" => loan, "amount" => "10"},
      fn game -> assert game.entities["loans"][loan]["remaining"] == 9_000 end}
+  end
+
+  defp variant(f, variant) when variant in [:markdown_preset_new, :markdown_preset_rename] do
+    params = %{
+      "request_id" => "form-preset",
+      "action" => "markdown_preset_save",
+      "name" => " Harbour clearance ",
+      "markdowns" => %{"clearance" => "10", "fair" => "40", "good" => "70", "fresh" => "100"}
+    }
+
+    params =
+      if variant == :markdown_preset_rename do
+        %{"preset" => id} =
+          Sql.command(f.c, f.token, "initial-preset", %{
+            "action" => "markdown_preset_save",
+            "name" => "Old name",
+            "markdowns" => %{"clearance" => 20, "fair" => 50, "good" => 80, "fresh" => 100}
+          })
+
+        Map.put(params, "preset", id)
+      else
+        params
+      end
+
+    {"exchange", params,
+     fn game ->
+       [preset] = Map.values(game.entities["markdown_presets"])
+
+       assert {preset["name"], preset["markdowns"], preset["price_floor"]} ==
+                {"Harbour clearance",
+                 %{"clearance" => 10, "fair" => 40, "good" => 70, "fresh" => 100}, 0}
+     end}
   end
 
   defp variant(f, variant) when variant in [:instruction_buy, :instruction_sell] do

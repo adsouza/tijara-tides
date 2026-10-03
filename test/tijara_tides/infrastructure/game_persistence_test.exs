@@ -2102,11 +2102,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     view |> form("[id='route-stop-#{ship}']", %{"port" => "Jakarta"}) |> render_submit()
     view |> form("[id='route-stop-#{ship}']", %{"port" => "Singapore"}) |> render_submit()
 
-    assert has_element?(
-             view,
-             "[id='route-start-#{ship}'] input[name=auto_depart][type=hidden][value=true]"
-           )
-
+    # The handler always departs automatically; the form offers no choice.
+    assert has_element?(view, "[id='route-start-#{ship}']")
     refute has_element?(view, "[id='route-start-#{ship}'] input[type=checkbox]")
     private = GameServer.snapshot(token, c.server).private
     first = private["route_stops"] |> Map.values() |> Enum.find(&(&1["position"] == 0))
@@ -5823,9 +5820,10 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
     schedule = %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
 
-    for {unit, index} <- Enum.with_index(["e\u0301", "👍🏽", "🚢"]) do
-      width = length(String.codepoints(unit))
-      name = String.duplicate(unit, div(80, width)) <> String.duplicate("x", rem(80, width))
+    # Each name reaches one cap: 140 code points for pairs, 80 graphemes for single code points.
+    for {{unit, graphemes, code_points}, index} <-
+          Enum.with_index([{"e\u0301", 70, 140}, {"👍🏽", 70, 140}, {"🚢", 80, 80}]) do
+      name = String.duplicate(unit, graphemes)
       request = "unicode-#{index}"
 
       payload = %{
@@ -5840,13 +5838,13 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       assert Repo.query!(
                "SELECT name,length(name) FROM game_markdown_presets WHERE world_id=$1 AND id=$2",
                [c.world_id, id]
-             ).rows == [[name, 80]]
+             ).rows == [[name, code_points]]
 
       assert {:ok, ^reply} = GameServer.command(token, request, payload, c.server)
 
       revision = :sys.get_state(c.server).game.revision
       bad_request = request <> "-oversized"
-      bad = %{payload | "name" => name <> "x"} |> Map.put("preset", id)
+      bad = %{payload | "name" => name <> unit} |> Map.put("preset", id)
 
       assert {:error, :exchange_freshness_invalid} =
                GameServer.command(token, bad_request, bad, c.server)

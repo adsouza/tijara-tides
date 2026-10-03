@@ -17,9 +17,7 @@ defmodule TijaraTides.Domain.MarkdownPresetWorld do
       previous && previous["account_id"] != account["id"] ->
         {:error, :exchange_freshness_invalid}
 
-      # PostgreSQL length(text) counts code points, not extended graphemes.
-      not is_binary(name) or not String.valid?(name) or name == "" or
-        length(String.codepoints(name)) > 80 or String.match?(name, ~r/[\p{Cc}\p{Cf}]/u) ->
+      not TijaraTides.Domain.PlayerNames.valid?(name, 80) ->
         {:error, :exchange_freshness_invalid}
 
       is_nil(schedule) or not OrderBook.schedule?(schedule) or not is_integer(floor) or

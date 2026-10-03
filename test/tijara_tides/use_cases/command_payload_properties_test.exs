@@ -27,15 +27,16 @@ defmodule TijaraTides.UseCases.CommandPayloadPropertiesTest do
   property "combining marks count independently of bytes and control-free name limits" do
     check all(
             kind <- member_of([:company, :ship, :preset]),
+            # One grapheme each, spanning one, two or three code points.
+            unit <- member_of(["a", "e\u0301", "e\u0301\u0323"]),
             count <- integer(1..81),
             max_runs: 50,
             max_shrinking_steps: 100
           ) do
-      # A combining pair is two code points but one grapheme.
-      name = String.duplicate("e\u0301", count)
-      # Company and hull names currently promise grapheme limits; preset SQL promises code points.
-      size = if kind == :preset, do: count * 2, else: count
-      check_name(kind, name, if(size <= Contracts.limit(kind), do: :ok, else: :error))
+      name = String.duplicate(unit, count)
+      # Graphemes are capped per kind; every stored name also fits the SQL code-point cap.
+      expected = if Contracts.name_accepted?(kind, name), do: :ok, else: :error
+      check_name(kind, name, expected)
     end
   end
 

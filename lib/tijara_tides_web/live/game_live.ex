@@ -286,7 +286,7 @@ defmodule TijaraTidesWeb.GameLive do
     command =
       params
       |> Map.take(
-        ~w(action request_id order warehouse good side quantity price price_floor min_grade min_remaining_ms expires_ms markdowns preset rebase)
+        ~w(action request_id order warehouse good side quantity price price_floor min_grade min_remaining_ms expires_ms markdowns preset name rebase)
       )
       |> Map.update("quantity", nil, &report_number/1)
       |> Map.update("price", nil, &exchange_price/1)
