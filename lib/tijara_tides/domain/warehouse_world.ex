@@ -19,18 +19,22 @@ defmodule TijaraTides.Domain.WarehouseWorld do
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
   defp load(state, row) do
+    w = hydrate(row, Map.values(entities(state, "warehouses")), Claims.all(state), state.clock_ms)
+    %{w | reservations: Claims.with_auction_expiry(state, w.reservations)}
+  end
+
+  @doc """
+  A lease with its claims and the shared-space occupancy it cannot use. Commands
+  load leases through this, and read models call it with an account's rows, so
+  offers see the capacity and stock the commands check.
+  """
+  def hydrate(row, rows, claims, now) do
     w = Rows.decode(row)
 
     %{
       w
-      | reservations: reservations(state, w),
-        external_volume:
-          shared_external_volume(
-            Map.values(entities(state, "warehouses")),
-            Claims.all(state),
-            w,
-            state.clock_ms
-          )
+      | reservations: reservations(claims, w),
+        external_volume: shared_external_volume(rows, claims, w, now)
     }
   end
 

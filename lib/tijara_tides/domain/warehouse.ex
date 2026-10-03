@@ -468,8 +468,7 @@ defmodule TijaraTides.Domain.Warehouse do
         {:error, :incompatible_cargo}
 
       order.side == "buy" and
-          volume(w, catalogue) + w.external_volume + reserved_volume(w, catalogue) +
-            order.quantity * item["volume_l"] > w.blocks * block_litres() ->
+          order.quantity > reservation_limit(w, "capacity", item, now, catalogue) ->
         {:error, :warehouse_capacity}
 
       order.side == "sell" and

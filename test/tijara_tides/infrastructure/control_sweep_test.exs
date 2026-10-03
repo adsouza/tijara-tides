@@ -9,8 +9,8 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
   new button cannot escape the sweep, and two controls that send the same action
   are each pressed. Scenarios reach each control's state through legal commands
   only; a unit no scenario renders must be excluded below with the reason it
-  cannot be reached. Each unit is submitted in its own world, and command
-  telemetry must report exactly one commit.
+  cannot be reached. Every rendered instance is submitted in its own world, and
+  command telemetry must report exactly one commit.
   """
   use ExUnit.Case, async: false
   @moduletag :game_database
@@ -35,8 +35,8 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
                 luxury_open luxury_bid luxury_won luxury_award luxury_consigned no_company email
                 queued_trade guarantee_candidate)a
 
-  # {unit, scenario} pairs where the domain rightly refuses a rendered, enabled control,
-  # as {reason, why the interface cannot avoid offering it}.
+  # {unit, scenario, instance} triples where the domain rightly refuses a rendered,
+  # enabled control, as {reason, why the interface cannot avoid offering it}.
   @expected %{}
 
   setup_all do
@@ -67,14 +67,18 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
       for scenario <- scenarios, reduce: %{} do
         acc ->
           scenario
-          |> rendered_units(facts, prefixes)
-          |> Enum.filter(&(is_nil(focus) or elem(&1, 1) == elem(focus, 1)))
-          |> Enum.reduce(acc, &Map.update(&2, &1, [scenario], fn list -> list ++ [scenario] end))
+          |> rendered_instances(facts, prefixes)
+          |> Enum.filter(fn {unit, _instance} ->
+            is_nil(focus) or elem(unit, 1) == elem(focus, 1)
+          end)
+          |> Enum.reduce(acc, fn {unit, instance}, acc ->
+            Map.update(acc, unit, [{scenario, instance}], &(&1 ++ [{scenario, instance}]))
+          end)
       end
 
     if System.get_env("TIJARA_CONTROL_SWEEP_DISCOVERY") do
       for {unit, scenarios} <- Enum.sort(rendered),
-          do: IO.puts("#{inspect(unit)} <- #{Enum.join(scenarios, ", ")}")
+          do: IO.puts("#{inspect(unit)} <- #{inspect(scenarios)}")
 
       IO.puts("missing: #{inspect(Enum.sort(MapSet.to_list(required) -- Map.keys(rendered)))}")
     end
@@ -98,9 +102,11 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
       assert stale == [], "Exclusions that are now reachable or no longer exist"
     end
 
-    # Each unit is pressed in every scenario that renders it, since state decides success.
+    # Repeated components share a static unit, but every instance must succeed.
     pairs =
-      for {unit, scenarios} <- Enum.sort(rendered), scenario <- scenarios, do: {unit, scenario}
+      for {unit, instances} <- Enum.sort(rendered),
+          {scenario, instance} <- instances,
+          do: {unit, scenario, instance}
 
     unless focus do
       stale = Map.keys(@expected) -- pairs
@@ -108,21 +114,30 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
     end
 
     failures =
-      for {unit, scenario} <- pairs, reduce: [] do
+      for {unit, scenario, instance} <- pairs, reduce: [] do
         acc ->
-          case submit(unit, scenario, facts, prefixes) do
+          case submit(unit, scenario, instance, facts, prefixes) do
             :ok -> acc
-            failure -> [{unit, scenario, failure} | acc]
+            failure -> [{unit, scenario, instance, failure} | acc]
           end
       end
 
     assert Enum.reverse(failures) == []
   end
 
-  defp rendered_units(scenario, facts, prefixes) do
+  defp rendered_instances(scenario, facts, prefixes) do
     Sql.with_world(fn c ->
       ctx = build(scenario, c)
-      units = ctx |> render_controls(facts, prefixes) |> Enum.map(& &1.unit) |> Enum.uniq()
+      # Entity IDs differ between worlds; per-unit DOM ordinals identify each
+      # occurrence across discovery and replay without trusting the first match.
+      {units, _counts} =
+        ctx
+        |> render_controls(facts, prefixes)
+        |> Enum.map_reduce(%{}, fn control, counts ->
+          instance = Map.get(counts, control.unit, 0)
+          {{control.unit, instance}, Map.put(counts, control.unit, instance + 1)}
+        end)
+
       stop(ctx)
       units
     end)
@@ -190,17 +205,23 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
 
   # -- submission -----------------------------------------------------------
 
-  defp submit(unit, scenario, facts, prefixes) do
+  defp submit(unit, scenario, instance, facts, prefixes) do
     Sql.with_world(fn c ->
       ctx = build(scenario, c)
-      control = ctx |> render_controls(facts, prefixes) |> Enum.find(&(&1.unit == unit))
+
+      control =
+        ctx
+        |> render_controls(facts, prefixes)
+        |> Enum.filter(&(&1.unit == unit))
+        |> Enum.fetch!(instance)
+
       before = :sys.get_state(c.server).game.revision
 
       {_, outcomes} = ControlSweep.outcomes(fn -> press(ctx, control) end)
       game = :sys.get_state(c.server).game
       stop(ctx)
 
-      expected = @expected[{unit, scenario}]
+      expected = @expected[{unit, scenario, instance}]
 
       cond do
         expected ->

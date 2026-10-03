@@ -238,7 +238,7 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
           class="text-xs text-slate-400"
         >
           {gettext(
-            "The warehouse must be idle and its lease must cover auction closing. Renew or choose a longer lease."
+            "The warehouse must be ready to receive the entire lot, with unreserved space and a lease covering auction closing."
           )}
         </p>
         <button

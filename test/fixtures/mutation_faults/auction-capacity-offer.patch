@@ -1,0 +1,11 @@
+--- lib/tijara_tides/use_cases/auction_queries.ex
++++ lib/tijara_tides/use_cases/auction_queries.ex
+@@ -98,7 +98,7 @@
+               w = storage_models[row["id"]],
+               Warehouse.covers?(w, a["closes_ms"], clock) and Warehouse.receiving_open?(w, clock) and
+                 item != nil and Warehouse.compatible?(w, item) and
+-                Warehouse.reservation_limit(w, "capacity", item, clock, cat) >= a["quantity"],
++                Warehouse.reservation_limit(w, "capacity", item, clock, cat) >= 0,
+               do: row
+ 
+         Map.merge(a, %{

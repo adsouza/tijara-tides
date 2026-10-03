@@ -159,7 +159,9 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
         :if={@book.warehouses != [] and @book.buy_warehouses == []}
         class="my-2 text-xs text-slate-400"
       >
-        {gettext("Buy orders need an active lease that is not holding won cargo.")}
+        {gettext(
+          "Buy orders need an active lease with unreserved space for this cargo, outside won-cargo allocations."
+        )}
       </p>
       <p
         :if={@book.warehouses != [] and @book.sell_warehouses == []}

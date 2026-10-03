@@ -329,7 +329,7 @@ msgid "Build a company. Trade the world."
 msgstr ""
 
 #: lib/tijara_tides/localization/names.ex:45
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:238
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:240
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:718
 #, elixir-autogen, elixir-format
 msgid "Buy"
@@ -365,7 +365,7 @@ msgstr ""
 msgid "Cancel edit"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:316
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:318
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:902
 #: lib/tijara_tides_web/components/ship_route_editor.ex:531
 #, elixir-autogen, elixir-format
@@ -825,10 +825,10 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/auction_panel.ex:164
 #: lib/tijara_tides_web/components/game/auction_panel.ex:335
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:132
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:193
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:239
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:244
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:391
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:195
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:241
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:246
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:393
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:446
 #: lib/tijara_tides_web/components/game/map_panel.ex:348
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:345
@@ -1247,7 +1247,7 @@ msgid "Selected stop"
 msgstr ""
 
 #: lib/tijara_tides/localization/names.ex:46
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:239
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:241
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:713
 #, elixir-autogen, elixir-format
 msgid "Sell"
@@ -3334,7 +3334,7 @@ msgstr ""
 msgid "Active-world days"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:191
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:193
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:81
 #, elixir-autogen, elixir-format
 msgid "Blocks"
@@ -3591,7 +3591,7 @@ msgstr ""
 msgid "Daily rent cap"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:307
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:309
 #, elixir-autogen, elixir-format
 msgid "Amend order"
 msgstr ""
@@ -3631,12 +3631,12 @@ msgstr ""
 msgid "Exchange order"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:399
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:401
 #, elixir-autogen, elixir-format
 msgid "Exchange rules"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:215
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:217
 #, elixir-autogen, elixir-format
 msgid "Expires in minutes (optional)"
 msgstr ""
@@ -3646,28 +3646,28 @@ msgstr ""
 msgid "Lease compatible warehouse space at this port to place orders."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:202
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:275
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:204
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:277
 #, elixir-autogen, elixir-format
 msgid "Limit price per lot ($)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:292
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:294
 #, elixir-autogen, elixir-format
 msgid "New expiry in minutes (optional)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:305
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:307
 #, elixir-autogen, elixir-format
 msgid "No expiry"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:222
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:224
 #, elixir-autogen, elixir-format
 msgid "Place buy order"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:223
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:225
 #, elixir-autogen, elixir-format
 msgid "Place sell order"
 msgstr ""
@@ -3677,12 +3677,12 @@ msgstr ""
 msgid "Price"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:389
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:391
 #, elixir-autogen, elixir-format
 msgid "Recent trades"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:267
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:269
 #, elixir-autogen, elixir-format
 msgid "Remaining lots"
 msgstr ""
@@ -3693,12 +3693,12 @@ msgid "Reserved funds"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/auction_panel.ex:210
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:187
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:189
 #, elixir-autogen, elixir-format
 msgid "Warehouse"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:232
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:234
 #, elixir-autogen, elixir-format
 msgid "Your open orders"
 msgstr ""
@@ -3809,11 +3809,6 @@ msgstr ""
 msgid "Submit sealed bid"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/auction_panel.ex:240
-#, elixir-autogen, elixir-format
-msgid "The warehouse must be idle and its lease must cover auction closing. Renew or choose a longer lease."
-msgstr ""
-
 #: lib/tijara_tides_web/components/game/presentation.ex:388
 #, elixir-autogen, elixir-format
 msgid "This auction is locked. Consignments can change only before opening; bids only before closing."
@@ -3895,7 +3890,7 @@ msgstr ""
 msgid "Market maker"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:400
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:402
 #, elixir-autogen, elixir-format
 msgid "Remote trades settle into warehouses. Buys reserve limit-price cash and space; sells reserve stock. Best price, then earliest order wins; fills use the resting price. Reducing quantity keeps priority; increasing quantity or changing price resets it. No exchange fees. Market maker rows show only their current price level, shared with ship trading."
 msgstr ""
@@ -4710,13 +4705,13 @@ msgid "solid goods, including perishables"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:144
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:246
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:248
 #, elixir-autogen, elixir-format
 msgid "%{minutes} mins remaining"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:61
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:368
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:370
 #, elixir-autogen, elixir-format
 msgid "Absolute price floor ($)"
 msgstr ""
@@ -4746,7 +4741,7 @@ msgstr ""
 msgid "Clearance (below 25%)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:385
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:387
 #, elixir-autogen, elixir-format
 msgid "Delete preset"
 msgstr ""
@@ -4776,7 +4771,7 @@ msgstr ""
 msgid "Keep applied settings"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:252
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:254
 #, elixir-autogen, elixir-format
 msgid "Markdown basis: %{price}. Preset edits do not change these applied settings."
 msgstr ""
@@ -4786,7 +4781,7 @@ msgstr ""
 msgid "Markdown preset (optional)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:327
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:329
 #, elixir-autogen, elixir-format
 msgid "Markdown presets"
 msgstr ""
@@ -4801,7 +4796,7 @@ msgstr ""
 msgid "Minimum remaining life (minutes)"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:346
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:348
 #, elixir-autogen, elixir-format
 msgid "Preset name"
 msgstr ""
@@ -4811,12 +4806,12 @@ msgstr ""
 msgid "Rebase percentages on the new asking price"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:329
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:331
 #, elixir-autogen, elixir-format
 msgid "Save percentages for every grade. Apply a preset explicitly to copy its settings; editing or deleting it leaves active orders unchanged."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:375
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:377
 #, elixir-autogen, elixir-format
 msgid "Save preset"
 msgstr ""
@@ -4956,17 +4951,22 @@ msgstr ""
 msgid "This action is not available in this version of the game. Refresh the page and try again."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:162
-#, elixir-autogen, elixir-format
-msgid "Buy orders need an active lease that is not holding won cargo."
-msgstr ""
-
 #: lib/tijara_tides_web/components/game/auction_panel.ex:57
 #, elixir-autogen, elixir-format
 msgid "Store unreserved luxury cargo here, in storage paid past the next auction's close, to consign it."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/exchange_panel.ex:168
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:170
 #, elixir-autogen, elixir-format
 msgid "Sell orders need unreserved stock of this cargo in a warehouse here."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/exchange_panel.ex:162
+#, elixir-autogen, elixir-format
+msgid "Buy orders need an active lease with unreserved space for this cargo, outside won-cargo allocations."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/auction_panel.ex:240
+#, elixir-autogen, elixir-format
+msgid "The warehouse must be ready to receive the entire lot, with unreserved space and a lease covering auction closing."
 msgstr ""

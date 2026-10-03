@@ -1,6 +1,7 @@
 defmodule TijaraTides.UseCases.AuctionQueries do
   @moduledoc "Auction discovery and owner-scoped bidding options."
-  alias TijaraTides.Domain.{CargoRules, Warehouse, WarehouseWorld}
+  alias TijaraTides.Domain.{CargoRules, Warehouse}
+  alias TijaraTides.UseCases.WarehouseStorage
 
   # AuctionWorld.prune/1 keeps closed auctions per port, so the world-wide tail is
   # long; discovery shows the newest few plus the player's own activity, all
@@ -65,8 +66,7 @@ defmodule TijaraTides.UseCases.AuctionQueries do
       |> Enum.filter(&(&1["port"] == port and &1["expires_ms"] > clock))
       |> Enum.sort_by(& &1["id"])
 
-    # Decode each lease once here rather than once per listing in the filter below.
-    leased = Enum.map(warehouses, &{&1, WarehouseWorld.snapshot(&1)})
+    leased = WarehouseStorage.snapshots(private, clock)
 
     goods =
       Enum.filter(cat["goods"], fn {_, i} -> i["category"] == "Luxury items" end) |> Enum.sort()
@@ -85,11 +85,20 @@ defmodule TijaraTides.UseCases.AuctionQueries do
       Enum.map(listings, fn a ->
         item = cat["goods"][a["good"]]
 
-        # A bid backs a buy claim: storage must cover the close and still receive cargo.
+        # Replacing a bid releases its claim before checking any candidate warehouse,
+        # including shared space in a different allocation.
+        storage_models =
+          if bid = bids[a["id"]],
+            do: WarehouseStorage.snapshots(private, clock, bid["id"]),
+            else: leased
+
+        # A bid backs the entire lot in storage covering the close.
         storage =
-          for {row, w} <- leased,
+          for row <- warehouses,
+              w = storage_models[row["id"]],
               Warehouse.covers?(w, a["closes_ms"], clock) and Warehouse.receiving_open?(w, clock) and
-                item != nil and Warehouse.compatible?(w, item),
+                item != nil and Warehouse.compatible?(w, item) and
+                Warehouse.reservation_limit(w, "capacity", item, clock, cat) >= a["quantity"],
               do: row
 
         Map.merge(a, %{
@@ -105,13 +114,10 @@ defmodule TijaraTides.UseCases.AuctionQueries do
 
     # The command backs a consignment with claimable stock in storage covering the close;
     # stock already backing auctions or exchange orders is held in reservation rows.
-    reservation_rows = Map.values(private["warehouse_reservations"] || %{})
-
     consignable =
       for row <- Map.values(private["warehouses"] || %{}),
           row["port"] == port,
-          w = WarehouseWorld.snapshot(row),
-          lease = %{w | reservations: WarehouseWorld.reservations(reservation_rows, w)},
+          lease = leased[row["id"]],
           Warehouse.covers?(lease, closes, clock),
           {good, _item} <- goods,
           quantity = Warehouse.claimable_stock(lease, good, clock),

@@ -78,20 +78,23 @@ and a click by its template id prefix, event, action, operation and
 `phx-value-*` keys. Every command form and click producer needs a stable id with
 its own literal prefix, and no prefix may be a prefix of another. The required
 units come from `FormFields`, so a new button cannot escape the sweep, and two
-controls sending the same action are each pressed.
+controls sending the same action are each pressed. Static units track template
+coverage; per-unit DOM ordinals retain repeated component instances during
+discovery and replay. Entity IDs may differ between fresh worlds, so each replay
+selects the same occurrence rather than the first matching template unit.
 
-Legal-command scenarios render every unit, with no exclusions. An exclusion must
-record the shortest paths tried: guarantee pledges (an invitee bankrupt five
-times) and berth-queue cancellation (a second purchase while loading) were once
-excluded as unreachable, and the second hid a duplicate DOM id that LiveViewTest
-now reports. Each unit is pressed in every scenario that renders it enabled, in
-its own world, through its real control, including the clicked element's
-rendered values. Only the inputs a player must supply are added: blank required
-fields, the first real option of a required select left on its placeholder, and
-a short declared list; an optional select keeps its empty choice. Disabled
-controls are skipped because they offer no submission. Command telemetry must
-report exactly one commit, and SQL rows must match. A pair the domain rightly
-refuses must be declared with its reason; none is.
+Legal-command scenarios render every unit, with no exclusions. An exclusion
+must record the shortest paths tried: guarantee pledges (an invitee bankrupt
+five times) and berth-queue cancellation (a second purchase while loading) were
+once excluded as unreachable, and the second hid a duplicate DOM id that
+LiveViewTest now reports. Each rendered instance is pressed in every scenario
+that renders it enabled, in its own world, through its real control, including
+the clicked element's rendered values. Only the inputs a player must supply are
+added: blank required fields, the first real option of a required select left
+on its placeholder, and a short declared list; an optional select keeps its
+empty choice. Disabled controls are skipped because they offer no submission.
+Command telemetry must report exactly one commit, and SQL rows must match. A
+pair the domain rightly refuses must be declared with its reason; none is.
 
 Pressing each control in every rendering state found forms that could never
 succeed there: the add-stop port list defaulting to the loop's own first port,
@@ -99,15 +102,22 @@ add-stop offered while next-port instructions block a route, consignment and
 exchange sell offered without claimable stock, and bids offered into award
 storage. Those forms now offer only values from the domain rules the commands
 enforce (`RoutePlans.stop_ports/3`, `instructions_block_route?/3`,
-`Warehouse.claimable_stock/3`, `covers?/3` and `receiving_open?/2`), with
-reservations attached to warehouse snapshots. `route_offers_test.exs` and
-`market_offers_test.exs` show each offered value is accepted and one more, or
-any value withheld, is refused.
+`Warehouse.claimable_stock/3`, `covers?/3`, `receiving_open?/2` and
+`reservation_limit/5`), with leases loaded by `WarehouseWorld.hydrate/4` as the
+commands load them. Exchange purchases need space for at least one lot; auction
+bids need the entire lot. A replacement bid releases its previous capacity claim
+before evaluating any receiving warehouse, including shared allocations.
+`route_offers_test.exs` and `market_offers_test.exs` show each offered value is
+accepted and one more, or any value withheld, is refused.
 
 CI runs the sweep; local checks do not. `TIJARA_CONTROL_SWEEP_FOCUS` set to
 `scenario:id-prefix` renders one scenario and presses only matching units,
 without the coverage assertions. The curated `stale-route-cancellation` fault
 uses it to show that corrupting the route cancellation ID fails the sweep.
+`stale-fleet-queued-cancellation` corrupts only the fleet copy of the queue
+cancellation button, proving that repeated instances are submitted
+independently. `exchange-capacity-offer` and `auction-capacity-offer` remove the
+respective capacity filters and must fail the market offer contracts.
 
 ```sh
 python3 scripts/test-game-db.py --control-sweep
@@ -335,7 +345,7 @@ count by themselves. Replays require an explicit `--start` index.
 ```sh
 python3 scripts/mutation-audit.py curated --start 0 --count 12 --out cover/mutation-audit/curated-0
 python3 scripts/mutation-audit.py curated --start 12 --count 12 --out cover/mutation-audit/curated-12
-python3 scripts/mutation-audit.py curated --start 24 --count 9 --out cover/mutation-audit/curated-24
+python3 scripts/mutation-audit.py curated --start 24 --count 12 --out cover/mutation-audit/curated-24
 python3 scripts/mutation-audit.py generated --out cover/mutation-audit/generated
 python3 scripts/mutation-audit.py replay --report cover/mutation-audit/generated/generated.json --start 24 --extra-test test/tijara_tides/domain/market_quote_properties_test.exs --out cover/mutation-audit/replay-24
 ```

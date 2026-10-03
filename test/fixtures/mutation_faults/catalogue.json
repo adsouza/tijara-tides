@@ -336,5 +336,39 @@
       "TIJARA_CONTROL_SWEEP": "1",
       "TIJARA_CONTROL_SWEEP_FOCUS": "route_waiting:route-cancel-instruction-"
     }
+  },
+  {
+    "name": "stale-fleet-queued-cancellation",
+    "patch": "stale-fleet-queued-cancellation.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/control_sweep_test.exs"
+    ],
+    "sql": true,
+    "area": "control-sweep",
+    "witness": "cancel-berth-trade-",
+    "env": {
+      "TIJARA_CONTROL_SWEEP": "1",
+      "TIJARA_CONTROL_SWEEP_FOCUS": "queued_trade:cancel-berth-trade-"
+    }
+  },
+  {
+    "name": "exchange-capacity-offer",
+    "patch": "exchange-capacity-offer.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/market_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "market-offers",
+    "witness": "Assertion|assert|match"
+  },
+  {
+    "name": "auction-capacity-offer",
+    "patch": "auction-capacity-offer.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/market_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "market-offers",
+    "witness": "Assertion|assert|match"
   }
 ]
