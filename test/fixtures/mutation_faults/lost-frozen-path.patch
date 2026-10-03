@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/voyage_navigation.ex
++++ lib/tijara_tides/domain/voyage_navigation.ex
+@@ -14,7 +14,7 @@
+ 
+   def path(ship, catalogue),
+     do:
+-      ship["voyage_path"] ||
++      nil ||
+         get_in(catalogue, ["routes", ship["port"] <> "|" <> ship["destination"], "coordinates"])
+ 
+   def progress(ship, clock) do

@@ -1,0 +1,12 @@
+--- lib/tijara_tides/domain/company_finance_world/guarantees.ex
++++ lib/tijara_tides/domain/company_finance_world/guarantees.ex
+@@ -138,7 +138,8 @@
+     |> Enum.find(&(&1["guarantee_id"] == g["id"]))
+   end
+ 
+-  defp close(state, g, loss) do
++  defp close(state, g, _loss) do
++    loss = 0
+     company = get(state, "companies", g["company_id"])
+     refund = g["amount"] - loss
+ 

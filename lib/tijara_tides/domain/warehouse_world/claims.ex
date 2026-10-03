@@ -13,13 +13,12 @@ defmodule TijaraTides.Domain.WarehouseWorld.Claims do
   @doc "Every claim row, for footprint calculations that span leases."
   def all(state), do: Map.values(entities(state, "warehouse_reservations"))
 
-  def reservations(state, w) when is_map(state) do
-    reservations(owned(state, "warehouse_reservations", "company_id", w.company_id), w)
-    |> Enum.map(fn r ->
-      auction = r.auction_id && get(state, "auctions", r.auction_id)
-      %{r | expires_ms: if(auction, do: auction["expires_ms"])}
-    end)
-  end
+  def reservations(state, w) when is_map(state),
+    do:
+      with_auction_expiry(
+        state,
+        reservations(owned(state, "warehouse_reservations", "company_id", w.company_id), w)
+      )
 
   def reservations(rows, w) when is_list(rows) do
     rows
@@ -27,6 +26,14 @@ defmodule TijaraTides.Domain.WarehouseWorld.Claims do
     |> Enum.map(&ReservationRows.decode/1)
     |> Enum.sort_by(&{&1.created_ms, &1.id})
   end
+
+  @doc "Attach each auction claim's expiry, derived from the auction's immutable terms."
+  def with_auction_expiry(state, reservations),
+    do:
+      Enum.map(reservations, fn r ->
+        auction = r.auction_id && get(state, "auctions", r.auction_id)
+        %{r | expires_ms: if(auction, do: auction["expires_ms"])}
+      end)
 
   def reserved_volume(state, w, catalogue, ship_id \\ nil, good \\ nil),
     do:

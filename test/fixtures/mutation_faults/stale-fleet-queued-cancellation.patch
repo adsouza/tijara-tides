@@ -1,0 +1,11 @@
+--- lib/tijara_tides_web/components/game/queued_trade.ex
++++ lib/tijara_tides_web/components/game/queued_trade.ex
+@@ -74,7 +74,7 @@
+         type="button"
+         id={"cancel-berth-trade-" <> @id}
+         phx-click="cancel-berth-trade"
+-        phx-value-id={@ship["id"]}
++        phx-value-id={if @id == "fleet-queued-trade", do: @ship["id"] <> "-stale", else: @ship["id"]}
+         class="mt-2 rounded border px-3 py-1"
+       >
+         {gettext("Cancel queued trade")}

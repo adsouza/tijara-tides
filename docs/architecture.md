@@ -167,6 +167,12 @@ modules, not that facade. These responsibilities can guide future bounded-contex
 design, but trading and fleet are not independent contexts: they currently
 participate in shared synchronous invariants.
 
+`Domain.PlayerNames` validates every player-chosen name before commit. Company
+names allow 60 graphemes and 120 code points, leaving room for generated hull
+suffixes. Hull and preset names allow 80 graphemes and 140 code points. The
+code-point caps match SQL constraints. Malformed UTF-8 and Unicode
+control/format characters are rejected.
+
 ## Authentication and authorization
 
 `UseCases.Authentication` is the shared session boundary for commands, query entry
@@ -272,13 +278,27 @@ together. No successful command acknowledgement or revision publication precedes
 that commit.
 
 Invalid or expired sessions return `:invalid_session`; non-map payloads return
-`:invalid_command_payload`, payloads over 12 keys (13 for route commands) return
-`:too_many_command_fields`, and payloads over 4096 encoded bytes return
-`:command_payload_too_large`. These validation errors do not touch persistence.
-The next-port instruction form builds a command from an explicit list of fields;
-LiveView's `_unused_*` metadata and raw minute inputs stay at the web boundary.
-Only converted freshness and expiry durations enter the command or its receipt
-fingerprint.
+`:invalid_command_payload`. `UseCases.CommandPayload` admits only explicit
+string keys for the selected action and, for routes, the selected operation.
+Unknown keys return `:unknown_command_fields`, including nil-valued keys, atom
+keys and fields belonging to another action. Unsupported actions or route
+operations return `:unsupported_command`. The envelope permits at least 12 keys
+or all supported fields for that shape, whichever is larger; larger payloads
+return `:too_many_command_fields`. Payloads over 4096 encoded bytes return
+`:command_payload_too_large`. Authentication precedes admission; envelope bounds
+precede field checks. Validation precedes invitation credentials, receipt lookup
+and planning, including retries, and does not touch persistence. Domain rules
+still validate required fields and values. Inventory tests require a schema for
+every action and route operation.
+
+The same schema is the browser's only field list. `GameLive.run/2` passes every
+command through `CommandPayload.select/1`, which keeps the fields the submitted
+action admits, so handlers hold no field lists of their own. A form with several
+submit buttons may send its sibling actions' fields; they are dropped for the
+action actually submitted. Handlers convert raw inputs such as minutes, dollar
+amounts and freshness choices into domain terms. Those raw inputs and LiveView's
+`_target` and `_unused_*` metadata are not admitted, so only converted values
+enter the command or its receipt fingerprint.
 
 A business rejection leaves the current state available and unchanged. An unrecoverable commit
 failure stops normal world operation; an unexpected storage or domain exception
@@ -1200,14 +1220,19 @@ expired, foreign, wrong-port and incompatible storage never become receiving
 options merely because a component renders their rows. Warehouse transfer and
 reservation offers likewise come from `Warehouse.transfer_limits` and
 `Warehouse.reservation_limit`, the limits the transfer and reserve commands
-enforce, so an offered quantity never exceeds what those commands accept. Trade
-offers and voyage plans follow the same rule: `Trading.purchase_limits`,
+enforce, so an offered quantity never exceeds what those commands accept.
+Exchange and auction receiving offers also use `Warehouse.reservation_limit`,
+with leases loaded by `WarehouseWorld.hydrate/4`, the loader the commands use,
+so every capacity claim and shared-space occupancy counts. Exchange orders
+require space for one lot; bids require the whole lot and discount the bid being
+replaced, matching the command's release before claiming replacement space.
+Trade offers and voyage plans follow the same rule: `Trading.purchase_limits`,
 `Trading.purchasing_terms` and `Trading.purchase_shortfall` (with the visit
 budget found by `Trading.current_budget`), `Trading.voyage_requirement`,
 `Trading.purchased_cargo`, `Ship.trade_admission`,
-`PortCargoMarket.sale_capacity` and `sale_proceeds`, `CargoRules.loading_ms`
-and `cleaning_cost`, and `Ship.crew_estimate` are called by both the commands
-and the queries. Contract tests in `test/tijara_tides/use_cases/` check that an
+`PortCargoMarket.sale_capacity` and `sale_proceeds`, `CargoRules.loading_ms` and
+`cleaning_cost`, and `Ship.crew_estimate` are called by both the commands and
+the queries. Contract tests in `test/tijara_tides/use_cases/` check that an
 offered or planned quantity is accepted and one more is refused, and that a
 planned sale still succeeds on arrival.
 

@@ -67,6 +67,9 @@ defmodule TijaraTides.Domain.ShipWorld do
     as: :execute
 
   defdelegate set_advance_budget(state, id, stop?, amount), to: RoutePlans
+  defdelegate route_stop_ports(catalogue, ports, status), to: RoutePlans, as: :stop_ports
+
+  defdelegate instructions_block_route?(visit_plans, instructions, ship), to: RoutePlans
   defdelegate finish_route_visit(state, ship), to: RoutePlans, as: :finish_current_visit
 
   def route_stops(state, ship),

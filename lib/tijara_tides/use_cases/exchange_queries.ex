@@ -1,6 +1,9 @@
 defmodule TijaraTides.UseCases.ExchangeQueries do
   @moduledoc "Exchange books, quotes and owner-scoped order options."
 
+  alias TijaraTides.Domain.Warehouse
+  alias TijaraTides.UseCases.WarehouseStorage
+
   def exchange_options(definitions, view, port, selected) do
     goods =
       definitions.catalogue["goods"]
@@ -24,6 +27,9 @@ defmodule TijaraTides.UseCases.ExchangeQueries do
         )
       )
       |> Enum.sort_by(& &1["id"])
+
+    clock = view.public["clock_ms"]
+    storage = WarehouseStorage.snapshots(view.private, clock)
 
     orders =
       ((view.private && view.private["exchange_orders"]) || %{})
@@ -105,6 +111,17 @@ defmodule TijaraTides.UseCases.ExchangeQueries do
         |> Enum.sort_by(& &1["name"]),
       good: good,
       warehouses: warehouses,
+      # Buying requires space for at least one lot, including shared occupancy.
+      buy_warehouses:
+        Enum.filter(warehouses, fn row ->
+          w = storage[row["id"]]
+
+          Warehouse.receiving_open?(w, clock) and
+            Warehouse.reservation_limit(w, "capacity", item, clock, definitions.catalogue) > 0
+        end),
+      # Selling requires unreserved stock of the good to back the order.
+      sell_warehouses:
+        Enum.filter(warehouses, &(Warehouse.claimable_stock(storage[&1["id"]], good, clock) > 0)),
       orders: orders,
       bids: Enum.filter(levels, &(&1["side"] == "buy")) |> Enum.sort_by(& &1["price"], :desc),
       asks: Enum.filter(levels, &(&1["side"] == "sell")) |> Enum.sort_by(& &1["price"]),

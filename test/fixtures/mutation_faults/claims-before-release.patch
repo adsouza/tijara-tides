@@ -1,0 +1,12 @@
+--- lib/tijara_tides/infrastructure/persistence/game_rows.ex
++++ lib/tijara_tides/infrastructure/persistence/game_rows.ex
+@@ -516,8 +516,8 @@
+       end)
+ 
+     delete_batch(repo, world, kind, before, deletes)
++    write_batch(repo, world, kind, before, after_state, claims)
+     write_batch(repo, world, kind, before, after_state, releases)
+-    write_batch(repo, world, kind, before, after_state, claims)
+   end
+ 
+   defp write_changes(repo, world, kind, before, after_state, puts, deletes) do

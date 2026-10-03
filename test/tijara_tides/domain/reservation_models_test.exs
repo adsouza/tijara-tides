@@ -1,5 +1,6 @@
 defmodule TijaraTides.Domain.ReservationModelsTest do
   use ExUnit.Case, async: true
+  use ExUnitProperties
   alias TijaraTides.Domain.{VisitBudget, DepartureRequest, LiquidationPool, Warehouse}
 
   defp spec do
@@ -32,6 +33,23 @@ defmodule TijaraTides.Domain.ReservationModelsTest do
     }
 
     LiquidationPool.new(w, 2, 3)
+  end
+
+  property "rent charges ordinary grace time once and the surcharged rate only afterwards" do
+    check all(now <- integer(17..80), max_runs: 50, max_shrinking_steps: 100) do
+      result = LiquidationPool.accrue(pool(), now)
+      grace_ms = min(now - 17, 11)
+      later_ms = max(0, now - 28)
+      # Seven cents for three blocks over 17 ms; two blocks remain occupied.
+      numerator = grace_ms * 140_000 + later_ms * 175_000
+      assert result.rent_due == div(numerator, 510_000)
+      assert result.rent_remainder == rem(numerator, 510_000)
+    end
+  end
+
+  test "a late rent tick does not charge both grace and liquidation rates for the same time" do
+    result = LiquidationPool.accrue(pool(), 41)
+    assert {result.rent_due, result.rent_remainder} == {7, 245_000}
   end
 
   test "spent visit funds cannot be refunded by shrinking the reservation" do

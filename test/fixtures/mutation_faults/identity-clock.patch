@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/account_world/email_identity.ex
++++ lib/tijara_tides/domain/account_world/email_identity.ex
+@@ -119,7 +119,7 @@
+         {:error, :email_link_invalid}
+ 
+       row["expires_ms"] <=
+-          if(row["purpose"] == "invite", do: state.clock_ms, else: context.wall_ms) ->
++          if(row["purpose"] == "invite", do: context.wall_ms, else: context.wall_ms) ->
+         {:error, :email_link_invalid}
+ 
+       signed_in && (row["purpose"] == "invite" or signed_in["id"] != row["account_id"]) ->

@@ -1,0 +1,11 @@
+--- lib/tijara_tides_web/live/game_live.ex
++++ lib/tijara_tides_web/live/game_live.ex
+@@ -774,7 +774,7 @@
+           socket.assigns.definitions
+         )
+       )
+-      |> Map.update("quantity", 0, &integer/1)
++      |> Map.update("quantity", 0, & &1)
+       |> Map.update("limit", 0, &instruction_cents/1)
+       |> Map.update("budget", 0, &(integer(&1) * 100))
+       |> Map.put("min_remaining_ms", freshness_minimum(params))

@@ -1,9 +1,17 @@
 # Proposed test expansion
 
-Status: Round 0 documents the review checklist and initial discovery inventory
-for immediate use; Rounds 1–5 remain proposed test implementation. Commit each
-verified round separately, with Round 1 split into two commits. This document
-does not add tests or change game behavior.
+Status: Round 0 is documented. Round 1a is implemented with seven bounded codec
+properties and independent structural/legacy tables. Round 1b adds payload,
+notice and SQL/browser form contracts. Round 2 adds audited full-tick lifecycle
+and adjacent-boundary scenarios. Round 3 adds SQL handoff permutations, rollback
+and chunk-boundary contracts, plus isolated historical migrations. Round 4 adds
+the shared symbolic runner, lifecycle/command properties, SQL replay and bounded
+corpus. Round 5 implements the bounded mutation audit and detection matrix,
+including new contracts for discovered gaps in earlier markets/account rules.
+See the [executed audit](mutation-audit.md) and
+[detection matrix](test-discovery-matrix.md#round-5-detection-matrix).
+Each executable round is committed after its focused and normal checks. Runtime
+matrix verification remains a CI gate; local evidence uses Elixir 1.20.4/OTP 29.1.
 
 ## Goal and current evidence
 
@@ -258,9 +266,10 @@ Record which boundary each case exercises; a fake store cannot prove SQL safety.
 ### Valid browser-form contracts
 
 Test legitimate submissions as well as malformed input. `LiveViewTest`'s form
-helper collects form values but does not run the browser serializer, which adds
-`_unused_*` markers for untouched, non-hidden inputs. Domain/application command
-fuzzing bypasses that conversion entirely. The instruction field-count regression
+helper collects form values but does not run the browser serializer. LiveView
+1.2.11 emits `_unused_*` markers on changes; submission marks inputs used first.
+Keep metadata-heavy raw submissions as a defensive admission contract.
+Domain/application command fuzzing bypasses that conversion entirely. The instruction field-count regression
 is a seed for this broader boundary, not its scope limit.
 
 Inventory each command-producing form's submit event, variants, enabled fields,
@@ -671,7 +680,7 @@ adding properties. Per-property caps alone do not bound an unlimited property
 inventory.
 Round 1b's three web cohorts are additional bounded work, separate from ordinary
 payload properties and Round 4 SQL traces. Record their runtime before adding
-form variants or browser workflows. Their implementation remains proposed.
+form variants or browser workflows.
 
 The command fuzzer adds one mandatory broad sequence property: 20 cases, at most
 30 actions and 100 shrink steps per failure in the ordinary suite. It reuses
@@ -765,6 +774,10 @@ mutants per selected source and 60 per audit, one worker and a 30-second per-mut
 timeout, then measure before expanding. Curated patches remain a separate cohort.
 Cap curated audits at 12 patches per invocation with the same worker/timeout
 limits; split a larger fault catalogue across invocations and retain its evidence.
+Unmutated/restored baselines and full-applicable survivor triage are separate
+diagnostic checks with a 120-second limit. The mutant worker retains its
+30-second limit. The executed SQL triage takes about 40 seconds locally; neither
+a diagnostic timeout nor failed setup is counted as detection.
 Include relevant property tests in the explicit test selection, with stable
 seeds and bounded generation/shrinking so results can be repeated.
 

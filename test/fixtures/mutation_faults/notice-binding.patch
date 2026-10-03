@@ -1,0 +1,11 @@
+--- lib/tijara_tides/localization/notifications.ex
++++ lib/tijara_tides/localization/notifications.ex
+@@ -38,7 +38,7 @@
+ 
+     bindings =
+       for key <-
+-            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse deadline grace_rate liquidation_rate)a,
++            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse deadline liquidation_rate)a,
+           Map.has_key?(args, Atom.to_string(key)),
+           into: %{},
+           do: {key, args[Atom.to_string(key)]}

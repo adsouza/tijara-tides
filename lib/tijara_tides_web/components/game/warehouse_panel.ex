@@ -157,6 +157,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           </p>
           <form
             :for={offer <- lease.replacement_offers}
+            id={"warehouse-replace-#{lease.row["id"]}-#{offer.days}"}
             phx-submit="warehouse"
             class="inline-block m-1"
           >
@@ -211,7 +212,11 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
             {gettext("The renewal window is closed.")}
           </p>
           <div :if={lease.renewal_open && lease.renewal_rate} class="flex flex-wrap gap-2">
-            <form :for={days <- @storage.terms} phx-submit="warehouse">
+            <form
+              :for={days <- @storage.terms}
+              id={"warehouse-renew-#{lease.row["id"]}-#{days}"}
+              phx-submit="warehouse"
+            >
               <input type="hidden" name="action" value="warehouse_renew" />
               <input type="hidden" name="warehouse" value={lease.row["id"]} />
               <input type="hidden" name="request_id" value={@request_id} />
@@ -233,7 +238,11 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
               )}
             </p>
             <div class="flex flex-wrap gap-2">
-              <form :for={days <- @storage.terms} phx-submit="warehouse">
+              <form
+                :for={days <- @storage.terms}
+                id={"warehouse-extend-#{lease.row["id"]}-#{days}"}
+                phx-submit="warehouse"
+              >
                 <input type="hidden" name="action" value="warehouse_extend" />
                 <input type="hidden" name="warehouse" value={lease.row["id"]} />
                 <input type="hidden" name="request_id" value={@request_id} />
@@ -249,7 +258,11 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
               </form>
             </div>
           </div>
-          <form phx-submit="warehouse" class="mt-2 flex flex-wrap items-end gap-2">
+          <form
+            id={"warehouse-auto-renew-" <> lease.row["id"]}
+            phx-submit="warehouse"
+            class="mt-2 flex flex-wrap items-end gap-2"
+          >
             <input type="hidden" name="action" value="warehouse_auto_renew" />
             <input type="hidden" name="warehouse" value={lease.row["id"]} />
             <input type="hidden" name="request_id" value={@request_id} />
@@ -296,7 +309,11 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
                 do: gettext("Owned stock"),
                 else: gettext("Receiving space")}
             </span>
-            <form :if={r.ship != nil} phx-submit="warehouse">
+            <form
+              :if={r.ship != nil}
+              id={"warehouse-cancel-reservation-" <> r.id}
+              phx-submit="warehouse"
+            >
               <input type="hidden" name="action" value="warehouse_cancel_reservation" />
               <input type="hidden" name="reservation" value={r.id} />
               <input type="hidden" name="request_id" value={@request_id} />
@@ -305,6 +322,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           </div>
           <form
             :for={option <- lease.reservation_options}
+            id={"warehouse-reserve-#{lease.row["id"]}-#{option.good}-#{option.kind}"}
             phx-submit="warehouse"
             class="my-1 flex flex-wrap items-center gap-2"
           >
@@ -362,6 +380,7 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
           <form
             :for={{side, max} <- [{"store", t.store}, {"collect", t.collect}]}
             :if={max > 0}
+            id={"warehouse-transfer-#{lease.row["id"]}-#{t.good}-#{side}"}
             phx-submit="warehouse"
             class="flex gap-1"
           >
@@ -385,7 +404,12 @@ defmodule TijaraTidesWeb.GameUI.WarehousePanel do
               else: gettext("Collect")}</button>
           </form>
         </div>
-        <form :if={lease.free_blocks > 0} phx-submit="warehouse" class="mt-2 flex items-center gap-2">
+        <form
+          :if={lease.free_blocks > 0}
+          id={"warehouse-release-" <> lease.row["id"]}
+          phx-submit="warehouse"
+          class="mt-2 flex items-center gap-2"
+        >
           <input type="hidden" name="action" value="warehouse_release" />
           <input type="hidden" name="warehouse" value={lease.row["id"]} />
           <input type="hidden" name="request_id" value={@request_id} />

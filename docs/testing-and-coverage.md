@@ -1,10 +1,27 @@
 # Testing and coverage
 
 Run `scripts/check-local.sh` for the same local checks used by the pre-push hook.
-Its disposable PostgreSQL run includes all Elixir tests and line coverage. The
-check also reports desktop JavaScript helper line, branch and function coverage.
-CI runs the same commands and uploads reports as artifacts for each runtime or
-platform, including when a test or coverage threshold fails.
+It selects documentation-only checks when a known range contains exclusively
+regular, non-executable Markdown under `docs/`, `README.md` or `ARCHITECTURE.md`.
+The fast path checks whitespace, generated documents and `mix test test/docs`,
+which may compile normally. It skips forced compilation, the full gameplay and
+database suites, coverage, Gettext checks, desktop/Rust checks, asset setup and
+release builds. The Git pre-commit formatter already ignores Markdown; use this
+fast path for the required validation before committing documentation.
+
+Selection includes every outgoing commit, even changes later reverted, plus
+tracked index and working-tree changes. Manual checks use the branch's upstream;
+repeat `--base <commit>` for explicit known ranges. Stage new documents first.
+Policy files such as `AGENTS.md`, untracked files, unknown/non-ancestor baselines,
+new remote branches, non-branch pushes, unusual file modes and empty change sets
+require full validation. The pre-push hook checks each remote ref's actual prior
+commit and retains its clean-checkout requirement. Use `--full` to run all gates
+regardless of scope; do not bypass hooks with `--no-verify`.
+
+Full validation uses disposable PostgreSQL for all Elixir tests and line coverage
+and reports desktop JavaScript helper line, branch and function coverage. CI
+continues full validation on every push and pull request, uploading reports for
+each runtime or platform even when a test or coverage threshold fails.
 
 The [mutation-testing pilot](mutation-testing-pilot.md) records the bounded Muex
 experiment and its expansion across finance, trading instructions, commit/replay,
@@ -23,11 +40,88 @@ and operation counts. The bounded
 [gameplay mutation audit](mutation-testing-pilot.md#gameplay-review-regression-audit--2026-10-01)
 checks four deliberately broken behaviors. Broader shrinking and generated
 state-machine infrastructure remains follow-up work.
-Round 1b also specifies valid web-form contracts, normalization properties and
-two real-browser workflows. `LiveViewTest` does not execute browser JavaScript;
+Round 1b implements twelve valid web-form variants, two normalization properties
+and two real-browser workflows. `LiveViewTest` does not execute browser JavaScript;
 SQL-backed form tests alone do not prove serializer coverage. The instruction
-metadata/replay regression is implemented; the broader form inventory, properties
-and Chromium cohort remain proposed in the expansion plan.
+metadata/replay regression, checked form inventory, payload properties and
+Chromium cohort are implemented. Run `python3 scripts/test-browser.py` after
+`MIX_ENV="test" mix assets.build`; it starts its own disposable database and HTTP
+server. Install Chromium with `npx playwright install chromium`. Browser artifacts
+under `cover/browser-contracts/` contain field names only.
+
+Two checks guard the template-to-handler seam without hand-kept field lists.
+`TijaraTides.FormFields` reads every `~H` template and `GameLive.handle_event/3`
+clause: each field a submit form, function component inside one, `phx-value-*`
+or `JS.push` value sends must be read by that event's handler through its head
+pattern, an access, `Map.take/2` or a local helper. Unresolvable names and named
+controls outside any submit form raise.
+
+`FormFields.dropped/3` adds the admission dimension. Because `GameLive.run/2`
+keeps only fields the submitted action admits, every field a form sends must be
+admitted by one of that form's actions or route operations, or be converted by
+its handler through a value read; otherwise it would be lost silently. Action
+values come from hidden inputs, submit buttons, `phx-value-action` and literal
+handler assignments. A value bound from an assign must be declared with the
+guard that limits it, and a command form whose action cannot be determined
+raises. Command events reach `run/2` or `Game.command/3`, including through
+local helpers and delegated event handlers.
+
+Separately, the SQL-backed exchange sweep finds every rendered exchange form,
+submits each as rendered in its own world and requires a commit. A further SQL
+test withdraws a won luxury consignment through the shared revise form, whose
+Withdraw button also sends the revise fields.
+
+The rendered command control sweep (`control_sweep` tag) generalizes both. Its
+unit is a control, not an action: a form is identified by the literal prefix of
+its template id and the action and route operation a given submit button sends,
+and a click by its template id prefix, event, action, operation and
+`phx-value-*` keys. Every command form and click producer needs a stable id with
+its own literal prefix, and no prefix may be a prefix of another. The required
+units come from `FormFields`, so a new button cannot escape the sweep, and two
+controls sending the same action are each pressed. Static units track template
+coverage; per-unit DOM ordinals retain repeated component instances during
+discovery and replay. Entity IDs may differ between fresh worlds, so each replay
+selects the same occurrence rather than the first matching template unit.
+
+Legal-command scenarios render every unit, with no exclusions. An exclusion
+must record the shortest paths tried: guarantee pledges (an invitee bankrupt
+five times) and berth-queue cancellation (a second purchase while loading) were
+once excluded as unreachable, and the second hid a duplicate DOM id that
+LiveViewTest now reports. Each rendered instance is pressed in every scenario
+that renders it enabled, in its own world, through its real control, including
+the clicked element's rendered values. Only the inputs a player must supply are
+added: blank required fields, the first real option of a required select left
+on its placeholder, and a short declared list; an optional select keeps its
+empty choice. Disabled controls are skipped because they offer no submission.
+Command telemetry must report exactly one commit, and SQL rows must match. A
+pair the domain rightly refuses must be declared with its reason; none is.
+
+Pressing each control in every rendering state found forms that could never
+succeed there: the add-stop port list defaulting to the loop's own first port,
+add-stop offered while next-port instructions block a route, consignment and
+exchange sell offered without claimable stock, and bids offered into award
+storage. Those forms now offer only values from the domain rules the commands
+enforce (`RoutePlans.stop_ports/3`, `instructions_block_route?/3`,
+`Warehouse.claimable_stock/3`, `covers?/3`, `receiving_open?/2` and
+`reservation_limit/5`), with leases loaded by `WarehouseWorld.hydrate/4` as the
+commands load them. Exchange purchases need space for at least one lot; auction
+bids need the entire lot. A replacement bid releases its previous capacity claim
+before evaluating any receiving warehouse, including shared allocations.
+`route_offers_test.exs` and `market_offers_test.exs` show each offered value is
+accepted and one more, or any value withheld, is refused.
+
+CI runs the sweep; local checks do not. `TIJARA_CONTROL_SWEEP_FOCUS` set to
+`scenario:id-prefix` renders one scenario and presses only matching units,
+without the coverage assertions. The curated `stale-route-cancellation` fault
+uses it to show that corrupting the route cancellation ID fails the sweep.
+`stale-fleet-queued-cancellation` corrupts only the fleet copy of the queue
+cancellation button, proving that repeated instances are submitted
+independently. `exchange-capacity-offer` and `auction-capacity-offer` remove the
+respective capacity filters and must fail the market offer contracts.
+
+```sh
+python3 scripts/test-game-db.py --control-sweep
+```
 
 For a focused coverage run:
 
@@ -105,9 +199,14 @@ must answer:
 5. What independent oracle checks the result, and which semantic fault would
    it catch?
 
-The checklist is a current review requirement. Links to the expansion's completed
-detection matrix will be added in Round 5; that does not delay its use. This
-documentation does not supply automated branch or condition measurement.
+The checklist is a current review requirement. Completed examples map its five
+questions to [input and notice contracts](test-discovery-matrix.md#round-1b-evidence),
+[resource lifetimes](test-discovery-matrix.md#round-4-executed-cohort),
+[phase and clock boundaries](test-discovery-matrix.md#round-2-audit-and-evidence),
+[SQL ordering and recovery](test-discovery-matrix.md#round-3-sql-evidence-and-constraint-inventory)
+and the [fault detection matrix](test-discovery-matrix.md#round-5-detection-matrix).
+These examples do not replace the answers for a new change or supply automated
+branch/condition measurement.
 
 ### Automated measurement acceptance criteria
 
@@ -192,3 +291,79 @@ uncommitted revision, and omit private exception messages from logs.
 owner using a real PostgreSQL epoch change. Its subsequent tick cannot advance
 stored clock/revision or publish a change. Existing transaction rollback and
 ledger tests cover failures inside the SQL unit of work.
+
+### Stateful discovery and replay
+
+The shared runner in `test/support/command_fuzzer/` checks symbolic action
+preconditions against a small independent model before resolving identities.
+Removing a creator during shrinking skips its now-invalid dependents. Assertions,
+model-valid rejections, internal errors and unexpected halts always propagate.
+Progress prefixes remain outside the shrinkable suffix and count inside the
+trace budget. The command/route/form inventories fail on unclassified additions.
+
+Ordinary checks run the four lifecycle properties and broad command property;
+the disposable database suite also runs the four SQL properties and fixed
+receipt/restart traces. SQL servers belong to individual cases and shrink
+attempts, never to property-level `setup`. Failure cleanup is exercised directly.
+The constructor clock/valuation seams keep SQL ticks reproducible without sleeps.
+
+For the bounded optional sweep and corpus replay:
+
+```sh
+TIJARA_FUZZ_EXTENDED=1 TIJARA_FUZZ_CORPUS=1 mix test test/tijara_tides/use_cases/extended_fuzzer_test.exs --seed 12345
+```
+
+This runs 100 cases with at most 60 actions and 100 shrink steps; corpus admission
+is capped at 50 versioned records. Failure diagnostics are written before
+reraising under `cover/property-failures/<family>/<case>/`. Preserve the original
+and final failing traces; replay the final input to identify its invariant before
+promoting it to a checked-in regression. Runner sensitivity fixtures are labelled
+separately from confirmed production defects. See the
+[executed discovery matrix](test-discovery-matrix.md#round-4-executed-cohort) for
+milestones, exclusions and measured evidence.
+
+Command admission schemas are checked against the complete dispatch and route
+operation inventory. Table tests reject unknown, atom and misplaced keys for
+every variant; bounded properties mutate extra fields and retry the corrected
+request. SQL tests check unchanged rows, revision and receipts on rejection,
+including a retry after restart. Complete instruction, exchange and route
+payloads exercise the size ceiling with all optional terms together. Company
+names at 120 code points exercise default hull purchases and suffix collisions;
+migration tests verify both refusal of legacy oversized names and SQL caps.
+
+### Bounded mutation audit
+
+The opt-in runner applies exact curated patches only in disposable copies and
+uses Muex 0.11.2 operators in a separate tool project. The application dependency
+list and lock stay unchanged. Curated batches contain at most twelve patches;
+generated audits contain at most twenty candidates per source and sixty total.
+One worker compiles each mutant within 120 seconds, then tests it with seed 12345
+and a 30-second limit. Baselines, restoration and full-applicable survivor triage
+are separate checks with a 120-second limit; they do not increase the detection
+count by themselves. Replays require an explicit `--start` index.
+
+```sh
+python3 scripts/mutation-audit.py curated --start 0 --count 12 --out cover/mutation-audit/curated-0
+python3 scripts/mutation-audit.py curated --start 12 --count 12 --out cover/mutation-audit/curated-12
+python3 scripts/mutation-audit.py curated --start 24 --count 12 --out cover/mutation-audit/curated-24
+python3 scripts/mutation-audit.py generated --out cover/mutation-audit/generated
+python3 scripts/mutation-audit.py replay --report cover/mutation-audit/generated/generated.json --start 24 --extra-test test/tijara_tides/domain/market_quote_properties_test.exs --out cover/mutation-audit/replay-24
+```
+
+Generated selection is explicit and includes indirect callers and properties;
+it bypasses Muex's dependency-selection heuristic. Exact canonical source,
+mutant source, patches, provenance, runtime and failing tests are retained.
+Canonical unmutated baselines prove AST rendering did not itself break the
+selection. A survivor receives the same source patch in the full applicable
+scope, including SQL; selection misses remain distinct from missing assertions.
+Replays verify the original source hash and exact patch hash before testing.
+
+Compile errors, fixture/startup failures, timeouts and harness failures never
+count as detections. `scripts/test-mutation-audit.py` checks that classification
+contract in local full checks and CI against logs from real `mix compile` and
+`mix test` runs in a throwaway project, including `setup` and `setup_all`
+crashes and a timeout, and checks the command-line range and provenance
+refusals. Inspect each detecting assertion before recording it in the discovery
+matrix. Operator generation is deliberately bounded and excludes no unproven
+survivor as “equivalent.” The [mutation audit report](mutation-audit.md) records
+the selected sample and gaps.

@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/warehouse_world.ex
++++ lib/tijara_tides/domain/warehouse_world.ex
+@@ -4,6 +4,8 @@
+   alias TijaraTides.Domain.PortBerthsWorld
+   alias TijaraTides.Domain.Ship.CargoRows
+   alias TijaraTides.Domain.ShipWorld
++
++  def mutation_probe, do: TijaraTides.Domain.Fleet.max_voyage_ms()
+ 
+   @moduledoc "Finite port storage leases with typed cargo, prepaid rent and preserved lot identity."
+   import TijaraTides.Domain.State

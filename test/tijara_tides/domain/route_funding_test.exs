@@ -61,11 +61,11 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     %{s: s, a: a, cat: cat}
   end
 
-  defp route(c, s, ship \\ "co:1") do
+  defp route(c, s, ship \\ "co:1", auto_depart \\ true) do
     prefix = ship <> ":"
     s = edit(c, s, prefix <> "a", ship, %{"operation" => "add_stop", "port" => "Jakarta"})
     s = edit(c, s, prefix <> "b", ship, %{"operation" => "add_stop", "port" => "Singapore"})
-    edit(c, s, "start", ship, %{"operation" => "start", "auto_depart" => true})
+    edit(c, s, "start", ship, %{"operation" => "start", "auto_depart" => auto_depart})
   end
 
   defp edit(c, s, id, ship, params) do
@@ -564,6 +564,38 @@ defmodule TijaraTides.Domain.RouteFundingTest do
     assert State.entities(s, "departure_requests") == %{}
   end
 
+  test "a full tick hands a zero-balance window to the next ship exactly at timeout", c do
+    cat =
+      Map.put(c.cat, "departure_funding", %{
+        "wait_ms" => 100,
+        "window_ms" => 50,
+        "cooldown_ms" => 200
+      })
+
+    c = %{c | cat: cat}
+    waiting = route(c, c.s) |> then(&route(c, &1, "co:2")) |> free(0) |> Game.advance(0, cat)
+    assert State.get(waiting, "ships", "co:1")["status"] == "docked"
+    assert State.get(waiting, "ships", "co:2")["status"] == "docked"
+    accumulating = Game.advance(waiting, 100, cat)
+    assert State.get(accumulating, "departure_requests", "co:1")["window_deadline_ms"] == 150
+    assert State.get(accumulating, "departure_requests", "co:1")["accumulated"] == 0
+    before = Game.advance(accumulating, 49, cat)
+    assert State.get(before, "departure_requests", "co:1")["window_deadline_ms"] == 150
+    assert State.get(before, "departure_requests", "co:2")["window_deadline_ms"] == nil
+    handed = Game.advance(before, 1, cat)
+    assert State.get(handed, "departure_requests", "co:1")["window_deadline_ms"] == nil
+    assert State.get(handed, "departure_requests", "co:1")["cooldown_ms"] == 350
+    assert State.get(handed, "departure_requests", "co:2")["window_deadline_ms"] == 200
+
+    assert Enum.count(State.entities(handed, "departure_requests"), fn {_, row} ->
+             row["window_deadline_ms"] != nil
+           end) == 1
+
+    repeated = Game.advance(handed, 0, cat)
+    assert repeated.entities == handed.entities
+    assert repeated.journal == handed.journal
+  end
+
   test "policy changes re-price accumulated requests and route removal releases visit cash",
        c do
     cat =
@@ -882,8 +914,10 @@ defmodule TijaraTides.Domain.RouteFundingTest do
   end
 
   test "manual departure mid-visit releases only that visit's cash, including after pausing", c do
+    c = %{c | cat: Map.put(c.cat, "weather", %{"chance_bps" => 0})}
+
     for paused <- [false, true] do
-      s = route(c, c.s) |> then(&config(c, &1, "co:1", 300))
+      s = route(c, c.s, "co:1", false) |> then(&config(c, &1, "co:1", 300))
 
       {:ok, s, _} =
         DepartureFunding.configure_visit(
@@ -943,13 +977,14 @@ defmodule TijaraTides.Domain.RouteFundingTest do
 
       # Finish the actual voyage, then leave the next stop before finishing its visit.
       arrival = State.get(sailed, "ships", "co:1")["arrive_ms"]
-      arrived = %{sailed | clock_ms: arrival} |> Fleet.advance(arrival - sailed.clock_ms)
+      arrived = Game.advance(sailed, arrival - sailed.clock_ms, c.cat)
       assert State.get(arrived, "ships", "co:1")["port"] == "Singapore"
       assert State.get(arrived, "ships", "co:1")["status"] == "docked"
 
       arrived =
         if paused,
-          do: edit(c, arrived, "resume", "co:1", %{"operation" => "resume"}),
+          do:
+            edit(c, arrived, "resume", "co:1", %{"operation" => "resume", "auto_depart" => false}),
           else: arrived
 
       arrived = prepare(arrived, c)
@@ -968,9 +1003,7 @@ defmodule TijaraTides.Domain.RouteFundingTest do
       arrival = State.get(returned, "ships", "co:1")["arrive_ms"]
 
       next_lap =
-        %{returned | clock_ms: arrival}
-        |> Fleet.advance(arrival - returned.clock_ms)
-        |> AutomatedVisits.advance(c.cat)
+        Game.advance(returned, arrival - returned.clock_ms, c.cat)
 
       assert State.get(next_lap, "visit_budgets", "co:1:a")["remaining"] == 200
       assert State.get(next_lap, "visit_budgets", "co:1:a")["visit"] == 2

@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/weather.ex
++++ lib/tijara_tides/domain/weather.ex
+@@ -38,7 +38,7 @@
+       offset =
+         if model["stagger"] do
+           start_hash = :erlang.phash2({:storm_start, model["seed"], region, slot}, 1_000_000_000)
+-          div(start_hash * (period - duration), 1_000_000_000)
++          rem(div(start_hash, 10_000), period - duration)
+         else
+           0
+         end

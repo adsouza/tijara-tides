@@ -616,6 +616,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   cost: money(@preview["maintenance_estimate"])
                 )}
               </span><button
+                id="sail-preview"
                 phx-click="sail"
                 phx-value-request_id={@request_id}
                 class="rounded bg-teal-600 px-4 py-2"
@@ -894,6 +895,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 </p>
                 <button
                   :if={order["status"] in ["planned", "waiting"]}
+                  id={"fleet-cancel-instruction-" <> order["id"]}
                   phx-click="cancel-instruction"
                   phx-value-id={order["id"]}
                   class="mt-1 rounded border border-slate-500 px-2 py-1"
@@ -920,6 +922,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   {gettext("Onward destination after %{value1}", value1: l10n(shared_port))}
                   <select
                     name="onward"
+                    required
                     aria-label={gettext("Shared onward port")}
                     class="block w-full rounded bg-slate-800 p-2"
                   >

@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/port_cargo_market.ex
++++ lib/tijara_tides/domain/port_cargo_market.ex
+@@ -88,7 +88,7 @@
+ 
+         free =
+           Map.new(
+-            available_batches(market, policy[:reserved_quantity] || 0),
++            available_batches(market, 0),
+             &{&1.lot_id, &1.quantity}
+           )
+ 

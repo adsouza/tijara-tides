@@ -12,6 +12,7 @@
     "desktop:coverage": "node --experimental-test-coverage --test test/desktop/*.test.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@tauri-apps/cli": "2.11.4"
   }
 }

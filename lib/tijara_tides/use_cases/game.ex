@@ -10,6 +10,9 @@ defmodule TijaraTides.UseCases.Game do
   def reports(token, selection), do: runtime().reports(token, selection)
   def preview(token, ship, destination), do: runtime().preview(token, ship, destination)
   def command(token, request_id, payload), do: runtime().command(token, request_id, payload)
+
+  # Interfaces send only the fields the selected action admits; admission rejects the rest.
+  def select_command_fields(payload), do: TijaraTides.UseCases.CommandPayload.select(payload)
   def connect(token), do: runtime().connect(token)
   def visit(token), do: runtime().visit(token)
   def subscribe(), do: runtime().subscribe()

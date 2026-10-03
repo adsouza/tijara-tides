@@ -62,6 +62,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
             >{gettext("Selected stop")}</span></strong>
             <button
               type="button"
+              id={"route-remove-stop-" <> stop["id"]}
               phx-click="route"
               phx-value-operation="remove_stop"
               phx-value-stop={stop["id"]}
@@ -209,6 +210,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
             >{gettext("Edit")}</button>
             <button
               type="button"
+              id={"route-remove-rule-" <> rule["id"]}
               phx-click="route"
               phx-value-operation="remove_rule"
               phx-value-rule={rule["id"]}
@@ -376,7 +378,17 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
       <p :if={length(@model.stops) > 1} class="my-2 text-xs text-slate-400">
         {gettext("After the final stop, return to %{value1}.", value1: l10n(hd(@model.stops)["port"]))}
       </p>
+      <p
+        :if={@model.instructions_block}
+        id="route-blocked-by-instructions"
+        class="my-3 text-sm text-amber-200"
+      >
+        {gettext(
+          "Finish or cancel next-port instructions and clear their onward plan before creating a repeating route."
+        )}
+      </p>
       <.form
+        :if={!@model.instructions_block}
         for={%{}}
         id={"route-stop-" <> @ship["id"]}
         phx-submit="route"
@@ -388,7 +400,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
           value={@request_id}
         />
         <label>{gettext("Port")}<select name="port" class="ml-2 rounded bg-slate-800 p-2"><option
-          :for={port <- Enum.sort(Map.keys(@catalogue["ports"]))}
+          :for={port <- @model.stop_ports}
           value={port}
           selected={port == (@ship["destination"] || @ship["port"])}
         >
@@ -415,7 +427,6 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
           name="operation"
           value={if @model.route["status"] == "draft", do: "start", else: "resume"}
         /><input type="hidden" name="request_id" value={@request_id} />
-        <input type="hidden" name="auto_depart" value="true" />
         <span class="text-xs text-slate-400">{gettext(
           "Ships continue automatically after trades and handling finish."
         )}</span>
@@ -429,6 +440,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
       <div :if={@model.route} class="my-2 flex flex-wrap gap-2 text-sm">
         <button
           :if={@model.route["status"] == "running"}
+          id="route-pause"
           phx-click="route"
           phx-value-operation="pause"
           phx-value-request_id={@request_id}
@@ -436,12 +448,14 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
         >{gettext("Pause route")}</button>
         <button
           :if={@model.route["status"] == "running" && !@model.route["stop_after"]}
+          id="route-finish-after-visit"
           phx-click="route"
           phx-value-operation="stop_after"
           phx-value-request_id={@request_id}
           class="rounded border px-2 py-1"
         >{gettext("Stop after this visit")}</button>
         <button
+          id="route-delete"
           phx-click="route"
           phx-value-operation="delete"
           phx-value-request_id={@request_id}
@@ -510,6 +524,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
         )}
         <button
           :if={order["status"] in ["planned", "waiting"]}
+          id={"route-cancel-instruction-" <> order["id"]}
           phx-click="cancel-instruction"
           phx-value-id={order["id"]}
           class="ml-2 rounded border px-2 py-1"

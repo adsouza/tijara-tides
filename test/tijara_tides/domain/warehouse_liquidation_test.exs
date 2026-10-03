@@ -123,6 +123,50 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
       Auctions.reconcile(%{s | clock_ms: clock}, c.catalogue)
       |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
 
+  test "forced exchange fills take fresh eligible lots and leave older cargo behind", c do
+    c = %{c | catalogue: put_in(c.catalogue, ["goods", "fruit", "shelf_ms"], 1000)}
+
+    s =
+      lease(c, c.state, "source")
+      |> then(&lease(c, &1, "buyer", "b", 10, "dry", 3))
+      |> stock("source", [{"fruit", 2, @grace + 100, 10}, {"fruit", 2, @grace + 900, 10}])
+
+    {:ok, s, _} =
+      Exchange.place(
+        s,
+        State.get(s, "accounts", "b"),
+        %{
+          "warehouse" => "buyer",
+          "good" => "fruit",
+          "side" => "buy",
+          "quantity" => 2,
+          "price" => 1000,
+          "min_remaining_ms" => 600
+        },
+        "fresh-buy",
+        c.catalogue
+      )
+
+    s = %{s | clock_ms: @grace}
+
+    s =
+      TijaraTides.Domain.WarehouseLiquidationWorld.prepare(
+        s,
+        WarehouseWorld.fetch(s, "source"),
+        c.catalogue
+      )
+      |> TijaraTides.Domain.WarehouseLiquidationWorld.begin("source")
+
+    next = Exchange.liquidate_stock(s, "source", "fruit", c.catalogue)
+    assert OrderBookWorld.fetch(next, "fresh-buy") == nil
+    cargo = State.get(next, "warehouses", "buyer")["cargo"]
+    assert Enum.sum(for b <- cargo, do: b["quantity"]) == 2
+    assert Enum.all?(cargo, &(&1["expires_ms"] == @grace + 900))
+    remaining = State.get(next, "warehouses", "source")["cargo"]
+    assert Enum.sum(for b <- remaining, do: b["quantity"]) == 2
+    assert Enum.all?(remaining, &(&1["expires_ms"] == @grace + 100))
+  end
+
   test "late ticks settle perishable liquidation at the close before aging in the buyer's storage",
        c do
     cat = Map.put(c.catalogue, "warehouse_liquidation", %{"window_ms" => 10_000})
@@ -419,11 +463,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
 
     s =
       Enum.reduce([@day + 1, @day + 2, resale.opens_ms, resale.closes_ms], s, fn clock, s ->
-        next =
-          %{s | clock_ms: clock}
-          |> Estates.advance(c.catalogue)
-          |> Auctions.reconcile(c.catalogue)
-          |> TijaraTides.Domain.Services.WarehouseLeases.advance(c.catalogue)
+        next = Game.advance(s, clock - s.clock_ms, c.catalogue)
 
         assert State.get(next, "warehouses", "award:won")["expires_ms"] == @day
 
@@ -435,11 +475,11 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
       end)
 
     assert AuctionWorld.fetch(s, "award-resale").status == "unsold"
-    s = advance(c, s, @grace)
+    s = Game.advance(s, @grace - s.clock_ms, c.catalogue)
     assert WarehouseLiquidation.pool(s, "award:won")["status"] == "liquidating"
     assert WarehouseWorld.estate_cover(s, "award:won", @grace + @day) == s
     [auction] = auctions(s, "award:won")
-    final = close(c, s, auction.closes_ms)
+    final = Game.advance(s, auction.closes_ms - s.clock_ms, c.catalogue)
     assert State.get(final, "warehouses", "award:won") == nil
     assert WarehouseLiquidation.pool(final, "award:won")["status"] == "completed"
     assert WarehouseLiquidation.pool(final, "award:won")["paid"] == 0

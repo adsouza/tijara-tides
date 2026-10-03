@@ -1085,8 +1085,14 @@ msgstr "تعذر استخدام الدعوة. تحقق من الرمز ومن ت
 msgid "The action could not be completed. Please refresh and try again."
 msgstr "تعذر إكمال الإجراء. حدّث الصفحة وحاول مجدداً."
 
-msgid "The command contains too many fields (maximum 12)."
-msgstr "يحتوي الأمر على حقول كثيرة جداً (الحد الأقصى 12)."
+msgid "The command contains too many fields."
+msgstr "يحتوي الأمر على حقول كثيرة جداً."
+
+msgid "The command contains fields that this action does not accept."
+msgstr "يحتوي الأمر على حقول لا يقبلها هذا الإجراء."
+
+msgid "This action is not available in this version of the game. Refresh the page and try again."
+msgstr "هذا الإجراء غير متاح في هذا الإصدار من اللعبة. حدّث الصفحة وحاول مجدداً."
 
 msgid "The command payload is too large (maximum 4096 bytes)."
 msgstr "حجم بيانات الأمر كبير جداً (الحد الأقصى 4096 بايت)."
@@ -2298,8 +2304,8 @@ msgstr "بيع"
 msgid "Submit sealed bid"
 msgstr "قدّم عرضًا مختومًا"
 
-msgid "The warehouse must be idle and its lease must cover auction closing. Renew or choose a longer lease."
-msgstr "يجب أن يكون المستودع غير مشغول وأن يستمر إيجاره حتى إغلاق المزاد. جدّد الإيجار أو اختر مدة أطول."
+msgid "The warehouse must be ready to receive the entire lot, with unreserved space and a lease covering auction closing."
+msgstr "يجب أن يكون المستودع جاهزًا لاستلام كامل الكمية، بمساحة غير محجوزة وإيجار يستمر حتى إغلاق المزاد."
 
 msgid "This auction is locked. Consignments can change only before opening; bids only before closing."
 msgstr "هذا المزاد مقفل. يمكن تعديل البضائع المعروضة قبل الافتتاح فقط، والعروض قبل الإغلاق فقط."
@@ -2971,3 +2977,12 @@ msgstr "سدّد الفواتير غير المدفوعة ومتأخرات ال�
 #, elixir-autogen, elixir-format
 msgid "Complete an economic action worth at least $100 to start earning."
 msgstr "أكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل لبدء اكتساب الدعوات."
+
+msgid "Buy orders need an active lease with unreserved space for this cargo, outside won-cargo allocations."
+msgstr "تحتاج أوامر الشراء إلى عقد إيجار ساري بمساحة غير محجوزة لهذه البضاعة، خارج المساحات المخصصة للبضائع الفائزة."
+
+msgid "Store unreserved luxury cargo here, in storage paid past the next auction's close, to consign it."
+msgstr "خزّن هنا بضائع فاخرة غير محجوزة، في مستودع مدفوع إلى ما بعد إغلاق المزاد التالي، لعرضها في المزاد."
+
+msgid "Sell orders need unreserved stock of this cargo in a warehouse here."
+msgstr "تحتاج أوامر البيع إلى مخزون غير محجوز من هذه البضاعة في مستودع هنا."

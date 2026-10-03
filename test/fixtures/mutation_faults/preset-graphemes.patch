@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/player_names.ex
++++ lib/tijara_tides/domain/player_names.ex
+@@ -7,7 +7,6 @@
+-  def valid?(name, max_graphemes, max_code_points \\ @max_code_points) do
++  def valid?(name, max_graphemes, _max_code_points \\ @max_code_points) do
+     is_binary(name) and String.valid?(name) and name != "" and
+       String.length(name) <= max_graphemes and
+-      length(String.codepoints(name)) <= max_code_points and
+       not String.match?(name, ~r/[\p{Cc}\p{Cf}]/u)
+   end
+ end

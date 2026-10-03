@@ -2,6 +2,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
   alias TijaraTides.Domain.WarehouseWorld
   @moduledoc "Warehouse lease and transfer options from authorized read models."
   alias TijaraTides.Domain.{CargoRules, Warehouse}
+  alias TijaraTides.UseCases.WarehouseStorage
 
   def warehouse_options(definitions, view, port, draft, ship) do
     catalogue = definitions.catalogue
@@ -39,20 +40,16 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
       |> Enum.filter(&(&1["port"] == port))
       |> Enum.sort_by(& &1["id"])
 
-    reservation_rows = Map.values((view.private && view.private["warehouse_reservations"]) || %{})
-
     now = view.public["clock_ms"]
+    snapshots = WarehouseStorage.snapshots(view.private, now)
     handling = TijaraTides.Domain.PortCargoMarket.handling_rate(catalogue["ports"][port])
     docked = ship && ship["status"] == "docked" && ship["port"] == port
 
     leases =
       Enum.map(leases, fn row ->
-        w = WarehouseWorld.snapshot(row)
-        external = WarehouseWorld.shared_external_volume(leases, reservation_rows, w, now)
+        w = snapshots[row["id"]]
         volume = Warehouse.volume(w, catalogue)
-        reserved_volume = WarehouseWorld.reserved_volume(reservation_rows, w, catalogue)
-        reservations = WarehouseWorld.reservations(reservation_rows, w)
-        claimed = %{w | reservations: reservations}
+        reserved_volume = Warehouse.reserved_volume(w, catalogue)
         ready = (docked && now >= w.protected_ms) and now < w.expires_ms + w.grace_ms
 
         goods =
@@ -65,7 +62,6 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
             else: []
 
         # The transfer command checks these same limits, so offers never exceed them.
-        loaded = %{claimed | external_volume: external}
         storing = now < w.expires_ms && not w.award_grace
 
         transfers =
@@ -84,7 +80,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
             }
 
             limit = fn side ->
-              Warehouse.transfer_limits(loaded, side, item, %{
+              Warehouse.transfer_limits(w, side, item, %{
                 terms
                 | cleaning: if(side == "collect", do: terms.cleaning, else: 0)
               })
@@ -143,10 +139,10 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
           reserved_stock:
             Map.new(
               Enum.uniq(Enum.map(w.cargo, & &1.good)),
-              &{&1, Warehouse.reserved_quantity(claimed, "stock", &1)}
+              &{&1, Warehouse.reserved_quantity(w, "stock", &1)}
             ),
           reservations:
-            Enum.map(reservations, fn r ->
+            Enum.map(w.reservations, fn r ->
               %{
                 id: r.id,
                 kind: r.kind,
@@ -172,14 +168,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
                   Warehouse.compatible?(w, item) and CargoRules.compatible_class?(ship, item),
                   kind <- ["stock", "capacity"],
                   not w.award_grace or kind == "stock",
-                  n =
-                    Warehouse.reservation_limit(
-                      %{claimed | external_volume: external},
-                      kind,
-                      item,
-                      now,
-                      catalogue
-                    ),
+                  n = Warehouse.reservation_limit(w, kind, item, now, catalogue),
                   n > 0,
                   do: %{good: id, kind: kind, max: min(CargoRules.max_lots(), n)}
                 ),
@@ -199,7 +188,7 @@ defmodule TijaraTides.UseCases.WarehouseQueries do
               do:
                 w.blocks -
                   div(
-                    volume + external + reserved_volume + Warehouse.block_litres() - 1,
+                    volume + w.external_volume + reserved_volume + Warehouse.block_litres() - 1,
                     Warehouse.block_litres()
                   ),
               else: 0

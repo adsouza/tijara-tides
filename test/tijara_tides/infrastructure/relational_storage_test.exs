@@ -16,8 +16,8 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
 
   setup do
     port = System.fetch_env!("TIJARA_TEST_DB_PORT") |> String.to_integer()
-    schema = "migration_" <> String.replace(Ecto.UUID.generate(), "-", "")
-    # Isolate both the old and new schemas from the gameplay integration tests.
+    database = "migration_" <> String.replace(Ecto.UUID.generate(), "-", "")
+    # Each migration replay owns a separate scratch database and dedicated Repo.
     {:ok, admin} =
       Postgrex.start_link(
         hostname: "127.0.0.1",
@@ -26,16 +26,11 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
         database: "postgres"
       )
 
-    Postgrex.query!(admin, "CREATE SCHEMA #{schema}", [])
+    Postgrex.query!(admin, "CREATE DATABASE #{database}", [])
 
     start_supervised!(
       {MigrationRepo,
-       hostname: "127.0.0.1",
-       port: port,
-       username: "postgres",
-       database: "postgres",
-       pool_size: 4,
-       parameters: [search_path: schema]}
+       hostname: "127.0.0.1", port: port, username: "postgres", database: database, pool_size: 4}
     )
 
     on_exit(fn ->
@@ -47,7 +42,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
           database: "postgres"
         )
 
-      Postgrex.query!(cleanup, "DROP SCHEMA #{schema} CASCADE", [])
+      Postgrex.query!(cleanup, "DROP DATABASE #{database} WITH (FORCE)", [])
       GenServer.stop(cleanup)
     end)
 
@@ -85,6 +80,52 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
     assert_raise Postgrex.Error, fn ->
       MigrationRepo.query!("UPDATE game_ships SET name='Same' WHERE id='duplicate'")
     end
+  end
+
+  test "name storage cap refuses over-long legacy names, then constrains every name table", %{
+    migrations: migrations
+  } do
+    store_legacy(legacy_state())
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, to: 20_261_001_000_004, log: false)
+    caps = [{"game_companies", "Company", 120}, {"game_ships", "Ship", 140}]
+
+    # One code point over a cap refuses the migration; legacy names exactly at it migrate.
+    for {table, kind, cap} <- caps do
+      [[id]] = MigrationRepo.query!("SELECT id FROM #{table} ORDER BY id LIMIT 1").rows
+
+      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [
+        String.duplicate("x", cap + 1),
+        id
+      ])
+
+      assert_raise Postgrex.Error, ~r/#{kind} names exceed #{cap} code points/, fn ->
+        Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+      end
+
+      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [
+        String.duplicate("x", cap),
+        id
+      ])
+    end
+
+    Ecto.Migrator.run(MigrationRepo, migrations, :up, all: true, log: false)
+
+    for {table, _kind, cap} <- caps do
+      at_cap = String.duplicate("x", cap)
+      [[id]] = MigrationRepo.query!("SELECT id FROM #{table} ORDER BY id LIMIT 1").rows
+      MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [at_cap, id])
+
+      assert_raise Postgrex.Error, ~r/#{table}_name_length/, fn ->
+        MigrationRepo.query!("UPDATE #{table} SET name=$1 WHERE id=$2", [at_cap <> "x", id])
+      end
+    end
+
+    assert [[definition]] =
+             MigrationRepo.query!(
+               "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='game_markdown_presets_name_check'"
+             ).rows
+
+    assert definition =~ "140"
   end
 
   test "sequence migration preserves identities and exceeds counters and existing lots", %{

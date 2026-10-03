@@ -82,6 +82,47 @@ defmodule TijaraTides.Domain.EmailIdentityTest do
     assert Game.get(expired, "accounts", "sponsor")["invite_quota"] == 3
   end
 
+  test "invitation and sign-in deadlines use separate clocks at adjacent boundaries", c do
+    for offset <- [-1, 0, 1] do
+      {:ok, invite, _} =
+        EmailIdentity.request(c.state, c.account, "invite", "new@example.com", context("invite"))
+
+      invite = %{invite | clock_ms: 3 * 86_400_000 + offset}
+
+      result =
+        EmailIdentity.redeem(invite, "invite-hash", "device", nil, context("new", 999_999_999))
+
+      if offset < 0,
+        do: assert(match?({:ok, _, _}, result)),
+        else: assert(result == {:error, :email_link_invalid})
+
+      expired = AccountWorld.expire_invitations(invite)
+
+      assert Game.get(expired, "accounts", "sponsor")["invite_quota"] ==
+               if(offset < 0, do: 2, else: 3)
+
+      assert AccountWorld.expire_invitations(expired) == expired
+
+      {:ok, link, _} =
+        EmailIdentity.request(c.state, c.account, "link", "owner@example.com", context("link"))
+
+      link = %{link | clock_ms: 99 * 86_400_000}
+
+      result =
+        EmailIdentity.redeem(
+          link,
+          "link-hash",
+          "device",
+          c.account,
+          context("owner", 900_100 + offset)
+        )
+
+      if offset < 0,
+        do: assert(match?({:ok, _, _}, result)),
+        else: assert(result == {:error, :email_link_invalid})
+    end
+  end
+
   test "email sign-in restores identity and old address links stop working after replacement",
        c do
     {:ok, state, _} =

@@ -195,9 +195,10 @@ defmodule TijaraTides.Domain.Services.Auctions do
   end
 
   defp coverage(s, w, a) do
-    covered = WarehouseWorld.snapshot(w) |> TijaraTides.Domain.Warehouse.covered_until()
+    lease = WarehouseWorld.snapshot(w)
+    covered = TijaraTides.Domain.Warehouse.covered_until(lease)
 
-    if covered >= a.closes_ms && w["protected_ms"] <= s.clock_ms,
+    if TijaraTides.Domain.Warehouse.covers?(lease, a.closes_ms, s.clock_ms),
       do: :ok,
       else:
         {:error,

@@ -35,6 +35,8 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
       }
 
       model = %{
+        stop_ports: ["Singapore"],
+        instructions_block: false,
         link_warehouses: %{},
         links: %{},
         budgets: %{},

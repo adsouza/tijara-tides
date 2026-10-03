@@ -14,6 +14,8 @@ jobs:
             otp: '29.0.4'
     steps:
       - uses: actions/checkout@v7
+      - name: Local validation tooling contracts
+        run: python3 scripts/test-validation-scope.py
       - name: Generated docs match their generators
         run: |
           python3 scripts/gen-ports-roster.py
@@ -32,6 +34,9 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('mix.lock') }}
           restore-keys: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-
       - run: mix deps.get --check-locked
+      # Its classifier tests compile and run a probe Mix project, so Elixir must be set up.
+      - name: Mutation-audit tooling contracts
+        run: python3 scripts/test-mutation-audit.py
       - run: mix precommit
       - name: Full Elixir suite and line coverage with disposable PostgreSQL
         shell: bash
@@ -39,14 +44,8 @@ jobs:
           set -o pipefail
           mkdir -p cover
           python3 scripts/test-game-db.py --cover | tee cover/elixir-summary.txt
-      - name: Upload Elixir line coverage
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: elixir-line-coverage-${{ matrix.elixir }}-otp-${{ matrix.otp }}
-          path: cover/
-          if-no-files-found: warn
-          retention-days: 14
+      - name: Rendered command control sweep with disposable PostgreSQL
+        run: python3 scripts/test-game-db.py --control-sweep
       - name: Runtime catalogue matches its generator
         run: |
           python3 -m venv /tmp/tijara-catalogue
@@ -54,7 +53,24 @@ jobs:
           /tmp/tijara-catalogue/bin/python scripts/test-catalogue-routes.py
           /tmp/tijara-catalogue/bin/python scripts/gen-game-data.py
           git diff --exit-code priv/game/catalogue.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: mix assets.setup
+      - run: MIX_ENV="test" mix assets.build
+      - name: Browser serialization with disposable PostgreSQL
+        run: python3 scripts/test-browser.py
+      - name: Upload coverage and replay evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: elixir-line-coverage-${{ matrix.elixir }}-otp-${{ matrix.otp }}
+          path: cover/
+          if-no-files-found: warn
+          retention-days: 14
       - run: mix release
         env:
           MIX_ENV: prod

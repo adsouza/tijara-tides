@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/services/departure_funding.ex
++++ lib/tijara_tides/domain/services/departure_funding.ex
+@@ -184,7 +184,7 @@
+             s,
+             plan["id"],
+             cond do
+-              company["bankruptcy_ms"] != nil -> "Company is in receivership"
++              company["bankruptcy_ms"] != nil -> "The onward voyage exceeds the maximum duration"
+               is_nil(quote) -> "No sea route is available to the onward destination"
+               true -> "The onward voyage exceeds the maximum duration"
+             end

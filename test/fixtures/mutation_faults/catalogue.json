@@ -1,0 +1,374 @@
+[
+  {
+    "name": "unsafe-company",
+    "patch": "unsafe-company.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/command_payload_properties_test.exs"
+    ],
+    "sql": false,
+    "area": "round1b",
+    "witness": "unsafe name committed|Expected|Assertion|assert"
+  },
+  {
+    "name": "preset-graphemes",
+    "patch": "preset-graphemes.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/command_payload_properties_test.exs"
+    ],
+    "sql": false,
+    "area": "round1b",
+    "witness": "unsafe name committed|Expected|Assertion|assert"
+  },
+  {
+    "name": "notice-binding",
+    "patch": "notice-binding.patch",
+    "tests": [
+      "test/tijara_tides/notice_inventory_test.exs"
+    ],
+    "sql": false,
+    "area": "round1b",
+    "witness": "Assertion|assert|Expected|Model-valid|raised|Expired allocations"
+  },
+  {
+    "name": "metadata-forwarded",
+    "patch": "metadata-forwarded.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/form_contracts_test.exs"
+    ],
+    "sql": true,
+    "area": "round1b",
+    "witness": "A valid or equivalent submission was rejected|Expected|Assertion|assert"
+  },
+  {
+    "name": "raw-expiry",
+    "patch": "raw-expiry.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/form_contracts_test.exs"
+    ],
+    "sql": true,
+    "area": "round1b",
+    "witness": "A valid or equivalent submission was rejected|Expected|Assertion|assert"
+  },
+  {
+    "name": "raw-number",
+    "patch": "raw-number.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/form_contracts_test.exs"
+    ],
+    "sql": true,
+    "area": "round1b",
+    "witness": "A valid or equivalent submission was rejected|Expected|Assertion|assert"
+  },
+  {
+    "name": "visit-release",
+    "patch": "visit-release.patch",
+    "tests": [
+      "test/tijara_tides/domain/route_funding_test.exs"
+    ],
+    "sql": false,
+    "area": "round2",
+    "witness": "Assertion|assert|Expected|Model-valid|raised|Expired allocations"
+  },
+  {
+    "name": "pool-cover",
+    "patch": "pool-cover.patch",
+    "tests": [
+      "test/tijara_tides/domain/warehouse_liquidation_test.exs"
+    ],
+    "sql": false,
+    "area": "round2",
+    "witness": "Assertion|assert|Expected|Model-valid|raised|Expired allocations"
+  },
+  {
+    "name": "timeout-boundary",
+    "patch": "timeout-boundary.patch",
+    "tests": [
+      "test/tijara_tides/domain/route_funding_test.exs"
+    ],
+    "sql": false,
+    "area": "round2",
+    "witness": "Assertion|assert|Expected|Model-valid|raised|Expired allocations"
+  },
+  {
+    "name": "spoilage-boundary",
+    "patch": "spoilage-boundary.patch",
+    "tests": [
+      "test/tijara_tides/domain/game_test.exs"
+    ],
+    "sql": false,
+    "area": "round2",
+    "witness": "Assertion|assert|Expected|Model-valid|raised|Expired allocations"
+  },
+  {
+    "name": "guarantee-loss",
+    "patch": "guarantee-loss.patch",
+    "tests": [
+      "test/tijara_tides/domain/guarantees_test.exs"
+    ],
+    "sql": false,
+    "area": "round2",
+    "witness": "Assertion|assert|Expected|Model-valid|raised|Expired allocations"
+  },
+  {
+    "name": "report-boundary",
+    "patch": "report-boundary.patch",
+    "tests": [
+      "test/tijara_tides/domain/reporting_test.exs"
+    ],
+    "sql": false,
+    "area": "round2",
+    "witness": "Assertion|assert|Expected|Model-valid|raised|Expired allocations"
+  },
+  {
+    "name": "identity-clock",
+    "patch": "identity-clock.patch",
+    "tests": [
+      "test/tijara_tides/domain/email_identity_test.exs"
+    ],
+    "sql": false,
+    "area": "round2",
+    "witness": "Assertion|assert|Expected|Model-valid|raised|Expired allocations"
+  },
+  {
+    "name": "claims-before-release",
+    "patch": "claims-before-release.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/sql_transition_contracts_test.exs"
+    ],
+    "sql": true,
+    "area": "round3",
+    "witness": "game_one_departure_accumulator"
+  },
+  {
+    "name": "lost-lot-row-large-batch",
+    "patch": "lost-lot-row-large-batch.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/sql_transition_contracts_test.exs"
+    ],
+    "sql": true,
+    "area": "round3",
+    "witness": "Assertion|assert|Expected|Model-valid|raised|Expired allocations"
+  },
+  {
+    "name": "arbitrary-preset-id",
+    "patch": "arbitrary-preset-id.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/command_payload_properties_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "invalid identity committed|Assertion|assert|Expected"
+  },
+  {
+    "name": "future-weather",
+    "patch": "future-weather.patch",
+    "tests": [
+      "test/tijara_tides/domain/weather_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "narrow-weather-offset",
+    "patch": "narrow-weather-offset.patch",
+    "tests": [
+      "test/tijara_tides/domain/weather_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "repeat-weather-partition",
+    "patch": "repeat-weather-partition.patch",
+    "tests": [
+      "test/tijara_tides/domain/automation_cost_test.exs",
+      "test/tijara_tides/domain/weather_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "filtered-check-unfiltered-take",
+    "patch": "filtered-check-unfiltered-take.patch",
+    "tests": [
+      "test/tijara_tides/domain/warehouse_liquidation_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "merchant-reservations",
+    "patch": "merchant-reservations.patch",
+    "tests": [
+      "test/tijara_tides/domain/port_cargo_market_aggregate_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "permissive-charges",
+    "patch": "permissive-charges.patch",
+    "tests": [
+      "test/tijara_tides/domain/reservation_models_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "required-defaults",
+    "patch": "required-defaults.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/persistence/game_rows_batching_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "owner-redundant-commit",
+    "patch": "owner-redundant-commit.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/game_persistence_test.exs"
+    ],
+    "sql": true,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "compiled-back-edge",
+    "patch": "compiled-back-edge.patch",
+    "tests": [
+      "test/docs/automation_architecture_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Expected false|refute|Assertion"
+  },
+  {
+    "name": "lost-frozen-path",
+    "patch": "lost-frozen-path.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/game_persistence_test.exs",
+      "test/tijara_tides/domain/rerouting_test.exs"
+    ],
+    "sql": true,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "late-perishable-close",
+    "patch": "late-perishable-close.patch",
+    "tests": [
+      "test/tijara_tides/domain/warehouse_liquidation_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "repeat-instruction-scan",
+    "patch": "repeat-instruction-scan.patch",
+    "tests": [
+      "test/tijara_tides/domain/automation_cost_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "wrong-bankruptcy-reason",
+    "patch": "wrong-bankruptcy-reason.patch",
+    "tests": [
+      "test/tijara_tides/domain/route_funding_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "notice-precision",
+    "patch": "notice-precision.patch",
+    "tests": [
+      "test/tijara_tides/localization_test.exs",
+      "test/tijara_tides/notice_inventory_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "receiving-aging",
+    "patch": "receiving-aging.patch",
+    "tests": [
+      "test/tijara_tides/domain/cargo_freshness_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "grace-rent",
+    "patch": "grace-rent.patch",
+    "tests": [
+      "test/tijara_tides/domain/warehouse_liquidation_test.exs",
+      "test/tijara_tides/domain/reservation_models_test.exs"
+    ],
+    "sql": false,
+    "area": "review",
+    "witness": "Assertion|assert|Expected|Model-valid|raised"
+  },
+  {
+    "name": "stale-route-cancellation",
+    "patch": "stale-route-cancellation.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/control_sweep_test.exs"
+    ],
+    "sql": true,
+    "area": "control-sweep",
+    "witness": "route-cancel-instruction-",
+    "env": {
+      "TIJARA_CONTROL_SWEEP": "1",
+      "TIJARA_CONTROL_SWEEP_FOCUS": "route_waiting:route-cancel-instruction-"
+    }
+  },
+  {
+    "name": "stale-fleet-queued-cancellation",
+    "patch": "stale-fleet-queued-cancellation.patch",
+    "tests": [
+      "test/tijara_tides/infrastructure/control_sweep_test.exs"
+    ],
+    "sql": true,
+    "area": "control-sweep",
+    "witness": "cancel-berth-trade-",
+    "env": {
+      "TIJARA_CONTROL_SWEEP": "1",
+      "TIJARA_CONTROL_SWEEP_FOCUS": "queued_trade:cancel-berth-trade-"
+    }
+  },
+  {
+    "name": "exchange-capacity-offer",
+    "patch": "exchange-capacity-offer.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/market_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "market-offers",
+    "witness": "Assertion|assert|match"
+  },
+  {
+    "name": "auction-capacity-offer",
+    "patch": "auction-capacity-offer.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/market_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "market-offers",
+    "witness": "Assertion|assert|match"
+  }
+]

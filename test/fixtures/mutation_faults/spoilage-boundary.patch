@@ -1,0 +1,11 @@
+--- lib/tijara_tides/domain/ship.ex
++++ lib/tijara_tides/domain/ship.ex
+@@ -245,7 +245,7 @@
+     fuel = fuel_burned - ship.fuel_burned
+ 
+     {expired, cargo} =
+-      Enum.split_with(ship.cargo, &(&1.expires_ms != nil and &1.expires_ms <= now))
++      Enum.split_with(ship.cargo, &(&1.expires_ms != nil and &1.expires_ms < now))
+ 
+     spoilage = Enum.sum(Enum.map(expired, &(&1.unit_cost * &1.quantity)))
+ 

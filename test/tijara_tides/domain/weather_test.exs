@@ -1,5 +1,6 @@
 defmodule TijaraTides.Domain.WeatherTest do
   use ExUnit.Case, async: true
+  use ExUnitProperties
   alias TijaraTides.Domain.{Weather, Ship, Fleet, VoyageNavigation}
   alias Ship.CargoBatch
 
@@ -42,6 +43,28 @@ defmodule TijaraTides.Domain.WeatherTest do
       15_000,
       600
     )
+  end
+
+  property "a long voyage cannot announce storms beyond its observation clock" do
+    check all(
+            offset <- integer(0..999),
+            duration <- integer(20_000..100_000),
+            max_runs: 50,
+            max_shrinking_steps: 100
+          ) do
+      now = 20_000 + offset
+      forecast = Weather.forecast(route(), duration, now, now, model())
+      assert forecast["delay_ms"] == 1000 - offset
+      assert length(forecast["holds"]) == 1
+      assert hd(forecast["holds"])["starts_ms"] == now
+      assert hd(forecast["holds"])["until_ms"] == 21_000
+    end
+  end
+
+  test "the current storm does not disclose the next three storms on a long route" do
+    forecast = Weather.forecast(route(), 60_000, 20_500, 20_500, model())
+    assert forecast["delay_ms"] == 500
+    assert Enum.map(forecast["holds"], & &1["window_id"]) == ["sector:16:1"]
   end
 
   test "staggered storms span the full period deterministically without changing occurrence" do

@@ -1,0 +1,10 @@
+--- lib/tijara_tides_web/live/game_live.ex
++++ lib/tijara_tides_web/live/game_live.ex
+@@ -956,7 +956,6 @@
+   defp run(socket, command) do
+     {request, command} = Map.pop(command, "request_id", socket.assigns.request_id)
+     # The action's admission schema is the only field list; LiveView metadata stops here.
+-    command = Game.select_command_fields(command)
+ 
+     case Game.command(socket.assigns.token, request, command) do
+       {:ok, result} ->

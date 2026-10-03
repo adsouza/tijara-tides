@@ -1,0 +1,11 @@
+--- lib/tijara_tides/use_cases/exchange_queries.ex
++++ lib/tijara_tides/use_cases/exchange_queries.ex
+@@ -117,7 +117,7 @@
+           w = storage[row["id"]]
+ 
+           Warehouse.receiving_open?(w, clock) and
+-            Warehouse.reservation_limit(w, "capacity", item, clock, definitions.catalogue) > 0
++            Warehouse.reservation_limit(w, "capacity", item, clock, definitions.catalogue) >= 0
+         end),
+       # Selling requires unreserved stock of the good to back the order.
+       sell_warehouses:

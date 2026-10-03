@@ -81,6 +81,14 @@ defmodule TijaraTides.Domain.Warehouse do
   def covered_until(w),
     do: w.expires_ms + (w.next_days || 0) * @day + if(w.award_grace, do: w.grace_ms, else: 0)
 
+  @doc "Whether paid storage, clear of handling, lasts until `until_ms` (an auction close)."
+  def covers?(%__MODULE__{} = w, until_ms, now),
+    do: covered_until(w) >= until_ms and w.protected_ms <= now
+
+  @doc "Fresh stock of `good` a new sell claim (exchange or auction) can still reserve."
+  def claimable_stock(%__MODULE__{} = w, good, now),
+    do: fresh_stock(w, good, now) - reserved_quantity(w, "stock", good)
+
   def day_ms, do: @day
 
   def extension_rate(w, used_blocks),
@@ -446,7 +454,6 @@ defmodule TijaraTides.Domain.Warehouse do
   @doc "Back an exchange order with exclusive stock or receiving space."
   def back_order(%__MODULE__{} = w, %Claim{} = order, now, catalogue) do
     item = catalogue["goods"][order.good]
-    stock = fresh_stock(w, order.good, now)
 
     cond do
       (order.side == "buy" and not receiving_open?(w, now)) or
@@ -461,12 +468,11 @@ defmodule TijaraTides.Domain.Warehouse do
         {:error, :incompatible_cargo}
 
       order.side == "buy" and
-          volume(w, catalogue) + w.external_volume + reserved_volume(w, catalogue) +
-            order.quantity * item["volume_l"] > w.blocks * block_litres() ->
+          order.quantity > reservation_limit(w, "capacity", item, now, catalogue) ->
         {:error, :warehouse_capacity}
 
       order.side == "sell" and
-          stock - reserved_quantity(w, "stock", order.good) < order.quantity ->
+          claimable_stock(w, order.good, now) < order.quantity ->
         {:error, :insufficient_cargo}
 
       true ->

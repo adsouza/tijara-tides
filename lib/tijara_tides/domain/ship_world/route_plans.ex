@@ -160,8 +160,7 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
       length(stops) >= 8 ->
         {:error, :route_stop_limit}
 
-      is_nil(context.catalogue["ports"][port]) or
-          (stops != [] and List.last(stops).port == port) ->
+      port not in stop_ports(context.catalogue, Enum.map(stops, & &1.port), route && route.status) ->
         {:error, :route_port_invalid}
 
       true ->
@@ -436,10 +435,32 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
 
   defp single_visit?(state, ship),
     do:
-      Enum.any?(entities(state, "visit_plans"), fn {_, p} -> p["ship_id"] == ship end) or
-        Enum.any?(entities(state, "ship_instructions"), fn {_, o} ->
-          o["ship_id"] == ship and o["status"] in @open
-        end)
+      instructions_block_route?(
+        Map.values(entities(state, "visit_plans")),
+        Map.values(entities(state, "ship_instructions")),
+        ship
+      )
+
+  @doc "Visit plans or open next-port instructions keep a ship from creating a route."
+  def instructions_block_route?(visit_plans, instructions, ship),
+    do:
+      Enum.any?(visit_plans, &(&1["ship_id"] == ship)) or
+        Enum.any?(instructions, &(&1["ship_id"] == ship and &1["status"] in @open))
+
+  @doc """
+  Ports a new stop may name, given the existing stop ports in order. A stop never
+  repeats the last stop's port. Once a route has started, the appended stop is also
+  the last leg back to the first stop, so it cannot be the first stop's port either.
+  """
+  def stop_ports(catalogue, ports, status) do
+    excluded =
+      case ports do
+        [] -> []
+        [_ | _] -> [List.last(ports) | if(status in [nil, "draft"], do: [], else: [hd(ports)])]
+      end
+
+    catalogue["ports"] |> Map.keys() |> Enum.sort() |> Kernel.--(excluded)
+  end
 
   def executable?(state, ship) do
     case get(state, "ship_routes", ship) do

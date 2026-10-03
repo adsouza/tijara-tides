@@ -4,8 +4,7 @@ defmodule TijaraTides.Domain.GameTest do
   alias TijaraTides.Domain.Game
   alias TijaraTides.Infrastructure.GameCatalogue
 
-  def setup_game do
-    catalogue = GameCatalogue.all()
+  def setup_game(catalogue \\ GameCatalogue.all()) do
     state = Game.initialize(%{entities: %{}, clock_ms: 0, epoch: 1, revision: 0}, catalogue)
     {:ok, state, _} = Game.seed_invite(state, "invite")
     {:ok, state, _} = Game.redeem(state, "invite", "session", %{id: "account", wall_ms: 0})
@@ -743,6 +742,176 @@ defmodule TijaraTides.Domain.GameTest do
              TijaraTides.Domain.Services.TradeSettlement.check(state, account, trade, cat)
 
     assert hd(Game.get(bought, "ships", ship["id"])["cargo"])["expires_ms"] == expiry * 4
+  end
+
+  test "ordinary and refrigerated purchases cross exact spoilage boundaries without repeated writeoffs" do
+    {state, account, catalogue} = setup_game()
+
+    {:ok, cold, _} =
+      Game.execute(
+        state,
+        account,
+        %{
+          "action" => "purchase_ship",
+          "class" => "reefer",
+          "port" => "Jakarta",
+          "price_limit" => 8_000_000
+        },
+        %{id: "cold"},
+        catalogue
+      )
+
+    buy = fn state, ship ->
+      {:ok, bought, _} =
+        Game.execute(
+          state,
+          account,
+          %{
+            "action" => "buy",
+            "ship" => ship,
+            "good" => "fruit",
+            "quantity" => 2,
+            "limit" => 1_000_000,
+            "destination" => "Singapore"
+          },
+          %{},
+          catalogue
+        )
+
+      bought
+    end
+
+    warm = buy.(state, "company:1")
+    cold = buy.(cold, "cold")
+    warm_batch = hd(Game.get(warm, "ships", "company:1")["cargo"])
+    cold_batch = hd(Game.get(cold, "ships", "cold")["cargo"])
+    assert cold_batch["expires_ms"] == warm_batch["expires_ms"] * 4
+
+    for {initial, id, batch} <- [{warm, "company:1", warm_batch}, {cold, "cold", cold_batch}] do
+      before = Game.advance(initial, batch["expires_ms"] - 1, catalogue)
+      assert Enum.sum(for b <- Game.get(before, "ships", id)["cargo"], do: b["quantity"]) == 2
+      expired = Game.advance(before, 1, catalogue)
+      assert Game.get(expired, "ships", id)["cargo"] == []
+
+      costs = fn game ->
+        for event <- game.journal,
+            event.ship == id,
+            {"spoilage_expense", amount} <- event.entries,
+            do: amount
+      end
+
+      assert costs.(expired) == [2 * batch["unit_cost"]]
+      after_boundary = Game.advance(expired, 1, catalogue)
+      assert Game.get(after_boundary, "ships", id)["cargo"] == []
+      assert costs.(after_boundary) == costs.(expired)
+    end
+
+    at_warm_expiry = Game.advance(cold, warm_batch["expires_ms"], catalogue)
+    assert length(Game.get(at_warm_expiry, "ships", "cold")["cargo"]) == 1
+  end
+
+  test "a disclosed storm delays a command-started voyage across a cargo expiry in the full tick" do
+    catalogue =
+      GameCatalogue.all()
+      |> Map.put("weather", %{
+        "period_ms" => 20_000,
+        "duration_ms" => 1000,
+        "chance_bps" => 10_000,
+        "first_slot" => 1,
+        "seed" => 1,
+        "stagger" => false
+      })
+      |> put_in(["routes", "Jakarta|Singapore"], %{
+        "coordinates" => [[100, 10], [101, 10]],
+        "passages" => [],
+        "nautical_miles" => 10
+      })
+      |> put_in(["goods", "fruit", "shelf_ms"], 21_500)
+
+    {state, account, catalogue} = setup_game(catalogue)
+
+    {:ok, bought, _} =
+      Game.execute(
+        state,
+        account,
+        %{
+          "action" => "buy",
+          "ship" => "company:1",
+          "good" => "fruit",
+          "quantity" => 1,
+          "limit" => 1_000_000,
+          "destination" => "Singapore"
+        },
+        %{},
+        catalogue
+      )
+
+    ready = Game.advance(bought, 15_000, catalogue)
+    assert hd(Game.get(ready, "ships", "company:1")["cargo"])["expires_ms"] == 21_500
+
+    {:ok, ready, _} =
+      Game.execute(
+        ready,
+        account,
+        %{
+          "action" => "instruction",
+          "ship" => "company:1",
+          "port" => "Singapore",
+          "good" => "lumber",
+          "side" => "buy",
+          "quantity" => 1,
+          "limit" => 100,
+          "budget" => 200,
+          "onward" => "Jakarta",
+          "expires_in_ms" => 6500
+        },
+        %{id: "deadline"},
+        catalogue
+      )
+
+    {:ok, ready, _} =
+      Game.execute(
+        ready,
+        account,
+        %{
+          "action" => "visit_budget",
+          "ship" => "company:1",
+          "port" => "Singapore",
+          "amount" => 200
+        },
+        %{},
+        catalogue
+      )
+
+    {:ok, sailing, _} =
+      Game.execute(
+        ready,
+        account,
+        %{
+          "action" => "sail",
+          "ship" => "company:1",
+          "destination" => "Singapore",
+          "fuel_limit" => 1_000_000
+        },
+        %{},
+        catalogue
+      )
+
+    assert Game.get(sailing, "ships", "company:1")["arrive_ms"] == 21_000
+    disclosed = Game.advance(sailing, 5000, catalogue)
+    assert Game.get(disclosed, "ships", "company:1")["arrive_ms"] == 22_000
+    before = Game.advance(disclosed, 1499, catalogue)
+    assert length(Game.get(before, "ships", "company:1")["cargo"]) == 1
+    assert Game.get(before, "visit_budgets", "company:1|Singapore")["remaining"] == 200
+    expired = Game.advance(before, 1, catalogue)
+    assert Game.get(expired, "ships", "company:1")["cargo"] == []
+    assert Game.get(expired, "ships", "company:1")["status"] == "sailing"
+    assert Game.get(expired, "visit_budgets", "company:1|Singapore") == nil
+    assert Game.get(expired, "ship_instructions", "deadline")["reason"] == "Instruction expired"
+    arrived = Game.advance(expired, 500, catalogue)
+    assert Game.get(arrived, "ships", "company:1")["port"] == "Singapore"
+    assert Game.get(arrived, "ships", "company:1")["status"] == "docked"
+    assert Game.advance(arrived, 0, catalogue) == arrived
   end
 
   test "market recovery is one lot per 150 seconds and preserves partial intervals" do

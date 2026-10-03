@@ -547,7 +547,6 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                 />
                 <input
                   type="range"
-                  name="quantity_slider"
                   min={if side == "buy" or available <= 0, do: 0, else: 1}
                   max={available}
                   step="1"
