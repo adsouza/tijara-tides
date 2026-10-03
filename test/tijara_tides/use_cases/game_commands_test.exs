@@ -184,10 +184,14 @@ defmodule TijaraTides.UseCases.GameCommandsTest do
       commit: fn _, _, _ -> flunk("a failed plan must not persist or write a receipt") end
     }
 
-    log = capture_log(fn -> assert {:error, :command_failed} = run(broken, ops) end)
-    assert log =~ "Market cannot supply"
-    assert log =~ "PortCargoMarket.supply/7"
-    assert length(Regex.scan(~r/Command planning failed/, log)) == 1
+    # Async tests that break the same catalogue log identical failures, so count
+    # only this process's entries.
+    log =
+      TijaraTides.OwnLog.capture(fn -> assert {:error, :command_failed} = run(broken, ops) end)
+
+    assert [failure] = Enum.filter(log, &(&1 =~ "Command planning failed"))
+    assert failure =~ "Market cannot supply"
+    assert failure =~ "PortCargoMarket.supply/7"
 
     # Allocation exhaustion must still reach its existing pre-commit retry.
     ops = %{

@@ -97,13 +97,13 @@ defmodule TijaraTides.Infrastructure.OperationTest do
     error = RuntimeError.exception("failed api_key=super-secret")
 
     log =
-      capture_log(fn ->
+      TijaraTides.OwnLog.capture(fn ->
         assert Operation.run(:email_delivery, fn -> {:error, error} end) == {:error, error}
       end)
 
     assert_receive {[:tijara_tides, :operation, :stop], _, metadata}
     assert metadata.outcome == :error
     refute inspect(metadata) =~ "super-secret"
-    assert length(Regex.scan(~r/operation=email_delivery/, log)) == 1
+    assert [_] = Enum.filter(log, &(&1 =~ "operation=email_delivery"))
   end
 end
