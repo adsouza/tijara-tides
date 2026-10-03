@@ -1,6 +1,6 @@
 defmodule TijaraTides.UseCases.AuctionQueries do
   @moduledoc "Auction discovery and owner-scoped bidding options."
-  alias TijaraTides.Domain.{Warehouse, WarehouseWorld}
+  alias TijaraTides.Domain.{CargoRules, Warehouse, WarehouseWorld}
 
   # AuctionWorld.prune/1 keeps closed auctions per port, so the world-wide tail is
   # long; discovery shows the newest few plus the player's own activity, all
@@ -85,9 +85,10 @@ defmodule TijaraTides.UseCases.AuctionQueries do
       Enum.map(listings, fn a ->
         item = cat["goods"][a["good"]]
 
+        # A bid backs a buy claim: storage must cover the close and still receive cargo.
         storage =
           for {row, w} <- leased,
-              Warehouse.covered_until(w) >= a["closes_ms"] and row["protected_ms"] <= clock and
+              Warehouse.covers?(w, a["closes_ms"], clock) and Warehouse.receiving_open?(w, clock) and
                 item != nil and Warehouse.compatible?(w, item),
               do: row
 
@@ -102,10 +103,26 @@ defmodule TijaraTides.UseCases.AuctionQueries do
 
     {opens, closes} = TijaraTides.Domain.AuctionWorld.schedule(clock, port, cat)
 
+    # The command backs a consignment with claimable stock in storage covering the close;
+    # stock already backing auctions or exchange orders is held in reservation rows.
+    reservation_rows = Map.values(private["warehouse_reservations"] || %{})
+
+    consignable =
+      for row <- Map.values(private["warehouses"] || %{}),
+          row["port"] == port,
+          w = WarehouseWorld.snapshot(row),
+          lease = %{w | reservations: WarehouseWorld.reservations(reservation_rows, w)},
+          Warehouse.covers?(lease, closes, clock),
+          {good, _item} <- goods,
+          quantity = Warehouse.claimable_stock(lease, good, clock),
+          quantity > 0,
+          do: %{warehouse: row, good: good, quantity: min(quantity, CargoRules.max_lots())}
+
     %{
       listings: listings,
       goods: goods,
       warehouses: warehouses,
+      consignable: Enum.sort_by(consignable, &{&1.warehouse["id"], &1.good}),
       opens: opens,
       closes: closes,
       clock: clock,

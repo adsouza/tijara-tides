@@ -2977,3 +2977,12 @@ msgstr "سدّد الفواتير غير المدفوعة ومتأخرات ال�
 #, elixir-autogen, elixir-format
 msgid "Complete an economic action worth at least $100 to start earning."
 msgstr "أكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل لبدء اكتساب الدعوات."
+
+msgid "Buy orders need an active lease that is not holding won cargo."
+msgstr "تحتاج أوامر الشراء إلى عقد إيجار ساري لا يحتفظ ببضائع فائزة في مزاد."
+
+msgid "Store unreserved luxury cargo here, in storage paid past the next auction's close, to consign it."
+msgstr "خزّن هنا بضائع فاخرة غير محجوزة، في مستودع مدفوع إلى ما بعد إغلاق المزاد التالي، لعرضها في المزاد."
+
+msgid "Sell orders need unreserved stock of this cargo in a warehouse here."
+msgstr "تحتاج أوامر البيع إلى مخزون غير محجوز من هذه البضاعة في مستودع هنا."

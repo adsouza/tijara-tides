@@ -155,9 +155,21 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
       <p :if={@book.warehouses == []} class="my-2 text-xs text-slate-400">
         {gettext("Lease compatible warehouse space at this port to place orders.")}
       </p>
+      <p
+        :if={@book.warehouses != [] and @book.buy_warehouses == []}
+        class="my-2 text-xs text-slate-400"
+      >
+        {gettext("Buy orders need an active lease that is not holding won cargo.")}
+      </p>
+      <p
+        :if={@book.warehouses != [] and @book.sell_warehouses == []}
+        class="my-2 text-xs text-slate-400"
+      >
+        {gettext("Sell orders need unreserved stock of this cargo in a warehouse here.")}
+      </p>
       <form
-        :for={side <- ["buy", "sell"]}
-        :if={@book.warehouses != []}
+        :for={{side, warehouses} <- [{"buy", @book.buy_warehouses}, {"sell", @book.sell_warehouses}]}
+        :if={warehouses != []}
         id={"exchange-place-" <> Base.url_encode64(Enum.join([@port, @book.good, side], "|"), padding: false)}
         phx-hook="ExchangeDraft"
         phx-submit="exchange"
@@ -175,13 +187,7 @@ defmodule TijaraTidesWeb.GameUI.ExchangePanel do
         <label>{gettext("Warehouse")}<select
           name="warehouse"
           class="block max-w-32 rounded bg-slate-800 p-1"
-        ><option
-          :for={w <- @book.warehouses}
-          :if={
-            side == "sell" or (not w["award_grace"] and w["expires_ms"] > @view.public["clock_ms"])
-          }
-          value={w["id"]}
-        >
+        ><option :for={w <- warehouses} value={w["id"]}>
           {display_number(w["blocks"])} {gettext("Blocks")} · {warehouse_name(w)}
         </option></select></label>
         <label>{gettext("Lots")}<input

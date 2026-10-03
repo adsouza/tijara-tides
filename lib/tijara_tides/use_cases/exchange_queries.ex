@@ -105,6 +105,23 @@ defmodule TijaraTides.UseCases.ExchangeQueries do
         |> Enum.sort_by(& &1["name"]),
       good: good,
       warehouses: warehouses,
+      # Only open, non-award storage receives new buy orders; a sell order needs
+      # unreserved stock of the good to back it.
+      buy_warehouses:
+        Enum.filter(
+          warehouses,
+          &TijaraTides.Domain.Warehouse.receiving_open?(
+            TijaraTides.Domain.WarehouseWorld.snapshot(&1),
+            view.public["clock_ms"]
+          )
+        ),
+      sell_warehouses:
+        Enum.filter(warehouses, fn row ->
+          w = TijaraTides.Domain.WarehouseWorld.snapshot(row)
+          rows = Map.values((view.private && view.private["warehouse_reservations"]) || %{})
+          claimed = %{w | reservations: TijaraTides.Domain.WarehouseWorld.reservations(rows, w)}
+          TijaraTides.Domain.Warehouse.claimable_stock(claimed, good, view.public["clock_ms"]) > 0
+        end),
       orders: orders,
       bids: Enum.filter(levels, &(&1["side"] == "buy")) |> Enum.sort_by(& &1["price"], :desc),
       asks: Enum.filter(levels, &(&1["side"] == "sell")) |> Enum.sort_by(& &1["price"]),

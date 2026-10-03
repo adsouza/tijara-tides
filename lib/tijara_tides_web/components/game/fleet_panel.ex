@@ -922,6 +922,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   {gettext("Onward destination after %{value1}", value1: l10n(shared_port))}
                   <select
                     name="onward"
+                    required
                     aria-label={gettext("Shared onward port")}
                     class="block w-full rounded bg-slate-800 p-2"
                   >

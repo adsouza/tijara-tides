@@ -378,7 +378,17 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
       <p :if={length(@model.stops) > 1} class="my-2 text-xs text-slate-400">
         {gettext("After the final stop, return to %{value1}.", value1: l10n(hd(@model.stops)["port"]))}
       </p>
+      <p
+        :if={@model.instructions_block}
+        id="route-blocked-by-instructions"
+        class="my-3 text-sm text-amber-200"
+      >
+        {gettext(
+          "Finish or cancel next-port instructions and clear their onward plan before creating a repeating route."
+        )}
+      </p>
       <.form
+        :if={!@model.instructions_block}
         for={%{}}
         id={"route-stop-" <> @ship["id"]}
         phx-submit="route"
@@ -390,7 +400,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
           value={@request_id}
         />
         <label>{gettext("Port")}<select name="port" class="ml-2 rounded bg-slate-800 p-2"><option
-          :for={port <- Enum.sort(Map.keys(@catalogue["ports"]))}
+          :for={port <- @model.stop_ports}
           value={port}
           selected={port == (@ship["destination"] || @ship["port"])}
         >

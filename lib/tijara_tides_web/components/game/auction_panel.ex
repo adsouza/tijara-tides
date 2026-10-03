@@ -53,12 +53,17 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
             time: active_countdown(@auction.closes - @auction.clock)
           )}
         </p>
-        <p :if={@auction.warehouses == []}>
-          {gettext("Lease compatible warehouse space at this port to place orders.")}
+        <p :if={@auction.consignable == []}>
+          {gettext(
+            "Store unreserved luxury cargo here, in storage paid past the next auction's close, to consign it."
+          )}
         </p>
         <form
-          :if={@auction.warehouses != []}
-          id={"auction-consign-form-" <> Base.url_encode64(@port, padding: false)}
+          :for={offer <- @auction.consignable}
+          id={
+            "auction-consign-form-" <>
+              Base.url_encode64(offer.warehouse["id"] <> "|" <> offer.good, padding: false)
+          }
           phx-hook="ExchangeDraft"
           phx-submit="auction"
           class="my-2 flex flex-wrap items-end gap-2"
@@ -67,23 +72,23 @@ defmodule TijaraTidesWeb.GameUI.AuctionPanel do
             type="hidden"
             name="request_id"
             value={@request_id}
-          />
-          <label>{gettext("Cargo")}<select name="good" class="block rounded bg-slate-800 p-1"><option
-            :for={{id, _} <- @auction.goods}
-            value={id}
-          >
-            {cargo_option(id)}{if not String.contains?(@auction.roles[id] || "", "imp"),
-              do: " · " <> gettext("No simulated buyers")}
-          </option></select></label>
-          <label>{gettext("Warehouse")}<select
+          /><input type="hidden" name="good" value={offer.good} /><input
+            type="hidden"
             name="warehouse"
-            class="block max-w-full rounded bg-slate-800 p-1"
-          ><option :for={w <- @auction.warehouses} value={w["id"]}>{warehouse_name(w)}</option></select></label>
+            value={offer.warehouse["id"]}
+          />
+          <span>{cargo_option(offer.good)} · {warehouse_name(offer.warehouse)}</span>
+          <span
+            :if={not String.contains?(@auction.roles[offer.good] || "", "imp")}
+            class="text-xs text-slate-400"
+          >
+            {gettext("No simulated buyers")}
+          </span>
           <label>{gettext("Lots")}<input
             name="quantity"
             type="number"
             min="1"
-            max="10000"
+            max={offer.quantity}
             value="1"
             required
             class="block w-20 rounded bg-slate-800 p-1"

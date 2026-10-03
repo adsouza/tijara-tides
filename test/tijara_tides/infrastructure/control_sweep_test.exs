@@ -35,8 +35,9 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
                 luxury_open luxury_bid luxury_won luxury_award luxury_consigned no_company email
                 queued_trade guarantee_candidate)a
 
-  # Controls that render earlier than they can succeed use the scenario that holds their stock.
-  @prefer %{{:form, "auction-consign-form-", "auction_consign", nil} => :luxury_won}
+  # {unit, scenario} pairs where the domain rightly refuses a rendered, enabled control,
+  # as {reason, why the interface cannot avoid offering it}.
+  @expected %{}
 
   setup_all do
     Sql.repo()
@@ -61,18 +62,20 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
     scenarios = if focus, do: [elem(focus, 0)], else: @scenarios
     assert scenarios -- @scenarios == [], "Unknown scenarios #{inspect(scenarios -- @scenarios)}"
 
-    # Discovery: the first scenario in which each control unit renders enabled.
+    # Discovery: every scenario in which each control unit renders enabled.
     rendered =
       for scenario <- scenarios, reduce: %{} do
         acc ->
           scenario
           |> rendered_units(facts, prefixes)
           |> Enum.filter(&(is_nil(focus) or elem(&1, 1) == elem(focus, 1)))
-          |> Enum.reduce(acc, &Map.put_new(&2, &1, scenario))
+          |> Enum.reduce(acc, &Map.update(&2, &1, [scenario], fn list -> list ++ [scenario] end))
       end
 
     if System.get_env("TIJARA_CONTROL_SWEEP_DISCOVERY") do
-      for {unit, scenario} <- Enum.sort(rendered), do: IO.puts("#{inspect(unit)} <- #{scenario}")
+      for {unit, scenarios} <- Enum.sort(rendered),
+          do: IO.puts("#{inspect(unit)} <- #{Enum.join(scenarios, ", ")}")
+
       IO.puts("missing: #{inspect(Enum.sort(MapSet.to_list(required) -- Map.keys(rendered)))}")
     end
 
@@ -93,23 +96,19 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
             do: unit
 
       assert stale == [], "Exclusions that are now reachable or no longer exist"
-
-      for {unit, scenario} <- @prefer,
-          do:
-            assert(
-              unit in rendered_units(scenario, facts, prefixes),
-              "#{inspect(unit)} does not render in #{scenario}"
-            )
     end
 
-    # A unit with a preferred scenario is pressed only there.
-    plan =
-      if focus,
-        do: Map.drop(rendered, Map.keys(@prefer)),
-        else: Map.merge(rendered, @prefer)
+    # Each unit is pressed in every scenario that renders it, since state decides success.
+    pairs =
+      for {unit, scenarios} <- Enum.sort(rendered), scenario <- scenarios, do: {unit, scenario}
+
+    unless focus do
+      stale = Map.keys(@expected) -- pairs
+      assert stale == [], "Expected rejections for pairs that no longer render: #{inspect(stale)}"
+    end
 
     failures =
-      for {unit, scenario} <- Enum.sort(plan), reduce: [] do
+      for {unit, scenario} <- pairs, reduce: [] do
         acc ->
           case submit(unit, scenario, facts, prefixes) do
             :ok -> acc
@@ -201,7 +200,14 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
       game = :sys.get_state(c.server).game
       stop(ctx)
 
+      expected = @expected[{unit, scenario}]
+
       cond do
+        expected ->
+          if outcomes == [{:error, elem(expected, 0)}],
+            do: :ok,
+            else: {:expected, expected, outcomes}
+
         outcomes != [{:ok, nil}] ->
           {:outcomes, outcomes}
 
@@ -238,14 +244,13 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
   # What a player must type before submitting, beyond required fields and placeholders.
   defp inputs({:form, "trade-", "buy", nil}, _ctx), do: %{"quantity" => "1"}
 
-  defp inputs({:form, "auction-consign-form-", "auction_consign", nil}, ctx),
-    do: %{"warehouse" => ctx.award, "good" => "whisky", "quantity" => "1"}
-
   defp inputs(_key, _ctx), do: %{}
 
-  # A select left on an empty placeholder takes its first real option, as a player must.
+  # A required select left on an empty placeholder takes its first real option, as a
+  # player must. Optional selects keep their empty choice, which means "none".
   defp placeholder_choices(html, id) do
-    for select <- html |> LazyHTML.from_fragment() |> LazyHTML.query("form[id='#{id}'] select"),
+    for select <-
+          html |> LazyHTML.from_fragment() |> LazyHTML.query("form[id='#{id}'] select[required]"),
         [name] = LazyHTML.attribute(select, "name"),
         options = for(o <- LazyHTML.query(select, "option"), do: o),
         selected = Enum.filter(options, &(LazyHTML.attribute(&1, "selected") != [])),

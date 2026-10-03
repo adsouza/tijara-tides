@@ -64,6 +64,21 @@ defmodule TijaraTides.UseCases.ShipPlanningQueries do
     %{
       route: route,
       stops: stops,
+      # The add-stop command accepts exactly these ports, and refuses any stop while
+      # next-port instructions exist and no route does.
+      stop_ports:
+        TijaraTides.Domain.ShipWorld.route_stop_ports(
+          catalogue,
+          Enum.map(stops, & &1["port"]),
+          route && route["status"]
+        ),
+      instructions_block:
+        is_nil(route) and
+          TijaraTides.Domain.ShipWorld.instructions_block_route?(
+            Map.values(private["visit_plans"] || %{}),
+            Map.values(private["ship_instructions"] || %{}),
+            ship["id"]
+          ),
       rules: rules,
       goods: goods,
       stop_goods: stop_goods,
