@@ -370,5 +370,96 @@
     "sql": false,
     "area": "market-offers",
     "witness": "Assertion|assert|match"
+  },
+  {
+    "name": "purchase-voyage-offer",
+    "patch": "purchase-voyage-offer.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/instruction_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "suggested-outcomes",
+    "witness": "Assertion|assert|match|Expected"
+  },
+  {
+    "name": "purchase-hold-offer",
+    "patch": "purchase-hold-offer.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/instruction_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "suggested-outcomes",
+    "witness": "Assertion|assert|match|Expected"
+  },
+  {
+    "name": "purchase-freshness-offer",
+    "patch": "purchase-freshness-offer.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/instruction_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "suggested-outcomes",
+    "witness": "Assertion|assert|match|Expected"
+  },
+  {
+    "name": "instruction-sale-funding",
+    "patch": "instruction-sale-funding.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/instruction_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "suggested-outcomes",
+    "witness": "Assertion|assert|match|Expected"
+  },
+  {
+    "name": "instruction-source-offer",
+    "patch": "instruction-source-offer.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/instruction_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "suggested-outcomes",
+    "witness": "Assertion|assert|match|Expected"
+  },
+  {
+    "name": "instruction-inbound-funding",
+    "patch": "instruction-inbound-funding.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/instruction_offers_test.exs",
+      "test/tijara_tides/infrastructure/instruction_offer_journey_test.exs"
+    ],
+    "sql": true,
+    "area": "suggested-outcomes",
+    "witness": "Assertion|assert|match|Expected"
+  },
+  {
+    "name": "instruction-warehouse-claims",
+    "patch": "instruction-warehouse-claims.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/instruction_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "suggested-outcomes",
+    "witness": "Assertion|assert|match|Expected"
+  },
+  {
+    "name": "instruction-sale-expiry",
+    "patch": "instruction-sale-expiry.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/instruction_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "suggested-outcomes",
+    "witness": "Assertion|assert|match|Expected"
+  },
+  {
+    "name": "instruction-blank-freshness",
+    "patch": "instruction-blank-freshness.patch",
+    "tests": [
+      "test/tijara_tides/use_cases/instruction_offers_test.exs"
+    ],
+    "sql": false,
+    "area": "suggested-outcomes",
+    "witness": "Assertion|assert|match|Expected"
   }
 ]

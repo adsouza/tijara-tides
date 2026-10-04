@@ -667,7 +667,8 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                   Map.get(@instruction_drafts, @ship["id"], %{}),
                   @view.markets,
                   visit_port,
-                  @view.private["company"]
+                  @view.private["company"],
+                  @view
                 ) %>
               <% duplicate_sell =
                 instruction.side == "sell" &&

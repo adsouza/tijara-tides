@@ -1,0 +1,11 @@
+--- lib/tijara_tides/use_cases/ship_planning_queries.ex
++++ lib/tijara_tides/use_cases/ship_planning_queries.ex
+@@ -392,7 +392,7 @@
+   end
+ 
+   defp integer(nil), do: 0
+-  defp integer(""), do: 0
++  defp integer(""), do: -1
+ 
+   defp integer(value) when is_integer(value), do: value
+ 

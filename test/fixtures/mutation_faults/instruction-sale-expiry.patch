@@ -1,0 +1,11 @@
+--- lib/tijara_tides/use_cases/ship_planning_queries.ex
++++ lib/tijara_tides/use_cases/ship_planning_queries.ex
+@@ -151,7 +151,7 @@
+ 
+     projected =
+       Map.update!(projected, "cargo", fn cargo ->
+-        Enum.filter(cargo, &(is_nil(&1["expires_ms"]) or &1["expires_ms"] > clock))
++        Enum.filter(cargo, fn _batch -> true end)
+       end)
+ 
+     warehouses =

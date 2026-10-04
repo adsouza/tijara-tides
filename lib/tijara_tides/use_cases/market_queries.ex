@@ -240,24 +240,8 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
   def trade_limits(view, ship, destination, catalogue) do
     if ship && ship["status"] in ["docked", "loading", "unloading"] && view.private do
-      private = view.private
-
-      # The purchase command's own funding terms, including this visit's budget.
-      terms =
-        Trading.purchasing_terms(
-          private["company"],
-          Trading.current_budget(
-            Map.values(private["visit_budgets"] || %{}),
-            private["ship_routes"] || %{},
-            private["route_stops"] || %{},
-            ship,
-            ship["port"]
-          ),
-          ship
-        )
-
       Map.new(
-        for {good, item} <- catalogue["goods"], side <- ["buy", "sell"] do
+        for {good, _item} <- catalogue["goods"], side <- ["buy", "sell"] do
           q = view.markets[ship["port"] <> "|" <> good]
 
           limit =
@@ -273,34 +257,8 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
                 Enum.min([CargoRules.max_lots(), aboard, Trading.sale_capacity(q)])
 
-              terms.blocked || !CargoRules.compatible_cargo?(ship, item) ->
-                0
-
               true ->
-                capacity =
-                  Trading.purchase_limits(q, ship, item, view.public["clock_ms"], 0, catalogue)
-                  |> Map.values()
-                  |> Enum.min()
-
-                largest_trade(0, capacity, fn quantity ->
-                  voyage =
-                    purchase_voyage(
-                      ship,
-                      item,
-                      quantity,
-                      destination,
-                      view.private["ships"],
-                      view.public["clock_ms"],
-                      catalogue
-                    )
-
-                  voyage &&
-                    Trading.purchase_shortfall(
-                      terms,
-                      Trading.purchase_total(q, ship, item, quantity),
-                      voyage["required"]
-                    ) == nil
-                end)
+                purchase_offer(view, ship, destination, good, catalogue)
             end
 
           {{side, good}, max(0, limit)}
@@ -308,6 +266,52 @@ defmodule TijaraTides.UseCases.MarketQueries do
       )
     else
       %{}
+    end
+  end
+
+  @doc "A purchase executable under the command's hold, freshness and funding rules."
+  def purchase_offer(view, ship, destination, good, catalogue, options \\ %{}) do
+    private = view.private
+    q = view.markets[ship["port"] <> "|" <> good]
+    item = catalogue["goods"][good]
+    clock = view.public["clock_ms"]
+    minimum = Map.get(options, :minimum, 0)
+    cap = Map.get(options, :cap)
+    limit = Map.get(options, :limit, q && q["ask"])
+
+    terms =
+      Trading.purchasing_terms(
+        private["company"],
+        Trading.current_budget(
+          Map.values(private["visit_budgets"] || %{}),
+          private["ship_routes"] || %{},
+          private["route_stops"] || %{},
+          ship,
+          ship["port"]
+        ),
+        ship
+      )
+
+    if q && q["manual"] && item && CargoRules.compatible_cargo?(ship, item) &&
+         Trading.trade_admission(ship, "buy") == :ok && not terms.blocked &&
+         is_nil(private["company"]["bankruptcy_ms"]) &&
+         CargoRules.valid_remaining?(minimum) && is_integer(limit) && limit >= q["ask"] do
+      capacity =
+        Trading.purchase_limits(q, ship, item, clock, minimum, catalogue)
+        |> Map.values()
+        |> Enum.min()
+
+      largest_trade(0, capacity, fn quantity ->
+        voyage =
+          purchase_voyage(ship, item, quantity, destination, private["ships"], clock, catalogue)
+
+        total = Trading.purchase_total(q, ship, item, quantity)
+
+        voyage && (is_nil(cap) || total <= cap) &&
+          Trading.purchase_shortfall(terms, total, voyage["required"]) == nil
+      end)
+    else
+      0
     end
   end
 

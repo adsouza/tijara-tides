@@ -1,0 +1,11 @@
+--- lib/tijara_tides/use_cases/ship_planning_queries.ex
++++ lib/tijara_tides/use_cases/ship_planning_queries.ex
+@@ -205,7 +205,7 @@
+           Enum.min([
+             CargoRules.max_lots(),
+             cargo_aboard(projected, good),
+-            if(quote, do: Trading.sale_capacity(quote), else: CargoRules.max_lots())
++            if(quote, do: quote["demand"], else: CargoRules.max_lots())
+           ])
+ 
+         company && item && view ->

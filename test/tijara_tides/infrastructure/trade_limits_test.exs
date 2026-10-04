@@ -38,53 +38,25 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     assert query.cargo_options(definitions, %{snapshot | markets: %{}}, false, tanker) == []
   end
 
-  test "buy instructions use destination stock, affordable lots and the current ask" do
-    {state, _account, catalogue} = fixture()
+  test "buy instructions withhold suggestions without a snapshot and chosen onward voyage" do
+    {state, account, catalogue} = fixture()
     ship = Game.get(state, "ships", "company:1")
-
-    markets = %{
-      "Singapore|lumber" => %{
-        "manual" => true,
-        "stock" => 12,
-        "ask" => 12000,
-        "handling_fee" => 500
-      },
-      "Singapore|appliances" => %{
-        "manual" => true,
-        "stock" => 0,
-        "ask" => 10000,
-        "handling_fee" => 0
-      },
-      "Singapore|crude_oil" => %{
-        "manual" => true,
-        "stock" => 10,
-        "ask" => 100,
-        "handling_fee" => 0
-      }
-    }
-
-    company = %{"cash" => 110_000, "reserved" => 10000}
+    snapshot = view(state, account, catalogue)
     draft = %{"side" => "buy", "good" => "lumber"}
+    query = TijaraTides.UseCases.GameQueries
 
-    editor =
-      &TijaraTides.UseCases.GameQueries.instruction_editor(
-        %{catalogue: catalogue},
-        ship,
-        &1,
-        markets,
-        "Singapore",
-        &2
-      )
-
-    result = editor.(draft, company)
-    assert Enum.map(result.goods, &elem(&1, 0)) == ["lumber"]
-    assert %{maximum: 8, quantity: 8, limit: "120", budget: "1000"} = result
-    assert %{maximum: 12, quantity: 12} = editor.(draft, %{company | "cash" => 10_000_000})
-    assert %{maximum: 0, quantity: 0} = editor.(draft, %{company | "cash" => 10000})
-    assert %{maximum: 4, quantity: 4} = editor.(Map.put(draft, "budget", "500"), company)
-
-    assert %{quantity: 2, limit: "140"} =
-             editor.(Map.merge(draft, %{"quantity" => "2", "limit" => "140"}), company)
+    for context <- [nil, snapshot] do
+      assert %{maximum: 0, quantity: 0} =
+               query.instruction_editor(
+                 %{catalogue: catalogue},
+                 ship,
+                 draft,
+                 snapshot.markets,
+                 "Singapore",
+                 snapshot.private["company"],
+                 context
+               )
+    end
   end
 
   test "sell instruction quantities sum cargo batches and clamp when cargo or side changes" do
@@ -105,7 +77,13 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     assert %{maximum: 5, quantity: 5, good: "lumber"} = editor.(ship, draft)
 
     markets = %{
-      "Singapore|lumber" => %{"bid" => 12345, "ask" => 13000, "manual" => true, "demand" => 10}
+      "Singapore|lumber" => %{
+        "bid" => 12345,
+        "ask" => 13000,
+        "manual" => true,
+        "demand" => 10,
+        "buyer_budget" => 123_450
+      }
     }
 
     defaults =

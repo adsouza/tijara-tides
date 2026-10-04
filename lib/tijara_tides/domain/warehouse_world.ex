@@ -674,47 +674,11 @@ defmodule TijaraTides.Domain.WarehouseWorld do
 
   @doc "Choose this ship's earmarked stock first, then other available owned stock."
   def collection_source(state, ship, good, minimum \\ 0, catalogue \\ %{}) do
-    owned(state, "warehouses", "company_id", ship["company_id"])
+    state
+    |> owned("warehouses", "company_id", ship["company_id"])
     |> Enum.filter(&(&1["port"] == ship["port"]))
     |> Enum.map(&load(state, &1))
-    |> Enum.filter(fn w ->
-      state.clock_ms < w.expires_ms + w.grace_ms and
-        Enum.sum(
-          for b <- w.cargo,
-              b.good == good and
-                CargoRules.qualifies_batch?(
-                  b,
-                  state.clock_ms,
-                  minimum,
-                  CargoRules.hold_rate(ship, catalogue)
-                ),
-              do: b.quantity
-        ) > reserved_quantity(state, w, "stock", good, ship["id"])
-    end)
-    |> Enum.sort_by(fn w ->
-      own =
-        Enum.any?(
-          reservations(state, w),
-          &(&1.kind == "stock" and &1.good == good and &1.ship_id == ship["id"])
-        )
-
-      expiry =
-        w.cargo
-        |> Enum.filter(
-          &(&1.good == good and
-              CargoRules.qualifies_batch?(
-                &1,
-                state.clock_ms,
-                minimum,
-                CargoRules.hold_rate(ship, catalogue)
-              ))
-        )
-        |> Enum.map(&(&1.expires_ms || 9_223_372_036_854_775_807))
-        |> Enum.min()
-
-      {if(own, do: 0, else: 1), expiry, w.id}
-    end)
-    |> List.first()
+    |> Warehouse.collection_source(ship, good, state.clock_ms, minimum, catalogue)
   end
 
   @doc "Earmark a committed remote fill; its incoming capacity has already been consumed."

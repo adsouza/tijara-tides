@@ -1,0 +1,150 @@
+{
+  "date": "2026-10-04",
+  "source_revision": "b828b6ba3f392e43eac398c620490b422b5dc092",
+  "runtime": "Erlang/OTP 29 [erts-17.1] [source] [64-bit] [smp:10:10] [ds:10:10:10] [async-threads:1] [jit] [dtrace]\n\nElixir 1.20.4 (compiled with Erlang/OTP 29)\n",
+  "seed": 12345,
+  "test_source_sha256": {
+    "test/tijara_tides/infrastructure/instruction_offer_journey_test.exs": "da3147495a29758f04390e97232753155e96b26fdef7f1eedcd6634c1e463ff8",
+    "test/tijara_tides/use_cases/instruction_offers_test.exs": "4ba88548d9b440602d4feaf138eb70dee5e2520aeeabef6c4044e58dd68058f0"
+  },
+  "results": [
+    {
+      "name": "purchase-voyage-offer",
+      "classification": "detected",
+      "source_sha256": "41b27f746ec6bc48f82d567d296aac1342bfb0752ee8f3a0c0a6777c27a87f8d",
+      "patch_sha256": "7548dd8aa11469dbb41b572c51bf08bccab5fb39e38a127f9aadd1731eea049b",
+      "tests": [
+        "test/tijara_tides/use_cases/instruction_offers_test.exs"
+      ],
+      "baseline_passed": true,
+      "restored_passed": true,
+      "detecting_tests": [
+        "test the suggestion reserves known inbound costs and agrees while already sailing (TijaraTides.UseCases.InstructionOffersTest)",
+        "property suggested purchases execute across cash, stock, occupied hold and purchase caps (TijaraTides.UseCases.InstructionOffersTest)",
+        "test the cash-bound default fills completely and sails after loading (TijaraTides.UseCases.InstructionOffersTest)",
+        "property unchanged suggested instructions progress through real travel and automatic departure (TijaraTides.UseCases.InstructionOffersTest)",
+        "property current-port buy defaults also settle across cargo types and resource boundaries (TijaraTides.UseCases.InstructionOffersTest)"
+      ]
+    },
+    {
+      "name": "purchase-hold-offer",
+      "classification": "detected",
+      "source_sha256": "41b27f746ec6bc48f82d567d296aac1342bfb0752ee8f3a0c0a6777c27a87f8d",
+      "patch_sha256": "e4c82a7726094d3226e551e356cecf2ad0acaf981b8414feb85a82fc6577b062",
+      "tests": [
+        "test/tijara_tides/use_cases/instruction_offers_test.exs"
+      ],
+      "baseline_passed": true,
+      "restored_passed": true,
+      "detecting_tests": [
+        "property suggested purchases execute across cash, stock, occupied hold and purchase caps (TijaraTides.UseCases.InstructionOffersTest)",
+        "test retained cargo uses remaining hold space, not the empty hull's capacity (TijaraTides.UseCases.InstructionOffersTest)",
+        "property current-port buy defaults also settle across cargo types and resource boundaries (TijaraTides.UseCases.InstructionOffersTest)"
+      ]
+    },
+    {
+      "name": "purchase-freshness-offer",
+      "classification": "detected",
+      "source_sha256": "41b27f746ec6bc48f82d567d296aac1342bfb0752ee8f3a0c0a6777c27a87f8d",
+      "patch_sha256": "6b4644e391edd1e110d84eb11426fe06d0ae32329577d86b059119c18403091a",
+      "tests": [
+        "test/tijara_tides/use_cases/instruction_offers_test.exs"
+      ],
+      "baseline_passed": true,
+      "restored_passed": true,
+      "detecting_tests": [
+        "test only stock meeting the receiving hold's shelf-life requirement is suggested (TijaraTides.UseCases.InstructionOffersTest)"
+      ]
+    },
+    {
+      "name": "instruction-sale-funding",
+      "classification": "detected",
+      "source_sha256": "1e77f0a66b1ca1963c983366654fe572c5db106ccf6c4565b7728c849098b8ef",
+      "patch_sha256": "f95c3faec0a68886032c5fdb8cb193884fbf8f7ab3b13ccbd3116559f79375c3",
+      "tests": [
+        "test/tijara_tides/use_cases/instruction_offers_test.exs"
+      ],
+      "baseline_passed": true,
+      "restored_passed": true,
+      "detecting_tests": [
+        "test a sale default is capped by funded demand and unloads completely (TijaraTides.UseCases.InstructionOffersTest)",
+        "property suggested sales settle across cargo, demand and buyer funding (TijaraTides.UseCases.InstructionOffersTest)"
+      ]
+    },
+    {
+      "name": "instruction-source-offer",
+      "classification": "detected",
+      "source_sha256": "1e77f0a66b1ca1963c983366654fe572c5db106ccf6c4565b7728c849098b8ef",
+      "patch_sha256": "6c773506ea2aa4bc0db193551a87ce984bcb1aea9f3d88d17169b8e41a1ad5d9",
+      "tests": [
+        "test/tijara_tides/use_cases/instruction_offers_test.exs"
+      ],
+      "baseline_passed": true,
+      "restored_passed": true,
+      "detecting_tests": [
+        "test owned-stock suggestions obey handling, cash, capacity, caps and onward funding (TijaraTides.UseCases.InstructionOffersTest)",
+        "test owned stock is suggested instead of a larger market purchase and preserves other ships' claims (TijaraTides.UseCases.InstructionOffersTest)",
+        "test earmarked owned stock remains collectable with no market stock and purchases skipped (TijaraTides.UseCases.InstructionOffersTest)"
+      ]
+    },
+    {
+      "name": "instruction-inbound-funding",
+      "classification": "detected",
+      "source_sha256": "1e77f0a66b1ca1963c983366654fe572c5db106ccf6c4565b7728c849098b8ef",
+      "patch_sha256": "5b3df246dffc764787731a1d493a5efd77732358f42e215d5aaa7d0a11901055",
+      "tests": [
+        "test/tijara_tides/use_cases/instruction_offers_test.exs",
+        "test/tijara_tides/infrastructure/instruction_offer_journey_test.exs"
+      ],
+      "baseline_passed": true,
+      "restored_passed": true,
+      "detecting_tests": [
+        "test the suggestion reserves known inbound costs and agrees while already sailing (TijaraTides.UseCases.InstructionOffersTest)",
+        "property unchanged suggested instructions progress through real travel and automatic departure (TijaraTides.UseCases.InstructionOffersTest)",
+        "test the unchanged rendered buy default completes both voyages and handling with tight cash (TijaraTides.Infrastructure.InstructionOfferJourneyTest)"
+      ]
+    },
+    {
+      "name": "instruction-warehouse-claims",
+      "classification": "detected",
+      "source_sha256": "1e77f0a66b1ca1963c983366654fe572c5db106ccf6c4565b7728c849098b8ef",
+      "patch_sha256": "efae56db8de763f6a333d4d8cfe2ec87139273223762e08595068aa34ff1e7c4",
+      "tests": [
+        "test/tijara_tides/use_cases/instruction_offers_test.exs"
+      ],
+      "baseline_passed": true,
+      "restored_passed": true,
+      "detecting_tests": [
+        "test owned stock is suggested instead of a larger market purchase and preserves other ships' claims (TijaraTides.UseCases.InstructionOffersTest)"
+      ]
+    },
+    {
+      "name": "instruction-sale-expiry",
+      "classification": "detected",
+      "source_sha256": "1e77f0a66b1ca1963c983366654fe572c5db106ccf6c4565b7728c849098b8ef",
+      "patch_sha256": "f77bbc304e5996373b390e3f987ccc849b0802363652844d963768931a27da47",
+      "tests": [
+        "test/tijara_tides/use_cases/instruction_offers_test.exs"
+      ],
+      "baseline_passed": true,
+      "restored_passed": true,
+      "detecting_tests": [
+        "test a next-port sale does not suggest cargo that expires during the known inbound journey (TijaraTides.UseCases.InstructionOffersTest)"
+      ]
+    },
+    {
+      "name": "instruction-blank-freshness",
+      "classification": "detected",
+      "source_sha256": "1e77f0a66b1ca1963c983366654fe572c5db106ccf6c4565b7728c849098b8ef",
+      "patch_sha256": "7c2300cf44ac7853acd3a9d90acdeb943b1bbe2b6a591033d481f7916a05d330",
+      "tests": [
+        "test/tijara_tides/use_cases/instruction_offers_test.exs"
+      ],
+      "baseline_passed": true,
+      "restored_passed": true,
+      "detecting_tests": [
+        "test the cash-bound default fills completely and sails after loading (TijaraTides.UseCases.InstructionOffersTest)"
+      ]
+    }
+  ]
+}

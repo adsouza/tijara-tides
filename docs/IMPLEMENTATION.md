@@ -803,6 +803,22 @@ deleting their records. Active instructions remain visible. Legacy records lack
 journey identity; migration retains their newest contiguous destination group
 and active orders. Subsequent departures distinguish repeated visits exactly.
 
+Next-port purchase suggestions use the manual purchase command's remaining hold,
+fresh-stock and funding checks, including the selected onward voyage and the
+visit's budget or skip decision. Before arrival they deduct the known inbound
+fuel, canal fees and estimated fleet upkeep; already reserved voyage fuel is
+counted once. The snapshot projects arrival time without assuming replenishment,
+sales proceeds or future income. Choose and save an onward destination before a
+purchase quantity is suggested.
+
+Owned warehouse stock takes priority over market purchases through the same
+source-selection rule as execution. Its suggested quantity and purchase cap use
+collection fees, unclaimed qualifying stock and onward funding. Sale suggestions
+use the smaller of cargo aboard and current cash-backed demand. Explicit price
+limits remain editable and may intentionally wait for a price change. Suggested
+quantities and spending caps reserve no resources; later trades, delays and
+changing quotes can still prevent complete filling or departure.
+
 ### Participation-scaled economic depth
 
 Each live company has one economic weight, capped at 1, decaying exponentially

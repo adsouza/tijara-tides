@@ -53,7 +53,8 @@ defmodule TijaraTides.UseCases.GameQueries do
                 draft,
                 markets \\ %{},
                 port \\ nil,
-                company \\ nil
+                company \\ nil,
+                view \\ nil
               ),
               to: TijaraTides.UseCases.ShipPlanningQueries
 
@@ -79,6 +80,9 @@ defmodule TijaraTides.UseCases.GameQueries do
   defdelegate trade_admission(ship, side), to: TijaraTides.Domain.Trading
 
   defdelegate trade_limits(view, ship, destination, catalogue),
+    to: TijaraTides.UseCases.MarketQueries
+
+  defdelegate purchase_offer(view, ship, destination, good, catalogue, options \\ %{}),
     to: TijaraTides.UseCases.MarketQueries
 
   defdelegate purchase_voyage(ship, item, quantity, destination, fleet, clock, catalogue),

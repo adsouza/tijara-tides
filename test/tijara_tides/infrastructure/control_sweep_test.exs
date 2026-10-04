@@ -30,7 +30,7 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
   # reachable once probed, and one hid a duplicate DOM id.
   @excluded %{}
 
-  @scenarios ~w(base destination port_destination preview instruction queued sailing loading arrived exchange loan insolvent
+  @scenarios ~w(base destination port_destination preview instruction instruction_buy queued sailing loading arrived exchange loan insolvent
                 route route_edit route_running route_waiting route_paused reservation renewal
                 luxury_open luxury_bid luxury_won luxury_award luxury_consigned no_company email
                 queued_trade guarantee_candidate)a
@@ -262,9 +262,7 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
     ctx.view |> form(selector, data) |> render_submit(submitter)
   end
 
-  # What a player must type before submitting, beyond required fields and placeholders.
-  defp inputs({:form, "trade-", "buy", nil}, _ctx), do: %{"quantity" => "1"}
-
+  # Keep suggested quantities intact; a one-lot override masks faulty defaults.
   defp inputs(_key, _ctx), do: %{}
 
   # A required select left on an empty placeholder takes its first real option, as a
@@ -345,6 +343,23 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
     ctx = base(c)
     command(ctx, "instruction", instruction(ctx))
     Map.put(ctx, :clicks, [preview("Singapore")])
+  end
+
+  defp scenario(:instruction_buy, c) do
+    ctx = base(c)
+
+    command(ctx, "buy-onward", %{
+      "action" => "instruction_onward",
+      "ship" => ctx.ship,
+      "port" => "Singapore",
+      "onward" => "Jakarta",
+      "auto_depart" => true
+    })
+
+    Map.put(ctx, :clicks, [
+      preview("Singapore"),
+      {"edit-instruction", %{"side" => "buy", "_target" => ["side"]}}
+    ])
   end
 
   # Queues an automatic departure from the current port toward the planned destination.

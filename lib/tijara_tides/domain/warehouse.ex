@@ -64,6 +64,42 @@ defmodule TijaraTides.Domain.Warehouse do
          (w.storage in ["dry", "reefer"] and item["hold"] in ["dry", "reefer"])) and
         (w.storage != "liquid" or item["id"] == w.good)
 
+  @doc "Choose qualifying earmarked stock first, then other available owned stock."
+  def collection_source(warehouses, ship, good, clock, minimum, catalogue) do
+    qualifying = fn w ->
+      Enum.filter(w.cargo, fn b ->
+        b.good == good and
+          TijaraTides.Domain.CargoRules.qualifies_batch?(
+            b,
+            clock,
+            minimum,
+            TijaraTides.Domain.CargoRules.hold_rate(ship, catalogue)
+          )
+      end)
+    end
+
+    warehouses
+    |> Enum.filter(fn w ->
+      w.company_id == ship["company_id"] and w.port == ship["port"] and
+        clock < w.expires_ms + w.grace_ms and
+        Enum.sum(for b <- qualifying.(w), do: b.quantity) >
+          reserved_quantity(w, "stock", good, ship["id"])
+    end)
+    |> Enum.sort_by(fn w ->
+      own =
+        Enum.any?(
+          w.reservations,
+          &(&1.kind == "stock" and &1.good == good and &1.ship_id == ship["id"])
+        )
+
+      expiry =
+        qualifying.(w) |> Enum.map(&(&1.expires_ms || 9_223_372_036_854_775_807)) |> Enum.min()
+
+      {if(own, do: 0, else: 1), expiry, w.id}
+    end)
+    |> List.first()
+  end
+
   def receiving_open?(%__MODULE__{} = w, now), do: not w.award_grace and now < w.expires_ms
 
   def receiving_allowed?(%__MODULE__{} = w, company, port, item, now) when is_map(item),

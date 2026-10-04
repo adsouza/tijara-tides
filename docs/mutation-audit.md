@@ -151,6 +151,41 @@ counterexample replays are additional work. This explains why the audit remains
 opt-in while the new contracts enter the ordinary suite. Mandatory fuzzer
 cohorts and the line-coverage threshold were not increased.
 
+## Suggested-order outcome audit, 2026-10-04
+
+The next-port purchase default could exceed the quantity executable while
+preserving onward funds. Submission, partial-fill and departure guards all
+passed independently because no contract connected that default to completion.
+The fix shares manual purchase limits with next-port suggestions and projects
+known inbound costs. Additional contracts cover funded sale demand, expired
+cargo, visit funding, freshness and the owned-stock source chosen by execution.
+
+`instruction_offers_test.exs` contains eleven named witnesses and four shrinking
+properties. Three properties run fifty cases each; the full travel property
+runs thirty. The SQL journey submits rendered defaults unchanged, fills the
+entire target and sails after handling, then verifies reload and restart. The
+control sweep also retains rendered purchase quantities and adds a buy-visit
+scenario. These tests run through real commands and transitions; an accepted
+instruction alone is not their outcome oracle.
+
+Nine curated faults at catalogue indices 36 through 44 cover voyage funding,
+occupied hold space, qualifying freshness, funded sale demand, owned-source
+selection, inbound costs, warehouse stock claims, sale expiry filtering and blank
+shelf-life form fields. All nine fail the new assertions, with passing unmutated
+and restored baselines. The inbound-cost fault also fails the SQL rendered-default
+journey. Compact source/patch hashes, test hashes and detecting test names are
+recorded in `test/fixtures/mutation_faults/suggested-outcomes-results.json`.
+Detailed receipts remain in `cover/mutation-audit/suggested-outcomes/`.
+
+```sh
+python3 scripts/mutation-audit.py curated --start 36 --count 9 --out cover/mutation-audit/suggested-outcomes
+```
+
+This cohort establishes sensitivity for those nine faults. It does not extend
+the shared command fuzzer's inventory to single-visit instruction sequences or
+turn a future quote into a resource reservation. Explicit price overrides and
+subsequent market changes can still require waiting.
+
 ## Remaining discovery work
 
 The audit is deliberately bounded. Existing tests cover manufacturing recipes,

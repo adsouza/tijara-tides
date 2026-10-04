@@ -110,6 +110,24 @@ before evaluating any receiving warehouse, including shared allocations.
 `route_offers_test.exs` and `market_offers_test.exs` show each offered value is
 accepted and one more, or any value withheld, is refused.
 
+Submission success alone does not establish the outcome of a deferred command.
+`instruction_offers_test.exs` takes the actual next-port defaults through fills
+and handling, with fixed boundary witnesses and shrinking properties for cash,
+stock, retained cargo, spending caps, buyer funding and whole visit journeys.
+It also checks freshness, visit budgets, skipped purchases and owned-stock
+selection. A separate property checks current-port Buy defaults across cargo
+types. Assertions observe execution quantities and progress, rather than only
+comparing query helpers. Deliberate price overrides retain their waiting
+semantics.
+
+`instruction_offer_journey_test.exs` submits the rendered quantity, limit price
+and spending cap unchanged with tight cash, sails to the purchase port, requires
+the entire target to fill, then requires automatic departure after loading. SQL
+reload and restart preserve that result. The UI control sweep retains its
+submission boundary; this journey adds the deferred outcome boundary.
+The sweep also renders a buy-instruction scenario and submits current-port Buy
+quantities unchanged, removing its former one-lot override.
+
 CI runs the sweep; local checks do not. `TIJARA_CONTROL_SWEEP_FOCUS` set to
 `scenario:id-prefix` renders one scenario and presses only matching units,
 without the coverage assertions. The curated `stale-route-cancellation` fault

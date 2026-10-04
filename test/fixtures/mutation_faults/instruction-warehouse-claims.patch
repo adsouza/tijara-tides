@@ -1,0 +1,11 @@
+--- lib/tijara_tides/use_cases/ship_planning_queries.ex
++++ lib/tijara_tides/use_cases/ship_planning_queries.ex
+@@ -357,7 +357,7 @@
+          clock >= source.protected_ms && Warehouse.compatible?(source, item) &&
+          CargoRules.valid_remaining?(options.minimum) do
+       capacity =
+-        Warehouse.transfer_limits(source, "collect", item, %{
++        Warehouse.transfer_limits(%{source | reservations: []}, "collect", item, %{
+           now: clock,
+           ship_id: ship["id"],
+           minimum: options.minimum,

@@ -1,0 +1,11 @@
+--- lib/tijara_tides/use_cases/market_queries.ex
++++ lib/tijara_tides/use_cases/market_queries.ex
+@@ -297,7 +297,7 @@
+          is_nil(private["company"]["bankruptcy_ms"]) &&
+          CargoRules.valid_remaining?(minimum) && is_integer(limit) && limit >= q["ask"] do
+       capacity =
+-        Trading.purchase_limits(q, ship, item, clock, minimum, catalogue)
++        Trading.purchase_limits(q, %{ship | "cargo" => []}, item, clock, minimum, catalogue)
+         |> Map.values()
+         |> Enum.min()
+ 

@@ -422,6 +422,11 @@ this section and the guard in the same commit, with the reason.
   command enforces, called from both sides. Add a contract test showing the
   offered value is accepted and one more is refused, as
   `test/tijara_tides/use_cases/warehouse_offers_test.exs` does.
+- For deferred commands, accepting an instruction is only the first boundary.
+  Test the unedited suggestion through its resulting fills, handling and
+  departure under controlled conditions. Vary cash, retained cargo, freshness,
+  funding commitments and source selection. Explicit player choices that wait
+  remain separate from defaults intended to complete with the quoted resources.
 
 ### Cross-cutting concerns
 
