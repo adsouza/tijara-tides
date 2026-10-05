@@ -51,6 +51,10 @@ defmodule TijaraTides.Infrastructure.ShipHandlingMetadataTest do
       warehouse =
         GameServer.snapshot(c.token, c.server).private["warehouses"] |> Map.keys() |> hd()
 
+      # The tick includes monotonic time spent dispatching it; use its committed
+      # clock rather than assuming the helper advanced exactly 60,000 ms.
+      unloading_start = :sys.get_state(c.server).game.clock_ms
+
       Sql.command(c, c.token, "unload", %{
         "action" => "warehouse_transfer",
         "ship" => ship,
@@ -61,10 +65,10 @@ defmodule TijaraTides.Infrastructure.ShipHandlingMetadataTest do
       })
 
       unloading = GameServer.snapshot(c.token, c.server).private["ships"][ship]
-      assert unloading["handling_started_ms"] == 60_000
+      assert unloading["handling_started_ms"] == unloading_start
       assert unloading["handling_volume_l"] == 5 * volume
       assert Enum.sum(Enum.map(unloading["cargo"], & &1["quantity"])) == 15
-      assert [[60_000, 5 * volume]] == metadata(c, ship)
+      assert [[unloading_start, 5 * volume]] == metadata(c, ship)
       assert Sql.reload(c).entities["ships"][ship] == unloading
       Sql.advance(c.server, 60_000)
       assert [[nil, nil]] == metadata(c, ship)
