@@ -2,8 +2,26 @@ const clamp = n => Math.max(0, Math.min(1, n))
 const ease = n => { const t = clamp(n); return t * t * (3 - 2 * t) }
 export const cargoSlots = [-1.6, -0.48, 0.64, 1.76]
 export const cargoLayerHeight = 0.5
+export const dockCargoZ = -4.3
 export const waterlineY = -0.225
 export const plimsollY = 0.15
+export const tankerManifold = [0.3, 1.75, -1]
+export const loadingArmBase = [0.3, 2.1, -2.7]
+
+// Two fixed-length pipes swivel to meet the moving manifold. After disconnecting,
+// lift the tip clear of the ship and fold it back over the jetty.
+export function loadingArmPose(manifold, retraction) {
+  const t = ease(retraction)
+  const tip = [0.3, manifold[1] * (1 - t) + 3.4 * t + Math.sin(t * Math.PI) * 0.5,
+    manifold[2] * (1 - t) - 3 * t]
+  const dy = tip[1] - loadingArmBase[1], dz = tip[2] - loadingArmBase[2]
+  const distance = Math.hypot(dy, dz)
+  const height = Math.sqrt(Math.max(0, 1.7 ** 2 - (distance / 2) ** 2))
+  const elbow = [0.3, loadingArmBase[1] + dy / 2 + dz / distance * height,
+    loadingArmBase[2] + dz / 2 - dy / distance * height]
+  const counterweight = loadingArmBase.map((value, i) => value + (value - elbow[i]) * 0.4)
+  return {base: loadingArmBase, elbow, tip, counterweight}
+}
 
 // A full hold puts the mark at mean water level; an empty hold exposes the red hull.
 export function shipPose(seconds, loadFraction) {
@@ -68,7 +86,7 @@ export function cargoPosition(seconds, unloading, deckLayer = 0, dockLayer = 0) 
   const deckY = 1.3 + deckLayer * cargoLayerHeight
   const dockY = 0.89 + dockLayer * cargoLayerHeight
   const low = dockY + travel * (deckY - dockY)
-  return {z: -3.1 + travel * 3.65, y: low + lift * (4.05 - low), carrying: !returning, travel}
+  return {z: dockCargoZ + travel * (0.55 - dockCargoZ), y: low + lift * (4.05 - low), carrying: !returning, travel}
 }
 
 // The last release, rather than an empty return trip, coincides with progress=1.

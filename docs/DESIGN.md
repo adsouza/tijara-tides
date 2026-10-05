@@ -1940,7 +1940,9 @@ reach additional ships.
 ### Fleet and manifest presentation
 
 Show a small stylized 3D berth scene for the selected owned ship while docked,
-loading or unloading. Dry cargo moves by crane; tankers use a pumping hose.
+loading or unloading. Dry cargo moves by crane; tankers use a marine loading arm
+connected to a deck manifold. The arm follows the ship's movement during pumping
+and folds back onto the jetty when handling finishes.
 The containers approximate cargo volume relative to hold capacity, with up to
 three layers. Existing cargo stays aboard while new cargo is loaded; unloading
 removes the transferred portion from the top. Pace transfers against the

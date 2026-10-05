@@ -77,8 +77,22 @@ or unloading. Up to twelve dry containers occupy four deck slots and three
 layers. Their count approximates transferred volume relative to hold capacity;
 existing cargo stays visible underneath additions or after partial unloading.
 The crane fills stacks from the bottom and removes boxes from the top, keeping
-deposited cargo visible. Tankers show a hose and pumping indicator. These boxes
-illustrate fullness and handling rather than individual manifest lots.
+deposited cargo visible. Dock stacks sit behind a clear gantry rail lane; the
+trolley reaches over them while the legs and wheels travel clear of the cargo.
+These boxes illustrate fullness and handling rather than individual manifest
+lots.
+
+Tankers show a shore storage tank feeding a pump skid, with continuous pipework
+to a counterweighted marine loading arm on a dockside pedestal. The arm connects
+to a visible deck manifold and tank pipework. Its two rigid sections swivel with
+the ship's bobbing, roll and changing draft, keeping the coupling attached while
+cargo moves. Turquoise chevrons move along the outside of the opaque pipes toward
+the ship during loading and toward shore during unloading. Pause and reduced
+motion replace them with stationary directional arrows. The chevrons and the
+shore-side pumping indicator disappear when transfer stops. After handling
+completes, the arm lifts clear and folds back over the jetty; docked and queued
+ships show it parked. Retraction does not extend the authoritative handling
+deadline.
 
 The ship bobs and rolls gently, with draft proportional to occupied hold volume.
 Empty ships expose their red lower hull and Plimsoll mark; at full capacity the

@@ -2,7 +2,8 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 const source = readFileSync(new URL('../../assets/js/berth_motion.js', import.meta.url), 'utf8')
-const {berthSample, cargoPosition, cargoTransfer, cargoCount, shipPose, plimsollY, waterlineY} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
+const {berthSample, cargoPosition, cargoTransfer, cargoCount, shipPose, plimsollY, waterlineY,
+  loadingArmPose, tankerManifold, dockCargoZ} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
 const state = {clock: 120_000, start: 120_000, complete: 125_000, status: 'loading',
   queued: false, liquid: false, capacity: 900_000, volume: 450_000, cargoVolume: 600_000}
 
@@ -105,12 +106,12 @@ test('three-layer transfers retain existing cargo, remain supported, and conserv
 })
 
 test('cargo lifts clear of all layers and releases without changing its landing height', () => {
-  assert.equal(cargoPosition(0, false).z, -3.1)
+  assert.equal(cargoPosition(0, false).z, dockCargoZ)
   assert.equal(cargoPosition(5.2, false, 2, 2).y, 2.3)
   assert.equal(cargoPosition(0, true, 2, 2).y, 2.3)
   assert.ok(Math.abs(cargoPosition(5.2, true, 2, 2).y - 1.89) < 1e-9)
   assert.equal(cargoPosition(1.6, false, 2, 2).y, 4.05)
-  assert.equal(cargoPosition(1.6, false).z, -3.1)
+  assert.equal(cargoPosition(1.6, false).z, dockCargoZ)
   assert.equal(cargoPosition(8, false).carrying, false)
 })
 
@@ -158,4 +159,29 @@ test('empty hull rises above its full-load Plimsoll line with slightly stronger 
   assert.equal(shipPose(0, -1).y, empty.y)
   assert.ok(Math.abs(shipPose(Math.PI / 2 / 1.1, 1).y - full.y - 0.065) < 1e-12)
   assert.ok(Math.abs(shipPose(Math.PI / 2 / 0.8, 1).roll - 0.012) < 1e-12)
+})
+
+test('loading arm keeps rigid pipes and a sealed connection as draft and roll change', () => {
+  const distance = (a, b) => Math.hypot(...a.map((value, i) => value - b[i]))
+  let parked
+  for (const load of [0, 0.25, 0.5, 0.75, 1]) {
+    for (const seconds of [0, 1, 2, 3, 4, 5]) {
+      const ship = shipPose(seconds, load)
+      const [x, y, z] = tankerManifold
+      const manifold = [x, ship.y + y * Math.cos(ship.roll) - z * Math.sin(ship.roll),
+        0.55 + y * Math.sin(ship.roll) + z * Math.cos(ship.roll)]
+      for (let frame = 0; frame <= 100; frame++) {
+        const arm = loadingArmPose(manifold, frame / 100)
+        assert.ok(Math.abs(distance(arm.base, arm.elbow) - 1.7) < 1e-12)
+        assert.ok(Math.abs(distance(arm.elbow, arm.tip) - 1.7) < 1e-12)
+        assert.ok(arm.tip[1] > 0.8, 'disconnected pipe must clear the water and jetty')
+        if (frame === 0) assert.deepEqual(arm.tip, manifold, 'coupling must follow the ship')
+        if (frame === 100) {
+          if (parked) assert.deepEqual(arm.tip, parked, 'parked equipment must stay on shore')
+          parked = arm.tip
+          assert.ok(arm.tip[2] < -1.95 && arm.elbow[2] < -1.95)
+        }
+      }
+    }
+  }
 })

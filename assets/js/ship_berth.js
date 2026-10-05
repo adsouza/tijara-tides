@@ -51,7 +51,7 @@ export const ShipBerth = {
           seconds: this.motion.matches ? 0 : sample.seconds, progress: sample.progress,
           loadFraction: sample.loadFraction}
         this.lastPose = pose
-        this.scene.draw({...sample, ...pose})
+        this.scene.draw({...sample, ...pose, reducedMotion: this.motion.matches, paused: this.paused})
       } catch (_) { this.fail(); return }
       if (this.canAnimate() && sample.fresh) {
         this.host.dataset.animating = "true"
