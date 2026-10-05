@@ -4,7 +4,7 @@ defmodule TijaraTides.Release do
     top_level?: true,
     deps: [TijaraTides.Infrastructure, Ecto, Ecto.Repo, Ecto.Adapters.SQL, Ecto.Migrator]
 
-  alias TijaraTides.Infrastructure.Persistence.{Repo, SchemaMaintenance}
+  alias TijaraTides.Infrastructure.Persistence.{Repo, SchemaMaintenance, GameStore}
 
   @doc "Container startup: migrate configured storage before starting the application."
   def migrate_if_configured do
@@ -47,6 +47,18 @@ defmodule TijaraTides.Release do
       IO.puts("Database connection verified. No data changed.")
       :ok
     end)
+  end
+
+  @doc "Read-only full ledger audit; safe alongside a running world or after a restore."
+  def audit_ledger do
+    with_repo("Full ledger audit", &audit_ledger_repo/1)
+  end
+
+  @doc false
+  def audit_ledger_repo(repo) do
+    {:ok, worlds} = GameStore.audit(repo)
+    IO.puts("Full ledger audit passed for #{worlds} world(s). No data changed.")
+    :ok
   end
 
   @doc "Create a launch invitation with the normal server stopped. Call via eval or mix run --no-start."

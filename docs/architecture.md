@@ -67,9 +67,12 @@ balanced journal events and new lot identities alongside state changes. The
 same transaction persists these, verifies ledger reconciliation, and writes the
 receipt. Pending events are cleared after commit; historical journals and lot
 lineage stay in PostgreSQL rather than accumulating in world-process memory.
-Startup audits ledger totals before serving gameplay. The active identity cache
-omits expired sessions and completed invitation/email history; lifecycle commands
-restore relevant durable records through the command-store port for retries.
+Startup reconciles every company's current assets and obligations against stored
+ledger balances before serving gameplay. These balances are maintained atomically
+by journal posting; startup does not rescan historical entries. Full historical
+comparison is explicit maintenance. The active identity cache omits expired
+sessions and completed invitation/email history; lifecycle commands restore
+relevant durable records through the command-store port for retries.
 A superseded process cannot commit. Same-request retries replay the committed
 result; a changed payload under the same request ID is rejected. Publication and
 acknowledgement follow commit. Keep one server instance; fencing is overlap
@@ -694,11 +697,22 @@ The index is not persisted and cache eviction removes index entries without
 issuing database deletions. World ticks still settle all companies deliberately.
 
 Commit reconciliation covers companies affected by row changes (including former
-and new owners) and pending journal entries. Startup audits still verify the
-entire world and historical journal totals. Out-of-band corruption of an unrelated
-company is therefore detected by its next affected commit or a full audit, not
-by every unrelated command. SQL writes, journals, reconciliation and receipts
-remain one transaction under the world lock. No database migration is needed.
+and new owners) and pending journal entries. Startup and recovery reloads
+reconcile the entire world's current state against stored ledger balances. Their
+cost follows current holdings and obligations rather than lifetime journal size.
+Historical comparison is available through `Release.audit_ledger/0`, in one
+repeatable-read, read-only transaction with a 120-second maintenance budget. It
+neither claims an epoch nor pauses or writes the world. A concurrent posting
+cannot produce a false disagreement between historical totals and current
+balances in that snapshot.
+
+Out-of-band current-state corruption is detected by the next affected commit,
+startup, recovery reload or explicit audit. Historical-only damage is detected by
+the explicit audit, rather than every restart. Operators run it after accounting
+migrations and database restores, and before accepting those changes for service.
+Ordinary migrations do not implicitly run a historical scan. SQL writes, journals,
+reconciliation and receipts remain one transaction under the world lock. No
+database migration or separate checkpoint table is needed for this policy.
 
 ## Aggregate integrity checks
 

@@ -76,7 +76,7 @@ defmodule TijaraTides.Infrastructure.Persistence.FinancialLedger do
     end
   end
 
-  def verify(repo, world, companies \\ nil) do
+  def verify(repo, world, companies \\ nil, opts \\ []) do
     # Bounded by company/account count, rather than the growing journal history.
     rows =
       repo.query!(
@@ -113,15 +113,16 @@ defmodule TijaraTides.Infrastructure.Persistence.FinancialLedger do
          OR b.inventory<>(SELECT coalesce(sum(h.quantity_lots*h.unit_cost_cents),0) FROM game_cargo_holdings h LEFT JOIN game_ships s ON s.world_id=h.world_id AND s.id=h.ship_id LEFT JOIN game_warehouses w ON w.world_id=h.world_id AND w.id=h.warehouse_id WHERE h.world_id=c.world_id AND coalesce(s.company_id,w.company_id)=c.id)
          OR b.fleet<>(SELECT coalesce(sum(book_value_cents),0) FROM game_ships s WHERE s.world_id=c.world_id AND s.company_id=c.id))
         """,
-        [world, companies]
+        [world, companies],
+        opts
       ).rows
 
     unless rows == [], do: raise(ArgumentError, "Company balances do not reconcile with journal")
     :ok
   end
 
-  def audit(repo, world) do
-    # Startup checks the materialized ledger totals against immutable postings.
+  @doc "Full historical comparison, followed by current-state reconciliation."
+  def audit(repo, world, opts \\ []) do
     rows =
       repo.query!(
         """
@@ -134,10 +135,26 @@ defmodule TijaraTides.Infrastructure.Persistence.FinancialLedger do
           USING(world_id,company_id,account_code)
         WHERE coalesce(a.amount,0)<>coalesce(b.balance_cents,0) LIMIT 1
         """,
-        [world]
+        [world],
+        opts
       ).rows
 
     unless rows == [], do: raise(ArgumentError, "Ledger totals disagree with journal history")
-    verify(repo, world)
+    verify(repo, world, nil, opts)
+  end
+
+  @doc "Audit every world in one read-only snapshot without claiming ownership."
+  def audit_all(repo) do
+    # History grows for the life of the world. Give maintenance a separate budget,
+    # and pin a snapshot so concurrent postings cannot create false mismatches.
+    repo.transaction(
+      fn ->
+        repo.query!("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY", [])
+        worlds = repo.query!("SELECT id FROM game_worlds ORDER BY id", []).rows
+        Enum.each(worlds, fn [world] -> audit(repo, world, timeout: 120_000) end)
+        length(worlds)
+      end,
+      timeout: 120_000
+    )
   end
 end

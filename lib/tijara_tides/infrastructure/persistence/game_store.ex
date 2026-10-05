@@ -2,6 +2,9 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
   @moduledoc "Atomic changed-entity writes, durable command receipts and world-owner fencing."
   alias TijaraTides.Infrastructure.Persistence.{Repo, GameRows, FinancialLedger}
 
+  @doc "Explicit read-only historical audit; never claims or fences the world."
+  def audit(repo \\ Repo), do: FinancialLedger.audit_all(repo)
+
   def claim(repo \\ Repo, world_id \\ "ocean", opts \\ []) do
     repo.transaction(fn ->
       TijaraTides.Infrastructure.Persistence.SchemaMaintenance.lock_claim(repo)
@@ -13,7 +16,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
           [world_id]
         )
 
-      FinancialLedger.audit(repo, world_id)
+      FinancialLedger.verify(repo, world_id)
       entities = GameRows.load(repo, world_id, Keyword.get(opts, :wall_ms))
 
       %{
@@ -41,7 +44,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameStore do
 
       case rows do
         [[epoch, clock, revision]] when epoch == previous.epoch ->
-          FinancialLedger.audit(repo, world)
+          FinancialLedger.verify(repo, world)
           wall_ms = System.system_time(:millisecond)
           entities = GameRows.load(repo, world, wall_ms)
 

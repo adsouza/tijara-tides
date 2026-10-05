@@ -199,14 +199,51 @@ executable quotes.
 
 ## Accounting and lot foundations
 
-Financial events use an append-only double-entry ledger. Historical capital grants,
-purchases, sales and cost of goods, handling, cleaning, canal fees, fuel
+Financial events use an append-only double-entry ledger. Historical capital
+grants, purchases, sales and cost of goods, handling, cleaning, canal fees, fuel
 reservations/consumption, crew costs/arrears, and spoilage post atomically with
-state changes and receipts. Company summaries reconcile with ledger balances;
-startup also verifies those balances against historical entries. Existing
-playtest companies receive explicit opening entries rather than fabricated
-history. Loan and bankruptcy accounting is implemented; auctions and a raw
-ledger-history UI remain deferred.
+state changes and receipts. Company summaries reconcile with ledger balances.
+Startup and recovery reconcile all current assets and obligations against those
+balances, without scanning historical entries. Existing playtest companies
+receive explicit opening entries rather than fabricated history. Loan and
+bankruptcy accounting is implemented; auctions and a raw ledger-history UI
+remain deferred.
+
+### Full ledger audit
+
+Journal posting maintains stored ledger balances in the same transaction as each
+sealed posting. They already provide current totals; startup does not need to
+create another snapshot or advance a journal checkpoint. A separate incremental
+historical audit would need a trusted baseline and a committed transaction
+boundary that cannot skip an earlier allocated journal ID committed later.
+
+Run the explicit full-history audit after accounting migrations or database
+restores, before accepting them for service, or when investigating a discrepancy.
+It compares all journal history with stored totals and reconciles current state
+for every world in one read-only, repeatable-read snapshot. Its 120-second budget
+is separate from ordinary gameplay calls. Failure exits with an error; no balances
+are repaired, ownership epoch claimed or game data changed. It can run alongside
+the server without fencing it. Ordinary startup and migrations do not invoke it.
+
+Use the same intended database configuration as other maintenance commands:
+
+```sh
+mix run --no-start scripts/audit_ledger.exs
+```
+
+For the default system PostgreSQL playtest, explicitly select the local target:
+
+```sh
+env -u DATABASE_URL -u DATABASE_URL_POOLED \
+  TIJARA_LOCAL_DB_PORT=5432 TIJARA_LOCAL_DB_USER="$(id -un)" \
+  mix run --no-start scripts/audit_ledger.exs
+```
+
+In a configured release:
+
+```sh
+bin/tijara_tides eval 'TijaraTides.Release.audit_ledger()'
+```
 
 Cargo-lot IDs survive transfers and FIFO reordering. Partial purchases and sales
 split the source into child lots whose immutable parent link preserves lineage.

@@ -14,6 +14,7 @@ defmodule TijaraTides.ReleaseTest do
 
     for operation <- [
           &TijaraTides.Release.check_database/0,
+          &TijaraTides.Release.audit_ledger/0,
           &TijaraTides.Release.migrate/0,
           &TijaraTides.Release.seed/0
         ] do
