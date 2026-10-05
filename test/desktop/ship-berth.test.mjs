@@ -76,6 +76,7 @@ test('one scene survives patches, preserves a pause, and reverses committed hand
   h.tick(700)
   const before = h.scenes[0].samples.at(-1).seconds
   const beforeProgress = h.scenes[0].samples.at(-1).progress
+  const beforeLoad = h.scenes[0].samples.at(-1).loadFraction
   h.togglePause()
   assert.equal(h.toggle['aria-pressed'], 'true')
   assert.equal(h.scenes[0].samples.at(-1).seconds, before)
@@ -87,6 +88,7 @@ test('one scene survives patches, preserves a pause, and reverses committed hand
   assert.equal(h.scenes[0].samples.at(-1).unloading, true)
   assert.equal(h.scenes[0].samples.at(-1).seconds, before)
   assert.equal(h.frames.size, 0)
+  assert.equal(h.scenes[0].samples.at(-1).loadFraction, beforeLoad)
   h.togglePause()
   h.hook.el.dataset.queued = 'true'
   h.hook.updated()

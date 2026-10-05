@@ -27,7 +27,7 @@ import {
   Group, Mesh, MeshStandardMaterial, BoxGeometry, CylinderGeometry, Shape, ExtrudeGeometry,
   TorusGeometry, Vector3, CatmullRomCurve3, TubeGeometry,
 } from "../vendor/three/three.module.js"
-import {cargoSlots, cargoLayerHeight, cargoTransfer} from "./berth_motion"
+import {cargoSlots, cargoLayerHeight, cargoTransfer, shipPose, plimsollY, waterlineY} from "./berth_motion"
 export {berthSample} from "./berth_motion"
 
 // All artwork is procedural. No model downloads, textures, or cargo data are needed.
@@ -72,7 +72,7 @@ export function createBerthScene(host, liquid) {
     const sun = new DirectionalLight(0xffe4ad, 3)
     sun.position.set(-3, 9, 5)
     scene.add(sun)
-    box(scene, 17, 0.25, 11, "#164456", 0, -0.35, 0)
+    box(scene, 17, 0.25, 11, "#164456", 0, waterlineY - 0.125, 0)
     const ripples = []
     for (let i = 0; i < 16; i++) {
       ripples.push(box(scene, 0.4 + (i % 4) * 0.28, 0.015, 0.045, "#2a6573",
@@ -100,9 +100,16 @@ export function createBerthScene(host, liquid) {
     outline.lineTo(-4.4, 0.5)
     outline.lineTo(-4.4, -0.5)
     outline.closePath()
+    const lowerHull = mesh(ship, new ExtrudeGeometry(outline, {depth: 0.62, bevelEnabled: true,
+      bevelSize: 0.1, bevelThickness: 0.1, bevelSegments: 1, steps: 1}), "#a64e43", 0, 0.12, 0)
+    lowerHull.rotation.x = Math.PI / 2
     const hull = mesh(ship, new ExtrudeGeometry(outline, {depth: 0.9, bevelEnabled: true,
       bevelSize: 0.12, bevelThickness: 0.12, bevelSegments: 1, steps: 1}), "#247b82", 0, 0.85, 0)
     hull.rotation.x = Math.PI / 2
+    for (const z of [-1.075, 1.075]) {
+      mesh(ship, new TorusGeometry(0.09, 0.014, 6, 20), "#e4edf0", 1.9, plimsollY, z)
+      box(ship, 0.42, 0.022, 0.022, "#e4edf0", 1.9, plimsollY, z)
+    }
     box(ship, 6.8, 0.12, 1.72, "#b4c8c8", -0.35, 0.98, 0)
     box(ship, 1.35, 1.1, 1.45, "#d5e3e6", -3.25, 1.6, 0)
     box(ship, 1.65, 0.55, 1.65, "#e4edf0", -3.1, 2.4, 0)
@@ -127,7 +134,7 @@ export function createBerthScene(host, liquid) {
     const trolley = box(crane, 0.65, 0.2, 0.55, "#253444", 0.3, 5.05, -3.1)
     const cable = box(crane, 0.035, 1, 0.035, "#a8bdc8", 0.3, 3.0, -3.1)
     const cargo = box(scene, 1.05, 0.48, 1.4, "#c39556", 0.3, 0.89, -3.1)
-    // These containers illustrate handling; their count does not represent the manifest.
+    // Containers approximate hold fullness rather than individual manifest lots.
     const deckCargo = new Group()
     ship.add(deckCargo)
     const deckBoxes = []
@@ -168,15 +175,16 @@ export function createBerthScene(host, liquid) {
         renderer.setSize(width, height, false)
       },
       draw({seconds, handling, transferring = handling, progress = 0, count = 4, baseCount = 0,
-        staticCount = 4, cargoVolume, unloading, laden}) {
+        staticCount = 4, cargoVolume, loadFraction = staticCount / 12, unloading, laden}) {
         deckCargo.visible = transferring || !!laden
         if (!transferring && cargoVolume !== completedVolume) completedDeck = null
         // Keep the completed layout across the server's docked patch. Independent
         // rounding of manifest volume must not make a deposited box disappear.
         deckBoxes.forEach((container, i) => { container.visible = completedDeck ? completedDeck[i] : i < staticCount })
         dockBoxes.forEach((container, i) => { container.visible = i < count })
-        ship.position.y = Math.sin(seconds * 1.1) * 0.045
-        ship.rotation.x = Math.sin(seconds * 0.8) * 0.008
+        const pose = shipPose(seconds, loadFraction)
+        ship.position.y = pose.y
+        ship.rotation.x = pose.roll
         ripples.forEach((ripple, i) => { ripple.scale.x = 1 + Math.sin(seconds * 0.7 + i) * 0.2 })
         cargo.visible = handling && !liquid
         flow.visible = handling && liquid

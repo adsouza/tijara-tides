@@ -80,6 +80,13 @@ The crane fills stacks from the bottom and removes boxes from the top, keeping
 deposited cargo visible. Tankers show a hose and pumping indicator. These boxes
 illustrate fullness and handling rather than individual manifest lots.
 
+The ship bobs and rolls gently, with draft proportional to occupied hold volume.
+Empty ships expose their red lower hull and Plimsoll mark; at full capacity the
+mark meets the mean waterline. Dry ships settle smoothly as boxes lower onto the
+deck and rise as boxes lift off, retaining the draft of cargo that stays aboard.
+Tankers change draft continuously while pumping. Pause freezes draft as well as
+the crane, and reduced motion suppresses bobbing and roll.
+
 Ship transitions record the operation's start time and transferred volume in
 litres alongside its completion deadline, and clear them atomically when handling
 ends. They remain owner-only; no cargo volume is added to public ship views.

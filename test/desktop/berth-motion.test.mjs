@@ -2,7 +2,7 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 const source = readFileSync(new URL('../../assets/js/berth_motion.js', import.meta.url), 'utf8')
-const {berthSample, cargoPosition, cargoTransfer, cargoCount} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
+const {berthSample, cargoPosition, cargoTransfer, cargoCount, shipPose, plimsollY, waterlineY} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
 const state = {clock: 120_000, start: 120_000, complete: 125_000, status: 'loading',
   queued: false, liquid: false, capacity: 900_000, volume: 450_000, cargoVolume: 600_000}
 
@@ -112,4 +112,50 @@ test('cargo lifts clear of all layers and releases without changing its landing 
   assert.equal(cargoPosition(1.6, false, 2, 2).y, 4.05)
   assert.equal(cargoPosition(1.6, false).z, -3.1)
   assert.equal(cargoPosition(8, false).carrying, false)
+})
+
+test('draft follows physical transfers in both directions and remains continuous at completion', () => {
+  const sample = (progress, unloading, liquid = false, retained = 0) => berthSample({
+    ...state, start: 0, clock: progress * 60_000, complete: 60_000,
+    status: unloading ? 'unloading' : 'loading', liquid,
+    volume: (1 - retained) * 900_000, cargoVolume: (unloading ? retained : 1) * 900_000,
+  }, 0)
+  for (const liquid of [false, true]) {
+    for (const unloading of [false, true]) {
+      for (const retained of [0, 0.25, 0.5]) {
+        assert.equal(sample(0, unloading, liquid, retained).loadFraction, unloading ? 1 : retained)
+        assert.equal(sample(1, unloading, liquid, retained).loadFraction, unloading ? retained : 1)
+        let previous = sample(0, unloading, liquid, retained).loadFraction
+        for (let frame = 1; frame <= 1000; frame++) {
+          const next = sample(frame / 1000, unloading, liquid, retained).loadFraction
+          assert.ok(unloading ? next <= previous + 1e-12 : next >= previous - 1e-12)
+          assert.ok(Math.abs(next - previous) < 0.08, 'draft must settle smoothly, without a release jump')
+          previous = next
+        }
+        const end = sample(1, unloading, liquid, retained)
+        const docked = berthSample({...state, status: 'docked', cargoVolume: end.cargoVolume}, 0)
+        assert.equal(end.loadFraction, docked.loadFraction, 'server completion must preserve draft')
+      }
+    }
+  }
+  // After each complete layer, the ship settles by one third of its draft range.
+  for (const boxes of [4, 8, 12]) {
+    const progress = (boxes - 1 + 0.65) / 11.65
+    assert.ok(Math.abs(sample(progress, false).loadFraction - boxes / 12) < 1e-12)
+  }
+  const lifting = sample(0.1 / 11.65, true).loadFraction
+  assert.ok(Math.abs(lifting - (1 - 0.5 / 12)) < 1e-12)
+  const lowering = sample(0.55 / 11.65, false).loadFraction
+  assert.ok(Math.abs(lowering - 0.5 / 12) < 1e-12)
+  assert.equal(sample(0.3 / 11.65, false).loadFraction, 0, 'flying cargo is still off the ship')
+})
+
+test('empty hull rises above its full-load Plimsoll line with slightly stronger bounded bobbing', () => {
+  const full = shipPose(0, 1), empty = shipPose(0, 0)
+  assert.equal(full.y + plimsollY, waterlineY)
+  assert.ok(Math.abs(empty.y - full.y - 0.6) < 1e-12)
+  assert.equal(shipPose(0, 2).y, full.y)
+  assert.equal(shipPose(0, -1).y, empty.y)
+  assert.ok(Math.abs(shipPose(Math.PI / 2 / 1.1, 1).y - full.y - 0.065) < 1e-12)
+  assert.ok(Math.abs(shipPose(Math.PI / 2 / 0.8, 1).roll - 0.012) < 1e-12)
 })

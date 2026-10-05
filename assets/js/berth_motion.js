@@ -2,6 +2,16 @@ const clamp = n => Math.max(0, Math.min(1, n))
 const ease = n => { const t = clamp(n); return t * t * (3 - 2 * t) }
 export const cargoSlots = [-1.6, -0.48, 0.64, 1.76]
 export const cargoLayerHeight = 0.5
+export const waterlineY = -0.225
+export const plimsollY = 0.15
+
+// A full hold puts the mark at mean water level; an empty hold exposes the red hull.
+export function shipPose(seconds, loadFraction) {
+  return {
+    y: waterlineY - plimsollY + (1 - clamp(loadFraction)) * 0.6 + Math.sin(seconds * 1.1) * 0.065,
+    roll: Math.sin(seconds * 0.8) * 0.012,
+  }
+}
 
 // Twelve illustrative boxes represent a full hold, rounded up for a nonempty load.
 export function cargoCount(volume, capacity) {
@@ -22,12 +32,20 @@ export function berthSample(state, elapsedMs) {
   const baseCount = Math.min(state.volume === null || state.volume > 0 ? 11 : 12,
     Math.max(baseVolume > 0 ? 1 : 0, Math.floor(baseVolume / state.capacity * 12)))
   const count = Math.min(12 - baseCount, cargoCount(state.volume, state.capacity))
+  const progress = transferring ? clamp((now - state.start) / (state.complete - state.start)) : 0
+  const finalLoad = state.capacity > 0 ? clamp(state.cargoVolume / state.capacity) : 0
+  const jobLoad = state.volume === null ? count / 12 :
+    state.capacity > 0 ? Math.max(0, state.volume / state.capacity) : 0
+  const moved = state.liquid ? progress : cargoTransfer(progress, unloading, count, baseCount).transferred
+  const loadFraction = transferring ? clamp(unloading ? finalLoad + jobLoad * (1 - moved) :
+    finalLoad - jobLoad * (1 - moved)) : finalLoad
   return {
     seconds: now / 1000,
     fresh: elapsedMs < 10_000,
     transferring,
     handling: transferring && state.complete > now && elapsedMs < 10_000,
-    progress: transferring ? clamp((now - state.start) / (state.complete - state.start)) : 0,
+    progress,
+    loadFraction,
     count,
     baseCount,
     staticCount: cargoCount(state.cargoVolume, state.capacity),
@@ -67,6 +85,9 @@ export function cargoTransfer(progress, unloading, count, baseCount = 0) {
   const position = cargoPosition(phase * 8, unloading, deckLayer, dockLayer)
   const carrying = !finished && position.carrying
   const completed = index + Number(finished || !position.carrying)
+  // Weight leaves the deck during lifting and arrives during lowering. This
+  // keeps draft continuous at release and still while a box crosses the quay.
+  const transferred = finished ? 1 : (index + ease(unloading ? phase / 0.2 : (phase - 0.45) / 0.2)) / count
   const deckX = cargoSlots[Math.max(0, deckIndex) % cargoSlots.length]
   const dockX = cargoSlots[Math.max(0, dockIndex) % cargoSlots.length]
   const nextIndex = Math.min(index + 1, Math.max(0, count - 1))
@@ -89,5 +110,5 @@ export function cargoTransfer(progress, unloading, count, baseCount = 0) {
     deck[baseCount + (unloading ? count - 1 - i : i)] = unloading ? source : destination
     dock[unloading ? i : count - 1 - i] = unloading ? destination : source
   }
-  return {...position, x, carrying, deckLayer, deck, dock}
+  return {...position, x, carrying, deckLayer, deck, dock, transferred}
 }

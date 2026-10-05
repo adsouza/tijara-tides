@@ -48,7 +48,8 @@ export const ShipBerth = {
       const sample = berthSample(this.state, now - this.anchor)
       try {
         const pose = this.paused ? this.frozenPose : {
-          seconds: this.motion.matches ? 0 : sample.seconds, progress: sample.progress}
+          seconds: this.motion.matches ? 0 : sample.seconds, progress: sample.progress,
+          loadFraction: sample.loadFraction}
         this.lastPose = pose
         this.scene.draw({...sample, ...pose})
       } catch (_) { this.fail(); return }
