@@ -137,6 +137,10 @@ three; time spent at that cap does not bank future awards. Existing companies
 start earning with a qualifying action after this feature is introduced, with no
 retroactive awards. Earned invitation entitlements belong to the inviter and
 cannot be transferred between accounts.
+Operators may grant an existing, unsuspended account additional invitation
+allowance for playtests. These grants obey the same combined cap of three,
+never transfer another player's entitlement, and do not count as economic
+activity. Each grant has a durable request ID for safe retries.
 Each earned grant notifies its owner and points them to the account menu to send
 the invitation. The notice commits with the grant and is not repeated by retries.
 The account menu always shows a prominent hours:minutes:seconds countdown to the

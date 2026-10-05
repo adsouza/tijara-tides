@@ -14,6 +14,7 @@ defmodule TijaraTides.Domain.Account do
 
   @history_ms 112 * 86_400_000
   def history_ms, do: @history_ms
+  defdelegate invitation_limit(), to: __MODULE__.InvitationProgress, as: :limit
   defdelegate dormancy_settings(catalogue), to: __MODULE__.Dormancy, as: :settings
 
   def suspended?(%__MODULE__{suspended_ms: value}), do: value != nil
@@ -51,6 +52,24 @@ defmodule TijaraTides.Domain.Account do
 
   def earn_invitations(%__MODULE__{} = account, count) when is_integer(count) and count > 0,
     do: %{account | invite_quota: account.invite_quota + count}
+
+  def grant_invitations(%__MODULE__{} = account, count, outstanding) do
+    limit = __MODULE__.InvitationProgress.limit()
+
+    cond do
+      not is_integer(count) or count < 1 or count > limit ->
+        {:error, :invalid_invitation_count}
+
+      suspended?(account) ->
+        {:error, :account_suspended}
+
+      account.invite_quota + outstanding + count > limit ->
+        {:error, :invitation_capacity}
+
+      true ->
+        {:ok, earn_invitations(account, count)}
+    end
+  end
 
   def counted(%__MODULE__{} = account, now),
     do: Enum.count(account.bankruptcy_events, &(&1.created_ms + @history_ms > now))

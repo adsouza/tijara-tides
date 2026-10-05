@@ -297,6 +297,55 @@ defmodule TijaraTides.Domain.AccountWorld do
     end
   end
 
+  @doc "Operator allowance grant; preserves identity and never records player activity."
+  def grant_invitations(state, account_id, count) do
+    case get(state, "accounts", account_id) do
+      nil ->
+        {:error, :account_not_found}
+
+      row ->
+        outstanding =
+          Enum.count(
+            owned(state, "invitations", "inviter", account_id),
+            &(&1["status"] == "issued")
+          )
+
+        with {:ok, account} <- Account.grant_invitations(Rows.decode(row), count, outstanding) do
+          changed = store(state, account)
+
+          # Reaching capacity discards partial earning credit immediately, even
+          # when an invite is redeemed before the next world tick.
+          changed =
+            case get(state, "invitation_progress", account_id) do
+              nil ->
+                changed
+
+              progress ->
+                if account.invite_quota + outstanding == Account.InvitationProgress.limit() do
+                  put(changed, "invitation_progress", account_id, %{
+                    progress
+                    | "checked_ms" => state.clock_ms,
+                      "progress_ms" => 0
+                  })
+                else
+                  changed
+                end
+            end
+
+          {:ok, changed,
+           %{
+             "operation" => "grant_invitations",
+             "account_id" => account_id,
+             "granted" => count,
+             "quota_before" => row["invite_quota"],
+             "quota_after" => account.invite_quota,
+             "outstanding" => outstanding,
+             "clock_ms" => state.clock_ms
+           }}
+        end
+    end
+  end
+
   def issue_invite(state, account, context) do
     account = get(state, "accounts", account["id"])
 

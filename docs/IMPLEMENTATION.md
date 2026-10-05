@@ -299,6 +299,13 @@ in the signed, HTTP-only cookie. A lost redemption response can be retried using
 that same credential, including after server restart. Another device holding
 only the invitation cannot recover the account; revoked or expired credentials
 cannot be revived. POST without the pre-issued cookie consumes nothing.
+Operators can grant one to three additional invitations to an existing,
+unsuspended account by account ID or verified email. The grant fails in full if
+available plus outstanding invitations would exceed three. Quota and a durable
+operator receipt commit together; repeating the same request returns its original
+result, and reusing its ID with a different target or count is rejected. Grants
+do not record a player visit or economic activity. See the
+[operator command](database.md#operator-invitation-grants).
 Verified email linking, email delivery, and email sign-in are implemented. Players
 with a linked email can regain access on another device; accounts without a linked
 email still depend on their existing device session. Desktop users can redeem an

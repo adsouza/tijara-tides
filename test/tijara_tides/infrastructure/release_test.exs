@@ -16,7 +16,8 @@ defmodule TijaraTides.ReleaseTest do
           &TijaraTides.Release.check_database/0,
           &TijaraTides.Release.audit_ledger/0,
           &TijaraTides.Release.migrate/0,
-          &TijaraTides.Release.seed/0
+          &TijaraTides.Release.seed/0,
+          fn -> TijaraTides.Release.grant_invitations({:account, "a"}, 1, "grant") end
         ] do
       error = assert_raise RuntimeError, operation
       assert Exception.message(error) =~ "Both DATABASE_URL and TIJARA_LOCAL_DB_PORT"
@@ -60,6 +61,14 @@ defmodule TijaraTides.ReleaseTest do
 
     assert output == "Launch invitation target: example.test:5432/game\n"
     assert Process.whereis(Repo) == before
+
+    ExUnit.CaptureIO.capture_io(fn ->
+      assert_raise RuntimeError, "Invalid invitation grant: invalid_invitation_count", fn ->
+        TijaraTides.Release.grant_invitations({:account, "a"}, 4, "grant")
+      end
+    end)
+
+    assert Process.whereis(Repo) == before
   end
 
   test "target output omits credentials and the raw URL" do
@@ -71,6 +80,33 @@ defmodule TijaraTides.ReleaseTest do
              url: "never-print"
            ) ==
              "example.test:5432/game"
+  end
+
+  test "grant script parses Mix's separator and rejects duplicate or mixed selectors before startup" do
+    env = [{"MIX_ENV", "test"}, {"DATABASE_URL", nil}, {"TIJARA_LOCAL_DB_PORT", nil}]
+    command = ["run", "--no-compile", "--no-start", "scripts/grant-invitations.exs"]
+    arguments = ["--email", "player@example.com", "--count", "2", "--request-id", "grant"]
+
+    for separator <- [[], ["--"]] do
+      {output, status} =
+        System.cmd("mix", command ++ separator ++ arguments, env: env, stderr_to_stdout: true)
+
+      assert status != 0
+      assert output =~ "Game storage is not configured"
+      refute output =~ "Usage:"
+    end
+
+    for extra <- [["--account", "a"], ["--count", "1"], ["--request-id", "duplicate"]] do
+      {output, status} =
+        System.cmd("mix", command ++ ["--"] ++ arguments ++ extra,
+          env: env,
+          stderr_to_stdout: true
+        )
+
+      assert status != 0
+      assert output =~ "Usage:"
+      refute output =~ "Game storage is not configured"
+    end
   end
 
   defp restore(key, nil), do: System.delete_env(key)

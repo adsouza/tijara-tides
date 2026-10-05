@@ -209,6 +209,63 @@ receive explicit opening entries rather than fabricated history. Loan and
 bankruptcy accounting is implemented; auctions and a raw ledger-history UI
 remain deferred.
 
+### Operator invitation grants
+
+Grant additional invitation allowance to an existing player, selected by their
+stable account ID or verified email. This does not create a new player or a
+launch-root invitation. Counts must be integers from one to three. Suspended or
+missing accounts are rejected. The entire grant is rejected if available quota
+plus issued invitations plus the requested count exceeds three. Pending invitations
+still occupy capacity until redeemed or expired by the normal world lifecycle.
+An account without a verified email can receive quota by ID; sending emailed
+invitations still requires the player to verify an email in the account menu.
+
+Stop the normal server before using the standalone command. Configure the
+intended database as for other maintenance commands, then run:
+
+```sh
+mix run --no-start scripts/grant-invitations.exs -- \
+  --email player@example.com --count 2 --request-id playtest-grant-20261005-1
+```
+
+Use `--account ACCOUNT_ID` instead of `--email` for an account without a verified
+email. Supply exactly one selector. The command announces the resolved database
+host, port and name without printing credentials. It prints a JSON receipt with
+the account ID, granted count, quota before and after, outstanding invitation
+count, active-world timestamp and request ID. Restart the normal server after
+the command completes. The game owner publishes successful live grants so the
+player's account panel updates through the ordinary revision subscription.
+
+In a configured release with the normal server stopped:
+
+```sh
+bin/tijara_tides eval \
+  'TijaraTides.Release.grant_invitations({:email, "player@example.com"}, 2, "playtest-grant-20261005-1")'
+```
+
+When Erlang distribution is explicitly enabled, call the running owner without
+stopping the server by replacing `eval` with `rpc`. Distribution is disabled in
+the container by default; hosting plans without shell or RPC access still need
+a stopped-server maintenance process using the same release and database.
+Standalone `eval` and `mix run --no-start` start an owner and fence the old owner,
+so never run them alongside the normal server. Invalid arguments fail before
+application startup, but account and capacity checks require loading the world.
+
+Keep the request ID and exact selector and count when retrying an uncertain
+outcome. Email case and surrounding whitespace are normalized. Operator IDs are
+unique across all recipients in a world and separate from player command IDs.
+Retries return the original receipt even if the player has spent the quota,
+changed email or the server restarted. Changing the selector or count with an
+existing request ID fails with `request_conflict`; switching from email to account
+ID counts as changing the selector. Use a fresh ID only for an intentional new
+grant. Successful receipts are stored in `game_receipts` under the reserved
+`account_id` value `operator:grant_invitations`; rejected grants store no receipt.
+
+Grants use the normal fenced, atomic world transaction. They do not advance time,
+create financial activity or count as a player visit. Filling capacity discards
+partial invitation earning progress immediately. No player command or web route
+exposes this operation. Quota remains visible in the existing account menu.
+
 ### Full ledger audit
 
 Journal posting maintains stored ledger balances in the same transaction as each

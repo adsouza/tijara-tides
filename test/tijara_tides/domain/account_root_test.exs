@@ -3,6 +3,31 @@ defmodule TijaraTides.Domain.AccountRootTest do
   alias TijaraTides.Domain.Account
   alias Account.{BankruptcyEvent, Rows}
 
+  test "operator grants accept exact remaining capacity and refuse one more" do
+    for quota <- 0..3, outstanding <- 0..(3 - quota), count <- 1..3 do
+      account = %{Account.new("a", "sponsor", false, 0) | invite_quota: quota}
+
+      if quota + outstanding + count <= 3 do
+        assert {:ok, %{invite_quota: next}} =
+                 Account.grant_invitations(account, count, outstanding)
+
+        assert next == quota + count
+      else
+        assert {:error, :invitation_capacity} =
+                 Account.grant_invitations(account, count, outstanding)
+      end
+    end
+
+    account = Account.new("a", "sponsor", false, 0)
+
+    for invalid <- [0, -1, 4, 1.0, "1", nil] do
+      assert {:error, :invalid_invitation_count} = Account.grant_invitations(account, invalid, 0)
+    end
+
+    assert {:error, :account_suspended} =
+             Account.grant_invitations(%{account | suspended_ms: 0}, 1, 0)
+  end
+
   test "quota changes preserve typed account state and enforce outstanding limits" do
     account = Account.new("a", "sponsor", true, 0)
     assert {:error, :no_invitation_quota} = Account.issue_invitation(account, 3)

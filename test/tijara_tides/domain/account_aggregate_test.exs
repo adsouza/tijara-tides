@@ -22,6 +22,37 @@ defmodule TijaraTides.Domain.AccountAggregateTest do
     %{clock_ms: 0, entities: %{"accounts" => %{"a" => row(), "b" => row("b")}}}
   end
 
+  test "grant includes pending invitations, preserves identity and discards progress at capacity" do
+    alias TijaraTides.Domain.{ChangeSet, State}
+    progress = TijaraTides.Domain.Account.InvitationProgress.new("a", "company", 0)
+    progress = %{progress | "progress_ms" => 100, "active_until_ms" => 200}
+
+    state =
+      world()
+      |> State.put("accounts", "a", %{row() | "invite_quota" => 0})
+      |> State.put("invitation_progress", "a", progress)
+
+    state = %{state | clock_ms: 100}
+    {:ok, changed, result} = AccountWorld.grant_invitations(state, "a", 3)
+    assert result["quota_after"] == 3
+
+    assert changed.entities["accounts"]["a"] ==
+             Map.put(row(), "invite_quota", 3) |> Map.put("funding_policy", "wait")
+
+    assert changed.entities["accounts"]["b"] == state.entities["accounts"]["b"]
+    assert changed.entities["invitation_progress"]["a"]["progress_ms"] == 0
+    assert changed.entities["invitation_progress"]["a"]["checked_ms"] == state.clock_ms
+    assert changed.entities["invitation_progress"]["a"]["active_until_ms"] == 200
+    assert :ok == ChangeSet.assert_complete!(state, changed)
+
+    assert Map.keys(ChangeSet.since(state, changed)) |> Enum.sort() ==
+             [{"accounts", "a"}, {"invitation_progress", "a"}]
+
+    {:ok, issued, _} = AccountWorld.issue_invite(changed, row(), %{invite_hash: "pending"})
+    assert {:error, :invitation_capacity} = AccountWorld.grant_invitations(issued, "a", 1)
+    assert {:error, :account_not_found} = AccountWorld.grant_invitations(state, "absent", 1)
+  end
+
   test "stale account snapshots cannot restore spent invitation quota; expiry refunds once" do
     state = world()
     {:ok, state, _} = AccountWorld.issue_invite(state, row(), %{invite_hash: "one"})

@@ -1,5 +1,5 @@
 defmodule TijaraTides.Release do
-  @moduledoc "Explicit database maintenance and standalone launch invitation seeding."
+  @moduledoc "Explicit database maintenance and operator invitation commands."
   use Boundary,
     top_level?: true,
     deps: [TijaraTides.Infrastructure, Ecto, Ecto.Repo, Ecto.Adapters.SQL, Ecto.Migrator]
@@ -69,6 +69,32 @@ defmodule TijaraTides.Release do
     case TijaraTides.Infrastructure.GameServer.seed() do
       {:ok, code} -> IO.puts("Launch-root invitation (single use): #{code}")
       {:error, reason} -> raise "Game is unavailable: #{reason}"
+    end
+  end
+
+  @doc "Grant invitation allowance via RPC, or standalone with the normal server stopped."
+  def grant_invitations(selector, count, request_id) do
+    prepare_target("Invitation grant")
+
+    case TijaraTides.Infrastructure.GameServer.validate_invitation_grant(
+           selector,
+           count,
+           request_id
+         ) do
+      {:ok, selector} ->
+        {:ok, _} = Application.ensure_all_started(:tijara_tides)
+
+        case TijaraTides.Infrastructure.GameServer.grant_invitations(selector, count, request_id) do
+          {:ok, result} ->
+            IO.puts("Invitation grant receipt: #{Jason.encode!(result)}")
+            result
+
+          {:error, reason} ->
+            raise "Invitation grant failed: #{reason}"
+        end
+
+      {:error, reason} ->
+        raise "Invalid invitation grant: #{reason}"
     end
   end
 

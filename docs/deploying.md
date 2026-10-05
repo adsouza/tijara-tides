@@ -115,6 +115,9 @@ The image also disables Erlang distribution by default. Live-node invitation
 seeding via RPC requires enabling local node distribution before startup; see
 [release operations](database.md#release-operations). Running the standalone seed
 process while a deployed world is active still fences that world.
+The same ownership rule applies to
+[operator invitation grants](database.md#operator-invitation-grants): use RPC on
+an enabled running node, or stop the server before standalone `eval` or `mix run`.
 
 Keep a single service instance. Transactional ownership fencing rejects writes
 from an older owner during deployment overlap. Companies and the simulation

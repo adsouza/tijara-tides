@@ -88,6 +88,14 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   def seed(server \\ default_server()), do: GenServer.call(server, :seed, @call_timeout)
 
+  @doc "Trusted operator API; never admitted through the player command transport."
+  def grant_invitations(selector, count, request_id, server \\ default_server()),
+    do: GenServer.call(server, {:grant_invitations, selector, count, request_id}, @call_timeout)
+
+  defdelegate validate_invitation_grant(selector, count, request_id),
+    to: TijaraTides.UseCases.OperatorCommands,
+    as: :validate
+
   def sign_out(token, server \\ default_server()),
     do: GenServer.call(server, {:sign_out, token}, @call_timeout)
 
@@ -320,6 +328,29 @@ defmodule TijaraTides.Infrastructure.GameServer do
     code = token()
 
     lifecycle(state, {:seed, hash(code)}, context(state), fn _ -> {:ok, code} end)
+  end
+
+  def handle_call(
+        {:grant_invitations, selector, count, request_id},
+        _from,
+        %{status: :ready} = state
+      ) do
+    OperationBoundary.call(
+      :grant_invitations,
+      state,
+      fn ->
+        TijaraTides.UseCases.OperatorCommands.grant_invitations(
+          state.game,
+          selector,
+          count,
+          request_id,
+          context(state),
+          store(state)
+        )
+      end,
+      &accept_outcome/2,
+      &refresh_game/2
+    )
   end
 
   def handle_call(

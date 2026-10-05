@@ -18,6 +18,7 @@ defmodule TijaraTides.UseCases do
       ReportQueries,
       ReportStore,
       GameCommands,
+      OperatorCommands,
       CommandStore,
       CommandRequest,
       CommandResult,
