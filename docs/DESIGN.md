@@ -1935,6 +1935,18 @@ reach additional ships.
 
 ### Fleet and manifest presentation
 
+Show a small stylized 3D berth scene for the selected owned ship while docked,
+loading or unloading. Dry cargo moves by crane; tankers use a pumping hose.
+The containers approximate cargo volume relative to hold capacity, with up to
+three layers. Existing cargo stays aboard while new cargo is loaded; unloading
+removes the transferred portion from the top. Pace transfers against the
+committed handling start and completion times so the last box lands at completion.
+The illustration does not identify individual inventory lots.
+Committed ship status controls handling, and berth queues show no transfer.
+Provide a pause control, honor reduced motion, and stop animation while hidden
+or disconnected. Keep status text and a static illustration when 3D is unavailable.
+Other companies' ships do not expose this private scene.
+
 The private ship manifest is a table with aligned columns for cargo, lots,
 weight, volume, average cost per lot, and first expiry.
 

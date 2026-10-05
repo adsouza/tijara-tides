@@ -1,0 +1,153 @@
+import {chromium, expect} from '@playwright/test'
+import {readFile, mkdir} from 'node:fs/promises'
+import assert from 'node:assert/strict'
+
+const config = JSON.parse(await readFile(process.argv[2], 'utf8'))
+const browser = await chromium.launch({headless: true, args: ['--enable-unsafe-swiftshader']})
+const errors = []
+const timer = setTimeout(() => { process.exitCode = 1; browser.close() }, 60_000)
+try {
+  const context = await browser.newContext({viewport: {width: 1100, height: 950}})
+  await context.addCookies([{name: '_tijara_tides_key', value: config.cookie, url: config.url}])
+  const page = await context.newPage()
+  page.setDefaultTimeout(8_000)
+  page.on('pageerror', error => { errors.push(error.message); console.error(error.message) })
+  page.on('console', message => { if (message.type() === 'error') { errors.push(message.text()); console.error(message.text()) } })
+  await page.goto(config.url + '/play')
+  await page.locator('[data-phx-main].phx-connected').waitFor()
+  assert.ok((await page.locator('body').innerText()).includes('Ships'))
+  await page.locator(`[phx-click="ship"][phx-value-id="${config.ship}"]`).first().click()
+  const figure = page.locator(`[id="ship-berth-${config.ship}"]`)
+  await figure.scrollIntoViewIfNeeded()
+  const host = figure.locator('[data-berth-canvas]')
+  await mkdir('cover/browser-contracts', {recursive: true})
+  await figure.screenshot({path: 'cover/browser-contracts/berth-before-render.png'})
+  await expect(host).toHaveAttribute('data-renderer', 'webgl')
+  await expect(figure).toHaveAttribute('data-status', 'loading')
+  await expect(figure).toHaveAttribute('data-start', String(config.start))
+  await expect(figure).toHaveAttribute('data-volume', String(config.volume))
+  await expect(figure).toHaveAttribute('data-cargo-volume', String(config.cargoVolume))
+  await expect(figure).toHaveAttribute('data-capacity', String(config.capacity))
+  await expect(host).toHaveAttribute('data-animating', 'true')
+  const canvas = await host.locator('canvas').elementHandle()
+  const image1 = await host.screenshot()
+  // Wait for several locally rendered frames, without requesting a world tick.
+  await page.evaluate(() => new Promise(resolve => {
+    let count = 0
+    const frame = () => ++count < 15 ? requestAnimationFrame(frame) : resolve()
+    requestAnimationFrame(frame)
+  }))
+  assert.notDeepEqual(await host.screenshot(), image1, 'loading scene must animate')
+  await mkdir('cover/browser-contracts', {recursive: true})
+  await figure.screenshot({path: 'cover/browser-contracts/berth-loading.png'})
+  await figure.locator('[data-berth-toggle]').click()
+  await expect(host).toHaveAttribute('data-animating', 'false')
+  await expect(figure.locator('[data-berth-toggle]')).toHaveAttribute('aria-pressed', 'true')
+  console.log('BERTH_ADVANCE')
+  await expect(figure).toHaveAttribute('data-status', 'docked')
+  assert.equal(await canvas.evaluate(node => node === document.querySelector('[data-berth-canvas] canvas')), true,
+    'LiveView patch must retain the renderer')
+  await expect(figure.locator('[data-berth-toggle]')).toHaveAttribute('aria-pressed', 'true')
+  console.log('BERTH_UNLOAD')
+  await expect(figure).toHaveAttribute('data-status', 'unloading')
+  await expect(figure).toHaveAttribute('data-volume', String(config.volume))
+  await expect(figure).toHaveAttribute('data-cargo-volume', String(config.cargoVolume - config.volume))
+  await figure.locator('[data-berth-toggle]').click()
+  await expect(host).toHaveAttribute('data-animating', 'true')
+  await figure.screenshot({path: 'cover/browser-contracts/berth-unloading.png'})
+  // Portrait tabs move the scene entirely outside the horizontal viewport.
+  await page.setViewportSize({width: 500, height: 950})
+  await page.locator('[data-panel="0"]').click()
+  await expect(host).toHaveAttribute('data-animating', 'false')
+  await page.locator('[data-panel="1"]').click()
+  await figure.scrollIntoViewIfNeeded()
+  await expect(host).toHaveAttribute('data-animating', 'true')
+  await page.evaluate(() => window.liveSocket.disconnect())
+  await expect(host).toHaveAttribute('data-animating', 'false')
+  await page.evaluate(() => window.liveSocket.connect())
+  await page.locator('[data-phx-main].phx-connected').waitFor()
+  // Rejoining recreates LiveView's selection state; explicitly select this ship again.
+  await page.locator(`[phx-click="ship"][phx-value-id="${config.ship}"]`).first().click()
+  await figure.scrollIntoViewIfNeeded()
+  await expect(host).toHaveAttribute('data-animating', 'true')
+  await page.emulateMedia({reducedMotion: 'reduce'})
+  await expect(host).toHaveAttribute('data-animating', 'false')
+  await expect(figure.locator('[data-berth-toggle]')).toBeHidden()
+  await page.emulateMedia({reducedMotion: 'no-preference'})
+  await expect(host).toHaveAttribute('data-animating', 'true')
+  await host.locator('canvas').evaluate(node => node.dispatchEvent(new Event('webglcontextlost', {cancelable: true})))
+  await expect(host).toHaveAttribute('data-renderer', 'static')
+  await expect(figure.locator('[data-berth-unavailable]')).toBeVisible()
+  await expect(host.locator('canvas')).toHaveCount(0)
+  assert.equal(errors.length, 0, errors.join('\n'))
+  // Also exercise initial WebGL failure, independently of the lost-context branch.
+  const fallback = await context.newPage()
+  await fallback.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = function(type, ...args) {
+      return type === 'webgl2' ? null : original.call(this, type, ...args)
+    }
+  })
+  await fallback.goto(config.url + '/play')
+  await fallback.locator('[data-phx-main].phx-connected').waitFor()
+  await fallback.locator(`[phx-click="ship"][phx-value-id="${config.ship}"]`).first().click()
+  const fallbackFigure = fallback.locator(`[id="ship-berth-${config.ship}"]`)
+  await fallbackFigure.scrollIntoViewIfNeeded()
+  await expect(fallbackFigure.locator('[data-berth-canvas]')).toHaveAttribute('data-renderer', 'static')
+  await expect(fallbackFigure.locator('[data-berth-unavailable]')).toBeVisible()
+  await expect(fallbackFigure.locator('canvas')).toHaveCount(0)
+  // Exercise three physical layers with retained cargo and a midway view.
+  await page.evaluate(async () => {
+    const {createBerthScene, berthSample} = await import(document.querySelector('[data-scene-src]').dataset.sceneSrc)
+    const host = document.createElement('div')
+    host.id = 'stacked-renderer-contract'
+    host.style.cssText = 'position:fixed;top:0;left:0;width:700px;height:460px;z-index:1000'
+    document.body.appendChild(host)
+    window.berthContractScene = createBerthScene(host, false)
+    window.berthContractScene.resize(700, 460)
+    const sample = berthSample({start: 0, clock: 59_000, complete: 60_000,
+      status: 'loading', queued: false, liquid: false, laden: true,
+      volume: 675_000, cargoVolume: 900_000, capacity: 900_000}, 0)
+    if (sample.count !== 9 || sample.baseCount !== 3) throw new Error('incorrect volume-scaled stack')
+    window.berthContractScene.draw(sample)
+  })
+  await expect(page.locator('#stacked-renderer-contract canvas')).toBeVisible()
+  await page.locator('#stacked-renderer-contract').screenshot({path: 'cover/browser-contracts/berth-stacked.png'})
+  await page.evaluate(() => window.berthContractScene.dispose())
+  await expect(page.locator('#stacked-renderer-contract canvas')).toHaveCount(0)
+  await page.evaluate(() => { document.querySelector('#stacked-renderer-contract').remove(); delete window.berthContractScene })
+  // Render the tanker variant with the same shipped module, including disposal.
+  await page.evaluate(async () => {
+    const {createBerthScene} = await import(document.querySelector('[data-scene-src]').dataset.sceneSrc)
+    const host = document.createElement('div')
+    host.id = 'tanker-renderer-contract'
+    host.style.cssText = 'position:fixed;top:0;left:0;width:500px;height:300px;z-index:1000'
+    document.body.appendChild(host)
+    window.berthContractScene = createBerthScene(host, true)
+    window.berthContractScene.resize(500, 300)
+    window.berthContractScene.draw({seconds: 3, handling: true, unloading: true, laden: false})
+  })
+  await expect(page.locator('#tanker-renderer-contract canvas')).toBeVisible()
+  await page.locator('#tanker-renderer-contract').screenshot({path: 'cover/browser-contracts/berth-tanker.png'})
+  await page.evaluate(() => window.berthContractScene.dispose())
+  await expect(page.locator('#tanker-renderer-contract canvas')).toHaveCount(0)
+  await page.evaluate(() => { document.querySelector('#tanker-renderer-contract').remove(); delete window.berthContractScene })
+  assert.equal(errors.length, 0, errors.join('\n'))
+  await context.close()
+  // Reopen the authenticated view so the final committed departure reaches a live client.
+  const finalContext = await browser.newContext({viewport: {width: 1100, height: 950}})
+  await finalContext.addCookies([{name: '_tijara_tides_key', value: config.cookie, url: config.url}])
+  const finalPage = await finalContext.newPage()
+  await finalPage.goto(config.url + '/play')
+  await finalPage.locator('[data-phx-main].phx-connected').waitFor()
+  await finalPage.locator(`[phx-click="ship"][phx-value-id="${config.ship}"]`).first().click()
+  const finalFigure = finalPage.locator(`[id="ship-berth-${config.ship}"]`)
+  await expect(finalFigure).toHaveCount(1)
+  console.log('BERTH_SAIL')
+  await expect(finalFigure).toHaveCount(0)
+  console.log('Berth browser contracts passed')
+  await finalContext.close()
+} finally {
+  clearTimeout(timer)
+  await browser.close()
+}

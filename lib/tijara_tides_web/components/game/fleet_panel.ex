@@ -318,6 +318,16 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             </button>
           </div>
           <div :if={@ship} class="mt-2 rounded-xl bg-slate-900 px-5 pt-2 pb-5">
+            <% berth = TijaraTides.UseCases.GameQueries.berth_view(@ship, @definitions) %>
+            <TijaraTidesWeb.GameUI.ShipBerth.scene
+              :if={@ship["status"] in ["docked", "loading", "unloading"]}
+              ship={@ship}
+              clock={@view.public["clock_ms"]}
+              queue_position={get_in(@view.public, ["ships", @ship["id"], "queue_position"])}
+              liquid={@definitions.classes[@ship["class"]]["hold"] == "liquid"}
+              cargo_volume_l={berth.cargo_volume_l}
+              capacity_l={berth.capacity_l}
+            />
             <p :if={@view.public["ships"][@ship["id"]]["queue_position"]} class="mb-3 text-amber-300">
               {gettext("Queue position: %{position}",
                 position: display_number(@view.public["ships"][@ship["id"]]["queue_position"])

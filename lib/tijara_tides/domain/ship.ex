@@ -10,7 +10,7 @@ defmodule TijaraTides.Domain.Ship do
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
   @wage_period_ms 120_000
-  @fields ~w(acquired_ms acquisition_value planned_destination weather voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination)a
+  @fields ~w(acquired_ms acquisition_value planned_destination weather voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
 
@@ -63,6 +63,8 @@ defmodule TijaraTides.Domain.Ship do
       next
       | status: "loading",
         arrive_ms: now + CargoRules.loading_ms(handling, cleaning),
+        handling_started_ms: now,
+        handling_volume_l: capacity(%{ship | cargo: cargo}, catalogue).volume,
         last_liquid: last
     }
   end
@@ -95,7 +97,10 @@ defmodule TijaraTides.Domain.Ship do
       ship
       | cargo: remaining,
         status: "unloading",
-        arrive_ms: lots.clock_ms + CargoRules.handling_ms(quantity, ship.port, good, catalogue)
+        arrive_ms: lots.clock_ms + CargoRules.handling_ms(quantity, ship.port, good, catalogue),
+        handling_started_ms: lots.clock_ms,
+        handling_volume_l:
+          if(map_size(catalogue) > 0, do: capacity(%{ship | cargo: sold}, catalogue).volume)
     }
 
     {lots, next, sold}
@@ -177,7 +182,15 @@ defmodule TijaraTides.Domain.Ship do
 
   # Completing physical work retains admission for the rest of the visit.
   defp finish_operation(%{status: status} = ship, _) when status in ["loading", "unloading"],
-    do: %{ship | status: "docked", destination: nil, arrive_ms: nil, depart_ms: nil}
+    do: %{
+      ship
+      | status: "docked",
+        destination: nil,
+        arrive_ms: nil,
+        depart_ms: nil,
+        handling_started_ms: nil,
+        handling_volume_l: nil
+    }
 
   defp docked!(%{status: "docked"}), do: :ok
   defp docked!(_), do: raise(ArgumentError, "Ship must finish its current operation first")

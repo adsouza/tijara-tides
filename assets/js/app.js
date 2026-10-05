@@ -36,12 +36,13 @@ import {ExchangeDraft} from "./exchange_draft"
 import {PortSelector} from "./port_selector"
 import {PortMarketTabs} from "./port_market_tabs"
 import {AuctionDisclosures} from "./auction_disclosures"
+import {ShipBerth} from "./ship_berth"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, PortMarketTabs, AuctionDisclosures, Locale, Flash, SystemNotifications, Workspace, TradeQuantity, ExchangeDraft, LoanAmount, PortSelector, PopupAnchor},
+  hooks: {...colocatedHooks, ShipBerth, PortMarketTabs, AuctionDisclosures, Locale, Flash, SystemNotifications, Workspace, TradeQuantity, ExchangeDraft, LoanAmount, PortSelector, PopupAnchor},
 })
 
 // Show progress bar on live navigation and form submits

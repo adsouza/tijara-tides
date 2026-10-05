@@ -45,8 +45,10 @@ and two real-browser workflows. `LiveViewTest` does not execute browser JavaScri
 SQL-backed form tests alone do not prove serializer coverage. The instruction
 metadata/replay regression, checked form inventory, payload properties and
 Chromium cohort are implemented. Run `python3 scripts/test-browser.py` after
-`MIX_ENV="test" mix assets.build`; it starts its own disposable database and HTTP
-server. Install Chromium with `npx playwright install chromium`. Browser artifacts
+`MIX_ENV="test" mix assets.deploy`; this refreshes compressed bundles and digests
+so Phoenix cannot serve a stale release bundle. The browser script starts its
+own disposable database and HTTP server. Install Chromium with
+`npx playwright install chromium`. Browser artifacts
 under `cover/browser-contracts/` contain field names only.
 
 Two checks guard the template-to-handler seam without hand-kept field lists.

@@ -226,7 +226,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "ships" =>
       Enum.map(
-        ~w(acquired_ms acquisition_value paid_canals berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+        ~w(acquired_ms acquisition_value paid_canals berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination),
         &{&1, &1}
       ) ++
         [
@@ -344,7 +344,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     "exchange_orders" => ~w(initial_price markdowns),
     "auctions" => ~w(ship_id liquidation_id expires_ms),
     "ships" =>
-      ~w(acquired_ms acquisition_value planned_destination weather paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+      ~w(acquired_ms acquisition_value planned_destination weather paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination),
     "invitations" => ["invitee"]
   }
 

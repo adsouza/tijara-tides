@@ -47,6 +47,12 @@ query projections, consistency and module responsibilities.
 
 ## Playtest scope and tuning
 
+`game_ships.handling_started_ms` and `handling_volume_l` retain private operation
+metadata for the berth animation. Purchase, sale and warehouse handling write
+the actual start and transferred volume with the existing ship change; completion
+clears them atomically. Both columns are nullable for pre-migration operations.
+They do not change cargo ownership, settlement or handling deadlines.
+
 The first market screen offers manual immediate trades against finite simulated
 supply and demand for order-book cargo. Luxury and contract goods stay visible
 in the catalogue but cannot bypass their future auction mechanisms. Quantities,

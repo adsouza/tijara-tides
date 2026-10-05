@@ -1,6 +1,12 @@
 defmodule TijaraTides.UseCases.GameQueries do
   def voyage_progress(ship, clock), do: TijaraTides.Domain.Fleet.progress(ship, clock)
 
+  def berth_view(ship, definitions) do
+    used = TijaraTides.Domain.Fleet.capacity(ship, definitions.catalogue)
+
+    %{cargo_volume_l: used.volume, capacity_l: definitions.classes[ship["class"]]["volume"]}
+  end
+
   def weather_wait(ship, clock) do
     weather = ship["weather"]
 

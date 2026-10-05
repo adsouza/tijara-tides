@@ -27,11 +27,24 @@ defmodule TijaraTides.SettledCheck do
 
   def violations(state, catalogue) do
     Enum.sort(
-      claims(state) ++ orders(state) ++ bids(state) ++ links(state) ++ budgets(state, catalogue)
+      claims(state) ++
+        orders(state) ++
+        bids(state) ++
+        links(state) ++
+        budgets(state, catalogue) ++
+        handling(state)
     )
   end
 
   defp rows(state, kind), do: Map.values(ReadState.entities(state, kind))
+
+  defp handling(state) do
+    for ship <- rows(state, "ships"),
+        ship["status"] not in ["loading", "unloading"],
+        ship["handling_started_ms"] != nil or ship["handling_volume_l"] != nil,
+        do: {:handling, :without_operation, ship["id"]}
+  end
+
   defp get(state, kind, id), do: id && ReadState.get(state, kind, id)
   defp bankrupt?(state, company), do: get(state, "companies", company)["bankruptcy_ms"] != nil
 

@@ -530,6 +530,15 @@ with company/market changes and journals; they no longer write ship rows.
 balances itself. `ShipClass` holds immutable hull definitions independently of
 movement orchestration.
 
+Handling transitions also own `handling_started_ms` and `handling_volume_l`.
+`record_purchase` measures the purchased batches; `record_sale` measures the
+removed batches, rather than the remaining manifest. Completion clears both in
+the same ship write. The nullable columns preserve compatibility with older
+active operations and catalogue-free legacy domain fixtures. Production commands
+provide the catalogue and persist exact transferred volume. Owner-only berth
+presentation reads these values and the shared capacity calculation; it never
+reconstructs transfer size from the remaining manifest or changes gameplay time.
+
 `Ship.RoutePlan` separates editable templates from `Ship.VisitOrder` snapshots.
 `QuantityPolicy` represents fixed versus maximum intent; visit fills enforce
 monotonic quantity and spending bounds. Route and instruction command entry

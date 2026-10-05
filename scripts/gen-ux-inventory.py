@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 151
+TRIPWIRE = 154
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -179,6 +179,10 @@ REQUIREMENTS = [
     (132, "Show the replacement-company cooldown and available credit limit before company formation.", 12, "display", "Company and account"),
     (140, "Replace the Ships destination dropdown with a port-by-cargo popup matrix. Green outbound, yellow return and orange other-port discs scale by ROI radius; orange appears only when no return opportunity exists in that cell and shows the best ROI for cargo loaded at the candidate destination and sold at another reachable port, excluding the current port, with the onward port named on hover or focus. Negative ROI uses a black skull. Rank ports by the sum of the best ROI in each direction, then distance. Clicking a port selects it and dismisses the popup.", 7, "input", "Fleet and ship detail"),
     (126, "Provide a per-visit automatic-departure checkbox, off by default, saved together with the onward destination.", 8, 'input', 'Fleet and ship detail'),
+    (148, "Show a small stylized 3D berth scene for the selected owned ship while docked, loading or unloading.", 9, 'display', 'Fleet and ship detail'),
+    (149, "Committed ship status controls handling, and berth queues show no transfer.", 9, 'display', 'Fleet and ship detail'),
+    (150, "Other companies' ships do not expose this private scene.", 9, 'disclosure', 'Fleet and ship detail'),
+    (151, "Provide a pause control, honor reduced motion, and stop animation while hidden or disconnected. Keep status text and a static illustration when 3D is unavailable.", 9, 'input', 'Fleet and ship detail'),
 
 ]
 

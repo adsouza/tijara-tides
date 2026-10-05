@@ -22,6 +22,78 @@ defmodule TijaraTides.Domain.ShipAggregateTest do
     }
   end
 
+  test "handling metadata measures only the new cargo and clears with completion" do
+    catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
+    existing = %CargoBatch{good: "lumber", quantity: 4}
+
+    additions = [
+      %CargoBatch{good: "lumber", quantity: 3},
+      %CargoBatch{good: "grain", quantity: 2}
+    ]
+
+    hull = %{vessel() | class: "freighter", cargo: [existing]}
+    loading = Ship.record_purchase(hull, additions, 1234, 0, catalogue)
+    assert loading.handling_started_ms == 1234
+
+    assert loading.handling_volume_l ==
+             3 * catalogue["goods"]["lumber"]["volume_l"] +
+               2 * catalogue["goods"]["grain"]["volume_l"]
+
+    assert Ship.capacity(loading, catalogue).volume ==
+             loading.handling_volume_l + 4 * catalogue["goods"]["lumber"]["volume_l"]
+
+    assert Ship.Rows.decode(Ship.Rows.encode(loading)) == loading
+    completed = Ship.after_handling(loading)
+    assert completed.handling_started_ms == nil
+    assert completed.handling_volume_l == nil
+    assert completed.cargo == loading.cargo
+    state = %{entities: %{"ships" => %{"s" => Ship.Rows.encode(completed)}}}
+    assert TijaraTides.SettledCheck.violations(state, catalogue) == []
+  end
+
+  test "partial unloading records the sold volume independently of the remaining manifest" do
+    catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
+    scope = %TijaraTides.Domain.CargoLots.Scope{clock_ms: 2345}
+    {scope, row} = TijaraTides.Domain.CargoLots.create(scope, "lumber", 10, 90_000)
+    cargo = CargoRows.decode(Map.merge(row, %{"good" => "lumber", "unit_cost" => 100}))
+    hull = %{vessel() | class: "freighter", cargo: [cargo]}
+    {_, unloading, _} = Ship.record_sale(scope, hull, "lumber", 3, nil, catalogue)
+    assert unloading.handling_started_ms == 2345
+    assert unloading.handling_volume_l == 3 * catalogue["goods"]["lumber"]["volume_l"]
+
+    assert Ship.capacity(unloading, catalogue).volume ==
+             7 * catalogue["goods"]["lumber"]["volume_l"]
+
+    assert Ship.after_handling(unloading).handling_volume_l == nil
+  end
+
+  test "the settled oracle rejects handling metadata retained after the operation ends" do
+    catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
+
+    stale = %{
+      entities: %{
+        "ships" => %{
+          "s" => %{
+            "id" => "s",
+            "status" => "docked",
+            "handling_started_ms" => 0,
+            "handling_volume_l" => 1600
+          }
+        }
+      }
+    }
+
+    before = %{entities: %{}}
+
+    assert TijaraTides.SettledCheck.violations(stale, catalogue) == [
+             {:handling, :without_operation, "s"}
+           ]
+
+    assert_raise ArgumentError, fn ->
+      TijaraTides.SettledCheck.assert_settled!(before, stale, catalogue, :finished)
+    end
+  end
+
   test "the root forbids overlapping operations and mixed or overloaded liquid cargo" do
     catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
     crude = %CargoBatch{good: "crude_oil", quantity: 1}

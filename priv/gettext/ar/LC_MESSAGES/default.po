@@ -2986,3 +2986,15 @@ msgstr "خزّن هنا بضائع فاخرة غير محجوزة، في مست�
 
 msgid "Sell orders need unreserved stock of this cargo in a warehouse here."
 msgstr "تحتاج أوامر البيع إلى مخزون غير محجوز من هذه البضاعة في مستودع هنا."
+
+msgid "Berth view"
+msgstr "مشهد الرصيف"
+
+msgid "Pause animation"
+msgstr "إيقاف الحركة مؤقتًا"
+
+msgid "Resume animation"
+msgstr "استئناف الحركة"
+
+msgid "Static berth view"
+msgstr "مشهد ثابت للرصيف"

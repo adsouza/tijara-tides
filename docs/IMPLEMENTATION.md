@@ -72,6 +72,37 @@ query projections, consistency and module responsibilities.
 
 ## Playtest scope and tuning
 
+The selected owned ship has a procedural 3D berth scene while docked, loading
+or unloading. Up to twelve dry containers occupy four deck slots and three
+layers. Their count approximates transferred volume relative to hold capacity;
+existing cargo stays visible underneath additions or after partial unloading.
+The crane fills stacks from the bottom and removes boxes from the top, keeping
+deposited cargo visible. Tankers show a hose and pumping indicator. These boxes
+illustrate fullness and handling rather than individual manifest lots.
+
+Ship transitions record the operation's start time and transferred volume in
+litres alongside its completion deadline, and clear them atomically when handling
+ends. They remain owner-only; no cargo volume is added to public ship views.
+The renderer samples committed world time and scales the sequence so the last
+box lands at the handling deadline, including when opened midway through an
+operation. Tick updates do not restart it. Older operations lacking metadata use
+one illustrative transfer across the remaining time when first shown.
+
+Empty dry holds show no deck cargo. Queued ships show no transfer. All motion
+stops after ten seconds without a changed snapshot, preserving the current
+stack; the server remains authoritative for completion. Hidden and disconnected
+scenes stop rendering. Reduced motion gives a still scene; pause suspends local
+animation, and resume catches up to world time. Missing WebGL2 or context loss
+retains a static illustration and the existing status text.
+
+Three.js 0.186.1 and its MIT license are vendored under `assets/vendor/three`.
+Mix/esbuild bundles the renderer as a separate ES module, loaded only when the
+scene becomes visible. The regular application script is also an ES module.
+No external models, textures or CDN requests are required. GPU resources are
+disposed when changing ship, sailing or leaving the view. Browser contracts
+cover rendering, loading/unloading, LiveView patches, pause, reduced motion,
+disconnect/reconnect, hidden views and the static fallback.
+
 The first market screen offers manual immediate trades against finite simulated
 supply and demand for order-book cargo. Luxury and contract goods stay visible
 in the catalogue; luxury goods trade through scheduled warehouse-backed auctions,

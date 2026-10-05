@@ -148,9 +148,15 @@ defmodule TijaraTides.Domain.CodecCases do
              "last_liquid" => nil,
              "acquired_ms" => optional,
              "voyage_path" => if(optional?, do: [[103.8, 1.3], [106.8, -6.1]])
-           },
+           }
+           |> Map.merge(
+             if(optional?,
+               do: %{"handling_started_ms" => now, "handling_volume_l" => amount},
+               else: %{}
+             )
+           ),
            Map.new(
-             ~w(acquired_ms acquisition_value planned_destination weather voyage_path paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms pending_side pending_good pending_quantity pending_limit pending_destination),
+             ~w(acquired_ms acquisition_value planned_destination weather voyage_path paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination),
              &{&1, nil}
            )
            |> Map.put("cargo", [])}
