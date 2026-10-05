@@ -977,24 +977,11 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                     "Waits for every order to be filled or cancelled and for sufficient sailing funds. Save to apply."
                   )}
                 </p>
-                <p
-                  :if={
-                    get_in(@view.private, [
-                      "visit_plans",
-                      @ship["id"] <> "|" <> shared_port,
-                      "departure_wait"
-                    ])
-                  }
-                  class="text-amber-300"
-                >
-                  {l10n(
-                    get_in(@view.private, [
-                      "visit_plans",
-                      @ship["id"] <> "|" <> shared_port,
-                      "departure_wait"
-                    ])
-                  )}
-                </p>
+                <TijaraTidesWeb.GameUI.DepartureWait.notice
+                  ship={@ship}
+                  plan={@view.private["visit_plans"][@ship["id"] <> "|" <> shared_port]}
+                  orders={Map.values(@view.private["ship_instructions"] || %{})}
+                />
                 <p :if={length(shared_onwards) > 1} class="text-amber-300">
                   {gettext(
                     "Existing buy instructions disagree. Purchases are paused until you choose one onward port."

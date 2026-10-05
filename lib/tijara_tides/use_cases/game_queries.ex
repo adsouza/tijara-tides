@@ -66,6 +66,9 @@ defmodule TijaraTides.UseCases.GameQueries do
 
   defdelegate instruction_visits(private, ship_id), to: TijaraTides.UseCases.ShipPlanningQueries
 
+  defdelegate departure_wait_orders(orders, ship, plan),
+    to: TijaraTides.UseCases.ShipPlanningQueries
+
   defdelegate instruction_onwards(private, ship_id, port),
     to: TijaraTides.UseCases.ShipPlanningQueries
 

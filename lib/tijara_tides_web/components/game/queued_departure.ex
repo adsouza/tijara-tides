@@ -32,7 +32,11 @@ defmodule TijaraTidesWeb.GameUI.QueuedDeparture do
             "Waits for all orders and handling to finish. Fuel and canal fees are checked and charged at departure."
           )}
         </p>
-        <p :if={@plan["departure_wait"]} class="text-amber-300">{l10n(@plan["departure_wait"])}</p>
+        <TijaraTidesWeb.GameUI.DepartureWait.notice
+          ship={@ship}
+          plan={@plan}
+          orders={Map.values(@private["ship_instructions"] || %{})}
+        />
         <.form for={%{}} id="cancel-queued-departure" phx-submit="instruction-onward">
           <input type="hidden" name="port" value={@ship["port"]} />
           <input type="hidden" name="onward" value={@plan["onward"]} />

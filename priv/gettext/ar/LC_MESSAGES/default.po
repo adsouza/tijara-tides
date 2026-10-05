@@ -2998,3 +2998,9 @@ msgstr "استئناف الحركة"
 
 msgid "Static berth view"
 msgstr "مشهد ثابت للرصيف"
+
+msgid "Departure blocked: %{side} %{cargo} at %{port}, %{remaining} lots unfilled (%{filled}/%{quantity} filled)."
+msgstr "المغادرة متوقفة: %{side} %{cargo} في %{port}، %{remaining} دفعات لم تُنفَّذ (%{filled}/%{quantity} منفَّذة)."
+
+msgid "Fill or cancel the remaining cargo orders to depart."
+msgstr "نفِّذ أو ألغِ أوامر البضائع المتبقية للمغادرة."

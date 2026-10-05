@@ -16,6 +16,20 @@ defmodule TijaraTides.UseCases.ShipPlanningQueries do
   import TijaraTides.UseCases.MarketQueries,
     only: [cargo_aboard: 2, purchase_total: 4]
 
+  def departure_wait_orders(orders, ship, %{
+        "port" => port,
+        "departure_wait" => "Waiting for cargo orders to be filled or cancelled"
+      }) do
+    orders
+    |> Enum.filter(
+      &(&1["ship_id"] == ship["id"] and &1["port"] == port and
+          &1["status"] in ["planned", "waiting"])
+    )
+    |> Enum.sort_by(& &1["id"])
+  end
+
+  def departure_wait_orders(_orders, _ship, _plan), do: []
+
   def route_editor(private, ship, catalogue, clock \\ 0) do
     route = Map.get(private["ship_routes"] || %{}, ship["id"])
 

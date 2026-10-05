@@ -485,9 +485,11 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
           )}
         </span>
       </p>
-      <p :if={@model.plan && @model.plan["departure_wait"]} class="my-2 text-sm text-amber-200">
-        {l10n(@model.plan["departure_wait"])}
-      </p>
+      <TijaraTidesWeb.GameUI.DepartureWait.notice
+        ship={@ship}
+        plan={@model.plan}
+        orders={@model.orders}
+      />
       <details
         :if={@model[:last_timeout]}
         id={"route-last-timeout-" <> @ship["id"]}

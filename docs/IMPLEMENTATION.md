@@ -591,6 +591,10 @@ proceed. Failed admission retries have a configurable five-minute active-world
 cooldown (`berth_retry_ms`), and require viable conditions. Repeating routes
 continue automatically once their handling and orders finish. Queued manual
 orders prevent automatic or manual departure until filled or cancelled.
+Departure warnings identify each unfinished cargo instruction at that visit by
+cargo, side and port, show filled and remaining lots, and include its current
+waiting reason. Future-port and completed or cancelled instructions are omitted.
+The same warning appears in queued departures, onward plans and repeating routes.
 
 Size-specific terminal groups, adaptive port expansion, and predictive queue
 wait estimates remain deferred; the current playable hull catalogue does not yet

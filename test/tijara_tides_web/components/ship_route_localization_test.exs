@@ -16,7 +16,7 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
       draft = %{
         "side" => side,
         "quantity_mode" => mode,
-        "good" => "cargo",
+        "good" => "lumber",
         "quantity" => 3,
         "limit" => "12.00",
         "budget" => ""
@@ -28,7 +28,7 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
         "id" => "rule",
         "side" => side,
         "quantity_mode" => mode,
-        "good" => "cargo",
+        "good" => "lumber",
         "quantity" => 3,
         "limit" => 1200,
         "budget" => nil
@@ -54,21 +54,29 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
         stops: stops,
         rules: %{"a" => [rule]},
         stop_goods:
-          Map.new(stops, &{&1["id"], %{"buy" => [{"cargo", good}], "sell" => [{"cargo", good}]}}),
-        plan: %{"departure_wait" => "Waiting for cargo orders to be filled or cancelled"},
+          Map.new(
+            stops,
+            &{&1["id"], %{"buy" => [{"lumber", good}], "sell" => [{"lumber", good}]}}
+          ),
+        plan: %{
+          "port" => "Singapore",
+          "departure_wait" => "Waiting for cargo orders to be filled or cancelled"
+        },
         last_timeout: %{
           "arguments" => %{
             "port" => "Singapore",
             "shortfalls" => [
-              %{"side" => "buy", "good" => "cargo", "filled" => 1, "quantity" => 3}
+              %{"side" => "buy", "good" => "lumber", "filled" => 1, "quantity" => 3}
             ]
           }
         },
         orders: [
           %{
             "id" => "order",
+            "ship_id" => "ship",
+            "port" => "Singapore",
             "side" => side,
-            "good" => "cargo",
+            "good" => "lumber",
             "filled" => 0,
             "quantity" => 3,
             "status" => "waiting",
@@ -83,7 +91,7 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
             ship: %{"id" => "ship", "port" => "Singapore"},
             model: model,
             catalogue: %{
-              "goods" => %{"cargo" => good},
+              "goods" => %{"lumber" => good},
               "ports" => %{"Singapore" => %{}, "Colombo" => %{}}
             },
             drafts: %{"a" => draft},
@@ -96,7 +104,9 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
       refute html =~ "Waiting for cargo orders to be filled or cancelled"
       assert html =~ "جارٍ إكمال أهداف التحميل"
       assert html =~ "بانتظار السعر المحدد"
-      assert html =~ "بانتظار تنفيذ أوامر البضائع أو إلغائها"
+      assert html =~ "المغادرة متوقفة"
+      refute html =~ "٣/٠"
+      assert html =~ "٠/٣"
       refute html =~ "Resume route"
       refute html =~ "Add cargo target"
       refute html =~ "Edit cargo target"
@@ -114,7 +124,7 @@ defmodule TijaraTidesWeb.ShipRouteLocalizationTest do
       assert html =~ ~s(name="minutes")
       assert html =~ ~s(value="maximum")
       assert html =~ ~s(value="resume")
-      assert html =~ ~s(value="cargo")
+      assert html =~ ~s(value="lumber")
       tree = LazyHTML.from_fragment(html)
 
       quantity =
