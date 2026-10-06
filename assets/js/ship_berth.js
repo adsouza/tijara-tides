@@ -3,7 +3,10 @@ import {berthSample} from "./berth_motion"
 export const ShipBerth = {
   mounted() {
     this.host = this.el.querySelector("[data-berth-canvas]")
+    // Read the preference once, then follow change events. Polling matches can
+    // refresh the list's cached state first, and Chromium then skips the event.
     this.motion = matchMedia("(prefers-reduced-motion: reduce)")
+    this.reduced = this.motion.matches
     this.connected = true
     this.visible = false
     this.paused = false
@@ -48,10 +51,10 @@ export const ShipBerth = {
       const sample = berthSample(this.state, now - this.anchor)
       try {
         const pose = this.paused ? this.frozenPose : {
-          seconds: this.motion.matches ? 0 : sample.seconds, progress: sample.progress,
+          seconds: this.reduced ? 0 : sample.seconds, progress: sample.progress,
           loadFraction: sample.loadFraction}
         this.lastPose = pose
-        this.scene.draw({...sample, ...pose, reducedMotion: this.motion.matches, paused: this.paused})
+        this.scene.draw({...sample, ...pose, reducedMotion: this.reduced, paused: this.paused})
       } catch (_) { this.fail(); return }
       if (this.canAnimate() && sample.fresh) {
         this.host.dataset.animating = "true"
@@ -59,12 +62,12 @@ export const ShipBerth = {
       } else this.host.dataset.animating = "false"
     }
     this.canAnimate = () => this.visible && this.connected && !document.hidden &&
-      !this.paused && !this.motion.matches && this.host.clientWidth > 0 && this.host.clientHeight > 0
+      !this.paused && !this.reduced && this.host.clientWidth > 0 && this.host.clientHeight > 0
     this.refresh = () => {
       this.stop()
       if (this.dead || this.failed) return
       const toggle = this.el.querySelector("[data-berth-toggle]")
-      toggle.hidden = !this.scene || this.motion.matches
+      toggle.hidden = !this.scene || this.reduced
       toggle.setAttribute("aria-pressed", String(this.paused))
       toggle.textContent = this.paused ? toggle.dataset.resumeLabel : toggle.dataset.pauseLabel
       if (this.visible && this.connected && !document.hidden && this.scene) {
@@ -87,6 +90,7 @@ export const ShipBerth = {
       finally { this.loading = false }
     }
     this.onContextLost = event => { event.preventDefault(); this.fail() }
+    this.onMotion = event => { this.reduced = event.matches; this.refresh() }
     this.onToggle = event => {
       if (!event.target.closest("[data-berth-toggle]")) return
       this.frozenPose = this.lastPose || {seconds: 0, progress: 0}
@@ -103,7 +107,7 @@ export const ShipBerth = {
     this.resize = new ResizeObserver(() => this.refresh())
     this.resize.observe(this.host)
     document.addEventListener("visibilitychange", this.refresh)
-    this.motion.addEventListener("change", this.refresh)
+    this.motion.addEventListener("change", this.onMotion)
     this.el.addEventListener("click", this.onToggle)
   },
   updated() { this.readState(); if (this.failed) this.fail(); else this.refresh() },
@@ -115,7 +119,7 @@ export const ShipBerth = {
     this.intersection.disconnect()
     this.resize.disconnect()
     document.removeEventListener("visibilitychange", this.refresh)
-    this.motion.removeEventListener("change", this.refresh)
+    this.motion.removeEventListener("change", this.onMotion)
     this.el.removeEventListener("click", this.onToggle)
     this.scene?.canvas.removeEventListener("webglcontextlost", this.onContextLost)
     this.scene?.dispose()

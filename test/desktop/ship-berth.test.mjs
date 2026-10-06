@@ -18,8 +18,17 @@ function harness({fail = false} = {}) {
   globalThis.performance = {now: () => now}
   globalThis.document = {hidden: false, addEventListener: (k, v) => listeners.set(k, v),
     removeEventListener: k => listeners.delete(k)}
-  const media = {matches: false, addEventListener: (k, v) => mediaListeners.set(k, v),
+  // Like Chromium: reading matches refreshes the list's cached state, and an
+  // evaluation only dispatches change when that cached state differs.
+  let preference = false, cached = false
+  const media = {get matches() { cached = preference; return preference },
+    addEventListener: (k, v) => mediaListeners.set(k, v),
     removeEventListener: k => mediaListeners.delete(k)}
+  const evaluateMedia = () => {
+    if (cached === preference) return
+    cached = preference
+    mediaListeners.get('change')?.({matches: preference})
+  }
   globalThis.matchMedia = () => media
   globalThis.requestAnimationFrame = callback => { const id = Symbol(); frames.set(id, callback); return id }
   globalThis.cancelAnimationFrame = id => frames.delete(id)
@@ -61,7 +70,9 @@ function harness({fail = false} = {}) {
     visible(value) { intersect([{isIntersecting: value}]) },
     tick(ms) { now = ms; const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(cb => cb(now)) },
     togglePause() { clicks.get('click')({target: {closest: () => toggle}}) },
-    reduce(value) { media.matches = value; mediaListeners.get('change')() },
+    reduce(value) { preference = value; evaluateMedia() },
+    preferReducedMotion(value) { preference = value },
+    evaluateMedia,
     resize, get observersStopped() { return observersStopped },
     get listenerCount() { return listeners.size + clicks.size + mediaListeners.size }}
 }
@@ -184,6 +195,22 @@ test('hidden, disconnected, reduced-motion and stale views suspend rendering', a
   h.hook.el.dataset.clock = '12000'
   h.hook.updated()
   assert.equal(h.frames.size, 1)
+  h.hook.destroyed()
+})
+
+test('a reduced-motion change survives a frame that reads the preference first', async () => {
+  const h = harness()
+  h.visible(true)
+  await flush()
+  h.tick(100)
+  assert.equal(h.toggle.hidden, false)
+  // Chromium may evaluate media queries after the next frame has run.
+  h.preferReducedMotion(true)
+  h.tick(116)
+  h.evaluateMedia()
+  assert.equal(h.toggle.hidden, true)
+  assert.equal(h.host.dataset.animating, 'false')
+  assert.equal(h.frames.size, 0)
   h.hook.destroyed()
 })
 
