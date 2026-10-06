@@ -35,9 +35,6 @@ python3 scripts/test-game-db.py --cover | tee cover/elixir-summary.txt
 npm ci
 npx playwright install chromium
 mix assets.setup
-# Refresh compressed assets and digests too; Plug.Static can otherwise serve a
-# previous release's .gz renderer even when the uncompressed bundle is current.
-MIX_ENV="test" mix assets.deploy
 python3 scripts/test-browser.py
 npm run desktop:coverage | tee cover/desktop-summary.txt
 python3 scripts/check-desktop-versions.py

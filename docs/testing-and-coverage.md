@@ -41,15 +41,16 @@ and operation counts. The bounded
 checks four deliberately broken behaviors. Broader shrinking and generated
 state-machine infrastructure remains follow-up work.
 Round 1b implements twelve valid web-form variants, two normalization properties
-and two real-browser workflows. `LiveViewTest` does not execute browser JavaScript;
-SQL-backed form tests alone do not prove serializer coverage. The instruction
-metadata/replay regression, checked form inventory, payload properties and
-Chromium cohort are implemented. Run `python3 scripts/test-browser.py` after
-`MIX_ENV="test" mix assets.deploy`; this refreshes compressed bundles and digests
-so Phoenix cannot serve a stale release bundle. The browser script starts its
-own disposable database and HTTP server. Install Chromium with
-`npx playwright install chromium`. Browser artifacts
-under `cover/browser-contracts/` contain field names only.
+and two real-browser workflows. `LiveViewTest` does not execute browser
+JavaScript; SQL-backed form tests alone do not prove serializer coverage. The
+instruction metadata/replay regression, checked form inventory, payload
+properties and Chromium cohort are implemented. Run
+`python3 scripts/test-browser.py`; it runs `mix assets.build` first, and only
+production serves the `.gz` files that `phx.digest` writes, so neither an
+unbuilt edit nor a leftover digest can stand in for the bundle under test. The
+browser script starts its own disposable database and HTTP server. Install
+Chromium with `npx playwright install chromium`. Browser artifacts under
+`cover/browser-contracts/` contain field names only.
 
 Two checks guard the template-to-handler seam without hand-kept field lists.
 `TijaraTides.FormFields` reads every `~H` template and `GameLive.handle_event/3`
