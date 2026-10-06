@@ -72,7 +72,8 @@ try {
     await page.locator('#exchange-panel > summary').click();
     await page.locator('#exchange-good-selector select').selectOption('lumber');
     for (const side of ['buy', 'sell']) {
-      const form = page.locator(`form[phx-submit=exchange]:has(input[name=action][value=exchange_place]):has(input[name=side][value=${side}])`);
+      // Match the good too: until the selection patch lands, the previous good's form is still present.
+      const form = page.locator(`form[phx-submit=exchange]:has(input[name=action][value=exchange_place]):has(input[name=good][value=lumber]):has(input[name=side][value=${side}])`);
       await form.locator('[name=quantity]').fill('2');
       await form.locator('[name=price]').fill(side === 'buy' ? '1' : '10000');
       const request = await form.locator('[name=request_id]').inputValue();
