@@ -73,11 +73,13 @@ docker run --rm --name tijara-tides-local -p 127.0.0.1:10000:10000 \
   -e RENDER_EXTERNAL_HOSTNAME=smoke.onrender.com tijara-tides:local
 ```
 
-In another terminal, run `python3 scripts/smoke_server.py 10000`. It verifies the
-health response, HTTPS redirect, proxy-backed lobby, secure session cookie, and
-compiled JS/CSS. The check does not need a database. Plain HTTP lobby browsing
-requires a local HTTPS reverse proxy for the production secure cookie behavior.
-Never pass database credentials or the production signing secret as build args.
+In another terminal, run `python3 scripts/smoke_server.py 10000`. It verifies
+the health response, HTTPS redirect, proxy-backed lobby, secure session cookie,
+compiled JS/CSS, and that each asset is also served gzip-encoded with
+`Vary: Accept-Encoding` and decompresses to the plain file. The check does not
+need a database. Plain HTTP lobby browsing requires a local HTTPS reverse proxy
+for the production secure cookie behavior. Never pass database credentials or
+the production signing secret as build args.
 
 ## Current limitations
 

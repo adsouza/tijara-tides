@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check a running production release through a simulated HTTPS reverse proxy."""
+import gzip
 import http.client
 import json
 import re
@@ -10,11 +11,13 @@ port = int(sys.argv[1]) if len(sys.argv) > 1 else 10000
 host = "smoke.onrender.com"
 
 
-def request(path, https=False):
+def request(path, https=False, encoding=None):
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
     headers = {"Host": host}
     if https:
         headers["X-Forwarded-Proto"] = "https"
+    if encoding:
+        headers["Accept-Encoding"] = encoding
     try:
         conn.request("GET", path, headers=headers)
         response = conn.getresponse()
@@ -59,4 +62,9 @@ assert any(path.endswith(".css") for path in assets), assets
 for path in assets:
     status, _, body = request(path, https=True)
     assert status == 200 and body, (path, status)
-print("Production smoke check passed: health, HTTPS redirect, lobby, cookie, assets, favicon")
+    # Only production serves the phx.digest .gz files; they must match the plain asset.
+    status, headers, compressed = request(path, https=True, encoding="gzip")
+    assert status == 200 and headers.get("content-encoding") == "gzip", (path, status, headers)
+    assert "accept-encoding" in headers.get("vary", "").lower(), (path, headers)
+    assert gzip.decompress(compressed) == body, (path, "gzip body differs")
+print("Production smoke check passed: health, HTTPS redirect, lobby, cookie, assets, gzip, favicon")
