@@ -177,6 +177,12 @@ save `cover/elixir-summary.txt` and `cover/desktop-summary.txt`. CI artifact nam
 identify the Elixir/OTP matrix entry or desktop platform. Reports are retained
 for 14 days. These generated files remain ignored by Git.
 
+Branch protection on `main` requires one check, `ci-passed`. That CI job needs
+every `check` matrix leg and `container`, always runs, and fails unless each of
+them succeeded; GitHub would otherwise count a skipped required check as
+passing. Matrix version changes and new jobs therefore never rename a required
+check, but a new CI job must be added to its `needs` list to gate merges.
+
 ## What the percentages measure
 
 - Elixir uses the built-in `mix test --cover` executable-line metric. The explicit

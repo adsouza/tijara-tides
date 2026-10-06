@@ -102,3 +102,18 @@ jobs:
             --env RENDER_EXTERNAL_HOSTNAME=smoke.onrender.com \
             tijara-tides:test
           python3 scripts/smoke_server.py 10000
+  # The only check branch protection requires, so matrix and job changes never
+  # rename a required check. A skipped required check counts as passing, so this
+  # job must always run and must fail unless every needed job succeeded.
+  ci-passed:
+    needs: [check, container]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every needed job to succeed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Needed job results: $RESULTS"
+          [ -n "$RESULTS" ] || exit 1
+          for result in $RESULTS; do [ "$result" = success ] || exit 1; done
