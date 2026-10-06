@@ -1,6 +1,7 @@
 import {chromium, expect} from '@playwright/test';
 import {readFile, mkdir, writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import {traceRecorder} from './support/trace.mjs';
 
 const config = JSON.parse(await readFile(process.argv[2], 'utf8'));
 const browser = await chromium.launch({headless: true});
@@ -8,8 +9,10 @@ const timer = setTimeout(() => { console.error('Browser workflow exceeded 60 sec
 const records = [];
 const changes = [];
 let submissions = 0;
+const trace = traceRecorder(`form-${config.workflow}`);
 try {
   const context = await browser.newContext({viewport: {width: 900, height: 1200}});
+  await trace.attach(context);
   await context.addCookies([{name: '_tijara_tides_key', value: config.cookie, url: config.url}]);
   const page = await context.newPage();
   page.setDefaultTimeout(8_000);
@@ -36,6 +39,7 @@ try {
   if (config.workflow === 'instructions') {
     await page.locator('[data-panel="1"]').click();
     await page.locator(`[phx-click="ship"][phx-value-id="${config.ship}"]`).first().click();
+    await trace.step(page, 'destination');
     await page.locator('#destination-picker-trigger').click();
     await page.locator('#destination-picker button[phx-value-destination="Singapore"]').click();
     const form = page.locator(`[id="instruction-form-${config.ship}"]`);
@@ -48,11 +52,13 @@ try {
     const request = await form.locator('[name=request_id]').inputValue();
     await form.locator('button[type=submit],button:not([type])').last().click();
     await page.waitForFunction(({ship, request}) => document.querySelector(`[id="instruction-form-${ship}"] input[name=request_id]`)?.value !== request, {ship: config.ship, request});
+    await trace.step(page, 'onward');
     const onward = page.locator('form[phx-submit="instruction-onward"]').last();
     await onward.locator('[name=onward]').selectOption('Jakarta');
     const onwardRequest = await onward.locator('[name=request_id]').inputValue();
     await onward.locator('button:not([type]),button[type=submit]').last().click();
     await page.waitForFunction(request => document.querySelector('form[phx-submit="instruction-onward"] input[name=request_id]')?.value !== request, onwardRequest);
+    await trace.step(page, 'buy-instruction');
     await form.locator('[name=side]').selectOption('buy');
     await expect(form.locator('[name=budget]')).toBeEnabled();
     await form.locator('[name=good]').selectOption('aluminium_scrap');
@@ -70,6 +76,7 @@ try {
   } else {
     await page.locator('[data-panel="0"]').click();
     await page.locator('#exchange-panel > summary').click();
+    await trace.step(page, 'select-good');
     await page.locator('#exchange-good-selector select').selectOption('lumber');
     for (const side of ['buy', 'sell']) {
       // Match the good too: until the selection patch lands, the previous good's form is still present.
@@ -80,12 +87,14 @@ try {
       await form.locator('button').click();
       await page.waitForFunction(({side, request}) => document.querySelector(`form[phx-submit=exchange]:has(input[name=side][value=${side}]) input[name=request_id]`)?.value !== request, {side, request});
     }
+    await trace.step(page, 'amend');
     await page.locator('#exchange-own-orders > summary').click();
     const amend = page.locator('form[id^="exchange-amend-"]').first();
     await amend.locator('[name=quantity]').fill('1');
     const request = await amend.locator('[name=request_id]').inputValue();
     await amend.locator('button:not([type]),button[type=submit]').click();
     await page.waitForFunction(request => document.querySelector('form[id^="exchange-amend-"] input[name=request_id]')?.value !== request, request);
+    await trace.step(page, 'cancel');
     for (let remaining = 2; remaining > 0; remaining--) {
       const disclosure = page.locator('#exchange-own-orders');
       if (!await disclosure.evaluate(el => el.open)) await disclosure.locator(':scope > summary').click();
@@ -99,7 +108,10 @@ try {
   }
   await mkdir('cover/browser-contracts', {recursive: true});
   await writeFile(`cover/browser-contracts/${config.workflow}.json`, JSON.stringify({schema: 1, runner: 'playwright-1.63.0', records, changes}, null, 2));
-  await context.close();
+  await trace.close(context);
+} catch (error) {
+  await trace.save(error);
+  throw error;
 } finally {
   clearTimeout(timer);
   await browser.close();

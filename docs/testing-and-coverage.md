@@ -49,8 +49,24 @@ properties and Chromium cohort are implemented. Run
 production serves the `.gz` files that `phx.digest` writes, so neither an
 unbuilt edit nor a leftover digest can stand in for the bundle under test. The
 browser script starts its own disposable database and HTTP server. Install
-Chromium with `npx playwright install chromium`. Browser artifacts under
-`cover/browser-contracts/` contain field names only.
+Chromium with `npx playwright install chromium`. Passing contracts leave
+field-name records and berth screenshots under `cover/browser-contracts/`.
+
+A failing contract also writes `<name>-trace.zip`, a Playwright trace with
+actions, DOM snapshots, screenshots, console output and network traffic, and
+`<name>-log.json`, the page-side step markers. Open a trace with
+`npx playwright show-trace`. CI uploads these with the coverage artifact, and
+the repository is public, so a trace includes the disposable session cookie and
+everything the synthetic test world rendered; contracts must never load real
+player data. For a failure that only CI reproduces, set `TIJARA_BROWSER_TRACE`
+in the `env` of the browser step in `.github/workflows/ci.yml` on a diagnostics
+branch; locally, export it before `python3 scripts/test-browser.py`. Its
+`;`-separated entries are `<selector>@<attribute>`, which records each write
+with the caller's stack, and `media=<query>`, which records that query's change
+events, for example
+`[data-berth-toggle]@hidden;media=(prefers-reduced-motion: reduce)`. It patches
+DOM APIs, so it stays off by default; `dataset` writes appear with values but no
+stack.
 
 Two checks guard the template-to-handler seam without hand-kept field lists.
 `TijaraTides.FormFields` reads every `~H` template and `GameLive.handle_event/3`
