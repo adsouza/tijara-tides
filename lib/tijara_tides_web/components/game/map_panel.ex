@@ -2,6 +2,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
   @moduledoc "MapPanel rendering; events remain owned by GameLive."
   use TijaraTidesWeb, :html
   import TijaraTidesWeb.GameUI.Presentation
+  alias TijaraTides.UseCases.GameQueries
   alias TijaraTidesWeb.WorldMap
 
   attr :preview, :any, default: nil
@@ -52,6 +53,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
         class="overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
       >
         <% viewport = WorldMap.viewport(@definitions.catalogue, @map_region) %>
+        <% piracy = GameQueries.piracy_zones(@view.public, @definitions.catalogue) %>
         <div class="map-toolbar px-3 py-2">
           <button
             id="map-expand"
@@ -146,6 +148,31 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
               stroke="#294551"
               stroke-width="0.4"
             />
+            <g :for={zone <- piracy} data-piracy-zone={zone.id} data-level={zone.level}>
+              <polygon
+                points={WorldMap.points(zone.polygon ++ [hd(zone.polygon)])}
+                class={"piracy-zone piracy-zone-#{zone.level}"}
+                vector-effect="non-scaling-stroke"
+              >
+                <title>
+                  {gettext("%{zone}: %{chance}% attack chance per crossing",
+                    zone: l10n(zone.name),
+                    chance: display_number(zone.chance_bps / 100)
+                  )}
+                </title>
+              </polygon>
+              <text
+                x={hd(WorldMap.project(zone.label))}
+                y={List.last(WorldMap.project(zone.label))}
+                text-anchor="middle"
+                dominant-baseline="central"
+                font-size={14 * viewport.scale}
+                pointer-events="none"
+                aria-hidden="true"
+              >
+                {zone.mark}
+              </text>
+            </g>
             <polyline
               :for={lon <- -180..180//30}
               vector-effect="non-scaling-stroke"
@@ -316,6 +343,28 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
             active={@map_cargo_side && {@map_cargo_side, @market_good}}
           />
         </div>
+        <ul
+          :if={Enum.any?(piracy, & &1.campaign)}
+          id="piracy-campaigns"
+          class="piracy-campaigns space-y-1 px-4 pt-2 text-xs"
+        >
+          <li :for={zone <- piracy} :if={zone.campaign} data-level={zone.level}>
+            <.emoji symbol={zone.mark} />
+            <%= if zone.level == "campaign" do %>
+              {gettext("%{zone}: %{campaign} active, %{minutes} min remaining",
+                zone: l10n(zone.name),
+                campaign: l10n(zone.campaign["name"]),
+                minutes: minutes(max(0, zone.campaign["until_ms"] - @view.public["clock_ms"]))
+              )}
+            <% else %>
+              {gettext("%{zone}: %{campaign} begins in %{minutes} min",
+                zone: l10n(zone.name),
+                campaign: l10n(zone.campaign["name"]),
+                minutes: minutes(max(0, zone.campaign["starts_ms"] - @view.public["clock_ms"]))
+              )}
+            <% end %>
+          </li>
+        </ul>
         <p class="px-4 pb-3 text-xs text-slate-400">
           {gettext(
             "Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic"

@@ -22,6 +22,37 @@ defmodule TijaraTides.UseCases.GameQueries do
     (public["weather"] || %{})[sector]
   end
 
+  @doc "Public zone threat for the map; chance comes from the same domain function rolls use."
+  def piracy_zones(public, catalogue) do
+    model = TijaraTides.Domain.Piracy.model(catalogue)
+    clock = public["clock_ms"]
+    campaigns = public["piracy"] || %{}
+
+    for {id, zone} <- (model && model["zones"]) || %{} do
+      campaign = campaigns[id]
+
+      level =
+        cond do
+          campaign && campaign["starts_ms"] <= clock -> "campaign"
+          campaign -> "elevated"
+          true -> "normal"
+        end
+
+      %{
+        id: id,
+        name: zone["name"],
+        kind: zone["kind"],
+        mark: model["kinds"][zone["kind"]]["mark"],
+        polygon: zone["polygon"],
+        label: zone["label"],
+        level: level,
+        chance_bps: TijaraTides.Domain.Piracy.chance_bps(id, clock, model),
+        campaign: campaign
+      }
+    end
+    |> Enum.sort_by(& &1.name)
+  end
+
   def production_recipes(definitions, port) do
     roles = definitions.catalogue["ports"][port]["roles"]
 

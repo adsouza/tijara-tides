@@ -101,7 +101,7 @@ msgstr ""
 msgid "%{value1} min"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:388
+#: lib/tijara_tides_web/components/game/map_panel.ex:437
 #: lib/tijara_tides_web/components/game/ship_card.ex:44
 #, elixir-autogen, elixir-format
 msgid "%{value1} min remaining"
@@ -384,7 +384,7 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/cargo_panel.ex:119
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:487
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:765
-#: lib/tijara_tides_web/components/game/map_panel.ex:399
+#: lib/tijara_tides_web/components/game/map_panel.ex:448
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:70
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:365
 #: lib/tijara_tides_web/components/ship_route_editor.ex:262
@@ -404,7 +404,7 @@ msgid "Cargo / supply"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/destination_picker.ex:75
-#: lib/tijara_tides_web/components/game/map_panel.ex:394
+#: lib/tijara_tides_web/components/game/map_panel.ex:443
 #, elixir-autogen, elixir-format
 msgid "Cargo aboard"
 msgstr ""
@@ -439,7 +439,7 @@ msgstr ""
 msgid "Choose a destination port before buying."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:332
+#: lib/tijara_tides_web/components/game/map_panel.ex:381
 #, elixir-autogen, elixir-format
 msgid "Choose a port in %{value1} to inspect its market."
 msgstr ""
@@ -484,7 +484,7 @@ msgid "Company"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:73
-#: lib/tijara_tides_web/components/game/map_panel.ex:377
+#: lib/tijara_tides_web/components/game/map_panel.ex:426
 #, elixir-autogen, elixir-format
 msgid "Company in bankruptcy — assets in receivership"
 msgstr ""
@@ -557,7 +557,7 @@ msgid "Dismiss notification"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:52
-#: lib/tijara_tides_web/components/game/map_panel.ex:366
+#: lib/tijara_tides_web/components/game/map_panel.ex:415
 #, elixir-autogen, elixir-format
 msgid "Dismiss ship information"
 msgstr ""
@@ -603,12 +603,12 @@ msgid "Emailed sign-in token"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:479
-#: lib/tijara_tides_web/components/game/map_panel.ex:395
+#: lib/tijara_tides_web/components/game/map_panel.ex:444
 #, elixir-autogen, elixir-format
 msgid "Empty hold"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:320
+#: lib/tijara_tides_web/components/game/map_panel.ex:369
 #, elixir-autogen, elixir-format
 msgid "Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic"
 msgstr ""
@@ -827,7 +827,7 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:246
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:393
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:488
-#: lib/tijara_tides_web/components/game/map_panel.ex:400
+#: lib/tijara_tides_web/components/game/map_panel.ex:449
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:345
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:365
 #: lib/tijara_tides_web/components/game/warehouse_panel.ex:396
@@ -1193,7 +1193,7 @@ msgstr ""
 msgid "Resolve conflicting destinations"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:65
+#: lib/tijara_tides_web/components/game/map_panel.ex:67
 #, elixir-autogen, elixir-format
 msgid "Restore main screen ↙"
 msgstr ""
@@ -1228,12 +1228,12 @@ msgstr ""
 msgid "Save onward destination"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:358
+#: lib/tijara_tides_web/components/game/map_panel.ex:407
 #, elixir-autogen, elixir-format
 msgid "Selected ship"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:396
+#: lib/tijara_tides_web/components/game/map_panel.ex:445
 #, elixir-autogen, elixir-format
 msgid "Selected ship cargo"
 msgstr ""
@@ -1290,7 +1290,7 @@ msgstr ""
 msgid "Ship status"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:83
+#: lib/tijara_tides_web/components/game/map_panel.ex:85
 #, elixir-autogen, elixir-format
 msgid "Ship types"
 msgstr ""
@@ -1317,7 +1317,7 @@ msgstr ""
 msgid "Show only cargo carried by %{value1}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:114
+#: lib/tijara_tides_web/components/game/map_panel.ex:116
 #, elixir-autogen, elixir-format
 msgid "Show other companies’ ships"
 msgstr ""
@@ -1485,12 +1485,12 @@ msgstr ""
 msgid "Will stop after this visit finishes."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:138
+#: lib/tijara_tides_web/components/game/map_panel.ex:140
 #, elixir-autogen, elixir-format
 msgid "World ports and public ship positions on a Equal Earth map"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:123
+#: lib/tijara_tides_web/components/game/map_panel.ex:125
 #, elixir-autogen, elixir-format
 msgid "World view"
 msgstr ""
@@ -2375,7 +2375,7 @@ msgstr[1] ""
 msgid "Buy / supply"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:64
+#: lib/tijara_tides_web/components/game/map_panel.ex:66
 #, elixir-autogen, elixir-format
 msgid "Expand map ⛶"
 msgstr ""
@@ -2385,7 +2385,7 @@ msgstr ""
 msgid "Select a docked ship to compare sea-route distances."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:74
+#: lib/tijara_tides_web/components/game/map_panel.ex:76
 #, elixir-autogen, elixir-format
 msgid "Ship filters %{arrow}"
 msgstr ""
@@ -2460,7 +2460,7 @@ msgstr ""
 msgid "%{cargo} quantity"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:205
+#: lib/tijara_tides_web/components/game/map_panel.ex:232
 #, elixir-autogen, elixir-format
 msgid "%{region}: %{count} ports"
 msgstr ""
@@ -2516,7 +2516,7 @@ msgstr ""
 msgid "Includes handling and any tanker cleaning fee."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:298
+#: lib/tijara_tides_web/components/game/map_panel.ex:325
 #, elixir-autogen, elixir-format
 msgid "Inspect %{ship}"
 msgstr ""
@@ -2661,13 +2661,13 @@ msgid "Your shipping company"
 msgstr ""
 
 #: lib/tijara_tides/localization/names.ex:76
-#: lib/tijara_tides_web/components/game/map_panel.ex:314
+#: lib/tijara_tides_web/components/game/map_panel.ex:341
 #, elixir-autogen, elixir-format
 msgid "Demand"
 msgstr ""
 
 #: lib/tijara_tides/localization/names.ex:75
-#: lib/tijara_tides_web/components/game/map_panel.ex:130
+#: lib/tijara_tides_web/components/game/map_panel.ex:132
 #, elixir-autogen, elixir-format
 msgid "Supply"
 msgstr ""
@@ -3202,7 +3202,7 @@ msgstr ""
 msgid "Sea-route distances from %{port} in nautical miles."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:209
+#: lib/tijara_tides_web/components/game/map_panel.ex:236
 #, elixir-autogen, elixir-format
 msgid "Select %{port}"
 msgstr ""
@@ -4093,7 +4093,7 @@ msgstr ""
 msgid "Waiting for trade conditions: %{reason}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:47
+#: lib/tijara_tides_web/components/game/map_panel.ex:48
 #, elixir-autogen, elixir-format
 msgid "Map"
 msgstr ""
@@ -4451,7 +4451,7 @@ msgid "After %{days} days without an authenticated visit, your company receives 
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:72
-#: lib/tijara_tides_web/components/game/map_panel.ex:376
+#: lib/tijara_tides_web/components/game/map_panel.ex:425
 #, elixir-autogen, elixir-format
 msgid "Company closed for dormancy — assets in receivership"
 msgstr ""
@@ -4999,22 +4999,22 @@ msgstr ""
 msgid "Fill or cancel the remaining cargo orders to depart."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:327
+#: lib/tijara_tides_web/components/game/map_panel.ex:376
 #, elixir-autogen, elixir-format
 msgid "Red: ports with %{cargo} demand"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:324
+#: lib/tijara_tides_web/components/game/map_panel.ex:373
 #, elixir-autogen, elixir-format
 msgid "Red: ports with %{cargo} supply"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:441
+#: lib/tijara_tides_web/components/game/map_panel.ex:490
 #, elixir-autogen, elixir-format
 msgid "Where to buy %{cargo}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/map_panel.ex:442
+#: lib/tijara_tides_web/components/game/map_panel.ex:491
 #, elixir-autogen, elixir-format
 msgid "Where to sell %{cargo}"
 msgstr ""
@@ -5128,4 +5128,19 @@ msgstr ""
 #: lib/tijara_tides/localization/names.ex:44
 #, elixir-autogen, elixir-format
 msgid "Windward raiders"
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/map_panel.ex:354
+#, elixir-autogen, elixir-format
+msgid "%{zone}: %{campaign} active, %{minutes} min remaining"
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/map_panel.ex:360
+#, elixir-autogen, elixir-format
+msgid "%{zone}: %{campaign} begins in %{minutes} min"
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/map_panel.ex:158
+#, elixir-autogen, elixir-format
+msgid "%{zone}: %{chance}% attack chance per crossing"
 msgstr ""

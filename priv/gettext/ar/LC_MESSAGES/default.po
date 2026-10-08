@@ -3073,3 +3073,12 @@ msgstr "إخوة الساحل"
 
 msgid "Windward raiders"
 msgstr "غزاة جزر الريح"
+
+msgid "%{zone}: %{chance}% attack chance per crossing"
+msgstr "%{zone}: احتمال هجوم %{chance}% لكل عبور"
+
+msgid "%{zone}: %{campaign} active, %{minutes} min remaining"
+msgstr "%{zone}: %{campaign} نشطة، متبقٍ %{minutes} دقيقة"
+
+msgid "%{zone}: %{campaign} begins in %{minutes} min"
+msgstr "%{zone}: تبدأ %{campaign} خلال %{minutes} دقيقة"

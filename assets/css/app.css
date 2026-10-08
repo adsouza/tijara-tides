@@ -276,3 +276,8 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 @media (prefers-reduced-motion: reduce) {
   .interaction-busy-ring { animation: none; }
 }
+
+.piracy-zone { stroke: #b91c1c; stroke-width: 0.6; fill: #b91c1c; fill-opacity: 0.08; }
+.piracy-zone-elevated { fill: #f59e0b; stroke: #f59e0b; fill-opacity: 0.16; }
+.piracy-zone-campaign { fill: #dc2626; stroke: #dc2626; fill-opacity: 0.28; }
+.piracy-campaigns { color: #fca5a5; }
