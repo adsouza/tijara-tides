@@ -9,6 +9,7 @@ defmodule TijaraTides.Domain.Simulation do
       state
       |> Notices.prune_notices()
       |> TijaraTides.Domain.WeatherWorld.refresh(catalogue)
+      |> TijaraTides.Domain.PiracyWorld.refresh(catalogue)
       |> PortCargoMarketWorld.initialize(catalogue)
       |> TijaraTides.Domain.MerchantWarehouseWorld.advance(catalogue)
 
@@ -26,6 +27,7 @@ defmodule TijaraTides.Domain.Simulation do
           catalogue,
           Fleet.voyage_speedup()
         ),
+      piracy: &TijaraTides.Domain.PiracyWorld.refresh(&1, catalogue),
       fleet: &Fleet.advance(&1, elapsed),
       instruction_expiry:
         &TijaraTides.Domain.Services.DepartureFunding.expire_instructions(&1, catalogue),

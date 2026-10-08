@@ -2,6 +2,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
   @moduledoc "Typed relational rows mapped to pure domain state; SQL names are a closed whitelist."
   @specs %{
     "weather" => Enum.map(~w(id window_id starts_ms until_ms), &{&1, &1}),
+    "piracy_campaigns" =>
+      Enum.map(~w(id window_id name announced_ms starts_ms until_ms), &{&1, &1}),
     "markdown_presets" => Enum.map(~w(id account_id name markdowns price_floor), &{&1, &1}),
     "remote_links" =>
       Enum.map(
@@ -280,7 +282,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"clock_ms", "clock_ms"}
     ]
   }
-  @kinds ~w(weather accounts markdown_presets companies company_dormancy warehouse_liquidations company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules remote_links visit_budgets departure_requests)
+  @kinds ~w(weather piracy_campaigns accounts markdown_presets companies company_dormancy warehouse_liquidations company_activity invitation_progress merchant_warehouses warehouses ships auctions auction_bids exchange_orders exchange_trades warehouse_reservations markets sessions invitations notices ship_instructions visit_plans loans bankruptcy_events operating_bills loan_installments guarantees email_requests reporting_accounts financial_reports ship_routes route_stops route_rules remote_links visit_budgets departure_requests)
 
   @children %{
     "warehouses" =>
@@ -337,7 +339,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     "ship_routes" => ~w(visit_finished),
     "notices" => ~w(arguments)
   }
-  @strict ~w(weather markdown_presets remote_links visit_budgets departure_requests warehouse_liquidations company_dormancy)
+  @strict ~w(weather piracy_campaigns markdown_presets remote_links visit_budgets departure_requests warehouse_liquidations company_dormancy)
 
   @optional %{
     "ship_instructions" => ~w(markdowns price_floor),

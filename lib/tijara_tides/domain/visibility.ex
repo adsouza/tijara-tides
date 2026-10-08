@@ -11,6 +11,7 @@ defmodule TijaraTides.Domain.Visibility do
       "warehouse_utilization" => TijaraTides.Domain.WarehouseWorld.pools(state),
       "clock_ms" => state.clock_ms,
       "weather" => TijaraTides.Domain.WeatherWorld.public(state),
+      "piracy" => TijaraTides.Domain.PiracyWorld.public(state),
       "revision" => state.revision,
       "ports" => catalogue["ports"],
       "goods" => catalogue["goods"],

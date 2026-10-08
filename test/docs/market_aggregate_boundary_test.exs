@@ -10,6 +10,7 @@ defmodule TijaraTides.MarketAggregateBoundaryTest do
           {"warehouse_liquidation_world", ~w(warehouse_liquidations)},
           {"automation_world", ~w(remote_links visit_budgets departure_requests)},
           {"weather_world", ~w(weather)},
+          {"piracy_world", ~w(piracy_campaigns)},
           {"markdown_preset_world", ~w(markdown_presets)}
         ] do
       files = Path.wildcard("lib/tijara_tides/domain/**/*.ex")

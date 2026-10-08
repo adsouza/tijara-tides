@@ -5652,6 +5652,65 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "pirate campaigns persist through restart and match the seeded model", c do
+    alias TijaraTides.Domain.Piracy
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    cat = :sys.get_state(c.server).catalogue
+
+    model =
+      cat["piracy"]
+      |> Map.put("campaign", %{
+        "period_ms" => 20_000,
+        "duration_ms" => 4000,
+        "warning_ms" => 1000,
+        "multiplier" => 4
+      })
+      |> Map.update!("zones", fn zones ->
+        Map.new(zones, fn {id, zone} -> {id, Map.put(zone, "campaign_bps", 10_000)} end)
+      end)
+
+    cat = Map.put(cat, "piracy", model)
+    previous = Application.get_env(:tijara_tides, :piracy)
+    Application.put_env(:tijara_tides, :piracy, Map.take(model, ["campaign", "zones"]))
+
+    on_exit(fn ->
+      if previous,
+        do: Application.put_env(:tijara_tides, :piracy, previous),
+        else: Application.delete_env(:tijara_tides, :piracy)
+    end)
+
+    :sys.replace_state(c.server, &%{&1 | catalogue: cat})
+    :ok = GameServer.connect(token, c.server)
+    clock = GameServer.snapshot(token, c.server).public["clock_ms"]
+    campaign = Piracy.campaign("gulf_of_aden", div(clock, 20_000) + 2, model)
+    advance(c.server, campaign["starts_ms"] - clock)
+    before = GameServer.snapshot(token, c.server)
+    now = before.public["clock_ms"]
+    assert before.public["piracy"] == Piracy.campaigns(now, model)
+    assert before.public["piracy"]["gulf_of_aden"] == campaign
+
+    assert [[rows]] =
+             Repo.query!("SELECT count(*) FROM game_piracy_campaigns WHERE world_id=$1", [
+               c.world_id
+             ]).rows
+
+    assert rows == map_size(before.public["piracy"])
+    stop_supervised!(GameServer)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :piracy_replacement
+      )
+
+    assert GameServer.snapshot(token, replacement).public["piracy"] == before.public["piracy"]
+    :ok = GameServer.connect(token, replacement)
+    advance(replacement, campaign["until_ms"] - now)
+    after_end = GameServer.snapshot(token, replacement).public
+    refute Map.has_key?(after_end["piracy"], "gulf_of_aden")
+    assert after_end["piracy"] == Piracy.campaigns(after_end["clock_ms"], model)
+  end
+
   test "staggered storms survive full simulation commits, reload and repeated ticks", c do
     alias TijaraTides.Infrastructure.Persistence.FinancialLedger
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)

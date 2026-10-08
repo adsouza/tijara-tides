@@ -12,10 +12,12 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
   def land, do: @land
 
   def all do
-    TijaraTides.Domain.Piracy.validate!(@catalogue["piracy"])
+    piracy = Map.merge(@catalogue["piracy"], Application.get_env(:tijara_tides, :piracy, %{}))
+    TijaraTides.Domain.Piracy.validate!(piracy)
 
     @catalogue
     |> Map.update!("weather", &Map.merge(&1, Application.get_env(:tijara_tides, :weather, %{})))
+    |> Map.put("piracy", piracy)
     |> Map.put(
       "departure_funding",
       TijaraTides.Domain.Automation.settings(%{
