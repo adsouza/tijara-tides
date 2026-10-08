@@ -20,14 +20,33 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
           do: refute(Piracy.inside?(point, zone["polygon"]), "#{port} lies inside #{id}")
 
       assert Piracy.inside?(zone["label"], zone["polygon"])
-
-      crossed =
-        Enum.count(catalogue["routes"], fn {_, r} ->
-          Enum.any?(r["coordinates"], &Piracy.inside?(&1, zone["polygon"]))
-        end)
-
-      assert crossed > 0, "no route vertex lies in #{id}"
     end
+
+    # Sample each leg the way voyages interpolate, across the antimeridian too;
+    # these are the counts docs/IMPLEMENTATION.md publishes.
+    crossed =
+      Map.new(model["zones"], fn {id, zone} ->
+        {id,
+         Enum.count(catalogue["routes"], fn {_, route} ->
+           route["coordinates"]
+           |> Enum.chunk_every(2, 1, :discard)
+           |> Enum.any?(fn [[x, y], [u, v]] ->
+             [dx, _] = TijaraTides.Domain.VoyageNavigation.normalize([u - x, 0])
+
+             Enum.any?(0..40, fn k ->
+               Piracy.inside?([x + dx * k / 40, y + (v - y) * k / 40], zone["polygon"])
+             end)
+           end)
+         end)}
+      end)
+
+    assert crossed == %{
+             "red_sea" => 202,
+             "gulf_of_aden" => 206,
+             "malacca" => 194,
+             "south_china_sea" => 220,
+             "caribbean" => 76
+           }
   end
 
   test "every zone and campaign name is translatable" do

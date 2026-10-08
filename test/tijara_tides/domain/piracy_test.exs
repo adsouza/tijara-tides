@@ -47,6 +47,14 @@ defmodule TijaraTides.Domain.PiracyTest do
     refute Piracy.inside?([5, -1], ring)
   end
 
+  test "inside? wraps longitudes unwrapped past the antimeridian" do
+    caribbean = [[-88.0, 10.5], [-60.0, 10.5], [-60.0, 22.0], [-88.0, 22.0]]
+    # Busan-Houston stores its Caribbean leg at 277 degrees east, i.e. 83 west.
+    assert Piracy.inside?([277.13, 16.08], caribbean)
+    assert Piracy.inside?([-82.87 - 360, 16.08], caribbean)
+    refute Piracy.inside?([257.13, 16.08], caribbean)
+  end
+
   test "validate! accepts the model and rejects malformed campaigns and zones" do
     assert Piracy.validate!(model()) == model()
     assert Piracy.validate!(nil) == nil

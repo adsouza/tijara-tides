@@ -53,8 +53,13 @@ defmodule TijaraTides.Domain.Piracy do
 
   defp point?(_), do: false
 
-  @doc "Even-odd ray test in the longitude/latitude plane that voyage legs interpolate in."
-  def inside?([x, y], ring) do
+  @doc """
+  Even-odd ray test in the longitude/latitude plane. Route coordinates run past
+  the antimeridian so legs interpolate across it; the point is wrapped first.
+  """
+  def inside?(point, ring) do
+    [x, y] = TijaraTides.Domain.VoyageNavigation.normalize(point)
+
     ring
     |> Enum.zip(tl(ring) ++ [hd(ring)])
     |> Enum.reduce(false, fn {[x1, y1], [x2, y2]}, inside ->
