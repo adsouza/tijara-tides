@@ -56,6 +56,28 @@ defmodule TijaraTides.BrowserContractsTest do
     end
   end
 
+  @tag timeout: 45_000
+  test "Chromium workspace panels scroll individually for visitors and players" do
+    Sql.with_world(fn c ->
+      f = TijaraTides.WebFormFixture.fixture(c)
+      path = Path.join(System.tmp_dir!(), "tj-layout-#{c.world}.json")
+
+      try do
+        File.write!(path, Jason.encode!(%{url: url(), cookie: f.cookie}))
+        File.chmod!(path, 0o600)
+
+        {output, status} =
+          System.cmd("node", ["test/browser/workspace_layout.mjs", path], stderr_to_stdout: true)
+
+        assert status == 0, output
+        assert output =~ "Workspace layout contracts passed"
+      after
+        File.rm(path)
+        if Process.alive?(f.view.pid), do: GenServer.stop(f.view.pid, :normal)
+      end
+    end)
+  end
+
   defp url do
     {:ok, {ip, port}} = TijaraTidesWeb.Endpoint.server_info(:http)
     "http://#{:inet.ntoa(ip)}:#{port}"

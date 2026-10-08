@@ -28,6 +28,12 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 .game-header > div { display: flex; align-items: baseline; gap: 16px; }
 .game-screen-playing { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
 .game-screen-playing .game-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* The page cannot scroll while playing, so a panel keeps its scroll to itself. */
+.game-screen-playing .panel-content { overscroll-behavior-y: contain; }
+/* Without a company, onboarding cards scroll the page away; the workspace still
+   fills one viewport, less the screen padding, so each panel scrolls alone.
+   Panels that fit, or reach their end, hand the wheel back to the page. */
+.game-screen:not(.game-screen-playing) .game-workspace { height: calc(100dvh - 24px); }
 .company-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; margin-bottom: 10px; border: 1px solid #334155; border-radius: 10px; font-size: 12px; }
 .company-summary h2, .company-summary .text-2xl { font-size: 16px; line-height: 1.4; }
 .company-summary > div { min-width: 0; }
@@ -37,7 +43,7 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 .workspace-panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-height: 0; flex: 1; }
 .workspace-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; border: 1px solid #334155; background: #0f172acc; border-radius: 12px; overflow: hidden; }
 .panel-title { flex: none; padding: 10px 12px; font-weight: 600; color: #5eead4; border-bottom: 1px solid #334155; }
-.panel-content { overflow: auto; overscroll-behavior-y: contain; min-height: 0; flex: 1; padding: 10px; scrollbar-width: thin; }
+.panel-content { overflow: auto; min-height: 0; flex: 1; padding: 10px; scrollbar-width: thin; }
 .panel-content > section { margin: 0; padding: 0; border: 0; background: transparent; }
 .panel-content > section + section { margin-top: 12px; }
 .panel-content h2 { font-size: 18px; }

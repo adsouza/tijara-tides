@@ -32,8 +32,11 @@ the top of Cargo in a disclosure that starts expanded. Landscape windows display
 all three panels together; portrait windows display one panel at a time with
 horizontal swipe navigation and keyboard-accessible panel buttons. Long lists
 scroll inside their panels without scrolling the page; the map scrolls with the
-Cargo panel. Panel selection survives live updates and orientation changes.
-Account details and invitations open from a compact menu above the workspace.
+Cargo panel. Visitors and players without a company see their onboarding cards
+above the same viewport-height workspace: the page scrolls those cards away,
+and a panel that fits or reaches its end passes the scroll on to the page.
+Panel selection survives live updates and orientation changes. Account details
+and invitations open from a compact menu above the workspace.
 
 An empty docked ship is preferred on startup, with its current port selected;
 subsequent updates preserve the player's selection. The fleet has an optional
