@@ -34,7 +34,10 @@ defmodule TijaraTidesWeb.CargoNumbersTest do
       Localization.with_locale("ar", fn ->
         render_component(&CargoPanel.panel/1,
           definitions: %{definitions | catalogue: catalogue},
-          view: %{markets: %{("Singapore|" <> good) => quote, ("Colombo|" <> good) => quote}},
+          view: %{
+            public: %{"clock_ms" => 0},
+            markets: %{("Singapore|" <> good) => quote, ("Colombo|" <> good) => quote}
+          },
           ship: %{
             "status" => "docked",
             "port" => "Singapore",

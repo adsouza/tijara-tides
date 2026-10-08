@@ -151,7 +151,7 @@ generated catalogue consistency, assets, and a production release.
 | Accounting | `Domain.CompanyFinance`, `Domain.Journal`, persistence ledger adapter | Balanced integer-cent entries; durable ledger and entity balances committed together and reconciled. |
 | Financial accumulation | `Domain.Reporting`, `UseCases.CommitPreparation` | Integer capital-time integration and accounting categories; apply pending journal events before commit, clear only after success. |
 | Visibility | `Domain.Visibility` | Public ships never expose cargo, balances, credentials or private instructions; owner projections require authentication. |
-| Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, reconcile weather before movement and settle finance before and after fleet operations, then market recovery, ship instructions and invitation expiry in the established order; commit all phases together. |
+| Clock orchestration | `Domain.Simulation` | Advance the supplied clock once, reconcile weather and pirate campaigns before movement and settle finance before and after fleet operations, then market recovery, ship instructions and invitation expiry in the established order; commit all phases together. |
 
 `Domain.ReadState` exports only reads for application projections.
 `Domain.State` is unexported internal state-access machinery, not a general
@@ -1240,6 +1240,17 @@ helpers use that same motion function. Ship rows snapshot the weather model,
 and legacy voyages activate it prospectively, preventing historical weather
 from rewriting completed movement. All weather and fleet changes commit with
 the world clock in the existing atomic tick transaction.
+
+### Pirate zones and campaigns
+
+`PiracyWorld` owns `piracy_campaigns`, at most one announced or running
+campaign row per zone. The pure `Piracy` model derives campaign windows from
+the catalogue seed; every rule that depends on a campaign calls
+`Piracy.campaign_active?/3` at the time in question, and the rows are a public
+projection read only by queries. `Simulation` refreshes the projection after
+weather on every tick and at initialization. `GameCatalogue.all/0` merges the
+`:piracy` runtime configuration and validates the model before the server
+starts.
 
 Route editor warehouse options are prepared per stop and cargo by
 `ShipPlanningQueries`, using `Warehouse.receiving_allowed?` with the committed

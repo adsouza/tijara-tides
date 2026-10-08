@@ -1137,3 +1137,26 @@ segments per voyage, including the first reconstruction of a legacy voyage;
 ticks reuse these segments, while a new departure or diversion builds its own.
 Operation-count tests bound instruction reads and route partition calls, and
 cached forecast tests compare results across paths, seeds and warning cutoffs.
+
+## Pirate zones and campaigns
+
+Five pirate zones are generated into the catalogue under `piracy`: the Red Sea
+(militia, 💥), and the Gulf of Aden and Somali Basin, the Malacca Strait, the
+South China Sea and the Caribbean Sea (piracy kinds, 🏴‍☠️). The generator
+rejects a zone containing any roster harbour or overlapping another zone, and
+the model is validated when the catalogue loads, after any `:piracy` runtime
+override is merged, so a malformed model fails startup rather than a tick. Of
+the 600 directed routes, 202 cross the Red Sea, 206 the Gulf of Aden, 194 the
+Malacca Strait, 220 the South China Sea and 76 the Caribbean Sea.
+
+Each zone rolls a campaign once per 12-hour period from the public catalogue
+seed: 25% (Red Sea 40%) for a 3-hour campaign announced 30 minutes ahead,
+quadrupling the zone's published chance per crossing while it runs.
+`PiracyWorld` keeps a durable public projection of announced and running
+campaigns in migration `20261008000000_add_piracy_campaigns.exs`, refreshed
+each tick after weather and at initialization. The map shades zones normal,
+elevated (announced) or campaign, marks each with its kind's emoji, gives the
+current chance on hover, and lists announced and running campaigns with
+countdowns in English and Arabic. No attacks happen yet; phase 2 of
+`docs/superpowers/specs/2026-10-08-pirate-zones-design.md` adds them.
+
