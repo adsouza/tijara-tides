@@ -60,6 +60,7 @@ defmodule TijaraTidesWeb.GameLive do
         instruction_drafts: %{},
         manifest_sort: {"good", :asc},
         market_good: "lumber",
+        map_cargo_side: nil,
         cargo_menu_open: false,
         cargo_sort_roi: false,
         auction_grouping: "status",
@@ -447,6 +448,25 @@ defmodule TijaraTidesWeb.GameLive do
     if socket.assigns.definitions.catalogue["goods"][good],
       do: {:noreply, assign(socket, market_good: good, cargo_menu_open: false)},
       else: {:noreply, socket}
+  end
+
+  # The map highlights one side of the selected cargo's markets; repeating the
+  # active choice clears it.
+  def handle_event("map-cargo", %{"side" => side, "good" => good}, socket)
+      when side in ["supply", "demand"] do
+    %{definitions: definitions, map_cargo_side: active, market_good: selected} = socket.assigns
+
+    cond do
+      !definitions.catalogue["goods"][good] ->
+        {:noreply, socket}
+
+      active == side and selected == good ->
+        {:noreply, assign(socket, :map_cargo_side, nil)}
+
+      true ->
+        {:noreply,
+         assign(socket, map_cargo_side: side, market_good: good, cargo_menu_open: false)}
+    end
   end
 
   def handle_event("fleet-status", %{"status" => status}, socket)
@@ -1555,6 +1575,7 @@ defmodule TijaraTidesWeb.GameLive do
                 cargo_sort_roi={@cargo_sort_roi}
                 definitions={@definitions}
                 inspected_ship={@inspected_ship}
+                map_cargo_side={@map_cargo_side}
                 map_filters_open={@map_filters_open}
                 map_region={@map_region}
                 map_ship_classes={@map_ship_classes}

@@ -11,6 +11,7 @@ defmodule TijaraTidesWeb.MapLocalizationTest do
     render = fn region ->
       Localization.with_locale("ar", fn ->
         render_component(&MapPanel.panel/1,
+          cargo_options: [],
           definitions: definitions,
           inspected_ship: nil,
           map_filters_open: false,
@@ -18,6 +19,7 @@ defmodule TijaraTidesWeb.MapLocalizationTest do
           map_ship_classes: [],
           map_ships: [],
           map_show_others: true,
+          market_good: nil,
           selected_port: "Singapore",
           view: %{private: nil, public: %{"clock_ms" => 0}}
         )

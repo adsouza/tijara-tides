@@ -474,6 +474,19 @@ city names and retain harbor names in tooltips.
 Expand map and Ship filters use two-line labels, equal available widths, and
 six pixels of vertical padding in the compact regional toolbar.
 
+Two identical cargo strips labelled Supply and Demand flank the map below its
+controls, each showing the Cargo selector's cargo as emoji in two columns,
+ordered by name. Selecting a Supply emoji turns red the ports listed in that
+cargo's Supply table; selecting a Demand emoji turns red the ports listed in its
+Demand table. A marker grouping several ports turns red when any of them is
+listed.
+
+Only one cargo emoji is selected at a time, circled; selecting it again clears
+the highlight. Selecting an emoji also selects its cargo in the Cargo selector,
+and changing that selection moves the highlight to the new cargo on the same
+side. An emoji whose table lists no ports is disabled. The compact regional view
+omits the strips to keep its square map legible; its ports stay red.
+
 Regional port labels remain twelve screen pixels high as the map resizes, with
 stable screen-space offsets and separated labels for nearby ports.
 

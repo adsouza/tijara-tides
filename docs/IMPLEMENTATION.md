@@ -377,6 +377,15 @@ selection and sorting persist through live updates. These tables omit ports
 without executable supply or demand; deferred trading systems do not contribute
 executable quotes.
 
+The map at the top of the Cargo panel is flanked by Supply and Demand emoji
+strips listing the same cargo as the selector. The map turns red exactly the
+ports that `cargo_markets/6` lists for the selected cargo and side, the same
+rows as the table below it. The LiveView keeps only the side (`map_cargo_side`)
+and reads the cargo from the selector, so the highlight follows any cargo
+selection. An emoji is disabled when that cargo's option has no ask (supply) or
+no bid (demand); both come from the same `cargo_markets/6` rows. The compact
+regional view hides the strips in CSS; the highlight remains.
+
 ## Accounting and lot foundations
 
 Financial events use an append-only double-entry ledger. Historical capital grants,

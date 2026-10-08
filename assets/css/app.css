@@ -64,7 +64,8 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 #cargo-demand th:nth-child(4) { width: 23%; }
 /* The map scrolls with the Cargo panel rather than holding its own scroll area. */
 #map-disclosure { margin-bottom: 12px; }
-#map-panel #world-map { display: block; width: 100%; max-height: 24dvh; }
+#map-panel { --map-max: 24dvh; --cargo-max: 56px; }
+#map-panel #world-map { display: block; width: 100%; max-height: var(--map-max); }
 #map-panel > p { font-size: 10px; padding: 4px 10px; }
 #map-panel #region-ports { padding: 8px; }
 .workspace-tabs { display: none; }
@@ -87,7 +88,7 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
   .workspace-panels::-webkit-scrollbar { display: none; }
   .workspace-panel { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; }
   .panel-title { display: none; }
-  #map-panel #world-map { max-height: 26dvh; }
+  #map-panel { --map-max: 26dvh; }
 }
 
 /* Browser SVG focus outlines grow with the viewBox zoom. Use the marker's
@@ -115,6 +116,22 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 .cargo-menu-heading { position: sticky; top: 0; background: #0f172a; color: #94a3b8; border-bottom: 1px solid #475569; }
 
 /* One row, aligned at the top, with inline positions mirrored in RTL. */
+/* Cargo strips flank the map: supply before it, demand after it (mirrored in RTL). */
+/* Cells grow until the strips are as tall as the map: limited by the map's
+   height cap, or by the width the map keeps once both strips take theirs. */
+.map-stage {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px; padding-inline: 4px;
+  container-type: inline-size;
+  --cargo-cell: clamp(20px, min((var(--map-max) - 16px) / var(--cargo-rows), (50cqw - 21px) / (var(--cargo-rows) + 2)), var(--cargo-max));
+}
+.map-cargo-heading { margin-bottom: 2px; font-size: 11px; line-height: 14px; text-align: center; color: #94a3b8; }
+.map-cargo-grid { display: grid; grid-template-columns: repeat(2, var(--cargo-cell)); gap: 1px; }
+.map-cargo-grid button { display: grid; place-items: center; width: var(--cargo-cell); height: var(--cargo-cell); border: 2px solid transparent; border-radius: 50%; font-size: calc(var(--cargo-cell) * .6); }
+.map-cargo-grid button .ui-emoji { margin: 0; }
+.map-cargo-grid button:hover:not(:disabled) { background: #1e293b; }
+.map-cargo-grid button[aria-pressed=true] { border-color: #ef4444; background: #450a0a; }
+.map-cargo-grid button:disabled { opacity: .3; cursor: default; }
+
 .map-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 0 8px; }
 .map-expand { grid-column: 2; grid-row: 1; }
 #map-filter-toggle { grid-column: 1; grid-row: 1; justify-self: start; }
@@ -123,13 +140,13 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 @media (orientation: portrait) { .map-expand { display: none; } }
 @media (orientation: landscape) {
   [data-map-expanded=true] #map-panel {
-    position: fixed; inset: 0; z-index: 50; width: 100vw; height: 100dvh;
+    --map-max: calc(100dvh - 96px); --cargo-max: 72px;
+    position: fixed; inset: 0; z-index: 50;
     max-height: none; display: flex; flex-direction: column; border: 0;
   }
-  [data-map-expanded=true] #map-panel > :not(svg) { flex: none; }
-  [data-map-expanded=true] #map-panel #world-map {
-    flex: 1; min-height: 0; height: 0; max-height: none; width: 100%;
-  }
+  [data-map-expanded=true] #map-panel > :not(.map-stage) { flex: none; }
+  [data-map-expanded=true] #map-panel .map-stage { flex: 1; min-height: 0; height: 0; grid-template-rows: minmax(0, 1fr); }
+  [data-map-expanded=true] #map-panel #world-map { height: 100%; max-height: none; width: 100%; }
   [data-map-expanded=true] .map-expand-label { display: none; }
   [data-map-expanded=true] .map-restore-label { display: inline; }
 }
@@ -140,11 +157,13 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
   grid-template-rows: auto auto auto auto; align-content: start;
   max-height: none; overflow: visible; padding: 6px; gap: 4px 6px;
 }
+[data-map-expanded=false] #map-panel[data-regional=true] .map-stage { grid-column: 1; grid-row: 1 / 5; align-self: start; display: block; padding: 0; }
+/* The compact square map has no room for the cargo strips; its red ports remain. */
+[data-map-expanded=false] #map-panel[data-regional=true] .map-cargo-strip { display: none; }
 [data-map-expanded=false] #map-panel[data-regional=true] #world-map {
-  grid-column: 1; grid-row: 1 / 5; align-self: start;
   width: 100%; height: auto; aspect-ratio: 1; max-height: none;
 }
-[data-map-expanded=false] #map-panel[data-regional=true] > :not(svg) { grid-column: 2; padding: 0; min-width: 0; }
+[data-map-expanded=false] #map-panel[data-regional=true] > :not(.map-stage) { grid-column: 2; padding: 0; min-width: 0; }
 [data-map-expanded=false] #map-panel[data-regional=true] .map-toolbar { grid-row: 1; display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 4px; }
 [data-map-expanded=false] #map-panel[data-regional=true] .map-toolbar > button { padding: 2px 6px; font-size: 10px; }
 [data-map-expanded=false] #map-panel[data-regional=true] .map-region-heading { grid-row: 2; flex-wrap: wrap; gap: 4px; }

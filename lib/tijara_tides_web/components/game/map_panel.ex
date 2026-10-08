@@ -14,8 +14,33 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
   attr :map_show_others, :any, required: true
   attr :selected_port, :any, required: true
   attr :view, :any, required: true
+  attr :cargo_options, :list, required: true
+  attr :market_good, :any, required: true
+  attr :map_cargo_side, :string, default: nil
 
   def panel(assigns) do
+    assigns =
+      assign(assigns,
+        cargo_ports:
+          if(assigns.map_cargo_side,
+            do:
+              cargo_markets(
+                assigns.definitions,
+                assigns.view,
+                assigns.market_good,
+                assigns.map_cargo_side,
+                {"port", :asc},
+                nil
+              )
+              |> MapSet.new(& &1["port"]),
+            else: MapSet.new()
+          ),
+        strip_options:
+          Enum.sort_by(assigns.cargo_options, fn {good, _} ->
+            assigns.definitions.catalogue["goods"][good]["name"] || good
+          end)
+      )
+
     ~H"""
     <details id="map-disclosure" open phx-mounted={JS.ignore_attributes("open")}>
       <summary class="cursor-pointer px-3 py-2 text-sm font-semibold">
@@ -99,181 +124,208 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
             "World view"
           )}</button>
         </div>
-        <svg
-          id="world-map"
-          viewBox={viewport.box}
-          role="group"
-          aria-label={gettext("World ports and public ship positions on a Equal Earth map")}
-          class="w-full"
-        >
-          <polygon
-            :for={ring <- Map.get(@definitions.regional_land, @map_region, @definitions.land)}
-            vector-effect="non-scaling-stroke"
-            points={WorldMap.points(ring)}
-            fill="#172f39"
-            stroke="#294551"
-            stroke-width="0.4"
+        <div class="map-stage" style={"--cargo-rows: #{max(div(length(@strip_options) + 1, 2), 1)}"}>
+          <.cargo_strip
+            side="supply"
+            heading={gettext("Supply")}
+            options={@strip_options}
+            active={@map_cargo_side && {@map_cargo_side, @market_good}}
           />
-          <polyline
-            :for={lon <- -180..180//30}
-            vector-effect="non-scaling-stroke"
-            points={WorldMap.points(for lat <- -90..90//2, do: [lon, lat])}
-            fill="none"
-            stroke="#1e293b"
-          />
-          <polyline
-            :for={lat <- -60..60//30}
-            vector-effect="non-scaling-stroke"
-            points={WorldMap.points(for lon <- -180..180//2, do: [lon, lat])}
-            fill="none"
-            stroke="#1e293b"
-          />
-          <path
-            :if={@preview && @preview["additional_fuel"] != nil}
-            d={WorldMap.path(@preview["route"]["coordinates"])}
-            fill="none"
-            stroke="#2dd4bf"
-            stroke-width="2"
-            stroke-dasharray="5 3"
-            vector-effect="non-scaling-stroke"
-          />
-          <g :for={{id, s} <- @map_ships} data-map-route={id}>
-            <% route =
-              s["voyage_path"] ||
-                @definitions.catalogue["routes"][s["port"] <> "|" <> s["destination"]][
-                  "coordinates"
-                ] %>
-            <path
-              vector-effect="non-scaling-stroke"
-              d={WorldMap.path(route)}
-              fill="none"
-              stroke="#155e75"
-              stroke-width="1"
-            />
-            <path
-              :for={arrow <- WorldMap.route_arrows(route, viewport.scale)}
-              d="M -4 -3 L 3 0 L -4 3"
-              transform={"translate(#{arrow.x} #{arrow.y}) rotate(#{arrow.angle}) scale(#{viewport.scale})"}
-              fill="none"
-              stroke="#38b8cf"
-              stroke-width="1.5"
-              vector-effect="non-scaling-stroke"
-              pointer-events="none"
-              aria-hidden="true"
-            />
-          </g>
-          <g
-            :for={marker <- WorldMap.markers(@definitions.catalogue, @map_region)}
-            role="button"
-            tabindex="0"
-            aria-label={
-              if length(marker.ports) > 1,
-                do:
-                  gettext("%{region}: %{count} ports",
-                    region: l10n(marker.name),
-                    count: display_number(length(marker.ports))
-                  ),
-                else: gettext("Select %{port}", port: l10n(marker.name))
-            }
-            phx-click={if length(marker.ports) > 1, do: "map-region", else: "port"}
-            phx-keydown={if length(marker.ports) > 1, do: "map-region", else: "port"}
-            phx-key="Enter"
-            phx-value-id={marker.name}
-            class="cursor-pointer"
+          <svg
+            id="world-map"
+            viewBox={viewport.box}
+            role="group"
+            aria-label={gettext("World ports and public ship positions on a Equal Earth map")}
+            class="w-full"
           >
-            <circle
-              cx={hd(marker.center)}
-              cy={List.last(marker.center)}
-              r={16 * viewport.scale}
-              fill="transparent"
+            <polygon
+              :for={ring <- Map.get(@definitions.regional_land, @map_region, @definitions.land)}
+              vector-effect="non-scaling-stroke"
+              points={WorldMap.points(ring)}
+              fill="#172f39"
+              stroke="#294551"
+              stroke-width="0.4"
             />
-            <circle
-              cx={hd(marker.center)}
-              cy={List.last(marker.center)}
-              r={
-                if(length(marker.ports) > 1,
-                  do: 11,
-                  else: if(marker.name == @selected_port, do: 7, else: 5)
-                ) * viewport.scale
-              }
-              class="port-marker-dot"
-              fill="#2dd4bf"
-              stroke="#0f172a"
+            <polyline
+              :for={lon <- -180..180//30}
               vector-effect="non-scaling-stroke"
-            >
-              <title>
-                {l10n(marker.name)} — {if length(marker.ports) > 1,
-                  do: Enum.map_join(marker.ports, ", ", &l10n/1),
-                  else: l10n(@definitions.catalogue["ports"][marker.name]["harbor"])}
-              </title>
-            </circle>
-            <text
-              :if={@map_region}
-              data-port-label
-              data-label-x={hd(marker.center)}
-              data-label-y={List.last(marker.center)}
-              data-label-dx={WorldMap.label_position(marker.name).dx}
-              data-label-dy={WorldMap.label_position(marker.name).dy}
-              x={hd(marker.center) + WorldMap.label_position(marker.name).dx * viewport.scale}
-              y={
-                List.last(marker.center) +
-                  WorldMap.label_position(marker.name).dy * viewport.scale
-              }
-              text-anchor={WorldMap.label_position(marker.name).anchor}
-              font-size={12 * viewport.scale}
-              fill="#e2e8f0"
-              stroke="#020617"
-              stroke-width={3 * viewport.scale}
-              paint-order="stroke"
-              pointer-events="none"
-            >
-              {l10n(marker.name)}
-            </text>
-            <text
-              :if={length(marker.ports) > 1}
-              x={hd(marker.center)}
-              y={List.last(marker.center)}
-              text-anchor="middle"
-              dominant-baseline="central"
-              font-size={12 * viewport.scale}
-              font-weight="bold"
-              fill="#0f172a"
-              pointer-events="none"
-            >
-              {display_number(length(marker.ports))}
-            </text>
-          </g>
-          <g :for={{id, s} <- @map_ships} data-map-ship={id}>
-            <% [px, py] =
-              WorldMap.project(ship_coordinates(s, @view.public["clock_ms"], @definitions.catalogue)) %>
-            <circle
-              cx={px}
-              cy={py}
-              r={4 * viewport.scale}
+              points={WorldMap.points(for lat <- -90..90//2, do: [lon, lat])}
+              fill="none"
+              stroke="#1e293b"
+            />
+            <polyline
+              :for={lat <- -60..60//30}
               vector-effect="non-scaling-stroke"
-              fill="#fbbf24"
-              stroke="#0f172a"
+              points={WorldMap.points(for lon <- -180..180//2, do: [lon, lat])}
+              fill="none"
+              stroke="#1e293b"
+            />
+            <path
+              :if={@preview && @preview["additional_fuel"] != nil}
+              d={WorldMap.path(@preview["route"]["coordinates"])}
+              fill="none"
+              stroke="#2dd4bf"
+              stroke-width="2"
+              stroke-dasharray="5 3"
+              vector-effect="non-scaling-stroke"
+            />
+            <g :for={{id, s} <- @map_ships} data-map-route={id}>
+              <% route =
+                s["voyage_path"] ||
+                  @definitions.catalogue["routes"][s["port"] <> "|" <> s["destination"]][
+                    "coordinates"
+                  ] %>
+              <path
+                vector-effect="non-scaling-stroke"
+                d={WorldMap.path(route)}
+                fill="none"
+                stroke="#155e75"
+                stroke-width="1"
+              />
+              <path
+                :for={arrow <- WorldMap.route_arrows(route, viewport.scale)}
+                d="M -4 -3 L 3 0 L -4 3"
+                transform={"translate(#{arrow.x} #{arrow.y}) rotate(#{arrow.angle}) scale(#{viewport.scale})"}
+                fill="none"
+                stroke="#38b8cf"
+                stroke-width="1.5"
+                vector-effect="non-scaling-stroke"
+                pointer-events="none"
+                aria-hidden="true"
+              />
+            </g>
+            <g
+              :for={marker <- WorldMap.markers(@definitions.catalogue, @map_region)}
+              data-cargo-highlight={Enum.any?(marker.ports, &MapSet.member?(@cargo_ports, &1))}
               role="button"
               tabindex="0"
-              class="cursor-pointer"
-              aria-label={gettext("Inspect %{ship}", ship: s["name"])}
-              phx-click="inspect-ship"
-              phx-value-id={id}
-              phx-keydown="inspect-ship"
+              aria-label={
+                if length(marker.ports) > 1,
+                  do:
+                    gettext("%{region}: %{count} ports",
+                      region: l10n(marker.name),
+                      count: display_number(length(marker.ports))
+                    ),
+                  else: gettext("Select %{port}", port: l10n(marker.name))
+              }
+              phx-click={if length(marker.ports) > 1, do: "map-region", else: "port"}
+              phx-keydown={if length(marker.ports) > 1, do: "map-region", else: "port"}
               phx-key="Enter"
+              phx-value-id={marker.name}
+              class="cursor-pointer"
             >
-              <title>
-                {s["name"]} · {@view.public["companies"][s["company_id"]]["name"]} · {l10n(
-                  @definitions.classes[s["class"]]["name"]
-                )}
-              </title>
-            </circle>
-          </g>
-        </svg>
+              <circle
+                cx={hd(marker.center)}
+                cy={List.last(marker.center)}
+                r={16 * viewport.scale}
+                fill="transparent"
+              />
+              <circle
+                cx={hd(marker.center)}
+                cy={List.last(marker.center)}
+                r={
+                  if(length(marker.ports) > 1,
+                    do: 11,
+                    else: if(marker.name == @selected_port, do: 7, else: 5)
+                  ) * viewport.scale
+                }
+                class="port-marker-dot"
+                fill={
+                  if Enum.any?(marker.ports, &MapSet.member?(@cargo_ports, &1)),
+                    do: "#ef4444",
+                    else: "#2dd4bf"
+                }
+                stroke="#0f172a"
+                vector-effect="non-scaling-stroke"
+              >
+                <title>
+                  {l10n(marker.name)} — {if length(marker.ports) > 1,
+                    do: Enum.map_join(marker.ports, ", ", &l10n/1),
+                    else: l10n(@definitions.catalogue["ports"][marker.name]["harbor"])}
+                </title>
+              </circle>
+              <text
+                :if={@map_region}
+                data-port-label
+                data-label-x={hd(marker.center)}
+                data-label-y={List.last(marker.center)}
+                data-label-dx={WorldMap.label_position(marker.name).dx}
+                data-label-dy={WorldMap.label_position(marker.name).dy}
+                x={hd(marker.center) + WorldMap.label_position(marker.name).dx * viewport.scale}
+                y={
+                  List.last(marker.center) +
+                    WorldMap.label_position(marker.name).dy * viewport.scale
+                }
+                text-anchor={WorldMap.label_position(marker.name).anchor}
+                font-size={12 * viewport.scale}
+                fill="#e2e8f0"
+                stroke="#020617"
+                stroke-width={3 * viewport.scale}
+                paint-order="stroke"
+                pointer-events="none"
+              >
+                {l10n(marker.name)}
+              </text>
+              <text
+                :if={length(marker.ports) > 1}
+                x={hd(marker.center)}
+                y={List.last(marker.center)}
+                text-anchor="middle"
+                dominant-baseline="central"
+                font-size={12 * viewport.scale}
+                font-weight="bold"
+                fill="#0f172a"
+                pointer-events="none"
+              >
+                {display_number(length(marker.ports))}
+              </text>
+            </g>
+            <g :for={{id, s} <- @map_ships} data-map-ship={id}>
+              <% [px, py] =
+                WorldMap.project(
+                  ship_coordinates(s, @view.public["clock_ms"], @definitions.catalogue)
+                ) %>
+              <circle
+                cx={px}
+                cy={py}
+                r={4 * viewport.scale}
+                vector-effect="non-scaling-stroke"
+                fill="#fbbf24"
+                stroke="#0f172a"
+                role="button"
+                tabindex="0"
+                class="cursor-pointer"
+                aria-label={gettext("Inspect %{ship}", ship: s["name"])}
+                phx-click="inspect-ship"
+                phx-value-id={id}
+                phx-keydown="inspect-ship"
+                phx-key="Enter"
+              >
+                <title>
+                  {s["name"]} · {@view.public["companies"][s["company_id"]]["name"]} · {l10n(
+                    @definitions.classes[s["class"]]["name"]
+                  )}
+                </title>
+              </circle>
+            </g>
+          </svg>
+          <.cargo_strip
+            side="demand"
+            heading={gettext("Demand")}
+            options={@strip_options}
+            active={@map_cargo_side && {@map_cargo_side, @market_good}}
+          />
+        </div>
         <p class="px-4 pb-3 text-xs text-slate-400">
           {gettext(
             "Equal Earth map · teal: ports and regions · gold: ships at sea · ships at port appear in Port traffic"
           )}
+          <span :if={@map_cargo_side == "supply"} id="map-cargo-legend" class="block text-red-300">
+            {gettext("Red: ports with %{cargo} supply", cargo: cargo_name(@market_good))}
+          </span>
+          <span :if={@map_cargo_side == "demand"} id="map-cargo-legend" class="block text-red-300">
+            {gettext("Red: ports with %{cargo} demand", cargo: cargo_name(@market_good))}
+          </span>
         </p>
         <div :if={@map_region} id="region-ports" class="border-t border-slate-700 p-4">
           <p class="mb-3 text-sm text-slate-300">
@@ -361,6 +413,39 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
         </aside>
       </section>
     </details>
+    """
+  end
+
+  attr :side, :string, required: true
+  attr :heading, :string, required: true
+  attr :options, :list, required: true
+  attr :active, :any, required: true
+
+  defp cargo_strip(assigns) do
+    ~H"""
+    <div class="map-cargo-strip" role="group" aria-label={@heading}>
+      <p class="map-cargo-heading">{@heading}</p>
+      <div class="map-cargo-grid">
+        <button
+          :for={{good, range} <- @options}
+          type="button"
+          data-map-cargo={@side}
+          phx-click="map-cargo"
+          phx-value-side={@side}
+          phx-value-good={good}
+          aria-pressed={to_string(@active == {@side, good})}
+          disabled={is_nil(if @side == "supply", do: range.ask, else: range.bid)}
+          title={cargo_name(good)}
+          aria-label={
+            if @side == "supply",
+              do: gettext("Where to buy %{cargo}", cargo: cargo_name(good)),
+              else: gettext("Where to sell %{cargo}", cargo: cargo_name(good))
+          }
+        >
+          <.emoji symbol={cargo_emoji(good)} />
+        </button>
+      </div>
+    </div>
     """
   end
 end

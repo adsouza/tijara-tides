@@ -46,7 +46,7 @@ defmodule TijaraTidesWeb.CargoNumbersTest do
           cargo_menu_open: true,
           cargo_sort_roi: false,
           cargo_roi_varies: false,
-          cargo_options: [{good, %{label: "—", roi: 0.125}}],
+          cargo_options: [{good, %{ask: 100, bid: 120, label: "—", roi: 0.125}}],
           inspected_ship: nil,
           map_filters_open: false,
           map_region: nil,

@@ -3004,3 +3004,15 @@ msgstr "المغادرة متوقفة: %{side} %{cargo} في %{port}، %{remaini
 
 msgid "Fill or cancel the remaining cargo orders to depart."
 msgstr "نفِّذ أو ألغِ أوامر البضائع المتبقية للمغادرة."
+
+msgid "Where to buy %{cargo}"
+msgstr "أين يُشترى %{cargo}"
+
+msgid "Where to sell %{cargo}"
+msgstr "أين يُباع %{cargo}"
+
+msgid "Red: ports with %{cargo} supply"
+msgstr "الأحمر: موانئ يتوفر فيها عرض %{cargo}"
+
+msgid "Red: ports with %{cargo} demand"
+msgstr "الأحمر: موانئ يوجد فيها طلب على %{cargo}"

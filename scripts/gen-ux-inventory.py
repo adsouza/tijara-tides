@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 154
+TRIPWIRE = 158
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -183,6 +183,13 @@ REQUIREMENTS = [
     (149, "Committed ship status controls handling, and berth queues show no transfer.", 9, 'display', 'Fleet and ship detail'),
     (150, "Other companies' ships do not expose this private scene.", 9, 'disclosure', 'Fleet and ship detail'),
     (151, "Provide a pause control, honor reduced motion, and stop animation while hidden or disconnected. Keep status text and a static illustration when 3D is unavailable.", 9, 'input', 'Fleet and ship detail'),
+    (152, "Selecting a Supply emoji turns red the ports listed in that cargo's Supply table; selecting a Demand emoji turns red the ports listed in its Demand table.", 4, "input", "World map"),
+    (153, "Only one cargo emoji is selected at a time, circled; selecting it again clears the highlight.", 4, "input", "World map"),
+    (154, "Two identical cargo strips labelled Supply and Demand flank the map below its controls, each showing the Cargo selector's cargo as emoji in two columns, ordered by name.", 4, "display", "World map"),
+    (155, "A marker grouping several ports turns red when any of them is listed.", 4, "display", "World map"),
+    (156, "Selecting an emoji also selects its cargo in the Cargo selector, and changing that selection moves the highlight to the new cargo on the same side.", 4, "input", "World map"),
+    (157, "An emoji whose table lists no ports is disabled.", 4, "display", "World map"),
+    (158, "The compact regional view omits the strips to keep its square map legible; its ports stay red.", 4, "display", "World map"),
 
 ]
 

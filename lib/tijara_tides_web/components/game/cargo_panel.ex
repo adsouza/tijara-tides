@@ -12,6 +12,7 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
   attr :cargo_sort_roi, :any, required: true
   attr :definitions, :any, required: true
   attr :inspected_ship, :any, required: true
+  attr :map_cargo_side, :string, default: nil
   attr :map_filters_open, :any, required: true
   attr :map_region, :any, required: true
   attr :map_ship_classes, :any, required: true
@@ -30,6 +31,9 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
       <h2 class="panel-title"><.emoji symbol="📦" />{gettext("Cargo")}</h2>
       <div class="panel-content" tabindex="0" aria-label={gettext("Cargo markets")}>
         <TijaraTidesWeb.GameUI.MapPanel.panel
+          cargo_options={@cargo_options}
+          map_cargo_side={@map_cargo_side}
+          market_good={@market_good}
           preview={@preview}
           definitions={@definitions}
           inspected_ship={@inspected_ship}
