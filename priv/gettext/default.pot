@@ -328,7 +328,7 @@ msgstr ""
 msgid "Build a company. Trade the world."
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:45
+#: lib/tijara_tides/localization/names.ex:60
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:240
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:761
 #, elixir-autogen, elixir-format
@@ -1243,7 +1243,7 @@ msgstr ""
 msgid "Selected stop"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:46
+#: lib/tijara_tides/localization/names.ex:61
 #: lib/tijara_tides_web/components/game/exchange_panel.ex:241
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:756
 #, elixir-autogen, elixir-format
@@ -2122,7 +2122,7 @@ msgstr ""
 msgid "Balanced freighter"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:49
+#: lib/tijara_tides/localization/names.ex:64
 #, elixir-autogen, elixir-format
 msgid "Berthed"
 msgstr ""
@@ -2152,7 +2152,7 @@ msgstr ""
 msgid "Designer clothing"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:48
+#: lib/tijara_tides/localization/names.ex:63
 #, elixir-autogen, elixir-format
 msgid "Docked"
 msgstr ""
@@ -2187,7 +2187,7 @@ msgstr ""
 msgid "Jewelry"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:50
+#: lib/tijara_tides/localization/names.ex:65
 #, elixir-autogen, elixir-format
 msgid "Loading"
 msgstr ""
@@ -2202,7 +2202,7 @@ msgstr ""
 msgid "Meat"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:47
+#: lib/tijara_tides/localization/names.ex:62
 #, elixir-autogen, elixir-format
 msgid "Queued"
 msgstr ""
@@ -2217,7 +2217,7 @@ msgstr ""
 msgid "Refined fuel"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:52
+#: lib/tijara_tides/localization/names.ex:67
 #, elixir-autogen, elixir-format
 msgid "Sailing"
 msgstr ""
@@ -2252,7 +2252,7 @@ msgstr ""
 msgid "Turbines"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:51
+#: lib/tijara_tides/localization/names.ex:66
 #, elixir-autogen, elixir-format
 msgid "Unloading"
 msgstr ""
@@ -2267,77 +2267,77 @@ msgstr ""
 msgid "Whisky"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:34
+#: lib/tijara_tides/localization/names.ex:49
 #, elixir-autogen, elixir-format
 msgid "berthed"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:43
+#: lib/tijara_tides/localization/names.ex:58
 #, elixir-autogen, elixir-format
 msgid "buy"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:39
+#: lib/tijara_tides/localization/names.ex:54
 #, elixir-autogen, elixir-format
 msgid "cancelled"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:38
+#: lib/tijara_tides/localization/names.ex:53
 #, elixir-autogen, elixir-format
 msgid "completed"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:33
+#: lib/tijara_tides/localization/names.ex:48
 #, elixir-autogen, elixir-format
 msgid "docked"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:42
+#: lib/tijara_tides/localization/names.ex:57
 #, elixir-autogen, elixir-format
 msgid "draft"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:31
+#: lib/tijara_tides/localization/names.ex:46
 #, elixir-autogen, elixir-format
 msgid "loading"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:40
+#: lib/tijara_tides/localization/names.ex:55
 #, elixir-autogen, elixir-format
 msgid "paused"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:37
+#: lib/tijara_tides/localization/names.ex:52
 #, elixir-autogen, elixir-format
 msgid "planned"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:35
+#: lib/tijara_tides/localization/names.ex:50
 #, elixir-autogen, elixir-format
 msgid "queued"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:41
+#: lib/tijara_tides/localization/names.ex:56
 #, elixir-autogen, elixir-format
 msgid "running"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:30
+#: lib/tijara_tides/localization/names.ex:45
 #, elixir-autogen, elixir-format
 msgid "sailing"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:44
+#: lib/tijara_tides/localization/names.ex:59
 #, elixir-autogen, elixir-format
 msgid "sell"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:32
+#: lib/tijara_tides/localization/names.ex:47
 #, elixir-autogen, elixir-format
 msgid "unloading"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:36
+#: lib/tijara_tides/localization/names.ex:51
 #, elixir-autogen, elixir-format
 msgid "waiting"
 msgstr ""
@@ -2598,7 +2598,7 @@ msgstr ""
 msgid "minimum"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:57
+#: lib/tijara_tides/localization/names.ex:72
 #, elixir-autogen, elixir-format
 msgid "At anchorage"
 msgstr ""
@@ -2613,29 +2613,29 @@ msgstr ""
 msgid "Sell up to %{lots} lots of"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:58
+#: lib/tijara_tides/localization/names.ex:73
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:1084
 #: lib/tijara_tides_web/components/port_traffic.ex:109
 #, elixir-autogen, elixir-format
 msgid "Unknown company"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:56
+#: lib/tijara_tides/localization/names.ex:71
 #, elixir-autogen, elixir-format
 msgid "failed"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:54
+#: lib/tijara_tides/localization/names.ex:69
 #, elixir-autogen, elixir-format
 msgid "pending"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:55
+#: lib/tijara_tides/localization/names.ex:70
 #, elixir-autogen, elixir-format
 msgid "sent"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:53
+#: lib/tijara_tides/localization/names.ex:68
 #, elixir-autogen, elixir-format
 msgid "verified"
 msgstr ""
@@ -2660,194 +2660,194 @@ msgstr ""
 msgid "Your shipping company"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:61
+#: lib/tijara_tides/localization/names.ex:76
 #: lib/tijara_tides_web/components/game/map_panel.ex:314
 #, elixir-autogen, elixir-format
 msgid "Demand"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:60
+#: lib/tijara_tides/localization/names.ex:75
 #: lib/tijara_tides_web/components/game/map_panel.ex:130
 #, elixir-autogen, elixir-format
 msgid "Supply"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:127
+#: lib/tijara_tides/localization/names.ex:142
 #, elixir-autogen, elixir-format
 msgid "Add stops and cargo targets, then start the route"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:97
+#: lib/tijara_tides/localization/names.ex:112
 #, elixir-autogen, elixir-format
 msgid "Available demand exhausted; unsold cargo stays aboard"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:144
+#: lib/tijara_tides/localization/names.ex:159
 #, elixir-autogen, elixir-format
 msgid "Awaiting arrival and a berth"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:145
+#: lib/tijara_tides/localization/names.ex:160
 #, elixir-autogen, elixir-format
 msgid "Cancelled by player"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:152
+#: lib/tijara_tides/localization/names.ex:167
 #, elixir-autogen, elixir-format
 msgid "Cancelled remainder on departure"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:124
+#: lib/tijara_tides/localization/names.ex:139
 #, elixir-autogen, elixir-format
 msgid "Cargo is currently unavailable for trading at this port"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:105
+#: lib/tijara_tides/localization/names.ex:120
 #, elixir-autogen, elixir-format
 msgid "Choose one shared onward port for this visit before purchases can resume"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:62
+#: lib/tijara_tides/localization/names.ex:77
 #, elixir-autogen, elixir-format
 msgid "Completing loading targets"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:134
+#: lib/tijara_tides/localization/names.ex:149
 #, elixir-autogen, elixir-format
 msgid "Completing sale targets"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:129
+#: lib/tijara_tides/localization/names.ex:144
 #, elixir-autogen, elixir-format
 msgid "Following route"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:94
+#: lib/tijara_tides/localization/names.ex:109
 #, elixir-autogen, elixir-format
 msgid "Hold capacity exhausted; cancelled unfilled remainder"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:100
+#: lib/tijara_tides/localization/names.ex:115
 #, elixir-autogen, elixir-format
 msgid "Maximum available purchase completed"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:80
+#: lib/tijara_tides/localization/names.ex:95
 #, elixir-autogen, elixir-format
 msgid "No sea route is available to the onward destination"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:142
+#: lib/tijara_tides/localization/names.ex:157
 #, elixir-autogen, elixir-format
 msgid "Off route; return to the selected stop before resuming"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:121
+#: lib/tijara_tides/localization/names.ex:136
 #, elixir-autogen, elixir-format
 msgid "Onward voyage is unavailable"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:132
+#: lib/tijara_tides/localization/names.ex:147
 #, elixir-autogen, elixir-format
 msgid "Paused by player; committed handling continues"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:116
+#: lib/tijara_tides/localization/names.ex:131
 #, elixir-autogen, elixir-format
 msgid "Purchase spending cap exhausted"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:139
+#: lib/tijara_tides/localization/names.ex:154
 #, elixir-autogen, elixir-format
 msgid "Route visit target"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:137
+#: lib/tijara_tides/localization/names.ex:152
 #, elixir-autogen, elixir-format
 msgid "Stopped after completing this visit"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:88
+#: lib/tijara_tides/localization/names.ex:103
 #, elixir-autogen, elixir-format
 msgid "The onward destination is unavailable; update the visit plan"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:85
+#: lib/tijara_tides/localization/names.ex:100
 #, elixir-autogen, elixir-format
 msgid "The onward voyage exceeds the maximum duration"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:114
+#: lib/tijara_tides/localization/names.ex:129
 #, elixir-autogen, elixir-format
 msgid "Waiting for available company funds or unpaid costs to clear"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:74
+#: lib/tijara_tides/localization/names.ex:89
 #, elixir-autogen, elixir-format
 msgid "Waiting for available funds for fuel and canal fees"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:107
+#: lib/tijara_tides/localization/names.ex:122
 #, elixir-autogen, elixir-format
 msgid "Waiting for cargo aboard"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:71
+#: lib/tijara_tides/localization/names.ex:86
 #, elixir-autogen, elixir-format
 msgid "Waiting for cargo handling to finish"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:68
+#: lib/tijara_tides/localization/names.ex:83
 #, elixir-autogen, elixir-format
 msgid "Waiting for cargo orders to be filled or cancelled"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:119
+#: lib/tijara_tides/localization/names.ex:134
 #, elixir-autogen, elixir-format
 msgid "Waiting for funds after preserving onward voyage costs"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:102
+#: lib/tijara_tides/localization/names.ex:117
 #, elixir-autogen, elixir-format
 msgid "Waiting for handling to finish"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:91
+#: lib/tijara_tides/localization/names.ex:106
 #, elixir-autogen, elixir-format
 msgid "Waiting for hold capacity; fill or cancel remaining orders"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:111
+#: lib/tijara_tides/localization/names.ex:126
 #, elixir-autogen, elixir-format
 msgid "Waiting for market demand or buyer funds"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:108
+#: lib/tijara_tides/localization/names.ex:123
 #, elixir-autogen, elixir-format
 msgid "Waiting for market supply"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:65
+#: lib/tijara_tides/localization/names.ex:80
 #, elixir-autogen, elixir-format
 msgid "Waiting for the limit price"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:77
+#: lib/tijara_tides/localization/names.ex:92
 #, elixir-autogen, elixir-format
 msgid "Waiting for unpaid operating costs to clear"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:155
+#: lib/tijara_tides/localization/names.ex:170
 #, elixir-autogen, elixir-format
 msgid "Northern Frangistan"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:156
+#: lib/tijara_tides/localization/names.ex:171
 #, elixir-autogen, elixir-format
 msgid "Pearl River Delta"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:154
+#: lib/tijara_tides/localization/names.ex:169
 #, elixir-autogen, elixir-format
 msgid "Strait of Hormuz"
 msgstr ""
@@ -3282,7 +3282,7 @@ msgstr ""
 msgid "Trade queued. Prices, stock and funds are checked again before handling."
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:64
+#: lib/tijara_tides/localization/names.ex:79
 #: lib/tijara_tides_web/components/game/presentation.ex:428
 #: lib/tijara_tides_web/components/game/ship_berth.ex:66
 #: lib/tijara_tides_web/components/game/ship_card.ex:31
@@ -4336,7 +4336,7 @@ msgstr ""
 msgid "Maximum wait (minutes, optional)"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:63
+#: lib/tijara_tides/localization/names.ex:78
 #, elixir-autogen, elixir-format
 msgid "Maximum wait elapsed"
 msgstr ""
@@ -4386,7 +4386,7 @@ msgstr ""
 msgid "Expires after (active minutes; optional)"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:146
+#: lib/tijara_tides/localization/names.ex:161
 #, elixir-autogen, elixir-format
 msgid "Instruction expired"
 msgstr ""
@@ -4430,7 +4430,7 @@ msgstr ""
 msgid "Minimum shelf life (minutes; buys only)"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:149
+#: lib/tijara_tides/localization/names.ex:164
 #, elixir-autogen, elixir-format
 msgid "Waiting for cargo meeting the minimum remaining shelf life"
 msgstr ""
@@ -4571,7 +4571,7 @@ msgstr ""
 msgid "No linked order"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:162
+#: lib/tijara_tides/localization/names.ex:177
 #: lib/tijara_tides_web/components/ship_route_editor.ex:151
 #, elixir-autogen, elixir-format
 msgid "Purchases skipped for this visit"
@@ -4651,7 +4651,7 @@ msgstr ""
 msgid "· accumulation remaining: %{time}"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:159
+#: lib/tijara_tides/localization/names.ex:174
 #, elixir-autogen, elixir-format
 msgid "Waiting for fuel and the configured purchase budget"
 msgstr ""
@@ -4661,17 +4661,17 @@ msgstr ""
 msgid "%{ship} at %{port}: cancelled %{quantity} linked lots of %{cargo}, releasing %{refund} and their warehouse space. %{filled} purchased lots remain stored. %{reason}."
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:166
+#: lib/tijara_tides/localization/names.ex:181
 #, elixir-autogen, elixir-format
 msgid "Collection stop or link removed"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:164
+#: lib/tijara_tides/localization/names.ex:179
 #, elixir-autogen, elixir-format
 msgid "Handed over at berth"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:165
+#: lib/tijara_tides/localization/names.ex:180
 #, elixir-autogen, elixir-format
 msgid "Visit finished"
 msgstr ""
@@ -4853,7 +4853,7 @@ msgstr ""
 msgid "Known weather delay: %{minutes} min; included in this estimate."
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:82
+#: lib/tijara_tides/localization/names.ex:97
 #, elixir-autogen, elixir-format
 msgid "Company is in receivership"
 msgstr ""
@@ -5045,7 +5045,7 @@ msgstr ""
 msgid "No ships at sea or in port yet."
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:59
+#: lib/tijara_tides/localization/names.ex:74
 #, elixir-autogen, elixir-format
 msgid "Unknown class"
 msgstr ""
@@ -5053,4 +5053,79 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/fleet_panel.ex:1092
 #, elixir-autogen, elixir-format
 msgid "Within %{region}"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:35
+#, elixir-autogen, elixir-format
+msgid "Bab-el-Mandeb blockade"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:42
+#, elixir-autogen, elixir-format
+msgid "Black Flag Fleet"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:43
+#, elixir-autogen, elixir-format
+msgid "Brethren of the Coast"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:34
+#, elixir-autogen, elixir-format
+msgid "Caribbean Sea"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:31
+#, elixir-autogen, elixir-format
+msgid "Gulf of Aden"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:38
+#, elixir-autogen, elixir-format
+msgid "Gulf of Aden hijackings"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:32
+#, elixir-autogen, elixir-format
+msgid "Malacca Strait"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:39
+#, elixir-autogen, elixir-format
+msgid "Night boardings"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:41
+#, elixir-autogen, elixir-format
+msgid "Red Flag Fleet"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:30
+#, elixir-autogen, elixir-format
+msgid "Red Sea"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:36
+#, elixir-autogen, elixir-format
+msgid "Red Sea strike wave"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:37
+#, elixir-autogen, elixir-format
+msgid "Somali Basin raids"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:33
+#, elixir-autogen, elixir-format
+msgid "South China Sea"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:40
+#, elixir-autogen, elixir-format
+msgid "Strait boarding spree"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:44
+#, elixir-autogen, elixir-format
+msgid "Windward raiders"
 msgstr ""

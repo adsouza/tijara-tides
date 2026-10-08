@@ -36,6 +36,7 @@ defmodule TijaraTides.Domain do
       CargoRules,
       Markets,
       Visibility,
+      Piracy,
       ReadState
     ]
 end

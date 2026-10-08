@@ -12,6 +12,8 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
   def land, do: @land
 
   def all do
+    TijaraTides.Domain.Piracy.validate!(@catalogue["piracy"])
+
     @catalogue
     |> Map.update!("weather", &Map.merge(&1, Application.get_env(:tijara_tides, :weather, %{})))
     |> Map.put(

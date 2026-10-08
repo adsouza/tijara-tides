@@ -110,7 +110,51 @@ manufacturing = {
 }
 handling={'speed_ms_per_lot':{'slow':500,'med':350,'fast':250},'cargo_bps':{'Perishables':12500,'Scrap':15000,'liquid':7500},'minimum_ms':1000}
 weather={'period_ms':1800000,'duration_ms':60000,'chance_bps':1000,'first_slot':1,'seed':1729,'stagger':True}
-result={'weather':weather,'handling':handling,'refrigeration':{'aging_bps':2500},'manufacturing':manufacturing,'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
+def piracy_kind(mark, hold_ms, charge_bps, storm_suppressed):
+    return {'mark':mark,'hold_ms':hold_ms,'charge_bps':charge_bps,'storm_suppressed':storm_suppressed}
+FLAG='\U0001F3F4‍☠️'
+piracy={'seed':1777,'first_slot':1,
+ 'campaign':{'period_ms':43200000,'duration_ms':10800000,'warning_ms':1800000,'multiplier':4},
+ 'kinds':{'piracy':piracy_kind(FLAG,600000,400,True),'fleet_piracy':piracy_kind(FLAG,480000,300,True),
+          'boarding':piracy_kind(FLAG,120000,50,True),'militia':piracy_kind('\U0001F4A5',300000,200,False)},
+ 'zones':{
+  'red_sea':{'name':'Red Sea','kind':'militia','chance_bps':300,'campaign_bps':4000,'guard_pct':25,
+   'campaign_names':['Bab-el-Mandeb blockade','Red Sea strike wave'],'label':[38.5,20.0],
+   'polygon':[[32.2,29.9],[33.0,27.0],[35.0,23.5],[37.5,19.0],[40.0,15.0],[42.6,12.3],[43.45,12.4],[43.4,13.3],[41.5,16.8],[39.0,21.5],[36.5,25.5],[34.9,28.2],[32.7,30.2]]},
+  'gulf_of_aden':{'name':'Gulf of Aden','kind':'piracy','chance_bps':400,'campaign_bps':2500,'guard_pct':90,
+   'campaign_names':['Somali Basin raids','Gulf of Aden hijackings'],'label':[52.0,11.0],
+   'polygon':[[43.5,11.0],[43.5,13.1],[45.0,14.0],[49.0,15.2],[52.0,16.5],[56.0,18.0],[60.0,19.0],[60.0,8.0],[52.0,3.0],[47.0,2.0],[44.0,9.0]]},
+  'malacca':{'name':'Malacca Strait','kind':'boarding','chance_bps':600,'campaign_bps':2500,'guard_pct':60,
+   'campaign_names':['Night boardings','Strait boarding spree'],'label':[99.0,4.0],
+   'polygon':[[95.0,6.5],[98.5,6.5],[101.0,3.5],[103.2,1.6],[103.0,1.1],[100.5,1.8],[98.0,3.0],[95.0,5.0]]},
+  'south_china_sea':{'name':'South China Sea','kind':'fleet_piracy','chance_bps':200,'campaign_bps':2500,'guard_pct':60,
+   'campaign_names':['Red Flag Fleet','Black Flag Fleet'],'label':[114.0,13.0],
+   'polygon':[[109.0,6.0],[119.0,6.0],[119.0,20.0],[109.0,20.0]]},
+  'caribbean':{'name':'Caribbean Sea','kind':'piracy','chance_bps':200,'campaign_bps':2500,'guard_pct':60,
+   'campaign_names':['Brethren of the Coast','Windward raiders'],'label':[-75.0,15.0],
+   'polygon':[[-88.0,10.5],[-60.0,10.5],[-60.0,22.0],[-88.0,22.0]]}}}
+def piracy_inside(pt,ring):
+    x,y=pt; inside=False
+    for (x1,y1),(x2,y2) in zip(ring,ring[1:]+ring[:1]):
+        if (y1>y)!=(y2>y) and x < x1+(y-y1)*(x2-x1)/(y2-y1): inside=not inside
+    return inside
+def piracy_cross(a,b,c,d):
+    o=lambda p,q,r:(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0])
+    return o(a,b,c)*o(a,b,d)<0 and o(c,d,a)*o(c,d,b)<0
+for zid,zone in piracy['zones'].items():
+    ring=zone['polygon']
+    for port,data in ports.items():
+        assert not piracy_inside(data['coordinates'],ring), f'{port} lies inside piracy zone {zid}'
+    assert piracy_inside(zone['label'],ring), f'{zid} label lies outside its polygon'
+zone_items=list(piracy['zones'].items())
+for i,(a,ra) in enumerate(zone_items):
+    for b,rb in zone_items[i+1:]:
+        ea=list(zip(ra['polygon'],ra['polygon'][1:]+ra['polygon'][:1]))
+        eb=list(zip(rb['polygon'],rb['polygon'][1:]+rb['polygon'][:1]))
+        assert not any(piracy_cross(p,q,r,s) for p,q in ea for r,s in eb), f'piracy zones {a} and {b} overlap'
+        assert not any(piracy_inside(v,rb['polygon']) for v in ra['polygon']), f'piracy zones {a} and {b} overlap'
+        assert not any(piracy_inside(v,ra['polygon']) for v in rb['polygon']), f'piracy zones {a} and {b} overlap'
+result={'weather':weather,'piracy':piracy,'handling':handling,'refrigeration':{'aging_bps':2500},'manufacturing':manufacturing,'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
 (ROOT/'priv/game').mkdir(parents=True,exist_ok=True)
 (ROOT/'priv/game/catalogue.json').write_text(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n')
 print(f'Generated {len(goods)} goods, {len(ports)} ports, {len(routes)} directed sea routes')

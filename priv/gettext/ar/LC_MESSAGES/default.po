@@ -3028,3 +3028,48 @@ msgstr "داخل %{region}"
 
 msgid "Unknown class"
 msgstr "فئة غير معروفة"
+
+msgid "Red Sea"
+msgstr "البحر الأحمر"
+
+msgid "Gulf of Aden"
+msgstr "خليج عدن"
+
+msgid "Malacca Strait"
+msgstr "مضيق ملقا"
+
+msgid "South China Sea"
+msgstr "بحر الصين الجنوبي"
+
+msgid "Caribbean Sea"
+msgstr "البحر الكاريبي"
+
+msgid "Bab-el-Mandeb blockade"
+msgstr "حصار باب المندب"
+
+msgid "Red Sea strike wave"
+msgstr "موجة ضربات البحر الأحمر"
+
+msgid "Somali Basin raids"
+msgstr "غارات الحوض الصومالي"
+
+msgid "Gulf of Aden hijackings"
+msgstr "عمليات اختطاف في خليج عدن"
+
+msgid "Night boardings"
+msgstr "عمليات اقتحام ليلية"
+
+msgid "Strait boarding spree"
+msgstr "موجة اقتحام في المضيق"
+
+msgid "Red Flag Fleet"
+msgstr "أسطول الراية الحمراء"
+
+msgid "Black Flag Fleet"
+msgstr "أسطول الراية السوداء"
+
+msgid "Brethren of the Coast"
+msgstr "إخوة الساحل"
+
+msgid "Windward raiders"
+msgstr "غزاة جزر الريح"
