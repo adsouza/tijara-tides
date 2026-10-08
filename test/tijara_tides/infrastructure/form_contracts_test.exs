@@ -84,10 +84,14 @@ defmodule TijaraTides.Infrastructure.FormContractsTest do
     property "#{variant} normalization preserves receipt identity and independently expected terms" do
       check all(
               zeros <- integer(0..3),
+              # One flag per marker gives any subset without uniq_list_of's retries,
+              # which give up when most of six names are already drawn.
               markers <-
-                uniq_list_of(member_of(~w(quantity price limit minutes expiry_minutes budget)),
-                  max_length: 6
-                ),
+                map(list_of(boolean(), length: 6), fn picks ->
+                  for {marker, true} <-
+                        Enum.zip(~w(quantity price limit minutes expiry_minutes budget), picks),
+                      do: marker
+                end),
               max_runs: 5,
               max_shrinking_steps: 20
             ) do
