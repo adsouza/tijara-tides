@@ -64,11 +64,16 @@ query projections, consistency and module responsibilities.
   the server stays awake, including after disconnect. Static catalogue and map
   definitions are versioned source assets, not repeated database writes.
 - Public views contain company names, ships, positions, and routes. Each port
-  shows its present ships grouped by status, company or kind, with expandable ship
-  lists; ships at sea do not count toward either endpoint. Only an
+  shows its present ships grouped by status, company or class, with expandable
+  ship lists; ships at sea do not count toward either endpoint. Only an
   authenticated owner receives balances, cargo batches, acquisition costs,
   private notifications, and command results. PubSub announces revisions, not
   private state. Every command revalidates the device session on the server.
+- Visitors without a company see the public fleet in the Ships panel.
+  `FleetQueries.public_fleet_groups/3` groups it by location (the map's regions;
+  ships at sea by their unordered pair of endpoint regions), company or class.
+  Owner and public cards share the `ShipCard` component, which reads only fields
+  the public ship projection also carries.
 
 ## Playtest scope and tuning
 

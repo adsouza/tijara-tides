@@ -4704,8 +4704,10 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     {:ok, spectator, _} = build_conn() |> live("/play")
     refute has_element?(spectator, "#cargo-ship-filter")
     render_click(spectator, "inspect-ship", %{"id" => ship["id"]})
-    assert has_element?(spectator, "#public-ship-inspector", "Browser Shipping")
-    assert has_element?(spectator, "#public-ship-inspector", "Balanced freighter")
+    selected = ~s([data-public-ship="#{ship["id"]}"][aria-pressed=true])
+    assert has_element?(spectator, selected, "Browser Shipping")
+    assert has_element?(spectator, selected, "Balanced freighter")
+    refute has_element?(spectator, "#public-ship-inspector")
     refute render(spectator) =~ "— Manifest"
     refute has_element?(spectator, "table[aria-label='Ship cargo manifest']")
     GenServer.stop(spectator.pid)

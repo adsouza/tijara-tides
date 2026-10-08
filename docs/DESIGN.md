@@ -503,6 +503,15 @@ after closing, final active amounts are published anonymously as specified in
 section 7. Bidder identities remain private. Public market orders show prices
 and quantities without identifying their companies.
 
+Visitors without a company see every public ship as a card under All ships in
+the Ships panel, grouped by location by default or by company or class. Location
+groups ships in port under their port's map region, and ships at sea under the
+regions at either end in either direction; voyages within one region form their
+own group. Cards show each ship's company, class, status, and route, never its
+cargo. Selecting a card marks it instead of opening a separate inspector. A card
+for a ship in port also selects that port and switches to the Ports panel;
+selecting a ship at sea on the map scrolls to its card.
+
 Ships owned by a company undergoing bankruptcy display a clear public
 "Company in bankruptcy" label when inspected. Keep that status visible while
 the estate owns the ship, including during voyage completion and liquidation;
@@ -1064,7 +1073,7 @@ selected view persists through live updates; goods without supply or demand
 for that view are omitted.
 
 Show the total number of ships physically at the inspected port, grouped by
-status, company, or kind, with expandable lists of selectable ships.
+status, company, or class, with expandable lists of selectable ships.
 
 Port traffic distinguishes queued, berthed or docked, loading, unloading, and
 other applicable operational statuses; sailing ships are excluded.

@@ -47,6 +47,7 @@ defmodule TijaraTidesWeb.GameLive do
         map_ship_classes: MapSet.new(Map.keys(Game.definitions().classes)),
         map_show_others: true,
         traffic_grouping: "status",
+        public_fleet_grouping: "location",
         selected_ship: nil,
         inspected_ship: nil,
         trade_quantities: %{},
@@ -424,8 +425,13 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   def handle_event("traffic-grouping", %{"grouping" => grouping}, socket)
-      when grouping in ["status", "company", "kind"] do
+      when grouping in ["status", "company", "class"] do
     {:noreply, assign(socket, :traffic_grouping, grouping)}
+  end
+
+  def handle_event("public-fleet-grouping", %{"grouping" => grouping}, socket)
+      when grouping in ["location", "company", "class"] do
+    {:noreply, assign(socket, :public_fleet_grouping, grouping)}
   end
 
   def handle_event("cargo-sort-roi", params, socket) do
@@ -502,8 +508,8 @@ defmodule TijaraTidesWeb.GameLive do
       socket.assigns.view.private && socket.assigns.view.private["ships"][id] ->
         handle_event("ship", %{"id" => id}, socket)
 
-      socket.assigns.view.public["ships"][id] ->
-        {:noreply, assign(socket, :inspected_ship, id)}
+      ship = socket.assigns.view.public["ships"][id] ->
+        {:noreply, socket |> assign(:inspected_ship, id) |> reveal_public_ship(ship)}
 
       true ->
         {:noreply, socket}
@@ -936,6 +942,27 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   def handle_event(_event, _params, socket), do: {:noreply, socket}
+
+  # Players see the inspector. Visitors see the ship's card in All ships, or for
+  # a ship in port, that port in the Ports panel.
+  defp reveal_public_ship(socket, ship) do
+    private = socket.assigns.view.private
+
+    port =
+      ship["status"] != "sailing" && socket.assigns.definitions.catalogue["ports"][ship["port"]] &&
+        ship["port"]
+
+    cond do
+      private && private["company"] ->
+        push_event(socket, "workspace-panel", %{panel: 0, scroll_to: "public-ship-inspector"})
+
+      port ->
+        socket |> assign(:selected_port, port) |> push_event("workspace-panel", %{panel: 2})
+
+      true ->
+        push_event(socket, "workspace-panel", %{panel: 0, scroll_to: "public-ship-" <> ship["id"]})
+    end
+  end
 
   defp set_port_destination(socket, ship, destination) do
     if ship &&
@@ -1558,6 +1585,7 @@ defmodule TijaraTidesWeb.GameLive do
                 instruction_drafts={@instruction_drafts}
                 manifest_sort={@manifest_sort}
                 preview={@preview}
+                public_fleet_grouping={@public_fleet_grouping}
                 request_id={@request_id}
                 route_drafts={@route_drafts}
                 selected_port={@selected_port}

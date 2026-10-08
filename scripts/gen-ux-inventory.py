@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 158
+TRIPWIRE = 161
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -99,7 +99,7 @@ REQUIREMENTS = [
     (57, 'Show only ships at sea as individual map markers; ships at port remain selectable through port traffic and must not cover the port marker.', 4, 'display', 'World map'),
     (58, 'Selecting an owned ship on the map or in port traffic selects the same ship in Your fleet and updates its manifest and controls.', 4, 'display', 'World map'),
     (59, "The separate public ship inspector is shown for other companies' ships only; owned ships use Your fleet and their private detail panel without a duplicate summary.", 4, 'display', 'World map'),
-    (60, 'Show the total number of ships physically at the inspected port, grouped by status, company, or kind, with expandable lists of selectable ships.', 7, 'display', 'Port panel'),
+    (60, 'Show the total number of ships physically at the inspected port, grouped by status, company, or class, with expandable lists of selectable ships.', 7, 'display', 'Port panel'),
     (61, 'Port traffic distinguishes queued, berthed or docked, loading, unloading, and other applicable operational statuses; sailing ships are excluded.', 7, 'display', 'Port panel'),
     (62, 'For a selected local ship, hide cargo it cannot carry, including incompatible liquid mixtures, and hide a cargo row when neither buying nor selling is available.', 7, 'display', 'Port panel'),
     (63, "Disable Buy when no supply is available and Sell when no owned cargo or no destination demand is available; a disabled action's quantity field displays zero.", 7, 'display', 'Port panel'),
@@ -190,6 +190,11 @@ REQUIREMENTS = [
     (156, "Selecting an emoji also selects its cargo in the Cargo selector, and changing that selection moves the highlight to the new cargo on the same side.", 4, "input", "World map"),
     (157, "An emoji whose table lists no ports is disabled.", 4, "display", "World map"),
     (158, "The compact regional view omits the strips to keep its square map legible; its ports stay red.", 4, "display", "World map"),
+    (159, "Visitors without a company see every public ship as a card under All ships in the Ships panel, grouped by location by default or by company or class.", 4, "display", "Fleet and ship detail"),
+    (160, "Location groups ships in port under their port's map region, and ships at sea under the regions at either end in either direction; voyages within one region form their own group.", 4, "display", "Fleet and ship detail"),
+    (161, "Cards show each ship's company, class, status, and route, never its cargo.", 4, "disclosure", "Fleet and ship detail"),
+    (162, "Selecting a card marks it instead of opening a separate inspector.", 4, "input", "Fleet and ship detail"),
+    (163, "A card for a ship in port also selects that port and switches to the Ports panel; selecting a ship at sea on the map scrolls to its card.", 4, "input", "Fleet and ship detail"),
 
 ]
 

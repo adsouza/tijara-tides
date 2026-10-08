@@ -445,9 +445,6 @@ msgstr "الدعوات"
 msgid "Invitee email"
 msgstr "بريد المدعو"
 
-msgid "Kind"
-msgstr "النوع"
-
 msgid "Language"
 msgstr "اللغة"
 
@@ -1603,9 +1600,6 @@ msgstr "في المرسى"
 
 msgid "Unknown company"
 msgstr "شركة غير معروفة"
-
-msgid "Unknown kind"
-msgstr "نوع غير معروف"
 
 msgid "Remove this route and cancel its unfilled orders? Cargo, committed voyages and handling are preserved."
 msgstr "هل تريد إزالة هذا المسار وإلغاء أوامره غير المنفذة؟ تُحفظ البضائع والرحلات وعمليات المناولة التي بدأت."
@@ -3016,3 +3010,21 @@ msgstr "الأحمر: موانئ يتوفر فيها عرض %{cargo}"
 
 msgid "Red: ports with %{cargo} demand"
 msgstr "الأحمر: موانئ يوجد فيها طلب على %{cargo}"
+
+msgid "Group all ships"
+msgstr "تجميع جميع السفن"
+
+msgid "Location"
+msgstr "الموقع"
+
+msgid "Class"
+msgstr "الفئة"
+
+msgid "No ships at sea or in port yet."
+msgstr "لا توجد سفن في البحر أو في الموانئ بعد."
+
+msgid "Within %{region}"
+msgstr "داخل %{region}"
+
+msgid "Unknown class"
+msgstr "فئة غير معروفة"

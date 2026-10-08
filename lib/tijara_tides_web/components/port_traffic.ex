@@ -17,7 +17,7 @@ defmodule TijaraTidesWeb.PortTraffic do
       Enum.group_by(ships, fn ship ->
         case assigns.grouping do
           "company" -> ship["company_id"]
-          "kind" -> ship["class"]
+          "class" -> ship["class"]
           _ -> status(ship)
         end
       end)
@@ -25,7 +25,7 @@ defmodule TijaraTidesWeb.PortTraffic do
         label =
           case assigns.grouping do
             "company" -> company(assigns.public, key)
-            "kind" -> l10n(get_in(assigns.classes, [key, "name"]) || key || "Unknown kind")
+            "class" -> l10n(get_in(assigns.classes, [key, "name"]) || key || "Unknown class")
             _ -> l10n(key)
           end
 
@@ -51,7 +51,7 @@ defmodule TijaraTidesWeb.PortTraffic do
             >
               <option value="status" selected={@grouping == "status"}>{gettext("Status")}</option>
               <option value="company" selected={@grouping == "company"}>{gettext("Company")}</option>
-              <option value="kind" selected={@grouping == "kind"}>{gettext("Kind")}</option>
+              <option value="class" selected={@grouping == "class"}>{gettext("Class")}</option>
             </select>
           </label>
         </form>
@@ -85,7 +85,7 @@ defmodule TijaraTidesWeb.PortTraffic do
             <span class="text-slate-400"> · {if @grouping == "company",
               do: l10n(status(ship)),
               else: company(@public, ship["company_id"])}</span>
-            <span :if={@grouping == "kind"} class="text-slate-400"> · {l10n(status(ship))}</span>
+            <span :if={@grouping == "class"} class="text-slate-400"> · {l10n(status(ship))}</span>
             <span :if={ship["queue_position"]}> · {gettext("Queue position: %{position}",
               position: display_number(ship["queue_position"])
             )}</span>

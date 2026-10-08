@@ -56,7 +56,7 @@ defmodule TijaraTides.Localization.Names do
   def translate("failed"), do: gettext("failed")
   def translate("At anchorage"), do: gettext("At anchorage")
   def translate("Unknown company"), do: gettext("Unknown company")
-  def translate("Unknown kind"), do: gettext("Unknown kind")
+  def translate("Unknown class"), do: gettext("Unknown class")
   def translate("Supply"), do: gettext("Supply")
   def translate("Demand"), do: gettext("Demand")
   def translate("Completing loading targets"), do: gettext("Completing loading targets")

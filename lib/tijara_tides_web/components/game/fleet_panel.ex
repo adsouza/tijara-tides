@@ -12,6 +12,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
   attr :instruction_drafts, :any, required: true
   attr :manifest_sort, :any, required: true
   attr :preview, :any, required: true
+  attr :public_fleet_grouping, :string, default: "location"
   attr :request_id, :any, required: true
   attr :route_drafts, :any, required: true
   attr :selected_port, :any, required: true
@@ -24,10 +25,11 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
     <section id="ships-panel" class="workspace-panel" aria-label={gettext("Ships")}>
       <h2 class="panel-title"><.emoji symbol="🚢" />{gettext("Ships")}</h2>
       <div class="panel-content" tabindex="0" aria-label={gettext("Fleet and ship details")}>
+        <%!-- Without a company, the All ships card is the inspected ship's summary. --%>
         <section
           :if={
-            @inspected_ship && @view.public["ships"][@inspected_ship] &&
-              !(@view.private && @view.private["ships"][@inspected_ship])
+            @inspected_ship && @view.public["ships"][@inspected_ship] && @view.private &&
+              @view.private["company"] && !@view.private["ships"][@inspected_ship]
           }
           id="public-ship-inspector"
           class="my-6 rounded-xl border border-slate-700 p-5"
@@ -81,6 +83,79 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               </p>
             </div>
           </div>
+        </section>
+        <section
+          :if={!(@view.private && @view.private["company"])}
+          id="public-fleet"
+          class="my-6"
+        >
+          <% groups =
+            GameQueries.public_fleet_groups(@definitions, @view.public, @public_fleet_grouping) %>
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl font-semibold">
+              <.emoji symbol="🚢" />{gettext("All ships")} · {ship_count(
+                map_size(@view.public["ships"])
+              )}
+            </h2>
+            <form id="public-fleet-grouping" phx-change="public-fleet-grouping">
+              <label class="text-sm text-slate-300">
+                {gettext("Group by")}
+                <select
+                  name="grouping"
+                  aria-label={gettext("Group all ships")}
+                  class="ml-2 rounded bg-slate-800 px-3 py-2"
+                >
+                  <option
+                    :for={
+                      {value, label} <- [
+                        {"location", gettext("Location")},
+                        {"company", gettext("Company")},
+                        {"class", gettext("Class")}
+                      ]
+                    }
+                    value={value}
+                    selected={@public_fleet_grouping == value}
+                  >
+                    {label}
+                  </option>
+                </select>
+              </label>
+            </form>
+          </div>
+          <p :if={groups == []} class="text-sm text-slate-400">
+            {gettext("No ships at sea or in port yet.")}
+          </p>
+          <details
+            :for={group <- groups}
+            id={public_fleet_group_id(group.key)}
+            open
+            phx-mounted={JS.ignore_attributes("open")}
+            class="mt-3 rounded border border-slate-700 px-3 py-2"
+          >
+            <summary class="cursor-pointer">
+              {public_fleet_label(group.key, @definitions, @view.public)} · {ship_count(
+                length(group.ships)
+              )}
+            </summary>
+            <div class="fleet-list mt-2">
+              <TijaraTidesWeb.GameUI.ShipCard.card
+                :for={ship <- group.ships}
+                ship={ship}
+                definitions={@definitions}
+                clock={@view.public["clock_ms"]}
+                queue_position={ship["queue_position"]}
+                company={
+                  if @public_fleet_grouping != "company",
+                    do: company_name(@view.public, ship["company_id"])
+                }
+                pressed={ship["id"] == @inspected_ship}
+                id={"public-ship-" <> ship["id"]}
+                data-public-ship={ship["id"]}
+                phx-click="inspect-ship"
+                phx-value-id={ship["id"]}
+              />
+            </div>
+          </details>
         </section>
         <section :if={@view.private && @view.private["company"]} class="my-6">
           <h2 class="mb-3 text-xl font-semibold"><.emoji symbol="🚢" />{gettext("Your fleet")}</h2>
@@ -262,43 +337,17 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             {gettext("No ships with this status.")}
           </p>
           <div class="fleet-list">
-            <button
+            <TijaraTidesWeb.GameUI.ShipCard.card
               :for={{id, s} <- Enum.sort(@view.private["ships"])}
               :if={@fleet_status == "all" || s["status"] == @fleet_status}
+              ship={s}
+              definitions={@definitions}
+              clock={@view.public["clock_ms"]}
+              queue_position={@view.public["ships"][id]["queue_position"]}
+              pressed={id == @selected_ship}
               phx-click="ship"
               phx-value-id={id}
-              aria-pressed={if id == @selected_ship, do: "true", else: "false"}
-              class={[
-                "min-w-0 rounded-xl border p-3 text-left break-words",
-                if(id == @selected_ship,
-                  do: "border-teal-400 bg-slate-800",
-                  else: "border-slate-700"
-                )
-              ]}
-            >
-              <strong>{s["name"]}</strong><p>
-                {l10n(@definitions.classes[s["class"]]["name"])} ·
-                <%= if @view.public["ships"][id]["queue_position"] do %>
-                  <span class="text-amber-300">
-                    {gettext("Waiting for a berth")} · {gettext("Queue position: %{position}",
-                      position: display_number(@view.public["ships"][id]["queue_position"])
-                    )}
-                  </span>
-                <% else %>
-                  {l10n(s["status"])}
-                <% end %>
-              </p><p>
-                {l10n(s["port"])}<span :if={s["destination"]}>{sailing_arrow()} {l10n(
-                  s["destination"]
-                )}</span>
-              </p>
-              <p :if={s["arrive_ms"]} class="text-teal-300">
-                {gettext("%{value1} min remaining",
-                  value1: minutes(max(0, s["arrive_ms"] - @view.public["clock_ms"]))
-                )}
-              </p>
-              <.weather_notice ship={s} clock={@view.public["clock_ms"]} />
-            </button>
+            />
           </div>
           <div :if={@ship} class="mt-2 rounded-xl bg-slate-900 px-5 pt-2 pb-5">
             <% berth = TijaraTides.UseCases.GameQueries.berth_view(@ship, @definitions) %>
@@ -1028,4 +1077,28 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
     </section>
     """
   end
+
+  defp ship_count(count), do: ngettext("%{count} ship", "%{count} ships", count)
+
+  defp company_name(public, id),
+    do: get_in(public, ["companies", id, "name"]) || gettext("Unknown company")
+
+  defp public_fleet_label({:port, region}, _definitions, _public), do: l10n(region)
+
+  defp public_fleet_label({:route, first, second}, _definitions, _public),
+    do: l10n(first) <> " ↔ " <> l10n(second)
+
+  defp public_fleet_label({:within, region}, _definitions, _public),
+    do: gettext("Within %{region}", region: l10n(region))
+
+  defp public_fleet_label({:company, id}, _definitions, public), do: company_name(public, id)
+
+  defp public_fleet_label({:class, id}, definitions, _public),
+    do: l10n(get_in(definitions.classes, [id, "name"]) || id || "Unknown class")
+
+  # Keep browser-owned expansion state while ships move between groups.
+  defp public_fleet_group_id(key),
+    do:
+      "public-fleet-group-" <>
+        Base.url_encode64(Jason.encode!(Tuple.to_list(key)), padding: false)
 end

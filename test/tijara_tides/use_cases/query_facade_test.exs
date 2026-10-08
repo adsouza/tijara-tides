@@ -4,13 +4,21 @@ defmodule TijaraTides.UseCases.QueryFacadeTest do
   alias TijaraTides.UseCases.{
     AuctionQueries,
     ExchangeQueries,
+    FleetQueries,
     GameQueries,
     MarketQueries,
     ShipPlanningQueries,
     WarehouseQueries
   }
 
-  @focused [AuctionQueries, ExchangeQueries, MarketQueries, ShipPlanningQueries, WarehouseQueries]
+  @focused [
+    AuctionQueries,
+    ExchangeQueries,
+    FleetQueries,
+    MarketQueries,
+    ShipPlanningQueries,
+    WarehouseQueries
+  ]
 
   # Public only so ShipPlanningQueries can import it; not part of the read-side API.
   @internal [{:largest_trade, 3}]

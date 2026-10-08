@@ -53,7 +53,7 @@ defmodule TijaraTidesWeb.PortTrafficTest do
       render_component(&PortTraffic.traffic/1,
         public: public,
         port: "Singapore",
-        grouping: "kind",
+        grouping: "class",
         classes: %{"freighter" => %{"name" => "Freighter"}, "tanker" => %{"name" => "Tanker"}}
       )
 

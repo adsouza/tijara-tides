@@ -13,7 +13,6 @@
 # every entry must stay translated, must still appear in lib/, and must stay
 # out of default.pot. One msgid per line.
 
-All ships
 Sell / demand
 Buy price
 Sell price
