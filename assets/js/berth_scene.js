@@ -28,7 +28,7 @@ import {
   TorusGeometry, Vector3,
 } from "../vendor/three/three.module.js"
 import {cargoSlots, cargoLayerHeight, dockCargoZ, cargoTransfer, shipPose, plimsollY, waterlineY,
-  tankerManifold, loadingArmBase, loadingArmPose} from "./berth_motion"
+  tankerManifold, loadingArmBase, loadingArmPose, cameraPose} from "./berth_motion"
 export {berthSample} from "./berth_motion"
 
 // All artwork is procedural. No model downloads, textures, or cargo data are needed.
@@ -36,8 +36,7 @@ export function createBerthScene(host, liquid) {
   const scene = new Scene()
   scene.background = new Color("#0b1729")
   const camera = new OrthographicCamera(-8, 8, 5, -5, 0.1, 80)
-  camera.position.set(11, 10, 14)
-  camera.lookAt(0, liquid ? 1.8 : 2.15, -0.6)
+  const cameraTargetY = liquid ? 1.8 : 2.15
   const canvas = document.createElement("canvas")
   const context = canvas.getContext("webgl2", {antialias: true, alpha: false})
   if (!context) throw new Error("WebGL2 unavailable")
@@ -357,6 +356,9 @@ export function createBerthScene(host, liquid) {
           cable.scale.y = 2.5
         }
         flow.scale.setScalar(1 + Math.sin(seconds * 4) * 0.2)
+        const view = cameraPose(seconds, cameraTargetY)
+        camera.position.fromArray(view.position)
+        camera.lookAt(...view.target)
         renderer.render(scene, camera)
       },
       dispose,

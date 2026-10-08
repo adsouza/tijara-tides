@@ -31,6 +31,20 @@ export function shipPose(seconds, loadFraction) {
   }
 }
 
+// The camera sweeps a slow arc on the open-water side so the quay never hides the
+// hull. Second zero is the resting view used by reduced motion.
+const cameraRadius = Math.hypot(11, 14.6)
+const cameraAzimuth = Math.atan2(11, 14.6)
+export const cameraSweep = 0.35
+export const cameraPeriod = 48
+export function cameraPose(seconds, targetY) {
+  const azimuth = cameraAzimuth + cameraSweep * Math.sin(seconds * 2 * Math.PI / cameraPeriod)
+  return {
+    position: [cameraRadius * Math.sin(azimuth), 10, -0.6 + cameraRadius * Math.cos(azimuth)],
+    target: [0, targetY, -0.6],
+  }
+}
+
 // Twelve illustrative boxes represent a full hold, rounded up for a nonempty load.
 export function cargoCount(volume, capacity) {
   if (volume === null) return 1 // Unknown volume on a legacy in-progress operation.

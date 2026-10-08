@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tijara Tides — Berth preview</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#070f1e;color:#d9e7eb;font:16px system-ui,sans-serif}main{max-width:740px;margin:16px auto;padding:0 24px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}h1{font-size:24px;margin:6px 0}p{color:#91a8b7;margin:8px 0}.eyebrow{font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:#65d6bd}a{color:#65d6bd}figure{margin:0;border:1px solid #334155;border-radius:18px;overflow:hidden;background:#0b1729}#scene{height:min(64vw,420px);min-height:240px}figcaption{display:flex;justify-content:space-between;padding:16px 20px;border-top:1px solid #253444;color:#65d6bd}nav{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}input{width:76px;font:inherit;background:#152334;border:1px solid #475569;color:#d9e7eb;padding:10px;border-radius:9px}button,select{font:inherit;background:#152334;border:1px solid #475569;color:#d9e7eb;padding:10px 16px;border-radius:9px;cursor:pointer}button[aria-pressed=true]{border-color:#65d6bd;background:#194548}button:focus-visible,select:focus-visible{outline:2px solid #65d6bd;outline-offset:3px}label{display:flex;align-items:center;gap:10px}footer{font-size:13px;color:#91a8b7}
+</style></head><body><main><header><div><span class="eyebrow">Tijara Tides</span><h1>Your ship at the berth</h1><p>The same 3D scene used in the game’s selected-ship panel.</p></div></header>
+<figure><div id="scene" aria-label="3D ship at the berth"></div><figcaption><span id="status">Loading cargo · Jakarta</span><span id="remaining">30 s remaining</span></figcaption></figure>
+<nav aria-label="Animation controls"><button data-side="loading" aria-pressed="true">Loading</button><button data-side="unloading" aria-pressed="false">Unloading</button><button data-side="docked" aria-pressed="false">Docked</button><label>Ship <select id="kind"><option value="dry">Freighter</option><option value="liquid" selected>Tanker</option></select></label><button id="pause" aria-pressed="false">Pause</button></nav><nav aria-label="Cargo and timing"><label>Transfer (%) <input id="load" type="number" min="1" max="100" value="100"></label><label><span id="existing-label">Already aboard (%)</span> <input id="existing" type="number" min="0" max="99" value="0"></label><label>Handling time (s) <input id="duration" type="number" min="1" max="600" value="30"></label></nav><footer>Preview controls change only this illustration. Served by <code>scripts/berth-preview.py</code>; reload to rebuild the scene.</footer></main>
+<script type="module">
+import {createBerthScene,berthSample} from '/assets/js/berth_scene.js';
+const host=document.querySelector('#scene'), motion=matchMedia('(prefers-reduced-motion: reduce)');
+let scene,side='loading',liquid=true,paused=motion.matches,seconds=0,last=performance.now();
+const capacity=900000;
+const resize=()=>scene.resize(host.clientWidth,host.clientHeight);
+function parameters(){
+  const existing=Math.max(0,Math.min(99,Number(document.querySelector('#existing').value)||0));
+  const load=Math.max(1,Math.min(100-existing,Number(document.querySelector('#load').value)||1));
+  const duration=Math.max(1,Math.min(600,Number(document.querySelector('#duration').value)||1));
+  return {existing,load,duration};
+}
+function draw(){
+  const {existing,load,duration}=parameters();
+  const unloading=side==='unloading';
+  const cargoVolume=(existing+(side==='loading'?load:0))*capacity/100;
+  const sample=berthSample({clock:seconds*1000,start:0,complete:duration*1000,
+    status:side,queued:false,liquid,laden:cargoVolume>0,volume:load*capacity/100,cargoVolume,capacity},0);
+  scene.draw({...sample,paused,reducedMotion:motion.matches});
+  host.dataset.progress=String(sample.progress);host.dataset.count=String(sample.count);host.dataset.baseCount=String(sample.baseCount);
+  document.querySelector('#remaining').textContent=side==='docked'?'Local preview':Math.ceil(Math.max(0,duration-seconds))+' s remaining';
+}
+function create(){scene?.dispose();scene=createBerthScene(host,liquid);resize();draw();}
+function labels(){document.querySelector('#status').textContent=({loading:'Loading cargo',unloading:'Unloading cargo',docked:'Docked'})[side]+' · Jakarta';document.querySelectorAll('[data-side]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.side===side)));document.querySelector('#existing-label').textContent=side==='unloading'?'Staying aboard (%)':'Already aboard (%)';document.querySelector('#pause').textContent=paused?'Resume':'Pause';document.querySelector('#pause').setAttribute('aria-pressed',String(paused));}
+document.querySelectorAll('[data-side]').forEach(b=>b.addEventListener('click',()=>{side=b.dataset.side;seconds=0;labels();draw();}));
+document.querySelector('#kind').addEventListener('change',e=>{liquid=e.target.value==='liquid';create();});
+document.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>{const p=parameters();document.querySelector('#load').value=p.load;document.querySelector('#existing').value=p.existing;document.querySelector('#duration').value=p.duration;seconds=0;draw();}));
+document.querySelector('#pause').addEventListener('click',()=>{paused=!paused;labels();draw();});
+motion.addEventListener('change',()=>{paused=motion.matches;labels();draw();});
+new ResizeObserver(()=>{resize();draw();}).observe(host);
+create();labels();
+function frame(now){const elapsed=(now-last)/1000;last=now;if(!paused&&!document.hidden){seconds+=elapsed;draw();}requestAnimationFrame(frame);}requestAnimationFrame(frame);
+window.addEventListener('pagehide',()=>scene.dispose());
+</script></body></html>

@@ -95,6 +95,21 @@ browser's cookie loses access to an unlinked account; use this build for playtes
 python3 scripts/test-game-db.py  # full suite against disposable local PostgreSQL
 ```
 
+### Preview the berth scene
+
+The 3D berth scene shown for a selected ship can be previewed on its own, with
+no database or game server:
+
+```sh
+python3 scripts/berth-preview.py
+```
+
+It serves <http://127.0.0.1:4100/> with controls for freighters and tankers,
+loading, unloading, cargo levels and handling time. Every page load rebuilds the
+game's esbuild bundle, so reloading shows edits to `assets/js/berth_*.js`; a
+failed build shows the esbuild error instead of a stale scene. Use `--port` to
+choose another port.
+
 ## Server release
 
 For Render Free with Neon, follow [deployment setup](docs/deploying.md). The

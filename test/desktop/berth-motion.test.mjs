@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 const source = readFileSync(new URL('../../assets/js/berth_motion.js', import.meta.url), 'utf8')
 const {berthSample, cargoPosition, cargoTransfer, cargoCount, shipPose, plimsollY, waterlineY,
-  loadingArmPose, tankerManifold, dockCargoZ} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
+  loadingArmPose, tankerManifold, dockCargoZ, cameraPose, cameraSweep, cameraPeriod} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
 const state = {clock: 120_000, start: 120_000, complete: 125_000, status: 'loading',
   queued: false, liquid: false, capacity: 900_000, volume: 450_000, cargoVolume: 600_000}
 
@@ -184,4 +184,26 @@ test('loading arm keeps rigid pipes and a sealed connection as draft and roll ch
       }
     }
   }
+})
+
+test('camera arcs slowly about the berth at a fixed range, resting on the original view', () => {
+  const rest = cameraPose(0, 2)
+  assert.deepEqual(rest.target, [0, 2, -0.6])
+  rest.position.forEach((value, i) => assert.ok(Math.abs(value - [11, 10, 14][i]) < 1e-12))
+  const range = position => Math.hypot(position[0], position[2] + 0.6)
+  const azimuth = position => Math.atan2(position[0], position[2] + 0.6)
+  const angles = []
+  for (let seconds = 0; seconds <= cameraPeriod; seconds += 0.25) {
+    const {position} = cameraPose(seconds, 2)
+    assert.ok(Math.abs(range(position) - range(rest.position)) < 1e-12)
+    assert.equal(position[1], 10)
+    // The open-water side keeps the quay and gantry behind the hull.
+    assert.ok(position[2] > 3)
+    angles.push(azimuth(position))
+  }
+  const swing = Math.max(...angles) - Math.min(...angles)
+  // Literal bounds: comparing only with cameraSweep would accept a zero sweep.
+  assert.ok(swing > 0.5 && swing < 1, 'arc must be noticeable yet stay on the open-water side')
+  assert.ok(Math.abs(swing - 2 * cameraSweep) < 1e-3, 'arc must reach both sides of the rest view')
+  angles.slice(1).forEach((angle, i) => assert.ok(Math.abs(angle - angles[i]) < 0.02, 'arc must stay slow'))
 })

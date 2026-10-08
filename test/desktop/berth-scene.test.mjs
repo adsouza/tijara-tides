@@ -10,7 +10,10 @@ const {tankerManifold} = await import(motionUrl)
 const renderer = `class WebGLRenderer {
   constructor({canvas}) { this.domElement = canvas }
   setPixelRatio() {} setSize() {} dispose() {} forceContextLoss() {}
-  render(scene) { this.domElement.scene = scene; scene.updateMatrixWorld(true) }
+  render(scene, camera) {
+    this.domElement.scene = scene; this.domElement.camera = camera
+    scene.updateMatrixWorld(true); camera.updateMatrixWorld(true)
+  }
 }`
 const source = readFileSync(new URL('../../assets/js/berth_scene.js', import.meta.url), 'utf8')
   .replace('WebGLRenderer, ', '')
@@ -162,4 +165,27 @@ test('paused and reduced-motion scenes retain two stationary directional arrows'
       }
     }
   })
+})
+
+test('orbiting camera keeps the whole hull in shot while its view direction turns', () => {
+  for (const liquid of [false, true]) {
+    withScene(liquid, view => {
+      view.resize(448, 256) // A typical sm:h-64 ship panel; wider strips crop the keel at rest.
+      const directions = []
+      for (let seconds = 0; seconds <= 48; seconds += 0.5) {
+        view.draw({...sample, seconds})
+        const {scene, camera} = view.canvas
+        scene.getObjectByName('ship').traverse(part => {
+          const points = part.geometry?.attributes.position
+          for (let i = 0; i < (points?.count || 0); i++) {
+            const point = part.localToWorld(new Vector3().fromBufferAttribute(points, i)).project(camera)
+            assert.ok(Math.abs(point.x) < 1 && Math.abs(point.y) < 1, `hull leaves the frame at ${seconds}s`)
+          }
+        })
+        directions.push(camera.getWorldDirection(new Vector3()))
+      }
+      assert.ok(Math.min(...directions.map(d => d.dot(directions[0]))) < Math.cos(0.25),
+        'camera must arc around the ship rather than stay fixed')
+    })
+  }
 })

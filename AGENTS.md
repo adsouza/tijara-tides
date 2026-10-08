@@ -44,6 +44,7 @@ python3 scripts/test-game-db.py --control-sweep  # CI-only: press every rendered
 mix test path/to/file_test.exs     # one file (database tests are excluded without the script)
 scripts/check-local.sh             # automatic docs-only or full local validation
 scripts/check-local.sh --full      # force all local gates
+python3 scripts/berth-preview.py   # 3D berth scene alone on port 4100, no database
 ```
 
 Enable the tracked hooks once per clone with `git config core.hooksPath .githooks`.

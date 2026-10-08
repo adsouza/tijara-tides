@@ -106,6 +106,12 @@ deck and rise as boxes lift off, retaining the draft of cargo that stays aboard.
 Tankers change draft continuously while pumping. Pause freezes draft as well as
 the crane, and reduced motion suppresses bobbing and roll.
 
+The camera sweeps a slow arc of about 40 degrees on the open-water side of the
+berth, one cycle every 48 seconds, keeping the whole hull in frame. It never
+passes behind the quay, gantry or shore tank. Pause freezes the camera with the
+rest of the scene, and reduced motion holds the original resting view.
+`scripts/berth-preview.py` serves the scene alone for visual checks.
+
 Ship transitions record the operation's start time and transferred volume in
 litres alongside its completion deadline, and clear them atomically when handling
 ends. They remain owner-only; no cargo volume is added to public ship views.
