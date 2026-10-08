@@ -385,7 +385,7 @@ defmodule TijaraTidesWeb.GameLive do
     if socket.assigns.definitions.catalogue["ports"][id],
       do:
         {:noreply,
-         socket |> assign(:selected_port, id) |> push_event("workspace-panel", %{panel: 0})},
+         socket |> assign(:selected_port, id) |> push_event("workspace-panel", %{panel: 2})},
       else: {:noreply, socket}
   end
 
@@ -886,7 +886,7 @@ defmodule TijaraTidesWeb.GameLive do
         socket
         |> assign(selected_port: socket.assigns.ship["port"], port_market_side: "buy")
         |> push_event("port-market-select", %{side: "buy"})
-        |> push_event("workspace-panel", %{panel: 0, scroll_to: "port-market-controls"})
+        |> push_event("workspace-panel", %{panel: 2, scroll_to: "port-market-controls"})
       else
         socket
       end
@@ -932,7 +932,7 @@ defmodule TijaraTidesWeb.GameLive do
 
           socket =
             if ship["status"] == "sailing",
-              do: push_event(socket, "workspace-panel", %{panel: 1, scroll_to: "voyage-preview"}),
+              do: push_event(socket, "workspace-panel", %{panel: 0, scroll_to: "voyage-preview"}),
               else: socket
 
           {:noreply, socket}
@@ -1063,7 +1063,7 @@ defmodule TijaraTidesWeb.GameLive do
           (ship["status"] in ["loading", "unloading"] or ship["pending_side"] in ["buy", "sell"]) ->
         socket
         |> assign(handling_focus_ship: nil)
-        |> push_event("workspace-panel", %{panel: 1, portrait_only: true})
+        |> push_event("workspace-panel", %{panel: 0, portrait_only: true})
 
       true ->
         assign(socket, :handling_focus_ship, nil)
@@ -1518,33 +1518,17 @@ defmodule TijaraTidesWeb.GameLive do
           </section>
           <div id="game-workspace" phx-hook="Workspace" class="game-workspace">
             <nav class="workspace-tabs" aria-label={gettext("Game panels")}>
-              <button type="button" data-panel="0" aria-controls="ports-panel" aria-current="false"><.emoji symbol="⚓" />{gettext(
-                "Ports"
-              )}</button>
-              <button type="button" data-panel="1" aria-controls="ships-panel" aria-current="true"><.emoji symbol="🚢" />{gettext(
+              <button type="button" data-panel="0" aria-controls="ships-panel" aria-current="true"><.emoji symbol="🚢" />{gettext(
                 "Ships"
               )}</button>
-              <button type="button" data-panel="2" aria-controls="cargo-panel" aria-current="false"><.emoji symbol="📦" />{gettext(
+              <button type="button" data-panel="1" aria-controls="cargo-panel" aria-current="false"><.emoji symbol="📦" />{gettext(
                 "Cargo"
+              )}</button>
+              <button type="button" data-panel="2" aria-controls="ports-panel" aria-current="false"><.emoji symbol="⚓" />{gettext(
+                "Ports"
               )}</button>
             </nav>
             <div class="workspace-panels">
-              <TijaraTidesWeb.GameUI.PortsPanel.panel
-                warehouse_draft={@warehouse_draft}
-                exchange_good={@exchange_good}
-                definitions={@definitions}
-                destination={@destination}
-                port_market_side={@port_market_side}
-                preview={@preview}
-                purchase_good={@purchase_good}
-                request_id={@request_id}
-                selected_port={@selected_port}
-                ship={@ship}
-                trade_limits={@trade_limits}
-                trade_quantities={@trade_quantities}
-                traffic_grouping={@traffic_grouping}
-                view={@view}
-              />
               <TijaraTidesWeb.GameUI.FleetPanel.panel
                 destination_picker_open={@destination_picker_open}
                 definitions={@definitions}
@@ -1553,11 +1537,6 @@ defmodule TijaraTidesWeb.GameLive do
                 inspected_ship={@inspected_ship}
                 instruction_drafts={@instruction_drafts}
                 manifest_sort={@manifest_sort}
-                map_filters_open={@map_filters_open}
-                map_region={@map_region}
-                map_ship_classes={@map_ship_classes}
-                map_ships={@map_ships}
-                map_show_others={@map_show_others}
                 preview={@preview}
                 request_id={@request_id}
                 route_drafts={@route_drafts}
@@ -1575,9 +1554,33 @@ defmodule TijaraTidesWeb.GameLive do
                 cargo_roi_varies={@cargo_roi_varies}
                 cargo_sort_roi={@cargo_sort_roi}
                 definitions={@definitions}
+                inspected_ship={@inspected_ship}
+                map_filters_open={@map_filters_open}
+                map_region={@map_region}
+                map_ship_classes={@map_ship_classes}
+                map_ships={@map_ships}
+                map_show_others={@map_show_others}
                 market_good={@market_good}
                 market_sort={@market_sort}
+                preview={@preview}
+                selected_port={@selected_port}
                 ship={@ship}
+                view={@view}
+              />
+              <TijaraTidesWeb.GameUI.PortsPanel.panel
+                warehouse_draft={@warehouse_draft}
+                exchange_good={@exchange_good}
+                definitions={@definitions}
+                destination={@destination}
+                port_market_side={@port_market_side}
+                preview={@preview}
+                purchase_good={@purchase_good}
+                request_id={@request_id}
+                selected_port={@selected_port}
+                ship={@ship}
+                trade_limits={@trade_limits}
+                trade_quantities={@trade_quantities}
+                traffic_grouping={@traffic_grouping}
                 view={@view}
               />
             </div>

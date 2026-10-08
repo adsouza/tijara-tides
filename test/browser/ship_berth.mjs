@@ -64,9 +64,9 @@ try {
   await trace.step(page, 'portrait')
   // Portrait tabs move the scene entirely outside the horizontal viewport.
   await page.setViewportSize({width: 500, height: 950})
-  await page.locator('[data-panel="0"]').click()
+  await page.locator('[aria-controls="ports-panel"]').click()
   await expect(host).toHaveAttribute('data-animating', 'false')
-  await page.locator('[data-panel="1"]').click()
+  await page.locator('[aria-controls="ships-panel"]').click()
   await figure.scrollIntoViewIfNeeded()
   await expect(host).toHaveAttribute('data-animating', 'true')
   await trace.step(page, 'disconnect')

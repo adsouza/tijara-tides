@@ -11,8 +11,16 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
   attr :cargo_roi_varies, :any, required: true
   attr :cargo_sort_roi, :any, required: true
   attr :definitions, :any, required: true
+  attr :inspected_ship, :any, required: true
+  attr :map_filters_open, :any, required: true
+  attr :map_region, :any, required: true
+  attr :map_ship_classes, :any, required: true
+  attr :map_ships, :any, required: true
+  attr :map_show_others, :any, required: true
   attr :market_good, :any, required: true
   attr :market_sort, :any, required: true
+  attr :preview, :any, required: true
+  attr :selected_port, :any, required: true
   attr :ship, :any, required: true
   attr :view, :any, required: true
 
@@ -21,6 +29,18 @@ defmodule TijaraTidesWeb.GameUI.CargoPanel do
     <section id="cargo-panel" class="workspace-panel" aria-label={gettext("Cargo")}>
       <h2 class="panel-title"><.emoji symbol="📦" />{gettext("Cargo")}</h2>
       <div class="panel-content" tabindex="0" aria-label={gettext("Cargo markets")}>
+        <TijaraTidesWeb.GameUI.MapPanel.panel
+          preview={@preview}
+          definitions={@definitions}
+          inspected_ship={@inspected_ship}
+          map_filters_open={@map_filters_open}
+          map_region={@map_region}
+          map_ship_classes={@map_ship_classes}
+          map_ships={@map_ships}
+          map_show_others={@map_show_others}
+          selected_port={@selected_port}
+          view={@view}
+        />
         <section id="cargo-markets" class="my-6 rounded-xl border border-slate-700 p-5">
           <TijaraTidesWeb.GameUI.AuctionPanel.discovery
             view={@view}

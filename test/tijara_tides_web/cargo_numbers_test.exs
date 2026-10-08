@@ -10,12 +10,15 @@ defmodule TijaraTidesWeb.CargoNumbersTest do
     {good, _} =
       Enum.find(definitions.catalogue["goods"], fn {_, item} -> item["name"] == "Lumber" end)
 
+    ports = definitions.catalogue["ports"]
+
     catalogue =
       definitions.catalogue
       |> Map.put("ports", %{
-        "Singapore" => %{"roles" => %{good => "++exp"}},
-        "Colombo" => %{"roles" => %{good => "++imp"}}
+        "Singapore" => %{ports["Singapore"] | "roles" => %{good => "++exp"}},
+        "Colombo" => %{ports["Colombo"] | "roles" => %{good => "++imp"}}
       })
+      |> Map.put("clusters", %{})
       |> Map.put("routes", %{"Singapore|Colombo" => %{"nautical_miles" => 1609}})
 
     quote = %{
@@ -43,7 +46,15 @@ defmodule TijaraTidesWeb.CargoNumbersTest do
           cargo_menu_open: true,
           cargo_sort_roi: false,
           cargo_roi_varies: false,
-          cargo_options: [{good, %{label: "—", roi: 0.125}}]
+          cargo_options: [{good, %{label: "—", roi: 0.125}}],
+          inspected_ship: nil,
+          map_filters_open: false,
+          map_region: nil,
+          map_ship_classes: [],
+          map_ships: [],
+          map_show_others: true,
+          preview: nil,
+          selected_port: "Singapore"
         )
       end)
 

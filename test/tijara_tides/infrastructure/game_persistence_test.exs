@@ -1271,7 +1271,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     render_change(view, "port", %{"id" => "Jakarta"})
     assert has_element?(view, "#divert-ship-here", "Divert Diversions 1 to here")
     view |> element("#divert-ship-here") |> render_click()
-    assert_push_event(view, "workspace-panel", %{panel: 1, scroll_to: "voyage-preview"})
+    assert_push_event(view, "workspace-panel", %{panel: 0, scroll_to: "voyage-preview"})
 
     assert GameServer.snapshot(token, c.server).private["ships"][ship]["destination"] ==
              "Singapore"
@@ -4168,7 +4168,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(view, "#cargo-supply tr[data-port='Colón']")
     refute has_element?(view, "#cargo-markets", "Trading not available yet")
     assert has_element?(view, "#ports-panel #port-selector")
-    assert has_element?(view, "#ships-panel #world-map")
+    assert has_element?(view, "#cargo-panel #world-map")
     assert has_element?(view, "#cargo-panel #cargo-markets")
     view |> element("#market-good") |> render_click()
     assert has_element?(view, "#market-good[aria-expanded=true]")
@@ -4368,7 +4368,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              "button[phx-click=port-market-side][phx-value-side=buy][aria-pressed=true]"
            )
 
-    assert_push_event(view, "workspace-panel", %{panel: 0, scroll_to: "port-market-controls"})
+    assert_push_event(view, "workspace-panel", %{panel: 2, scroll_to: "port-market-controls"})
     assert has_element?(view, "#purchase-voyage-summary", "Singapore")
     assert has_element?(view, "#purchase-voyage-summary", "estimated fleet upkeep")
 
@@ -4425,7 +4425,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "limit" => "30000"
     })
 
-    assert_push_event(view, "workspace-panel", %{panel: 1, portrait_only: true})
+    assert_push_event(view, "workspace-panel", %{panel: 0, portrait_only: true})
     assert GameServer.snapshot(token, server).private["ships"][ship["id"]]["status"] == "loading"
     render_hook(view, "dropdown-active", %{"active" => true})
     displayed_clock = :sys.get_state(view.pid).socket.assigns.view.public["clock_ms"]
@@ -4563,7 +4563,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       "limit" => "30000"
     })
 
-    assert_push_event(view, "workspace-panel", %{panel: 1, portrait_only: true})
+    assert_push_event(view, "workspace-panel", %{panel: 0, portrait_only: true})
     assert has_element?(view, "#manifest-lumber td", "11")
     render_change(view, "market-good", %{"good" => "grain"})
     view |> element("#manifest-lumber button[phx-click=market-good]") |> render_click()
@@ -4686,7 +4686,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     render_change(view, "port", %{"id" => "Singapore"})
     refute has_element?(view, "td", "Appliances")
-    assert_push_event(view, "workspace-panel", %{panel: 1, portrait_only: true})
+    assert_push_event(view, "workspace-panel", %{panel: 0, portrait_only: true})
     after_sale = GameServer.snapshot(token, server)
     assert after_sale.private["ships"][ship["id"]]["cargo"] == []
     assert after_sale.private["ships"][ship["id"]]["status"] == "unloading"
@@ -4745,7 +4745,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              "button[phx-click=port-market-side][phx-value-side=buy][aria-pressed=true]"
            )
 
-    assert_push_event(view, "workspace-panel", %{panel: 0, scroll_to: "port-market-controls"})
+    assert_push_event(view, "workspace-panel", %{panel: 2, scroll_to: "port-market-controls"})
     view |> form("#trade-buy-fruit", %{"quantity" => "20"}) |> render_change()
     assert has_element?(view, "#trade-buy-fruit", "20 lots: first expiry")
     assert has_element?(view, "#trade-buy-fruit", "0.2 min handling")

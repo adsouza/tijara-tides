@@ -11,11 +11,6 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
   attr :inspected_ship, :any, required: true
   attr :instruction_drafts, :any, required: true
   attr :manifest_sort, :any, required: true
-  attr :map_filters_open, :any, required: true
-  attr :map_region, :any, required: true
-  attr :map_ship_classes, :any, required: true
-  attr :map_ships, :any, required: true
-  attr :map_show_others, :any, required: true
   attr :preview, :any, required: true
   attr :request_id, :any, required: true
   attr :route_drafts, :any, required: true
@@ -28,18 +23,6 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
     ~H"""
     <section id="ships-panel" class="workspace-panel" aria-label={gettext("Ships")}>
       <h2 class="panel-title"><.emoji symbol="🚢" />{gettext("Ships")}</h2>
-      <TijaraTidesWeb.GameUI.MapPanel.panel
-        preview={@preview}
-        definitions={@definitions}
-        inspected_ship={@inspected_ship}
-        map_filters_open={@map_filters_open}
-        map_region={@map_region}
-        map_ship_classes={@map_ship_classes}
-        map_ships={@map_ships}
-        map_show_others={@map_show_others}
-        selected_port={@selected_port}
-        view={@view}
-      />
       <div class="panel-content" tabindex="0" aria-label={gettext("Fleet and ship details")}>
         <section
           :if={

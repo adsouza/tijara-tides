@@ -27,13 +27,13 @@ The initial loop is choose a destination → buy cargo → sail → sell → rei
 Remote trading, arrival instructions, and repeatable routes extend this loop.
 
 The active company workspace has three equal-width, viewport-height panels:
-Ports on the left, Ships in the center, and Cargo on the right, with the map
-fixed at the top of Ships. Landscape windows display all three panels together;
-portrait windows display one panel at a time with horizontal swipe navigation
-and keyboard-accessible panel buttons. Long lists scroll inside their panels
-without scrolling the page or displacing the map. Panel selection survives live
-updates and orientation changes. Account details and invitations open from a
-compact menu above the workspace.
+Ships on the left, Cargo in the center, and Ports on the right, with the map at
+the top of Cargo in a disclosure that starts expanded. Landscape windows display
+all three panels together; portrait windows display one panel at a time with
+horizontal swipe navigation and keyboard-accessible panel buttons. Long lists
+scroll inside their panels without scrolling the page; the map scrolls with the
+Cargo panel. Panel selection survives live updates and orientation changes.
+Account details and invitations open from a compact menu above the workspace.
 
 An empty docked ship is preferred on startup, with its current port selected;
 subsequent updates preserve the player's selection. The fleet has an optional

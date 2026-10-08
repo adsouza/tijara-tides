@@ -1,9 +1,11 @@
 // Native scroll snapping handles touch swipes; tabs also work with a keyboard.
+// Panel indices follow DOM order and match the server's workspace-panel events.
+const SHIPS = 0, CARGO = 1, PORTS = 2
 export const Workspace = {
   mounted() {
     this.track = this.el.querySelector(".workspace-panels")
     this.buttons = [...this.el.querySelectorAll("[data-panel]")]
-    this.activePanel = 1
+    this.activePanel = SHIPS
     this.mapExpanded = false
     this.direction = () => this.el.ownerDocument?.documentElement.dir === "rtl" ? -1 : 1
     this.portrait = () => matchMedia("(orientation: portrait)").matches
@@ -23,12 +25,19 @@ export const Workspace = {
       if (this.portrait()) this.mapExpanded = false
       this.el.dataset.mapExpanded = String(this.mapExpanded)
       this.el.querySelector("#map-expand")?.setAttribute("aria-expanded", String(this.mapExpanded))
-      this.el.closest(".game-screen")?.querySelectorAll(".game-header, .company-summary, .company-menu, #ships-panel > .panel-content, #ships-panel > .panel-title").forEach(el => { el.inert = this.mapExpanded })
+      this.el.closest(".game-screen")?.querySelectorAll(".game-header, .company-summary, .company-menu, #cargo-panel > .panel-title, #cargo-panel > .panel-content > :not(#map-disclosure), #map-disclosure > summary").forEach(el => { el.inert = this.mapExpanded })
       this.buttons.forEach((button, index) => button.setAttribute("aria-current", String(index === this.activePanel)))
       this.el.querySelectorAll(".workspace-panel").forEach((panel, index) => {
-        panel.inert = (this.mapExpanded && index !== 1) || (this.portrait() && index !== this.activePanel)
+        panel.inert = (this.mapExpanded && index !== CARGO) || (this.portrait() && index !== this.activePanel)
       })
       this.sizeMapLabels()
+    }
+    this.scrollPanel = (index, id) => {
+      const content = this.el.querySelectorAll(".panel-content")[index]
+      const target = id && content.querySelector(`#${CSS.escape(id)}`)
+      content.scrollTop = target
+        ? content.scrollTop + target.getBoundingClientRect().top - content.getBoundingClientRect().top - 10
+        : 0
     }
     this.selectPanel = index => {
       this.activePanel = index
@@ -44,12 +53,12 @@ export const Workspace = {
       const button = event.target.closest("[data-panel]")
       if (button) this.selectPanel(Number(button.dataset.panel))
       const action = event.target.closest("[phx-click]")?.getAttribute("phx-click")
-      if (action === "port") this.selectPanel(0)
+      if (action === "port") this.selectPanel(PORTS)
       if (action === "market-good") {
-        this.selectPanel(2)
-        this.el.querySelector("#cargo-panel .panel-content").scrollTop = 0
+        this.selectPanel(CARGO)
+        this.scrollPanel(CARGO, "cargo-markets")
       }
-      if (action === "ship" || action === "inspect-ship") this.selectPanel(1)
+      if (action === "ship" || action === "inspect-ship") this.selectPanel(SHIPS)
     }
     this.onKey = event => {
       if (event.key === "Escape" && this.mapExpanded) {
@@ -81,13 +90,9 @@ export const Workspace = {
     this.handleEvent("workspace-panel", ({panel, portrait_only = false, scroll_to}) => {
       if (portrait_only && !this.portrait()) return
       this.selectPanel(panel)
-      const content = this.el.querySelectorAll(".panel-content")[panel]
-      const target = scroll_to && content.querySelector(`#${CSS.escape(scroll_to)}`)
-      content.scrollTop = target
-        ? content.scrollTop + target.getBoundingClientRect().top - content.getBoundingClientRect().top - 10
-        : 0
+      this.scrollPanel(panel, scroll_to)
     })
-    this.selectPanel(1)
+    this.selectPanel(SHIPS)
   },
   updated() { this.markPanel() },
   destroyed() {

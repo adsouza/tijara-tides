@@ -145,9 +145,9 @@ told after the fact, without being asked to approve it.
 | 78 | Use cubic meters for solid cargo volume and ship volume capacity, liters for liquid cargo volume, and kilograms for weight. | 9 | display | Fleet and ship detail |
 | 79 | Use material-first scrap names consistently: Aluminium scrap and Copper scrap. | 9 | display | Fleet and ship detail |
 | 80 | Cargo-name sorting uses the displayed names, with ascending cargo name as the initial manifest order. | 9 | display | Fleet and ship detail |
-| 81 | The active company workspace has three equal-width, viewport-height panels: Ports on the left, Ships in the center, and Cargo on the right, with the map fixed at the top of Ships. | 1 | display | World map |
+| 81 | The active company workspace has three equal-width, viewport-height panels: Ships on the left, Cargo in the center, and Ports on the right, with the map at the top of Cargo in a disclosure that starts expanded. | 1 | display | World map |
 | 82 | Landscape windows display all three panels together; portrait windows display one panel at a time with horizontal swipe navigation and keyboard-accessible panel buttons. | 1 | display | World map |
-| 83 | Long lists scroll inside their panels without scrolling the page or displacing the map. | 1 | display | World map |
+| 83 | Long lists scroll inside their panels without scrolling the page; the map scrolls with the Cargo panel. | 1 | display | World map |
 | 84 | Panel selection survives live updates and orientation changes. | 1 | display | World map |
 | 85 | An empty docked ship is preferred on startup, with its current port selected; subsequent updates preserve the player's selection. | 1 | display | Fleet and ship detail |
 | 86 | The fleet has an optional status filter. | 1 | display | Fleet and ship detail |

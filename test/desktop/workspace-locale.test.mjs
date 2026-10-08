@@ -32,6 +32,9 @@ for (const dir of ['ltr', 'rtl']) {
     const hook = {el, handleEvent(name, callback) { handlers[name] = callback }}
     Workspace.mounted.call(hook)
     const sign = dir === 'rtl' ? -1 : 1
+    assert.equal(hook.activePanel, 0)
+    assert.equal(buttons[0].attributes['aria-current'], 'true')
+    hook.selectPanel(1)
     assert.equal(track.scrollLeft, sign * 390)
     hook.selectPanel(2)
     assert.equal(track.scrollLeft, sign * 780)

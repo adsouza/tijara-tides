@@ -37,7 +37,7 @@ try {
   await page.locator('[data-phx-main].phx-connected').waitFor();
   // Expand disclosures through their actual controls. Tabs are actual workspace buttons.
   if (config.workflow === 'instructions') {
-    await page.locator('[data-panel="1"]').click();
+    await page.locator('[aria-controls="ships-panel"]').click();
     await page.locator(`[phx-click="ship"][phx-value-id="${config.ship}"]`).first().click();
     await trace.step(page, 'destination');
     await page.locator('#destination-picker-trigger').click();
@@ -74,7 +74,7 @@ try {
     assert.ok(!records[0].fields.includes('budget'), 'disabled budget serialized');
     assert.ok(records[1].fields.includes('freshness_minutes'), 'blank freshness omitted');
   } else {
-    await page.locator('[data-panel="0"]').click();
+    await page.locator('[aria-controls="ports-panel"]').click();
     await page.locator('#exchange-panel > summary').click();
     await trace.step(page, 'select-good');
     await page.locator('#exchange-good-selector select').selectOption('lumber');
