@@ -161,9 +161,11 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
                   )}
                 </title>
               </polygon>
+              <% [x, y] = WorldMap.project(zone.label) %>
               <text
-                x={hd(WorldMap.project(zone.label))}
-                y={List.last(WorldMap.project(zone.label))}
+                data-zone-mark
+                x={x}
+                y={y}
                 text-anchor="middle"
                 dominant-baseline="central"
                 font-size={14 * viewport.scale}
@@ -171,6 +173,21 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
                 aria-hidden="true"
               >
                 {zone.mark}
+              </text>
+              <text
+                data-zone-label
+                x={x}
+                y={y + 13 * viewport.scale}
+                text-anchor="middle"
+                dominant-baseline="central"
+                font-size={9 * viewport.scale}
+                fill="#fecaca"
+                stroke="#020617"
+                stroke-width={3 * viewport.scale}
+                paint-order="stroke"
+                pointer-events="none"
+              >
+                {l10n(zone.name)}
               </text>
             </g>
             <polyline

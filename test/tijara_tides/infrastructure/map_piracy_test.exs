@@ -39,6 +39,17 @@ defmodule TijaraTides.Infrastructure.MapPiracyTest do
       mark = model["kinds"][model["zones"][campaign["id"]]["kind"]]["mark"]
       assert has_element?(view, "#piracy-campaigns li .ui-emoji", mark)
 
+      # The on-map mark sits beside a visible zone name, never in place of it.
+      for {id, zone} <- model["zones"] do
+        assert has_element?(
+                 view,
+                 "[data-piracy-zone='#{id}'] text[data-zone-label]",
+                 zone["name"]
+               )
+
+        assert has_element?(view, "[data-piracy-zone='#{id}'] text[data-zone-mark][aria-hidden]")
+      end
+
       assert {:ok, _} =
                GameServer.command(
                  token,
@@ -54,6 +65,12 @@ defmodule TijaraTides.Infrastructure.MapPiracyTest do
 
       {:ok, view, _} = conn |> recycle() |> live("/play")
       assert has_element?(view, "#piracy-campaigns li", arabic)
+
+      assert has_element?(
+               view,
+               "[data-piracy-zone='#{campaign["id"]}'] text[data-zone-label]",
+               arabic
+             )
     end)
   end
 end
