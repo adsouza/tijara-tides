@@ -2,6 +2,8 @@ defmodule TijaraTides.Domain.Piracy do
   @moduledoc "Pirate zones and deterministic announced campaigns in active-world time."
 
   @kinds ~w(boarding fleet_piracy militia piracy)
+  # The seeded start offset hashes into span + 1; phash2 accepts ranges up to 2^32.
+  @phash_range 4_294_967_296
 
   def model(catalogue), do: catalogue["piracy"]
 
@@ -19,6 +21,7 @@ defmodule TijaraTides.Domain.Piracy do
       is_integer(model["seed"]) and is_integer(model["first_slot"]) and
         model["first_slot"] >= 0 and is_integer(period) and is_integer(duration) and
         is_integer(warning) and duration > 0 and warning >= 0 and warning + duration <= period and
+        period - duration - warning < @phash_range and
         is_integer(campaign["multiplier"]) and campaign["multiplier"] >= 1 and is_map(kinds) and
         Enum.sort(Map.keys(kinds)) == @kinds and Enum.all?(kinds, fn {_, k} -> kind?(k) end) and
         is_map(model["zones"]) and map_size(model["zones"]) > 0 and

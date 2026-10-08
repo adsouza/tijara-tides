@@ -60,10 +60,27 @@ defmodule TijaraTides.Domain.PiracyTest do
       put_in(model(), ["zones", "gulf_of_aden", "chance_bps"], 10_001),
       put_in(model(), ["zones", "gulf_of_aden", "campaign_names"], []),
       put_in(model(), ["kinds", "militia", "hold_ms"], 0),
-      Map.update!(model(), "kinds", &Map.delete(&1, "boarding"))
+      Map.update!(model(), "kinds", &Map.delete(&1, "boarding")),
+      # The seeded start offset hashes into span + 1, which phash2 caps at 2^32.
+      put_in(model(), ["campaign", "period_ms"], 60 * 86_400_000)
     ]
 
     for m <- bad, do: assert_raise(ArgumentError, fn -> Piracy.validate!(m) end)
+  end
+
+  test "the longest accepted campaign period still rolls without raising" do
+    # span + 1 == 2^32, the largest range phash2 accepts.
+    m =
+      model()
+      |> put_in(["campaign", "period_ms"], 4_294_967_295 + 20_000 + 5_000)
+
+    assert Piracy.validate!(m) == m
+    c = Piracy.campaign("gulf_of_aden", 1, m)
+    assert c["until_ms"] <= 2 * m["campaign"]["period_ms"]
+
+    assert_raise ArgumentError, fn ->
+      Piracy.validate!(update_in(m, ["campaign", "period_ms"], &(&1 + 1)))
+    end
   end
 
   test "no campaign rolls before the first slot" do
