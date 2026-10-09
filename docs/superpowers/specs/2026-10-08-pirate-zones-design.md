@@ -7,11 +7,13 @@ Written 2026-10-08; revised the same day after review.
 ## Intent
 
 Storms make voyages uncertain in time but never in money. Pirates add a risk
-that players can see, price and buy down, located where it exists in the real
-world: the Red Sea, the Gulf of Aden and Somali Basin, the Malacca Strait, the
-South China Sea and the Caribbean. Success means a player looking at a route
-through the Red Sea during an announced campaign faces a real choice between
-paying for protection, accepting the risk, or trading somewhere else.
+that players can see, price and buy down, located where it has a defensible
+basis in the real world. Modern reporting supports the Red Sea, the Gulf of Aden
+and Somali Basin, and the Malacca and Singapore Straits; history supports the
+South China Sea, the Caribbean, the English Channel and the Barbary Coast.
+Success means a player looking at a route through the Red Sea during an
+announced campaign faces a real choice between paying for protection, accepting
+the risk, or trading somewhere else.
 
 Decisions taken during design:
 
@@ -45,37 +47,63 @@ first charges a ransom (phase 2):
 
 ## Zones
 
-Five zones are polygons in the generator's source data
+Eight zones are polygons in the generator's source data
 (`scripts/gen-game-data.py`), emitted into `priv/game/catalogue.json` under
 `"piracy"`. Each has a kind, which fixes how an attack is described and
-resolved.
+resolved. Phase 1 shipped the first five; phase 1b adds the Singapore Strait,
+the English Channel and the Barbary Coast and lowers the Malacca Strait.
 
-| Zone | Kind | Base chance per crossing | Guard effect |
-|---|---|---|---|
-| Red Sea and Bab-el-Mandeb | militia | 300 bps | 25% |
-| Gulf of Aden and Somali Basin | piracy | 400 bps | 90% |
-| Malacca Strait | boarding | 600 bps | 60% |
-| South China Sea | fleet piracy | 200 bps | 60% |
-| Caribbean | piracy | 200 bps | 60% |
+| Zone | Kind | Base chance per crossing | Guard effect | Basis |
+|---|---|---|---|---|
+| Red Sea and Bab-el-Mandeb | militia | 300 bps | 25% | Houthi strikes on shipping since 2023 |
+| Gulf of Aden and Somali Basin | piracy | 400 bps | 90% | Somali hijackings, resurgent since 2023 |
+| Singapore Strait | boarding | 600 bps | 60% | 80 of 137 incidents worldwide in 2025 (IMB annual report) |
+| Malacca Strait | boarding | 150 bps | 60% | Far less reported activity than the Singapore Strait, where IMB places most incidents in these straits |
+| South China Sea | fleet piracy | 200 bps | 60% | Ching Shih's confederation off Guangdong (1801–10) |
+| Caribbean | piracy | 200 bps | 60% | Buccaneers, 17th–18th centuries |
+| English Channel | piracy | 100 bps | 60% | Sea Beggars (1568–72) and Dunkirkers (c. 1583–1646) |
+| Barbary Coast | piracy | 150 bps | 60% | Barbary corsairs, 16th–19th centuries |
 
-Indicative extents, to be refined into polygons against the real routes in phase
-1:
+The two new historical zones carry the lowest chances: their basis is the
+weakest, and the English Channel is crossed by almost all North European trade.
+Antwerp to Busan is one of 42 routes that cross seven zones, the most of any; at
+base threat a 22-knot ship has about an 18% chance of at least one attack
+(16–21% by class). Transpacific routes and Hamburg's North American routes cross
+none; the rest of Hamburg's Atlantic trade and all Atlantic routes into Antwerp
+and Rotterdam cross the English Channel.
+
+Extents; polygons follow the sea where a box would cross much land:
 
 | Zone | Extent |
 |---|---|
 | Red Sea | 32–43.5°E, 12.5–30°N, following the sea |
 | Gulf of Aden | 43.5–60°E, 0–16°N |
+| Singapore Strait | 104–104.7°E, 1.05–1.5°N, east of Singapore; the strait is too narrow for a box to avoid both shores |
 | Malacca Strait | 95–103°E, 1.5–6.5°N, northwest of Singapore |
-| South China Sea | 109–119°E, 6–20°N, the open sea only |
+| South China Sea | 109–119°E, 6–21.5°N, the open sea up to the Guangdong approaches; west of 111°E it stops at 20°N, clear of the Leizhou Peninsula |
 | Caribbean | 88–60°W, 10.5–22°N |
+| English Channel | 5.8°W–1.75°E, mid-Channel from the Western Approaches through the Dover Strait, clear of the English and French coasts |
+| Barbary Coast | 1°W–10°E, the lane off Algeria and Tunisia, its south edge just off the coast and its north edge clear of Spain |
 
-**No port lies inside a zone.** The generator rejects a zone polygon that
-contains any roster harbour coordinate, so a port's approaches are never a
-danger zone and short local voyages stay safe. The South China Sea extent is
-deliberately the open sea: a wider box (105–121°E, 3–21°N) would contain Ho Chi
-Minh City (107.02°E, 10.51°N) and Manila (120.95°E, 14.59°N). Singapore, Colón
-and the Pearl River ports also sit outside their neighbouring zones. Phase 1
-reports, per zone, how many of the 600 routes cross it.
+**No port lies inside or near a zone.** The generator rejects a zone polygon
+that contains any roster harbour coordinate or lies within 12.0 nautical miles
+of one: the great-circle distance from the harbour coordinate to the nearest
+point of any polygon edge, with edges straight in the longitude/latitude plane
+as `Piracy.inside?/2` treats them. The generator enforces it with its haversine
+`distance()` and `piracy_catalogue_test.exs` asserts it again. A port's
+approaches are therefore never a danger zone and short local voyages stay safe:
+Tangier–Valencia and Hong Kong–Guangzhou cross no zone. The South China Sea
+extent is deliberately the open sea: a wider box (105–121°E, 3–21°N) would
+contain Ho Chi Minh City (107.02°E, 10.51°N) and Manila (120.95°E, 14.59°N), and
+its north edge stops 48 nautical miles short of Hong Kong. The Singapore Strait
+is its own zone rather than an extension of the Malacca Strait because the
+traffic lane passes about 8 nautical miles from Singapore's harbour, inside the
+buffer, so no polygon can join the two around the port; the strait zone starts
+14 nautical miles east of the harbour. A through voyage crosses both zones and
+rolls for each, while a Singapore departure eastward crosses the strait but not
+the Malacca Strait. Colón and the Pearl River ports also sit outside their
+neighbouring zones. `piracy_catalogue_test.exs` asserts the per-zone route
+counts that IMPLEMENTATION.md publishes.
 
 Kind parameters, all provisional and catalogue-tunable:
 
@@ -110,10 +138,13 @@ a secret.
 
 Each zone carries a short list of campaign names chosen by a seeded index, for
 example the Red Flag Fleet in the South China Sea after Ching Shih's
-confederation. The model is validated when the catalogue is loaded: a warning
-plus duration that does not fit within the period, a chance outside 0..10,000
-basis points, a polygon with fewer than three vertices, or a missing salt in
-production fails startup and never reaches a tick.
+confederation. Phase 1b adds Horsburgh raiders and Bintan boarders for the
+Singapore Strait, Dunkirkers and Sea Beggars for the English Channel, and
+Algiers corsairs and Barbarossa's fleet for the Barbary Coast. The model is
+validated when the catalogue is loaded: a warning plus duration that does not
+fit within the period, a chance outside 0..10,000 basis points, a polygon with
+fewer than three vertices, or a missing salt in production fails startup and
+never reaches a tick.
 
 ### Visibility
 
@@ -420,6 +451,14 @@ list.
   kinds and not for militia; a storm overlapping an incident; the settled-time
   clamp; a second crossing timed after the first incident's hold; the forecast
   skip shortcut keeping incidents.
+- **Catalogue (phase 1b):** the harbour buffer with synthetic polygons whose
+  nearest edge lies 11.9 nautical miles from a harbour (rejected) and 12.1
+  (accepted), sampling each edge at most every 0.01° in the generator and the
+  test alike; the exact per-zone route counts; lanes as
+  well as ports: Tangier–Valencia and Hong Kong–Guangzhou cross no zone,
+  Tangier–Athens crosses the Barbary Coast, Singapore–Busan crosses the
+  Singapore Strait but not the Malacca Strait, and Antwerp–Busan crosses seven
+  zones.
 - **Automation:** a campaign announced while a request waits raises its
   `required` on the next attempt and the request still departs once funded.
 - **Diversion:** resolved records survive; `continued` crossings carry no fee; a
@@ -441,17 +480,27 @@ list.
 
 ## Delivery
 
-Four phases, each shippable on its own and each with its documentation updates
+Five phases, each shippable on its own and each with its documentation updates
 (IMPLEMENTATION.md, architecture.md, generated documents) in the same change:
 
-1. **Zones and campaigns.** Polygons, generator rules and route counts,
-   `PiracyWorld`, map shading and marks, countdowns. No attacks.
-2. **Attacks.** Crossings snapshot, roll, storm suppression, shared timeline,
-   charges, operating bills, notices, public held status, `VoyageHazards`, the
-   DESIGN.md amendment.
-3. **Protection.** Guards, insurance, dispatch block, reroute top-ups,
-   calibration script.
-4. **Automation.** Route-plan Protection setting and automated funding.
+- **Phase 1: Zones and campaigns.** Polygons, generator rules and route counts,
+  `PiracyWorld`, map shading and marks, countdowns. No attacks.
+- **Phase 1b: More zones.** The Singapore Strait, English Channel and Barbary
+  Coast, the lowered Malacca Strait chance, the 12-nautical-mile harbour
+  buffer, and their names in English and Arabic. Delivered before phase 2
+  because counts, tests and docs are cheaper to change before attacks exist.
+  It needs no migration: `game_piracy_campaigns` is keyed by world and zone id,
+  `PiracyWorld.refresh/2` adds rows for new zones on the next tick, base
+  chances are not persisted, and existing campaign windows depend only on the
+  seed, zone id, slot and campaign chance, all unchanged. A deployed `:piracy`
+  override of `"zones"` would replace all eight, since the merge is shallow;
+  none is configured today.
+- **Phase 2: Attacks.** Crossings snapshot, roll, storm suppression, shared
+  timeline, charges, operating bills, notices, public held status,
+  `VoyageHazards`, the DESIGN.md amendment.
+- **Phase 3: Protection.** Guards, insurance, dispatch block, reroute top-ups,
+  calibration script.
+- **Phase 4: Automation.** Route-plan Protection setting and automated funding.
 
 ## Tuning left open
 
@@ -459,3 +508,10 @@ Every number marked provisional above: base chances, guard effects, hold
 durations, charge shares, guard fee, insurance loading and deductible, campaign
 period, chance, duration, warning and multiplier. All live in the catalogue
 model or runtime config and can change without migrations.
+
+## Sources
+
+- IMB Piracy Reporting Centre, *Piracy and Armed Robbery Against Ships, 2025
+  annual report*: 137 incidents worldwide, 80 in the Singapore Strait, 21 in
+  the Gulf of Guinea and a small number off the Somali coast.
+  [ICC summary](https://iccwbo.org/news-publications/report/global-maritime-piracy-and-armed-robbery-increased-in-2025/)
