@@ -3082,3 +3082,30 @@ msgstr "%{zone}: %{campaign} نشطة، متبقٍ %{minutes} دقيقة"
 
 msgid "%{zone}: %{campaign} begins in %{minutes} min"
 msgstr "%{zone}: تبدأ %{campaign} خلال %{minutes} دقيقة"
+
+msgid "Singapore Strait"
+msgstr "مضيق سنغافورة"
+
+msgid "English Channel"
+msgstr "القنال الإنجليزي"
+
+msgid "Barbary Coast"
+msgstr "ساحل البربر"
+
+msgid "Horsburgh raiders"
+msgstr "غزاة هورسبرغ"
+
+msgid "Bintan boarders"
+msgstr "مقتحمو بينتان"
+
+msgid "Dunkirkers"
+msgstr "قراصنة دنكيرك"
+
+msgid "Sea Beggars"
+msgstr "شحاذو البحر"
+
+msgid "Algiers corsairs"
+msgstr "قراصنة الجزائر"
+
+msgid "Barbarossa's fleet"
+msgstr "أسطول بربروس"

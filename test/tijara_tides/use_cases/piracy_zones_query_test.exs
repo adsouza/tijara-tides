@@ -26,7 +26,7 @@ defmodule TijaraTides.UseCases.PiracyZonesQueryTest do
 
     assert view.(c["until_ms"])[c["id"]].level == "normal"
     assert view.(c["until_ms"])[c["id"]].campaign == nil
-    assert length(GameQueries.piracy_zones(%{"clock_ms" => 0}, catalogue)) == 5
+    assert length(GameQueries.piracy_zones(%{"clock_ms" => 0}, catalogue)) == 8
     assert GameQueries.piracy_zones(%{"clock_ms" => 0}, %{}) == []
   end
 end

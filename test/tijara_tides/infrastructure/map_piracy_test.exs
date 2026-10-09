@@ -32,7 +32,7 @@ defmodule TijaraTides.Infrastructure.MapPiracyTest do
       expected = Piracy.campaigns(at, model)
 
       {:ok, view, _} = conn |> recycle() |> live("/play")
-      assert Enum.count(query(view, "#world-map [data-piracy-zone]")) == 5
+      assert Enum.count(query(view, "#world-map [data-piracy-zone]")) == 8
       assert has_element?(view, "[data-piracy-zone='#{campaign["id"]}'][data-level='elevated']")
       assert Enum.count(query(view, "#piracy-campaigns li")) == map_size(expected)
       assert has_element?(view, "#piracy-campaigns li", campaign["name"])

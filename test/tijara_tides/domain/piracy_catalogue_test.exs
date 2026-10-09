@@ -1,14 +1,49 @@
 defmodule TijaraTides.Domain.PiracyCatalogueTest do
   use ExUnit.Case, async: true
   alias TijaraTides.Domain.Piracy
+  alias TijaraTides.Domain.VoyageNavigation
   alias TijaraTides.Infrastructure.GameCatalogue
 
-  test "the generated catalogue carries five valid zones on real routes" do
+  # Campaign windows captured from the phase 1 catalogue before phase 1b changed
+  # any zone. They pin the seed, zone ids, period and start-offset hashing; the
+  # campaign chance only decides whether a slot rolls at all.
+  @phase_1_windows [
+    {"caribbean", 21, 937_720_920},
+    {"caribbean", 28, 1_240_262_164},
+    {"caribbean", 29, 1_266_596_302},
+    {"gulf_of_aden", 2, 114_240_685},
+    {"gulf_of_aden", 5, 233_395_610},
+    {"gulf_of_aden", 9, 395_937_102},
+    {"malacca", 1, 58_345_387},
+    {"malacca", 11, 496_437_364},
+    {"malacca", 16, 707_454_840},
+    {"red_sea", 11, 485_618_209},
+    {"red_sea", 14, 606_990_024},
+    {"red_sea", 17, 752_006_093},
+    {"south_china_sea", 5, 232_632_582},
+    {"south_china_sea", 7, 313_145_545},
+    {"south_china_sea", 9, 412_836_616}
+  ]
+
+  # Sample each leg the way voyages interpolate, across the antimeridian too.
+  defp crosses?(coordinates, ring) do
+    coordinates
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.any?(fn [[x, y], [u, v]] ->
+      [dx, _] = VoyageNavigation.normalize([u - x, 0])
+      Enum.any?(0..40, &Piracy.inside?([x + dx * &1 / 40, y + (v - y) * &1 / 40], ring))
+    end)
+  end
+
+  defp zones_on(coordinates, zones),
+    do: for({id, zone} <- Enum.sort(zones), crosses?(coordinates, zone["polygon"]), do: id)
+
+  test "the generated catalogue carries eight valid zones on real routes" do
     catalogue = GameCatalogue.all()
     model = Piracy.validate!(Piracy.model(catalogue))
 
     assert Enum.sort(Map.keys(model["zones"])) ==
-             ~w(caribbean gulf_of_aden malacca red_sea south_china_sea)
+             ~w(barbary_coast caribbean english_channel gulf_of_aden malacca red_sea singapore_strait south_china_sea)
 
     assert model["zones"]["red_sea"]["kind"] == "militia"
     assert model["kinds"]["militia"]["mark"] == "💥"
@@ -22,31 +57,48 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
       assert Piracy.inside?(zone["label"], zone["polygon"])
     end
 
-    # Sample each leg the way voyages interpolate, across the antimeridian too;
-    # these are the counts docs/IMPLEMENTATION.md publishes.
+    # These are the counts docs/IMPLEMENTATION.md publishes.
     crossed =
       Map.new(model["zones"], fn {id, zone} ->
         {id,
-         Enum.count(catalogue["routes"], fn {_, route} ->
-           route["coordinates"]
-           |> Enum.chunk_every(2, 1, :discard)
-           |> Enum.any?(fn [[x, y], [u, v]] ->
-             [dx, _] = TijaraTides.Domain.VoyageNavigation.normalize([u - x, 0])
-
-             Enum.any?(0..40, fn k ->
-               Piracy.inside?([x + dx * k / 40, y + (v - y) * k / 40], zone["polygon"])
-             end)
-           end)
-         end)}
+         Enum.count(catalogue["routes"], &crosses?(elem(&1, 1)["coordinates"], zone["polygon"]))}
       end)
 
     assert crossed == %{
              "red_sea" => 202,
              "gulf_of_aden" => 206,
+             "singapore_strait" => 194,
              "malacca" => 194,
              "south_china_sea" => 220,
-             "caribbean" => 76
+             "caribbean" => 76,
+             "english_channel" => 128,
+             "barbary_coast" => 192
            }
+
+    assert model["zones"]["malacca"]["chance_bps"] == 150
+    assert model["zones"]["singapore_strait"]["chance_bps"] == 600
+  end
+
+  test "lanes, not just ports, fall where the zones intend" do
+    catalogue = GameCatalogue.all()
+    zones = Piracy.model(catalogue)["zones"]
+    on = fn key -> zones_on(catalogue["routes"][key]["coordinates"], zones) end
+
+    assert on.("Tangier|Valencia") == []
+    assert on.("Hong Kong|Guangzhou") == []
+    assert on.("Tangier|Athens") == ["barbary_coast"]
+    assert "singapore_strait" in on.("Singapore|Busan")
+    refute "malacca" in on.("Singapore|Busan")
+
+    assert on.("Antwerp|Busan") ==
+             ~w(barbary_coast english_channel gulf_of_aden malacca red_sea singapore_strait south_china_sea)
+  end
+
+  test "the original five zones keep their phase 1 campaign windows" do
+    model = Piracy.model(GameCatalogue.all())
+
+    for {id, slot, starts} <- @phase_1_windows,
+        do: assert(Piracy.campaign(id, slot, model)["starts_ms"] == starts)
   end
 
   # Great-circle distance from a harbour to the nearest sampled edge point;
