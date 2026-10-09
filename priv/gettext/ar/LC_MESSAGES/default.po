@@ -3101,8 +3101,8 @@ msgstr "مقتحمو بينتان"
 msgid "Dunkirkers"
 msgstr "قراصنة دونكيرك"
 
-msgid "Sea Beggars"
-msgstr "متسولو البحر"
+msgid "Eustace the Monk"
+msgstr "يوستاس الراهب"
 
 msgid "Algiers corsairs"
 msgstr "رياس الجزائر"

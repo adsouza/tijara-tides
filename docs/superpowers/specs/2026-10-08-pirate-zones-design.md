@@ -61,7 +61,7 @@ the English Channel and the Barbary Coast and lowers the Malacca Strait.
 | Malacca Strait | boarding | 150 bps | 60% | Far less reported activity than the Singapore Strait, where IMB places most incidents in these straits |
 | South China Sea | fleet piracy | 200 bps | 60% | Ching Shih's confederation off Guangdong (1801–10) |
 | Caribbean | piracy | 200 bps | 60% | Buccaneers, 17th–18th centuries |
-| English Channel | piracy | 100 bps | 60% | Sea Beggars (1568–72) and Dunkirkers (c. 1583–1646) |
+| English Channel | piracy | 100 bps | 60% | Eustace the Monk (c. 1170–1217) and the Dunkirkers (c. 1583–1646) |
 | Barbary Coast | piracy | 150 bps | 60% | Barbary corsairs, 16th–19th centuries |
 
 The two new historical zones carry the lowest chances: their basis is the
@@ -140,7 +140,7 @@ a secret.
 Each zone carries a short list of campaign names chosen by a seeded index, for
 example the Red Flag Fleet in the South China Sea after Ching Shih's
 confederation. Phase 1b adds Horsburgh raiders and Bintan boarders for the
-Singapore Strait, Dunkirkers and Sea Beggars for the English Channel, and
+Singapore Strait, Dunkirkers and Eustace the Monk for the English Channel, and
 Algiers corsairs and Barbarossa's fleet for the Barbary Coast. The model is
 validated when the catalogue is loaded: a warning plus duration that does not
 fit within the period, a chance outside 0..10,000 basis points, a polygon with

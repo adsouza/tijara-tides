@@ -153,7 +153,7 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
     for {english, arabic} <- [
           {"Algiers corsairs", "رياس الجزائر"},
           {"Barbary Coast", "الساحل البربري"},
-          {"Sea Beggars", "متسولو البحر"},
+          {"Eustace the Monk", "يوستاس الراهب"},
           {"Dunkirkers", "قراصنة دونكيرك"}
         ] do
       assert TijaraTides.Localization.with_locale("ar", fn ->

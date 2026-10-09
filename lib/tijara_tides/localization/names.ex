@@ -48,7 +48,7 @@ defmodule TijaraTides.Localization.Names do
   def translate("Horsburgh raiders"), do: gettext("Horsburgh raiders")
   def translate("Bintan boarders"), do: gettext("Bintan boarders")
   def translate("Dunkirkers"), do: gettext("Dunkirkers")
-  def translate("Sea Beggars"), do: gettext("Sea Beggars")
+  def translate("Eustace the Monk"), do: gettext("Eustace the Monk")
   def translate("Algiers corsairs"), do: gettext("Algiers corsairs")
   def translate("Barbarossa's fleet"), do: gettext("Barbarossa's fleet")
   def translate("sailing"), do: gettext("sailing")

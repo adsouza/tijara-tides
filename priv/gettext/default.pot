@@ -5180,12 +5180,12 @@ msgstr ""
 msgid "Horsburgh raiders"
 msgstr ""
 
-#: lib/tijara_tides/localization/names.ex:51
-#, elixir-autogen, elixir-format
-msgid "Sea Beggars"
-msgstr ""
-
 #: lib/tijara_tides/localization/names.ex:45
 #, elixir-autogen, elixir-format
 msgid "Singapore Strait"
+msgstr ""
+
+#: lib/tijara_tides/localization/names.ex:51
+#, elixir-autogen, elixir-format
+msgid "Eustace the Monk"
 msgstr ""
