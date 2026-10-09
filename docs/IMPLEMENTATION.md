@@ -1140,14 +1140,21 @@ cached forecast tests compare results across paths, seeds and warning cutoffs.
 
 ## Pirate zones and campaigns
 
-Five pirate zones are generated into the catalogue under `piracy`: the Red Sea
-(militia, 💥), and the Gulf of Aden and Somali Basin, the Malacca Strait, the
-South China Sea and the Caribbean Sea (piracy kinds, 🏴‍☠️). The generator
-rejects a zone containing any roster harbour or overlapping another zone, and
-the model is validated when the catalogue loads, after any `:piracy` runtime
-override is merged, so a malformed model fails startup rather than a tick. Of
-the 600 directed routes, 202 cross the Red Sea, 206 the Gulf of Aden, 194 the
-Malacca Strait, 220 the South China Sea and 76 the Caribbean Sea.
+Eight pirate zones are generated into the catalogue under `piracy`, each with a
+real-world basis. Modern reporting supports the Red Sea (militia, 💥), the Gulf
+of Aden and Somali Basin, and the Singapore and Malacca Straits; history
+supports the South China Sea, the Caribbean Sea, the English Channel and the
+Barbary Coast (piracy kinds, 🏴‍☠️). The Singapore Strait, where the IMB placed
+80 of 137 incidents in 2025, is its own zone at 600 bps per crossing, and the
+Malacca Strait carries 150. The generator rejects a zone that contains a roster
+harbour, lies within 12 nautical miles of one, or overlaps another zone, and the
+catalogue test repeats the harbour measure. The model is validated when the
+catalogue loads, after any `:piracy` runtime override is merged, so a malformed
+model fails startup rather than a tick. Of the 600 directed routes, 202 cross
+the Red Sea, 206 the Gulf of Aden, 194 the Singapore Strait, 194 the Malacca
+Strait, 220 the South China Sea, 76 the Caribbean Sea, 128 the English Channel
+and 192 the Barbary Coast; 42 routes between North European and East Asian ports
+cross seven zones.
 
 Each zone rolls a campaign once per 12-hour period from the public catalogue
 seed: 25% (Red Sea 40%) for a 3-hour campaign announced 30 minutes ahead,
