@@ -5,8 +5,9 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
   alias TijaraTides.Infrastructure.GameCatalogue
 
   # Campaign windows captured from the phase 1 catalogue before phase 1b changed
-  # any zone. They pin the seed, zone ids, period and start-offset hashing; the
-  # campaign chance only decides whether a slot rolls at all.
+  # any zone. They pin the seed, zone ids, period and start-offset hashing. The
+  # campaign chance only decides whether a slot rolls at all, and a captured
+  # window cannot notice it rising, so the test pins every chance separately.
   @phase_1_windows [
     {"caribbean", 21, 937_720_920},
     {"caribbean", 28, 1_240_262_164},
@@ -90,6 +91,12 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
     assert "singapore_strait" in on.("Singapore|Busan")
     refute "malacca" in on.("Singapore|Busan")
 
+    # The routes the spec says cross nothing, and the Channel's North Sea reach.
+    for key <- ["Los Angeles|Busan", "Colón|Tokyo", "Hamburg|Houston", "Hamburg|New York City"],
+        do: assert(on.(key) == [], key)
+
+    assert on.("Rotterdam|Houston") == ["english_channel"]
+
     assert on.("Antwerp|Busan") ==
              ~w(barbary_coast english_channel gulf_of_aden malacca red_sea singapore_strait south_china_sea)
   end
@@ -99,6 +106,17 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
 
     for {id, slot, starts} <- @phase_1_windows,
         do: assert(Piracy.campaign(id, slot, model)["starts_ms"] == starts)
+
+    assert Map.new(model["zones"], fn {id, zone} -> {id, zone["campaign_bps"]} end) == %{
+             "red_sea" => 4000,
+             "gulf_of_aden" => 2500,
+             "singapore_strait" => 2500,
+             "malacca" => 2500,
+             "south_china_sea" => 2500,
+             "caribbean" => 2500,
+             "english_channel" => 2500,
+             "barbary_coast" => 2500
+           }
   end
 
   # Great-circle distance from a harbour to the nearest sampled edge point;
@@ -129,11 +147,20 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
     end
   end
 
-  test "Algiers corsairs read as the Regency's captains, not as Algeria's pirates" do
-    # قراصنة means pirates, and الجزائر names both Algiers and Algeria.
-    assert TijaraTides.Localization.with_locale("ar", fn ->
-             TijaraTides.Localization.l10n("Algiers corsairs")
-           end) == "رياس الجزائر"
+  test "historical names keep their period register in Arabic" do
+    # قراصنة means pirates and الجزائر names both Algiers and Algeria; ساحل البربر
+    # reads as "coast of the Berbers" rather than the period name.
+    for {english, arabic} <- [
+          {"Algiers corsairs", "رياس الجزائر"},
+          {"Barbary Coast", "الساحل البربري"},
+          {"Sea Beggars", "متسولو البحر"},
+          {"Dunkirkers", "قراصنة دونكيرك"}
+        ] do
+      assert TijaraTides.Localization.with_locale("ar", fn ->
+               TijaraTides.Localization.l10n(english)
+             end) == arabic,
+             english
+    end
   end
 
   test "every zone and campaign name is translatable" do

@@ -68,9 +68,10 @@ The two new historical zones carry the lowest chances: their basis is the
 weakest, and the English Channel is crossed by almost all North European trade.
 Antwerp to Busan is one of 42 routes that cross seven zones, the most of any; at
 base threat a 22-knot ship has about an 18% chance of at least one attack
-(16–21% by class). Transpacific routes and Hamburg's North American routes cross
-none; the rest of Hamburg's Atlantic trade and all Atlantic routes into Antwerp
-and Rotterdam cross the English Channel.
+(16–21% by class). Routes from Los Angeles and Colón to Busan, Tokyo, Shanghai,
+Shenzhen, Hong Kong, Guangzhou and Manila cross none, and so do Hamburg's routes
+to Houston and New York, which pass north of Scotland; every other Atlantic
+route into Hamburg, Antwerp or Rotterdam crosses the English Channel.
 
 Extents; polygons follow the sea where a box would cross much land:
 

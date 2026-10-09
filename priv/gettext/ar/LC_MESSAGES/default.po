@@ -3090,7 +3090,7 @@ msgid "English Channel"
 msgstr "القنال الإنجليزي"
 
 msgid "Barbary Coast"
-msgstr "ساحل البربر"
+msgstr "الساحل البربري"
 
 msgid "Horsburgh raiders"
 msgstr "غزاة هورسبرغ"
@@ -3099,10 +3099,10 @@ msgid "Bintan boarders"
 msgstr "مقتحمو بينتان"
 
 msgid "Dunkirkers"
-msgstr "قراصنة دنكيرك"
+msgstr "قراصنة دونكيرك"
 
 msgid "Sea Beggars"
-msgstr "شحاذو البحر"
+msgstr "متسولو البحر"
 
 msgid "Algiers corsairs"
 msgstr "رياس الجزائر"
