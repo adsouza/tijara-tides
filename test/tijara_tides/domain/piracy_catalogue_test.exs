@@ -49,6 +49,34 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
            }
   end
 
+  # Great-circle distance from a harbour to the nearest sampled edge point;
+  # edges are sampled at most every 0.01 degrees, as the generator does.
+  defp harbour_nm(point, ring) do
+    ring
+    |> Enum.zip(tl(ring) ++ [hd(ring)])
+    |> Enum.flat_map(fn {[x1, y1], [x2, y2]} ->
+      steps = max(1, ceil(max(abs(x2 - x1), abs(y2 - y1)) / 0.01))
+      for k <- 0..steps, do: [x1 + (x2 - x1) * k / steps, y1 + (y2 - y1) * k / steps]
+    end)
+    |> Enum.map(&TijaraTides.Domain.VoyageNavigation.distance(point, &1))
+    |> Enum.min()
+  end
+
+  test "the buffer measure separates 11.9 from 12.1 nautical miles" do
+    square = fn d -> [[d, -1.0], [d + 1, -1.0], [d + 1, 1.0], [d, 1.0]] end
+    assert_in_delta harbour_nm([0.0, 0.0], square.(11.9 / 60.04)), 11.9, 0.05
+    assert_in_delta harbour_nm([0.0, 0.0], square.(12.1 / 60.04)), 12.1, 0.05
+  end
+
+  test "every zone keeps 12 nautical miles clear of every harbour" do
+    catalogue = GameCatalogue.all()
+
+    for {id, zone} <- Piracy.model(catalogue)["zones"],
+        {port, %{"coordinates" => point}} <- catalogue["ports"] do
+      assert harbour_nm(point, zone["polygon"]) >= 12.0, "#{port} is within 12 nm of #{id}"
+    end
+  end
+
   test "every zone and campaign name is translatable" do
     model = Piracy.model(GameCatalogue.all())
 

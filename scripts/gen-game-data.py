@@ -154,6 +154,20 @@ for i,(a,ra) in enumerate(zone_items):
         assert not any(piracy_cross(p,q,r,s) for p,q in ea for r,s in eb), f'piracy zones {a} and {b} overlap'
         assert not any(piracy_inside(v,rb['polygon']) for v in ra['polygon']), f'piracy zones {a} and {b} overlap'
         assert not any(piracy_inside(v,ra['polygon']) for v in rb['polygon']), f'piracy zones {a} and {b} overlap'
+def piracy_harbour_nm(point, ring):
+    best=None
+    for (x1,y1),(x2,y2) in zip(ring,ring[1:]+ring[:1]):
+        steps=max(1,math.ceil(max(abs(x2-x1),abs(y2-y1))/0.01))
+        for k in range(steps+1):
+            d=distance(point,[x1+(x2-x1)*k/steps,y1+(y2-y1)*k/steps])
+            best=d if best is None or d<best else best
+    return best
+_square=lambda d:[[d,-1.0],[d+1,-1.0],[d+1,1.0],[d,1.0]]
+assert piracy_harbour_nm([0.0,0.0],_square(11.9/60.04))<12.0
+assert piracy_harbour_nm([0.0,0.0],_square(12.1/60.04))>=12.0
+for zid,zone in piracy['zones'].items():
+    for port,data in ports.items():
+        assert piracy_harbour_nm(data['coordinates'],zone['polygon'])>=12.0, f'{port} lies within 12 nautical miles of piracy zone {zid}'
 result={'weather':weather,'piracy':piracy,'handling':handling,'refrigeration':{'aging_bps':2500},'manufacturing':manufacturing,'canal_edges':canal_edges,'version':1,'goods':goods,'ports':ports,'routes':routes,'clusters':namespace['CLUSTERS']}
 (ROOT/'priv/game').mkdir(parents=True,exist_ok=True)
 (ROOT/'priv/game/catalogue.json').write_text(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n')
