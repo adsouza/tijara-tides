@@ -129,6 +129,13 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
     end
   end
 
+  test "Algiers corsairs read as the Regency's captains, not as Algeria's pirates" do
+    # قراصنة means pirates, and الجزائر names both Algiers and Algeria.
+    assert TijaraTides.Localization.with_locale("ar", fn ->
+             TijaraTides.Localization.l10n("Algiers corsairs")
+           end) == "رياس الجزائر"
+  end
+
   test "every zone and campaign name is translatable" do
     model = Piracy.model(GameCatalogue.all())
 

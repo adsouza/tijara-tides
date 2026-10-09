@@ -3105,7 +3105,7 @@ msgid "Sea Beggars"
 msgstr "شحاذو البحر"
 
 msgid "Algiers corsairs"
-msgstr "قراصنة الجزائر"
+msgstr "رياس الجزائر"
 
 msgid "Barbarossa's fleet"
 msgstr "أسطول بربروس"
