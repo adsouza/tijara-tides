@@ -754,12 +754,20 @@ defmodule TijaraTides.Domain.GameTest do
         %{
           "action" => "purchase_ship",
           "class" => "reefer",
-          "port" => "Jakarta",
+          "port" => "Guangzhou",
           "price_limit" => 8_000_000
         },
         %{id: "cold"},
         catalogue
       )
+
+    # Place the purchased hull alongside the existing warm fixture to compare
+    # refrigeration under the same cargo market and route conditions.
+    cold =
+      TijaraTides.Domain.State.put(cold, "ships", "cold", %{
+        Game.get(cold, "ships", "cold")
+        | "port" => "Jakarta"
+      })
 
     buy = fn state, ship ->
       {:ok, bought, _} =

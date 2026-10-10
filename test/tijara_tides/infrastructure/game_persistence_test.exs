@@ -40,6 +40,183 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     %{server: server, code: code, world_id: id}
   end
 
+  test "new players start at Guangzhou and shipyard selection survives refresh and remount", c do
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+
+    conn =
+      build_conn() |> get("/play") |> recycle() |> post("/session/redeem", %{"code" => c.code})
+
+    token = Plug.Conn.get_session(conn, :account_token)
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "company",
+        %{"action" => "company", "name" => "New Buyer"},
+        c.server
+      )
+
+    {:ok, _} =
+      GameServer.command(token, "loan", %{"action" => "borrow", "amount" => 10_000_000}, c.server)
+
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    assert has_element?(view, "#port-selector[data-selected=Guangzhou]")
+
+    for class <- ~w(small_freighter freighter bulk reefer tanker) do
+      assert has_element?(view, "#shipyard-purchase button[value=#{class}]:not([disabled])")
+    end
+
+    render_click(view, "port", %{"id" => "Tokyo"})
+    assert has_element?(view, "#shipyard-purchase button[value=bulk]")
+    refute has_element?(view, "#shipyard-purchase button[value=reefer]")
+    assert has_element?(view, "#shipyard-availability", "Tokyo Bay (Yokohama)")
+    assert has_element?(view, "#port-shipyard-availability", "Tokyo Bay (Yokohama)")
+
+    before = GameServer.snapshot(token, c.server).private
+
+    ExUnit.CaptureLog.capture_log(fn ->
+      render_submit(view, "purchase-ship", %{
+        "class" => "reefer",
+        "price_limits" => %{"reefer" => "5000000"},
+        "request_id" => "forged-ui"
+      })
+    end)
+
+    assert has_element?(
+             view,
+             "#flash-error",
+             "This ship class is not offered at the selected port"
+           )
+
+    assert GameServer.snapshot(token, c.server).private["ships"] == before["ships"]
+
+    assert GameServer.snapshot(token, c.server).private["company"]["cash"] ==
+             before["company"]["cash"]
+
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
+    assert has_element?(view, "#port-selector[data-selected=Tokyo]")
+    render_click(view, "port", %{"id" => "Jakarta"})
+    refute has_element?(view, "#shipyard-purchase")
+    assert has_element?(view, "#shipyard-availability", "No new cargo ships are offered here")
+    view |> element("#shipyard-select-guangzhou") |> render_click()
+    assert has_element?(view, "#port-selector[data-selected=Guangzhou]")
+
+    render_click(view, "port", %{"id" => "Tokyo"})
+    view |> form("#shipyard-purchase") |> render_submit(%{"class" => "bulk"})
+    private = GameServer.snapshot(token, c.server).private
+    assert [%{"class" => "bulk", "port" => "Tokyo"}] = Map.values(private["ships"])
+    assert private["company"]["cash"] == 5_000_000
+    {:ok, returning, _} = conn |> recycle() |> live("/play")
+    assert has_element?(returning, "#port-selector[data-selected=Tokyo]")
+  end
+
+  test "unavailable newbuilds leave durable ships, balances, revision and receipts unchanged",
+       c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      GameServer.command(token, "company", %{"action" => "company", "name" => "Buyer"}, c.server)
+
+    {:ok, _} =
+      GameServer.command(token, "loan", %{"action" => "borrow", "amount" => 10_000_000}, c.server)
+
+    before = :sys.get_state(c.server).game
+    revision = Repo.query!("SELECT revision FROM game_worlds WHERE id=$1", [c.world_id]).rows
+
+    for {port, class} <- [
+          {"Jakarta", "freighter"},
+          {"Dubai", "tanker"},
+          {"Athens", "bulk"},
+          {"Tokyo", "reefer"}
+        ] do
+      request = "blocked-" <> port
+
+      command = %{
+        "action" => "purchase_ship",
+        "port" => port,
+        "class" => class,
+        "price_limit" => 5_000_000
+      }
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert {:error, :ship_class_unavailable} =
+                   GameServer.command(token, request, command, c.server)
+        end)
+
+      assert log =~ "reason=ship_class_unavailable"
+
+      assert :sys.get_state(c.server).game == before
+
+      assert Repo.query!("SELECT revision FROM game_worlds WHERE id=$1", [c.world_id]).rows ==
+               revision
+
+      assert Repo.query!(
+               "SELECT request_id FROM game_receipts WHERE world_id=$1 AND request_id=$2",
+               [c.world_id, request]
+             ).rows == []
+    end
+
+    assert {:ok, reloaded} = GameStore.reload(Repo, c.world_id, before)
+    assert Game.entities(reloaded, "ships") == Game.entities(before, "ships")
+    assert Game.entities(reloaded, "companies") == Game.entities(before, "companies")
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+  end
+
+  test "legacy purchase receipts replay at a disabled port after restart", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      GameServer.command(token, "company", %{"action" => "company", "name" => "Legacy"}, c.server)
+
+    {:ok, _} =
+      GameServer.command(token, "loan", %{"action" => "borrow", "amount" => 10_000_000}, c.server)
+
+    catalogue = :sys.get_state(c.server).catalogue
+    # Simulate a purchase committed under the earlier universal-yard policy.
+    :sys.replace_state(c.server, fn state ->
+      put_in(state, [:catalogue, "ports", "Jakarta", "shipyard", "classes"], ["freighter"])
+    end)
+
+    command = %{
+      "action" => "purchase_ship",
+      "port" => "Jakarta",
+      "class" => "freighter",
+      "price_limit" => 4_000_000
+    }
+
+    assert {:ok, result} = GameServer.command(token, "legacy-hull", command, c.server)
+    :sys.replace_state(c.server, &%{&1 | catalogue: catalogue})
+    assert {:ok, ^result} = GameServer.command(token, "legacy-hull", command, c.server)
+
+    ExUnit.CaptureLog.capture_log(fn ->
+      assert {:error, :ship_class_unavailable} =
+               GameServer.command(token, "new-hull", command, c.server)
+    end)
+
+    replacement =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        id: :legacy_purchase_replacement
+      )
+
+    assert {:ok, ^result} = GameServer.command(token, "legacy-hull", command, replacement)
+    private = GameServer.snapshot(token, replacement).private
+    assert [%{"port" => "Jakarta", "class" => "freighter"}] = Map.values(private["ships"])
+    assert private["company"]["cash"] == 6_000_000
+    assert :ok == TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+    # Buybacks remain available even where no newbuild class is offered.
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "legacy-sale",
+               %{"action" => "sell_ship", "ship" => result["ship_id"], "minimum" => 0},
+               replacement
+             )
+  end
+
   test "pure command exceptions preserve readiness, durable state and the next valid command",
        c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
@@ -2389,7 +2566,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         %{
           "action" => "purchase_ship",
           "class" => "freighter",
-          "port" => "Jakarta",
+          "port" => "Guangzhou",
           "price_limit" => 4_000_000
         },
         c.server
@@ -2517,7 +2694,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
             %{
               "action" => "purchase_ship",
               "class" => "tanker",
-              "port" => "Jakarta",
+              "port" => "Guangzhou",
               "price_limit" => 5_000_000
             },
             c.server
@@ -2612,7 +2789,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         %{
           "action" => "purchase_ship",
           "class" => "freighter",
-          "port" => "Jakarta",
+          "port" => "Guangzhou",
           "price_limit" => 4_000_000
         },
         c.server
@@ -2663,7 +2840,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
         %{
           "action" => "purchase_ship",
           "class" => "freighter",
-          "port" => "Jakarta",
+          "port" => "Guangzhou",
           "price_limit" => 4_000_000
         },
         c.server
@@ -2712,7 +2889,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     command = %{
       "action" => "purchase_ship",
       "class" => "freighter",
-      "port" => "Jakarta",
+      "port" => "Guangzhou",
       "price_limit" => 4_000_000
     }
 
@@ -4124,7 +4301,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
            |> Enum.count() == 1
 
     view |> form("#loan-form", %{"amount" => "200000"}) |> render_submit()
-    render_change(view, "port", %{"id" => "Jakarta"})
+    render_change(view, "port", %{"id" => "Guangzhou"})
 
     view
     |> form("#shipyard-purchase", %{"name" => "Aurora"})
@@ -4137,6 +4314,10 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
           |> form("#shipyard-purchase")
           |> put_submitter("#shipyard-purchase button[value=freighter]")
           |> render_submit()
+
+    deliver_fleet(server, token, "Jakarta")
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
 
     custom =
       GameServer.snapshot(token, server).private["ships"]
@@ -4729,7 +4910,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     view |> form("#company-form", %{"name" => "Cold Shipping"}) |> render_submit()
     view |> form("#loan-form", %{"amount" => "200000"}) |> render_submit()
-    render_change(view, "port", %{"id" => "Jakarta"})
+    render_change(view, "port", %{"id" => "Guangzhou"})
 
     for class <- ["reefer", "reefer", "freighter"],
         do:
@@ -4737,6 +4918,15 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
           |> form("#shipyard-purchase")
           |> put_submitter("#shipyard-purchase button[value=#{class}]")
           |> render_submit()
+
+    deliver_fleet(server, token, "Jakarta")
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
+
+    render_click(view, "ship", %{
+      "id" =>
+        GameServer.snapshot(token, server).private["ships"] |> Map.keys() |> Enum.sort() |> hd()
+    })
 
     render_change(view, "preview", %{"destination" => "Singapore"})
     assert has_element?(view, "#port-selector[data-selected='Jakarta']")
@@ -6387,6 +6577,38 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
                "SELECT count(*) FROM game_auction_bids WHERE world_id=$1 AND warehouse_id=$2",
                [c.world_id, wid]
              ).rows
+  end
+
+  # Trading UI scenarios buy at the real yard, then sail empty hulls to their
+  # original cargo market. They must not depend on disabled newbuild offerings.
+  defp deliver_fleet(server, token, port) do
+    for ship <- Map.values(GameServer.snapshot(token, server).private["ships"]) do
+      assert {:ok, _} =
+               GameServer.command(
+                 token,
+                 "delivery-" <> ship["id"],
+                 %{
+                   "action" => "sail",
+                   "ship" => ship["id"],
+                   "destination" => port,
+                   "fuel_limit" => 100_000_000
+                 },
+                 server
+               )
+    end
+
+    # Leave ample room for forecast weather delays without carrying perishables.
+    snapshot = GameServer.snapshot(token, server)
+
+    latest =
+      snapshot.private["ships"] |> Map.values() |> Enum.map(& &1["arrive_ms"]) |> Enum.max()
+
+    advance(server, latest - snapshot.public["clock_ms"] + 120_000)
+
+    for ship <- Map.values(GameServer.snapshot(token, server).private["ships"]) do
+      assert ship["status"] == "docked"
+      assert ship["port"] == port
+    end
   end
 
   defp advance(server, ms) do

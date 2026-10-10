@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 166
+TRIPWIRE = 168
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -233,6 +233,11 @@ REQUIREMENTS = [
     (198, "Selecting another port that shares the same regional port music continues the current piece at its existing playback position. It does not fade, restart the piece or reset a pending transition when the port music context is unchanged.", 1, "audio", "Background music"),
     (199, "If another selection changes the context while waiting in silence, replace the pending context and wait three seconds in silence from that latest selection before starting the two-second fade-in. Each further context change while silent restarts that wait.", 1, "audio", "Background music"),
     (200, "Each time a piece starts fading in, show its title and credited artist or artists at the top of the screen, with a link to that recording's source page.", 1, "display", "Background music"),
+
+    (201, "The Ports panel also displays new ship availability.", 9, "display", "Port panel"),
+    (202, "Regional yards identify their actual location in the UI and deliver at the named game port.", 9, "disclosure", "Fleet and ship detail"),
+    (203, "Shipyards with no available classes show an explanation and a control to select Guangzhou.", 9, "disclosure", "Fleet and ship detail"),
+    (204, "Guangzhou is the default selected port for players without ships because it is the only launch port offering every ship class.", 9, "input", "Port panel"),
 
 ]
 

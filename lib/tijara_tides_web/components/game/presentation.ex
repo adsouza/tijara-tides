@@ -457,6 +457,10 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         gettext("The shipyard offer has changed. Review the current value and try again."),
       ship_company_unavailable: gettext("Create an active company before buying a ship."),
       ship_class_invalid: gettext("Choose an available ship class."),
+      ship_class_unavailable:
+        gettext(
+          "This ship class is not offered at the selected port. Choose another port or class."
+        ),
       ship_price_changed: gettext("The ship price has changed. Review it before buying."),
       ship_purchase_funds:
         gettext(

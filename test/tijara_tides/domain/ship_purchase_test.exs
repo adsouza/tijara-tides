@@ -40,7 +40,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
              Credit.borrow(c.state, c.account, 25_000_001, "loan")
 
     assert {:error, :ship_purchase_funds} =
-             Fleet.purchase(c.state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
+             Fleet.purchase(c.state, c.account, "freighter", "Guangzhou", 4_000_000, c.context)
 
     {:ok, state, _} =
       Credit.borrow(c.state, c.account, 10_000_000, "loan")
@@ -50,7 +50,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
         Journal.clear(state),
         c.account,
         "freighter",
-        "Jakarta",
+        "Guangzhou",
         4_000_000,
         c.context
       )
@@ -58,14 +58,19 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
     assert result == %{"ship_id" => "ship", "spent" => 4_000_000}
     assert %{"cash" => 6_000_000, "profit" => 0} = Game.get(state, "companies", "company")
 
-    assert %{"port" => "Jakarta", "cargo" => [], "status" => "docked", "book_value" => 4_000_000} =
+    assert %{
+             "port" => "Guangzhou",
+             "cargo" => [],
+             "status" => "docked",
+             "book_value" => 4_000_000
+           } =
              Game.get(state, "ships", "ship")
 
     assert CompanyFinanceWorld.summary(state, c.account)["available"] == 15_000_000
     assert [%{entries: [{"fleet", 4_000_000}, {"cash_available", -4_000_000}]}] = state.journal
 
     assert {:error, :ship_id_conflict} =
-             Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
+             Fleet.purchase(state, c.account, "freighter", "Guangzhou", 4_000_000, c.context)
   end
 
   test "selling an earlier ship does not duplicate a surviving ship name", c do
@@ -74,7 +79,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
     state =
       Enum.reduce(["first", "second", "third"], state, fn id, state ->
         {:ok, state, _} =
-          Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, %{
+          Fleet.purchase(state, c.account, "freighter", "Guangzhou", 4_000_000, %{
             c.context
             | id: id
           })
@@ -85,7 +90,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
     {:ok, state, _} = Fleet.sell(state, c.account, "first", 0)
 
     {:ok, state, _} =
-      Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
+      Fleet.purchase(state, c.account, "freighter", "Guangzhou", 4_000_000, c.context)
 
     names = Enum.map(Game.entities(state, "ships"), fn {_, ship} -> ship["name"] end)
     assert length(Enum.uniq(names)) == 3
@@ -101,7 +106,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
       })
 
     {:ok, state, _} =
-      Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
+      Fleet.purchase(state, c.account, "freighter", "Guangzhou", 4_000_000, c.context)
 
     assert Game.get(state, "ships", "ship")["name"] == "New Shipping 2"
   end
@@ -110,7 +115,15 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
     {:ok, state, _} = Credit.borrow(c.state, c.account, 20_000_000, "loan")
 
     {:ok, state, _} =
-      Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context, "  Aurora  ")
+      Fleet.purchase(
+        state,
+        c.account,
+        "freighter",
+        "Guangzhou",
+        4_000_000,
+        c.context,
+        "  Aurora  "
+      )
 
     assert Game.get(state, "ships", "ship")["name"] == "Aurora"
 
@@ -120,7 +133,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
                  state,
                  c.account,
                  "freighter",
-                 "Jakarta",
+                 "Guangzhou",
                  4_000_000,
                  %{c.context | id: "second"},
                  name
@@ -132,7 +145,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
                state,
                c.account,
                "freighter",
-               "Jakarta",
+               "Guangzhou",
                4_000_000,
                %{c.context | id: "second"},
                " Aurora "
@@ -143,7 +156,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
         state,
         c.account,
         "freighter",
-        "Jakarta",
+        "Guangzhou",
         4_000_000,
         %{c.context | id: "second"},
         "  "
@@ -174,7 +187,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
       Credit.borrow(c.state, c.account, 10_000_000, "loan")
 
     {:ok, state, _} =
-      Fleet.purchase(state, c.account, "freighter", "Jakarta", 4_000_000, c.context)
+      Fleet.purchase(state, c.account, "freighter", "Guangzhou", 4_000_000, c.context)
 
     ship = Game.get(state, "ships", "ship")
     assert Fleet.sale_value(ship, 0) == %{book: 4_000_000, proceeds: 3_600_000}
@@ -215,14 +228,14 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
       Credit.borrow(c.state, c.account, 10_000_000, "loan")
 
     assert {:error, :ship_class_invalid} =
-             Fleet.purchase(state, c.account, "missing", "Jakarta", 4_000_000, c.context)
+             Fleet.purchase(state, c.account, "missing", "Guangzhou", 4_000_000, c.context)
 
     assert {:error, :invalid_port} =
              Fleet.purchase(state, c.account, "freighter", "missing", 4_000_000, c.context)
 
     for price <- [nil, "4000000", 3_999_999] do
       assert {:error, :ship_price_changed} =
-               Fleet.purchase(state, c.account, "freighter", "Jakarta", price, c.context)
+               Fleet.purchase(state, c.account, "freighter", "Guangzhou", price, c.context)
     end
 
     assert {:error, :ship_company_unavailable} =
@@ -230,7 +243,7 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
                state,
                %{c.account | "id" => "stranger"},
                "freighter",
-               "Jakarta",
+               "Guangzhou",
                4_000_000,
                c.context
              )
@@ -238,6 +251,6 @@ defmodule TijaraTides.Domain.ShipPurchaseTest do
     reserved = put_in(state, [:entities, "companies", "company", "reserved"], 6_000_001)
 
     assert {:error, :ship_purchase_funds} =
-             Fleet.purchase(reserved, c.account, "freighter", "Jakarta", 4_000_000, c.context)
+             Fleet.purchase(reserved, c.account, "freighter", "Guangzhou", 4_000_000, c.context)
   end
 end

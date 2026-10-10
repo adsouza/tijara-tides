@@ -24,12 +24,19 @@ defmodule TijaraTides.CompanyFixture do
     Enum.with_index(packages()[package], 1)
     |> Enum.reduce(state, fn {class, index}, state ->
       {:ok, state, _} =
-        Fleet.purchase(state, account, class, port, Fleet.classes()[class]["price"], %{
+        Fleet.purchase(state, account, class, "Guangzhou", Fleet.classes()[class]["price"], %{
           id: company <> ":" <> to_string(index),
           catalogue: catalogue
         })
 
+      # Fixture placement represents an existing fleet at the scenario's port,
+      # not a newbuild offer there. Keep the production catalogue unchanged.
+      id = company <> ":" <> to_string(index)
+      ship = Game.get(state, "ships", id)
+
       state
+      |> TijaraTides.Domain.ShipWorld.retire(id)
+      |> TijaraTides.Domain.ShipWorld.commission(%{ship | "port" => port})
     end)
   end
 

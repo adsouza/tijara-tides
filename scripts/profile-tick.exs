@@ -63,7 +63,7 @@ for company <- 1..companies do
       run.("ship-#{company}-#{hull}", %{
         "action" => "purchase_ship",
         "class" => "freighter",
-        "port" => "Jakarta",
+        "port" => "Guangzhou",
         "price_limit" => 4_000_000
       })
   end

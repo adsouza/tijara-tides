@@ -461,7 +461,7 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
             %{
               "action" => "purchase_ship",
               "class" => "small_freighter",
-              "port" => "Jakarta",
+              "port" => "Guangzhou",
               "price_limit" => 1_000_000_000
             },
             c.server

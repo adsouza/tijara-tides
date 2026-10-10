@@ -2048,17 +2048,34 @@ player action: choose an amount within the credit limit, then buy ships and
 retain working cash for cargo, fuel and crew. No loan is taken automatically.
 Existing companies keep their current assets when this policy ships.
 
-The Ships panel provides a shipyard showing every class, its price and capacity,
-and an Arrange a loan action opening the finance overlay. The selected port in
-the Ports panel is the purchase location. All ship classes are available at every
-launch port at the same fixed prices initially. Ships are delivered immediately,
+The Ships panel provides a shipyard showing the selected port's available
+classes, their prices and capacities, and an Arrange a loan action opening the
+finance overlay. The selected port in the Ports panel is the purchase location.
+Guangzhou is the default selected port for players without ships because it is
+the only launch port offering every ship class. Returning players with ships
+initially inspect their selected ship's port; refreshes preserve explicit port
+choices. The Ports panel also displays new ship availability.
+
+The [port roster](ports.md#new-ship-availability) fixes the availability matrix,
+based on the [shipbuilding capability audit](shipyards.md). Enable only confirmed
+classes, including the Tokyo Bay, Manila Bay and Rhine–Meuse delta regional
+yards; provisional Jakarta, Dubai and Athens offerings remain disabled. Regional
+yards identify their actual location in the UI and deliver at the named game
+port. Repair capacity and construction of naval, offshore or harbour craft do
+not by themselves qualify a yard for these cargo classes. These are vessel-role
+abstractions, not exact real-world capacity or speed specifications.
+
+Shipyards with no available classes show an explanation and a control to select
+Guangzhou. Ships retain the same fixed class prices and arrive immediately,
 empty and docked. Disable purchases that exceed unreserved cash and revalidate
-the price, funds, ownership and port on the server. Repeated delivery of one
-purchase request creates only one ship and one ledger transaction.
+class availability, price, funds, ownership and port on the server. Repeated
+delivery of one purchase request creates only one ship and one ledger
+transaction. This policy affects new purchases only; existing hulls, sailing,
+cargo handling, auctions and shipyard buybacks retain their existing rules.
 
 The company has no permanent home city. Its ship purchase location determines
-where that ship starts. Regional shipyard availability, regional prices and
-construction delays remain later possibilities.
+where that ship starts. Regional prices, construction delays and brokered
+delivery from other ports remain later possibilities.
 
 Ships have weight and volume limits and hold capabilities. Mixed cargo is
 allowed when both limits and hold requirements are satisfied. Bulk goods may

@@ -256,8 +256,6 @@ msgstr "اختر ميناء وجهة قبل الشراء."
 msgid "Choose a port in %{value1} to inspect its market."
 msgstr "اختر ميناء في %{value1} لعرض سوقه."
 
-msgid "Choose a port in the Ports panel to buy there. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew."
-msgstr "اختر ميناء من لوحة الموانئ للشراء فيه. تصل السفن فوراً فارغة وراسية. احتفظ بنقد للبضائع والوقود والطاقم."
 
 msgid "Choose cargo"
 msgstr "اختر بضاعة"
@@ -3109,3 +3107,30 @@ msgstr "رياس الجزائر"
 
 msgid "Barbarossa's fleet"
 msgstr "أسطول بربروس"
+
+msgid "Tokyo Bay (Yokohama)"
+msgstr "خليج طوكيو (يوكوهاما)"
+
+msgid "Manila Bay (Mariveles)"
+msgstr "خليج مانيلا (ماريفيليس)"
+
+msgid "Rhine–Meuse delta (Hardinxveld and Aalst)"
+msgstr "دلتا الراين وموز (هاردينكسفيلد وآلست)"
+
+msgid "No new cargo ships are offered here. Choose a port with a shipyard."
+msgstr "لا تتوفر سفن شحن جديدة هنا. اختر ميناءً تتوفر فيه سفن جديدة."
+
+msgid "New ship classes: %{classes}"
+msgstr "فئات السفن الجديدة: %{classes}"
+
+msgid "Regional shipyard: %{region}. Ships are delivered to the selected port."
+msgstr "حوض بناء السفن الإقليمي: %{region}. تُسلّم السفن في الميناء المحدد."
+
+msgid "View %{port} shipyard — all ship classes"
+msgstr "عرض حوض بناء السفن في %{port} — جميع فئات السفن"
+
+msgid "Choose a port in the Ports panel to see its ship classes. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew."
+msgstr "اختر ميناءً من لوحة الموانئ للاطلاع على فئات السفن المتوفرة فيه. تصل السفن فورًا، فارغة وراسية. احتفظ بنقود للبضائع والوقود والطاقم."
+
+msgid "This ship class is not offered at the selected port. Choose another port or class."
+msgstr "لا تتوفر هذه الفئة من السفن في الميناء المحدد. اختر ميناءً أو فئةً أخرى."

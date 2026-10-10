@@ -1,5 +1,12 @@
 defmodule TijaraTides.Domain.ShipClass do
   @moduledoc "Immutable hull specifications shared by planning and ship operations."
+
+  @doc "Available newbuild hulls at a port, from the authoritative port catalogue."
+  def at_port(catalogue, port) do
+    ids = get_in(catalogue, ["ports", port, "shipyard", "classes"]) || []
+    Map.take(all(), ids)
+  end
+
   def all do
     %{
       "freighter" => %{

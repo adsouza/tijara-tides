@@ -1,5 +1,12 @@
 defmodule TijaraTides.UseCases.FleetQueries do
-  @moduledoc "Grouping of the public fleet for visitors without a company."
+  @moduledoc "Port shipyard offers and grouping of the public fleet."
+
+  def shipyard(definitions, port) do
+    %{
+      classes: TijaraTides.Domain.Fleet.shipyard_classes(definitions.catalogue, port),
+      region: get_in(definitions.catalogue, ["ports", port, "shipyard", "region"])
+    }
+  end
 
   @doc """
   Groups every public ship by `"location"`, `"company"` or `"class"`.

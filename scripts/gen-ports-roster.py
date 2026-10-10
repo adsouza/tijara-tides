@@ -242,6 +242,28 @@ REGIONS = [
 ORDER = [p for _, ps in REGIONS for p in ps]
 assert sorted(ORDER) == sorted(PORTS), set(ORDER) ^ set(PORTS)
 
+# Confirmed cargo newbuilding only; provisional Jakarta, Dubai and Athens
+# offerings remain disabled. See docs/shipyards.md for the capability audit.
+SHIPYARDS = {port: {"classes": [], "region": None} for port in ORDER}
+for port, classes, region in [
+    ("Shanghai", ["small_freighter", "freighter", "bulk", "tanker"], None),
+    ("Busan", ["small_freighter", "freighter", "bulk", "tanker"], None),
+    ("Tokyo", ["bulk"], "Tokyo Bay (Yokohama)"),
+    ("Guangzhou", ["small_freighter", "freighter", "bulk", "reefer", "tanker"], None),
+    ("Ho Chi Minh City", ["small_freighter", "freighter"], None),
+    ("Manila", ["tanker"], "Manila Bay (Mariveles)"),
+    ("Colombo", ["small_freighter", "freighter", "bulk"], None),
+    ("Mumbai", ["small_freighter", "freighter"], None),
+    ("Abu Dhabi", ["small_freighter", "freighter"], None),
+    ("Rotterdam", ["small_freighter", "freighter"], "Rhine–Meuse delta (Hardinxveld and Aalst)"),
+]:
+    assert port in PORTS
+    SHIPYARDS[port] = {"classes": classes, "region": region}
+assert set(SHIPYARDS) == set(PORTS)
+assert all(len(yard["classes"]) == len(set(yard["classes"])) for yard in SHIPYARDS.values())
+assert all(set(yard["classes"]) <= {"small_freighter", "freighter", "bulk", "reefer", "tanker"}
+           for yard in SHIPYARDS.values())
+
 GOODS = [g for _, gs in CATEGORIES for g in gs]
 # Merchant supply is resale, never production. Values are independent buy weights;
 # existing export weights in M remain the selling weights.
@@ -277,7 +299,7 @@ city-level supply and demand open and requires regional catchments to share
 price movement, and section 6 fixes the 22-good catalogue used here."""))
 o.append("")
 o.append(para("""
-Authoritative here: which ports supply and demand which goods and at what
+Authoritative here: each port's new ship classes, which ports supply and demand which goods and at what
 relative weight, which ports share a catchment, and each port's physical
 capacity and cost relative to the others. Not here: numeric values, which remain
 tuning parameters recorded in the design; production recipes and factory
@@ -328,6 +350,28 @@ for region, members in REGIONS:
         head = "**%s**" % p if harbor == p else "**%s** (%s)" % (p, harbor)
         o.append(para("%s — %s" % (head, identity)))
         o.append("")
+
+o.append("## New ship availability\n")
+o.append(para("""
+New cargo ships are offered only where the [shipbuilding audit](shipyards.md)
+supports their vessel roles. Repair facilities, naval yards and specialist
+boatbuilders do not automatically qualify. Provisional Jakarta, Dubai and Athens
+offerings remain disabled. The three regional yards deliver immediately at the
+named game port; the regional label makes that abstraction explicit. Guangzhou
+is the default selected port for players without ships and offers every class.
+Existing ships may operate and be sold at any port under the usual rules."""))
+o.append("")
+o.append("| Port | New ship classes | Regional yard |")
+o.append("|------|------------------|--------------|")
+class_labels = {
+    "small_freighter": "Small freighter", "freighter": "Balanced freighter",
+    "bulk": "Bulk carrier", "reefer": "Small refrigerated ship", "tanker": "Small tanker",
+}
+for port in ORDER:
+    yard = SHIPYARDS[port]
+    labels = ", ".join(class_labels[cls] for cls in yard["classes"]) or "None"
+    o.append("| %s | %s | %s |" % (port, labels, yard["region"] or "—"))
+o.append("")
 
 o.append("## Trade roles\n")
 o.append(para("""

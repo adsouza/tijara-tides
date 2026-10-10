@@ -64,7 +64,11 @@ New perishable production has correspondingly shorter shelf lives: fruit 7h 12m,
 seafood 3h 36m, and meat 4h 48m of active-world time. Existing lots retain their
 stored expiry timestamps; buying or splitting a lot does not reset its age. New
 companies start with no cash or ships; players borrow up to $250,000 and buy ships
-at any port. Existing companies retain their assets.
+from the selected port's confirmed newbuild classes. Guangzhou is the default
+selection for players without ships. The [port roster](ports.md#new-ship-availability)
+includes three regional yards; provisional offerings are disabled. Existing
+companies retain their assets. Availability is static catalogue data, so this
+change requires no database migration and does not restrict existing ships.
 
 Hull depreciation uses a provisional 28-active-world-day useful life: one game
 year at the unchanged four-week reporting calendar, not twenty game years.

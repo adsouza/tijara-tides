@@ -97,7 +97,7 @@ tokens =
         send_command.("ship-#{company}-#{hull}", %{
           "action" => "purchase_ship",
           "class" => "freighter",
-          "port" => "Jakarta",
+          "port" => "Guangzhou",
           "price_limit" => 4_000_000
         })
     end

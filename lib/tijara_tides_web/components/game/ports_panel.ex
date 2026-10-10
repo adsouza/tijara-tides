@@ -87,6 +87,10 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             <p class="mt-2">
               {l10n(@definitions.catalogue["ports"][@selected_port]["identity"])}
             </p>
+            <TijaraTidesWeb.GameUI.FleetPanel.shipyard_summary
+              shipyard={GameQueries.shipyard(@definitions, @selected_port)}
+              id="port-shipyard-availability"
+            />
             <% handling = GameQueries.port_handling(@definitions.catalogue, @selected_port) %>
             <div id="port-handling-speed" class="mt-2">
               {gettext(

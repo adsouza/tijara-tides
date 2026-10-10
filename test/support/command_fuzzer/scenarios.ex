@@ -187,7 +187,7 @@ defmodule TijaraTides.CommandFuzzer.Scenarios do
         %{
           "action" => "purchase_ship",
           "class" => "tanker",
-          "port" => "Jakarta",
+          "port" => "Guangzhou",
           "price_limit" => 5_000_000
         },
         %{id: "estate-hull-a"},
@@ -201,7 +201,7 @@ defmodule TijaraTides.CommandFuzzer.Scenarios do
         %{
           "action" => "purchase_ship",
           "class" => "tanker",
-          "port" => "Jakarta",
+          "port" => "Guangzhou",
           "price_limit" => 5_000_000
         },
         %{id: "estate-hull-b"},
@@ -237,7 +237,7 @@ defmodule TijaraTides.CommandFuzzer.Scenarios do
         else: [
           command(
             :purchase_ship,
-            %{"class" => "freighter", "port" => "Jakarta", "price_limit" => 4_000_000},
+            %{"class" => "freighter", "port" => "Guangzhou", "price_limit" => 4_000_000},
             actor: :beneficiary,
             as: :asset
           ),

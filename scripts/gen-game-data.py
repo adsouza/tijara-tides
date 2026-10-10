@@ -69,6 +69,7 @@ for name in namespace['ORDER']:
  harbor,identity,tiers=namespace['PORTS'][name]
  ports[name]={'id':name,'harbor':harbor,'identity':identity,'coordinates':locations[name],
   'roles':dict(zip(map(cargo_id, namespace['GOODS']),namespace['M'][name])),
+  'shipyard':namespace['SHIPYARDS'][name],
   'tiers':dict(zip(['berths','ordinary','reefer','liquid','speed','cost','size'],tiers))}
 assert set(ports)==set(locations)
 def distance(a,b):

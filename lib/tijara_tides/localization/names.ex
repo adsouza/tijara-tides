@@ -1,5 +1,11 @@
 defmodule TijaraTides.Localization.Names do
   use Gettext, backend: TijaraTides.Localization.Backend
+  def translate("Tokyo Bay (Yokohama)"), do: gettext("Tokyo Bay (Yokohama)")
+  def translate("Manila Bay (Mariveles)"), do: gettext("Manila Bay (Mariveles)")
+
+  def translate("Rhine–Meuse delta (Hardinxveld and Aalst)"),
+    do: gettext("Rhine–Meuse delta (Hardinxveld and Aalst)")
+
   def translate("Agricultural machinery"), do: gettext("Agricultural machinery")
   def translate("Aluminium scrap"), do: gettext("Aluminium scrap")
   def translate("Appliances"), do: gettext("Appliances")

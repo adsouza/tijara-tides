@@ -4,6 +4,30 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
   import TijaraTidesWeb.GameUI.Presentation
   alias TijaraTides.UseCases.GameQueries
 
+  attr :shipyard, :map, required: true
+  attr :id, :string, required: true
+
+  def shipyard_summary(assigns) do
+    ~H"""
+    <div id={@id} class="my-2 text-sm text-slate-300">
+      <p :if={map_size(@shipyard.classes) == 0}>
+        {gettext("No new cargo ships are offered here. Choose a port with a shipyard.")}
+      </p>
+      <p :if={map_size(@shipyard.classes) > 0}>
+        {gettext("New ship classes: %{classes}",
+          classes:
+            Enum.map_join(Enum.sort(@shipyard.classes), ", ", fn {_, spec} -> l10n(spec["name"]) end)
+        )}
+      </p>
+      <p :if={@shipyard.region}>
+        {gettext("Regional shipyard: %{region}. Ships are delivered to the selected port.",
+          region: l10n(@shipyard.region)
+        )}
+      </p>
+    </div>
+    """
+  end
+
   attr :definitions, :any, required: true
   attr :destination_picker_open, :boolean, default: false
   attr :destination, :any, required: true
@@ -21,6 +45,9 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
   attr :view, :any, required: true
 
   def panel(assigns) do
+    assigns =
+      assign(assigns, :shipyard, GameQueries.shipyard(assigns.definitions, assigns.selected_port))
+
     ~H"""
     <section id="ships-panel" class="workspace-panel" aria-label={gettext("Ships")}>
       <h2 class="panel-title"><.emoji symbol="🚢" />{gettext("Ships")}</h2>
@@ -172,10 +199,20 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             </summary>
             <p class="my-2 text-sm">
               {gettext(
-                "Choose a port in the Ports panel to buy there. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew."
+                "Choose a port in the Ports panel to see its ship classes. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew."
               )}
             </p>
+            <.shipyard_summary shipyard={@shipyard} id="shipyard-availability" />
+            <button
+              :if={map_size(@shipyard.classes) == 0}
+              id="shipyard-select-guangzhou"
+              type="button"
+              phx-click="port"
+              phx-value-id="Guangzhou"
+              class="my-2 rounded border border-teal-600 px-3 py-1"
+            >{gettext("View %{port} shipyard — all ship classes", port: l10n("Guangzhou"))}</button>
             <.form
+              :if={map_size(@shipyard.classes) > 0}
               for={%{}}
               id="shipyard-purchase"
               phx-submit="purchase-ship"
@@ -204,7 +241,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 </label>
               </div>
               <div
-                :for={{class, spec} <- Enum.sort(@definitions.classes)}
+                :for={{class, spec} <- Enum.sort(@shipyard.classes)}
                 class="my-2 flex flex-wrap items-center justify-between gap-2"
               >
                 <input type="hidden" name={"price_limits[" <> class <> "]"} value={spec["price"]} />

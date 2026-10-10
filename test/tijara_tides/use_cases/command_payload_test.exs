@@ -145,7 +145,7 @@ defmodule TijaraTides.UseCases.CommandPayloadTest do
     payload = %{
       "action" => "purchase_ship",
       "class" => "freighter",
-      "port" => "Jakarta",
+      "port" => "Guangzhou",
       "price_limit" => 1_000_000_000
     }
 

@@ -45,6 +45,23 @@ query projections, consistency and module responsibilities.
 
 ## Data and authority
 
+New ship availability comes from each generated port's `shipyard.classes`.
+`Fleet.shipyard_classes/2` supplies both command admission and the application
+shipyard query; unavailable class/port combinations return
+`:ship_class_unavailable` before commissioning or purchase accounting. The Fleet
+panel lists only offered classes and the Ports panel exposes the same list.
+Empty shipyards explain availability and offer a Guangzhou selector. Regional
+labels identify Yokohama, Mariveles and Hardinxveld/Aalst, with delivery at the
+selected game port. Provisional Jakarta, Dubai and Athens offerings remain
+disabled. See the [roster](ports.md#new-ship-availability) and
+[capability audit](shipyards.md).
+
+Guangzhou is the initial port selection for players without ships. Existing
+players with a fleet still initially inspect their selected ship's port, and
+refreshes retain explicit choices. No storage migration is needed; existing
+hulls and purchase receipt replay remain valid, and shipyard buybacks are
+independent of newbuild availability.
+
 - Domain operations receive explicit time, identifiers, and catalogue data. They
   perform no I/O. Money, weight, volume, quantities, and simulation time use
   integers; trade limits and ship capacity are checked before mutation.

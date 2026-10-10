@@ -106,6 +106,8 @@ defmodule TijaraTides.Domain.Fleet do
 
   defdelegate classes(), to: TijaraTides.Domain.ShipClass, as: :all
 
+  defdelegate shipyard_classes(catalogue, port), to: TijaraTides.Domain.ShipClass, as: :at_port
+
   def purchase(state, account, class_id, port, price_limit, context, name \\ nil) do
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
     company = get(state, "companies", account["company_id"])
@@ -123,6 +125,9 @@ defmodule TijaraTides.Domain.Fleet do
 
       not Map.has_key?(context.catalogue["ports"], port) ->
         {:error, :invalid_port}
+
+      not Map.has_key?(shipyard_classes(context.catalogue, port), class_id) ->
+        {:error, :ship_class_unavailable}
 
       not is_integer(price_limit) or price_limit < class["price"] ->
         {:error, :ship_price_changed}
