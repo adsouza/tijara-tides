@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 161
+TRIPWIRE = 166
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -27,6 +27,7 @@ SCREENS = [
     ("Finance", "Loans, arrears, profit, ROI and the leaderboards."),
     ("Company and account", "Identity, invitations, bankruptcy history and onboarding."),
     ("Notifications", "The out-of-band and in-app stream of completed actions."),
+    ("Background music", "Trade-route and port music following the player's latest selection."),
 ]
 
 # (id, verbatim quote from DESIGN.md, section, kind, screen)
@@ -195,6 +196,43 @@ REQUIREMENTS = [
     (161, "Cards show each ship's company, class, status, and route, never its cargo.", 4, "disclosure", "Fleet and ship detail"),
     (162, "Selecting a card marks it instead of opening a separate inspector.", 4, "input", "Fleet and ship detail"),
     (163, "A card for a ship in port also selects that port and switches to the Ports panel; selecting a ship at sea on the map scrolls to its card.", 4, "input", "Fleet and ship detail"),
+    (164, "The player's latest explicit ship or port selection determines the musical context.", 1, "audio", "Background music"),
+    (165, "Selecting a port chooses that port's regional music.", 1, "audio", "Background music"),
+    (166, "Selecting a ship chooses its current voyage's music while sailing, or its current port's music otherwise.", 1, "audio", "Background music"),
+    (167, "Automatic selection changes caused by selecting a ship do not override the ship's musical context.", 1, "audio", "Background music"),
+    (168, "Routine world updates do not reset the player's choice between ship and port context.", 1, "audio", "Background music"),
+    (169, "A selection that changes the musical context immediately starts diminishing current music and starts a three-second settling timer.", 1, "audio", "Background music"),
+    (170, "If another selection changes the context during the initial three seconds, cancel the pending fade-in and let the original five-second fade-out finish without restarting it.", 1, "audio", "Background music"),
+    (171, "After the fade finishes, wait one second in silence, then fade in the latest context's music over two seconds.", 1, "audio", "Background music"),
+    (172, "A selection during a fade-in starts diminishing all currently audible music from its current gain and begins a new selection transition.", 1, "audio", "Background music"),
+    (173, "All timers use real elapsed seconds independently of the world clock.", 1, "audio", "Background music"),
+    (174, "While sailing, the music gradually shifts from the departure port's regional palette toward the destination port's regional palette as the voyage progresses.", 1, "audio", "Background music"),
+    (175, "Fade-out lasts five seconds and fade-in lasts two seconds, using cosine and sine gain curves respectively.", 1, "audio", "Background music"),
+    (176, "With no further context change, incoming music begins at three seconds and overlaps the final two seconds of the outgoing fade.", 1, "audio", "Background music"),
+    (177, "Music is enabled at a quiet volume on first launch.", 1, "audio", "Background music"),
+    (178, "A music toggle and volume slider control playback, and both settings persist on the device across visits.", 1, "input", "Background music"),
+    (179, "Nearby ports with related musical influences share a regional pool of tracks.", 1, "audio", "Background music"),
+    (180, "Each region has its own musical palette rather than a separate soundtrack for every country or port.", 1, "audio", "Background music"),
+    (181, "Tracks are curated into regional pools before being added to the game.", 1, "audio", "Background music"),
+    (182, "The shared musical direction is cinematic, with regional instruments woven into strings and orchestral arrangements.", 1, "audio", "Background music"),
+    (183, "Port arrangements emphasize measured adventure: warm strings, regional melodies, gentle percussion and restrained swells that leave room to concentrate.", 1, "audio", "Background music"),
+    (184, "Voyage arrangements emphasize grand voyages: richer orchestration, bold themes and stronger rhythms for a sweeping sense of adventure.", 1, "audio", "Background music"),
+    (185, "Both styles draw on the same regional musical palettes.", 1, "audio", "Background music"),
+    (186, "The soundtrack is entirely instrumental, without lyrics or wordless vocals.", 1, "audio", "Background music"),
+    (187, "When the player switches away from the game, music fades out and pauses.", 1, "audio", "Background music"),
+    (188, "On returning, music fades back in only if music is enabled, using the current musical context and the ship's current voyage progress when applicable.", 1, "audio", "Background music"),
+    (189, "Switching away does not change the saved music toggle or volume setting.", 1, "audio", "Background music"),
+    (190, "The soundtrack has twelve regional palettes.", 1, "audio", "Background music"),
+    (191, "Existing freely licensed instrumental recordings are the preferred soundtrack source, with composer attribution acceptable.", 1, "audio", "Background music"),
+    (192, "Recordings must be available at no licensing cost under terms that permit distribution in the game and editing for loops and fades.", 1, "audio", "Background music"),
+    (193, "Music credits identify each track, its composer or credited creator, source, license and any edits.", 1, "display", "Background music"),
+    (194, "The initial soundtrack target is one port piece and one voyage piece for each of the twelve regions, for twenty-four tracks in total.", 1, "audio", "Background music"),
+    (195, "That shift changes track choices: favor the origin early, alternate between the two regions around mid-voyage, then favor the destination near arrival.", 1, "audio", "Background music"),
+    (196, "Each piece plays separately, with short crossfades between tracks.", 1, "audio", "Background music"),
+    (197, "When the selected ship sets sail, its music automatically changes to the relevant voyage music using the same selection transition.", 1, "audio", "Background music"),
+    (198, "Selecting another port that shares the same regional port music continues the current piece at its existing playback position. It does not fade, restart the piece or reset a pending transition when the port music context is unchanged.", 1, "audio", "Background music"),
+    (199, "If another selection changes the context while waiting in silence, replace the pending context and wait three seconds in silence from that latest selection before starting the two-second fade-in. Each further context change while silent restarts that wait.", 1, "audio", "Background music"),
+    (200, "Each time a piece starts fading in, show its title and credited artist or artists at the top of the screen, with a link to that recording's source page.", 1, "display", "Background music"),
 
 ]
 
@@ -307,7 +345,8 @@ o.append("## Requirements\n")
 o.append(para("""
 `display` means something must be shown; `disclosure` means it must be shown
 *before* the player commits to something; `notification` means the player is
-told after the fact, without being asked to approve it."""))
+told after the fact, without being asked to approve it. `audio` describes the
+soundtrack and its response to the player's selections."""))
 o.append("")
 o += table(["#", "Requirement", "Section", "Kind", "Screen"],
            [(i, q, s, k, scr) for i, q, s, k, scr in REQUIREMENTS])

@@ -83,6 +83,143 @@ Invitation acceptance and company formation update the same invitation notice,
 replacing its earlier pending message rather than leaving contradictory
 notices together.
 
+### Background music
+
+The soundtrack draws on the musical traditions of the game's trade routes and
+ports. The player's latest explicit ship or port selection determines the
+musical context. Selecting a port chooses that port's regional music. Selecting
+a ship chooses its current voyage's music while sailing, or its current port's
+music otherwise. Automatic selection changes caused by selecting a ship do not
+override the ship's musical context. Routine world updates do not reset the
+player's choice between ship and port context. When the selected ship sets
+sail, its music automatically changes to the relevant voyage music using the
+same selection transition. Its arrival returns the context to its current
+port's music. These state changes preserve ship focus.
+
+Selecting another port that shares the same regional port music continues the
+current piece at its existing playback position. It does not fade, restart the
+piece or reset a pending transition when the port music context is unchanged.
+
+A selection that changes the musical context immediately starts diminishing
+current music and starts a three-second settling timer. Fade-out lasts five
+seconds and fade-in lasts two seconds, using cosine and sine gain curves
+respectively. With no further context change, incoming music begins at three
+seconds and overlaps the final two seconds of the outgoing fade. At five
+seconds, outgoing music reaches silence and incoming music reaches its chosen
+volume.
+
+If another selection changes the context during the initial three seconds,
+cancel the pending fade-in and let the original five-second fade-out finish
+without restarting it. Further context changes during that outgoing fade only
+replace the pending context; superseded music never starts. After the fade
+finishes, wait one second in silence, then fade in the latest context's music
+over two seconds. For example, an initial selection at zero seconds followed by
+another at two seconds leaves the outgoing piece silent at five seconds; the
+latest piece starts fading in at six seconds and reaches its chosen volume at
+eight seconds.
+
+If another selection changes the context while waiting in silence, replace the
+pending context and wait three seconds in silence from that latest selection
+before starting the two-second fade-in. Each further context change while
+silent restarts that wait. A selection during a fade-in starts diminishing all
+currently audible music from its current gain and begins a new selection
+transition. All timers use real elapsed seconds independently of the world
+clock.
+
+While sailing, the music gradually shifts from the departure port's regional
+palette toward the destination port's regional palette as the voyage
+progresses. That shift changes track choices: favor the origin early, alternate
+between the two regions around mid-voyage, then favor the destination near
+arrival. Each piece plays separately, with short crossfades between tracks.
+
+Nearby ports with related musical influences share a regional pool of tracks.
+Each region has its own musical palette rather than a separate soundtrack for
+every country or port. The soundtrack has twelve regional palettes.
+
+The initial soundtrack target is one port piece and one voyage piece for each
+of the twelve regions, for twenty-four tracks in total.
+
+| Palette | Ports |
+|---|---|
+| Chinese coast | Shanghai, Shenzhen, Guangzhou, Hong Kong |
+| Japanese | Tokyo |
+| Korean | Busan |
+| Southeast Asian | Singapore, Ho Chi Minh City, Jakarta, Manila |
+| South Asian | Mumbai, Colombo |
+| Arabian Gulf | Dubai, Abu Dhabi |
+| North African | Tangier |
+| Mediterranean | Valencia, Athens |
+| Northern Frangistan | Rotterdam, Antwerp, Hamburg |
+| North American | Los Angeles, New York City, Houston |
+| Caribbean | Colón |
+| Brazilian | São Paulo |
+
+Music is enabled at a quiet volume on first launch. A music toggle and volume
+slider control playback, and both settings persist on the device across visits.
+The exact initial volume remains a tuning decision.
+
+When the player switches away from the game, music fades out and pauses. On
+returning, music fades back in only if music is enabled, using the current
+musical context and the ship's current voyage progress when applicable.
+Switching away does not change the saved music toggle or volume setting.
+
+Existing freely licensed instrumental recordings are the preferred soundtrack
+source, with composer attribution acceptable. Recordings must be available at
+no licensing cost under terms that permit distribution in the game and editing
+for loops and fades. AI-generated recordings are eligible under the same
+musical and licensing requirements. Music credits identify each track, its
+composer or credited creator, source, license and any edits. Each time a piece
+starts fading in, show its title and credited artist or artists at the top of
+the screen, with a link to that recording's source page. Tracks are curated
+into regional pools before being added to the game. The shared musical
+direction is cinematic, with regional instruments woven into strings and
+orchestral arrangements.
+
+Port arrangements emphasize measured adventure: warm strings, regional
+melodies, gentle percussion and restrained swells that leave room to
+concentrate. Voyage arrangements emphasize grand voyages: richer orchestration,
+bold themes and stronger rhythms for a sweeping sense of adventure. Both styles
+draw on the same regional musical palettes.
+
+The soundtrack is entirely instrumental, without lyrics or wordless vocals.
+
+Shenyang by Kevin MacLeod is the preferred Chinese coast port piece, and
+Imperial China Cinematic by Shane Ivers is the preferred Chinese coast voyage
+piece. The preferred Japanese palette choices are Sakuya3 by PeriTune for ports
+and Ametsuchi by PeriTune for voyages. Amenoshita3 was rejected for voyages as
+too battle-oriented; Japanese Summer by Sub_Clair was rejected as too
+derivative. The Japanese palette already has suitable candidates and is not a
+current search priority. Middle East Ballad by Abydos_Music is the preferred
+Arabian Gulf port piece, and Conquer The Great Sands by Darren Curtis is the
+preferred Arabian Gulf voyage piece. Epic Nusantara by fiikuri is the preferred
+Southeast Asian voyage candidate, ahead of Indonesian Culture. Arabic Music by
+kiravale and Desert2 by PeriTune are accepted Tangier port candidates;
+Folk_Arabian by PeriTune is an accepted candidate for associated North African
+voyages. Dhaka by Kevin MacLeod is the accepted South Asian port replacement
+for Indian by Sub_Clair. Epic Indian Orchestral Fusion by vjgalaxy is an
+accepted South Asian voyage candidate. Atlas • Greece by Vadim_Makes_Sound and
+Cinematic Latin Music by Sonican are accepted Mediterranean voyage candidates.
+Dellasera by Shane Ivers is the preferred Mediterranean port piece. Lord of the
+Land by Kevin MacLeod is the selected Northern Frangistan port piece; Townsong
+by Alexander Nakarada and Home Was You by Scott Buckley remain accepted
+alternatives. Pathfinder by Scott Buckley is the preferred Northern Frangistan
+voyage piece. Sideways Samba by Jason Shaw replaces Tropical Contact for
+Brazilian ports, and Up In The Air by DonnySombrero is an accepted Brazilian
+voyage candidate. Beachfront Celebration by Kevin MacLeod replaces Dark Red
+Wine for Caribbean ports, and Setting Sail by Alexander Nakarada is the
+preferred Caribbean voyage piece. All twelve palettes now have accepted
+candidates for both roles. Final recording checks, the initial track roster and
+remaining details of the shared musical brief remain open. The [music
+shortlist](music-shortlist.md) records preferred choices, candidate recordings
+and provisional assignments for listening.
+
+Amberlight by Scott Buckley was rejected for North American ports as too sleepy
+for bustling cities such as Los Angeles and New York City. Their port music
+needs more rhythmic motion while retaining space to concentrate on trading.
+Swing Train - Big Band Miller Style by JuliusH and Market on the Sea by
+Jonathan Shaw are accepted North American port candidates. The World At Your
+Door by Jonathan Shaw is the preferred North American voyage piece.
+
 ## 2. Accounts, companies, and persistence
 
 - Players use durable accounts with authenticated device sessions; browser guests
@@ -114,52 +251,52 @@ access on another device to the same account, company, and bankruptcy history.
 Redeeming an emailed invitation magic link also verifies and links its delivery
 email as part of account creation; merely specifying an address does not verify
 it. Later linking does not create another company or reset account history.
-Shared company management is a later possibility, not part of the initial design.
+Shared company management is a later possibility, not part of the initial
+design.
 
 An account with no linked identity exists only as a device session. Prompt the
-player to link one once their company holds meaningful assets, using a configured
-value threshold, and repeat the prompt periodically while the account stays
-unlinked. State both consequences plainly at that prompt: losing the device
-session ends access to the company permanently, because nothing else can prove
-ownership, and the account can receive only in-app notices, so out-of-band
-warnings, including the dormant-closure warning in section 5, cannot reach it.
-Neither consequence is a penalty; both follow from having no verified identity to
-recover through or contact. Linking at any later time removes both. The threshold
-and prompt cadence are tuning parameters.
+player to link one once their company holds meaningful assets, using a
+configured value threshold, and repeat the prompt periodically while the
+account stays unlinked. State both consequences plainly at that prompt: losing
+the device session ends access to the company permanently, because nothing else
+can prove ownership, and the account can receive only in-app notices, so
+out-of-band warnings, including the dormant-closure warning in section 5,
+cannot reach it. Neither consequence is a penalty; both follow from having no
+verified identity to recover through or contact. Linking at any later time
+removes both. The threshold and prompt cadence are tuning parameters.
 
-Account creation consumes an invitation issued by an existing player. Invitations
-are earned through sustained play, provisionally one per two real days of
-active, solvent operation, measured on the active-world clock rather than granted
-at signup. A qualifying economic action worth at least $100, including automated
-trades, keeps the company active for two active-world days. Formation, sign-in,
-and borrowing alone do not count. Solvent operation requires a current company,
-an unsuspended account, no unpaid operating bills, and no loan arrears. Inactivity,
-financial trouble, or company replacement resets partial progress. World pauses
-preserve progress. Available and outstanding invitations together are capped at
-three; time spent at that cap does not bank future awards. Existing companies
-start earning with a qualifying action after this feature is introduced, with no
-retroactive awards. Earned invitation entitlements belong to the inviter and
-cannot be transferred between accounts.
-Operators may grant an existing, unsuspended account additional invitation
-allowance for playtests. These grants obey the same combined cap of three,
-never transfer another player's entitlement, and do not count as economic
-activity. Each grant has a durable request ID for safe retries.
-Each earned grant notifies its owner and points them to the account menu to send
-the invitation. The notice commits with the grant and is not repeated by retries.
-The account menu always shows a prominent hours:minutes:seconds countdown to the
-next earned invitation, including before email verification and while available
-invitations remain. Show whether it is earning, not yet earning or paused, with
-the action needed to start or resume. Blocked states show the full two-day earning
-requirement rather than a running deadline. Also show the earliest unused
-invitation expiry. Earning estimates assume continued active, solvent operation;
-expiry estimates assume the invitation remains unused. World pauses preserve
-both countdowns.
-The resulting invite codes can be shared with prospective players. Invitations
-expire if unused, and each account holds only a small number
-outstanding, so they cannot be hoarded and released as a coordinated wave of
-accounts. A configured set of seed accounts roots the tree at launch. Browsing
-the public world without an invitation remains available: the invitation gates
-company creation, not spectating.
+Account creation consumes an invitation issued by an existing player.
+Invitations are earned through sustained play, provisionally one per two real
+days of active, solvent operation, measured on the active-world clock rather
+than granted at signup. A qualifying economic action worth at least $100,
+including automated trades, keeps the company active for two active-world days.
+Formation, sign-in, and borrowing alone do not count. Solvent operation
+requires a current company, an unsuspended account, no unpaid operating bills,
+and no loan arrears. Inactivity, financial trouble, or company replacement
+resets partial progress. World pauses preserve progress. Available and
+outstanding invitations together are capped at three; time spent at that cap
+does not bank future awards. Existing companies start earning with a qualifying
+action after this feature is introduced, with no retroactive awards. Earned
+invitation entitlements belong to the inviter and cannot be transferred between
+accounts. Operators may grant an existing, unsuspended account additional
+invitation allowance for playtests. These grants obey the same combined cap of
+three, never transfer another player's entitlement, and do not count as
+economic activity. Each grant has a durable request ID for safe retries. Each
+earned grant notifies its owner and points them to the account menu to send the
+invitation. The notice commits with the grant and is not repeated by retries.
+The account menu always shows a prominent hours:minutes:seconds countdown to
+the next earned invitation, including before email verification and while
+available invitations remain. Show whether it is earning, not yet earning or
+paused, with the action needed to start or resume. Blocked states show the full
+two-day earning requirement rather than a running deadline. Also show the
+earliest unused invitation expiry. Earning estimates assume continued active,
+solvent operation; expiry estimates assume the invitation remains unused. World
+pauses preserve both countdowns. The resulting invite codes can be shared with
+prospective players. Invitations expire if unused, and each account holds only
+a small number outstanding, so they cannot be hoarded and released as a
+coordinated wave of accounts. A configured set of seed accounts roots the tree
+at launch. Browsing the public world without an invitation remains available:
+the invitation gates company creation, not spectating.
 
 An inviter chooses one of two modes, each reserving one available invitation
 entitlement:
@@ -177,47 +314,48 @@ entitlement:
   The player can link an identity later.
 
 Both modes admit one new account and expire after a configured period of a few
-real days, displayed to the inviter and in emailed invitations. Invitation expiry
-follows the shared world-clock outage policy. Only redemption strictly before
-expiry succeeds. An email already linked to an existing account must not create
-a second account or merge accounts through this flow; direct its owner to sign
-in instead, without consuming the invitation entitlement.
+real days, displayed to the inviter and in emailed invitations. Invitation
+expiry follows the shared world-clock outage policy. Only redemption strictly
+before expiry succeeds. An email already linked to an existing account must not
+create a second account or merge accounts through this flow; direct its owner
+to sign in instead, without consuming the invitation entitlement.
 
 An inviter distributing a code through an open channel is lending their own
 credibility to whoever redeems it, by design. The tree records the inviter
 however the code travelled, and the issuance consequences below apply to the
-resulting subtree either way, so choosing to broadcast a code rather than hand it
-to someone known is the inviter's risk to take.
+resulting subtree either way, so choosing to broadcast a code rather than hand
+it to someone known is the inviter's risk to take.
 
 Successful redemption consumes the reserved entitlement and records the issuing
-player as inviter regardless of mode. Expiry of an unused invitation invalidates
-its code or link and restores the entitlement to available quota. Redemption and
-expiry must resolve atomically: one invitation cannot create multiple accounts,
-and an entitlement cannot both be consumed and refunded. Retrying an expiry does
-not restore quota twice. Copying a code or retrying email delivery does not
-reserve another entitlement or extend its deadline.
+player as inviter regardless of mode. Expiry of an unused invitation
+invalidates its code or link and restores the entitlement to available quota.
+Redemption and expiry must resolve atomically: one invitation cannot create
+multiple accounts, and an entitlement cannot both be consumed and refunded.
+Retrying an expiry does not restore quota twice. Copying a code or retrying
+email delivery does not reserve another entitlement or extend its deadline.
 
-Notify the inviter when their invitee successfully creates an account, for either
-invitation mode. Identify the redeemed invitation and include the invitee's
-company name with a link to its public company profile when available. If company
-creation follows account creation, first report that the invitation was accepted,
-then notify the inviter of the company name and profile once the company exists.
-Do not report an attempted or failed redemption as a successful signup, and do
-not duplicate notifications on retries. Use public company information only;
-invitation relationships do not grant access to private cargo or instructions.
+Notify the inviter when their invitee successfully creates an account, for
+either invitation mode. Identify the redeemed invitation and include the
+invitee's company name with a link to its public company profile when
+available. If company creation follows account creation, first report that the
+invitation was accepted, then notify the inviter of the company name and
+profile once the company exists. Do not report an attempted or failed
+redemption as a successful signup, and do not duplicate notifications on
+retries. Use public company information only; invitation relationships do not
+grant access to private cargo or instructions.
 
-After redemption, the device session provides access to the account; the consumed
-invite code or invitation link cannot be reused to sign in or recover it. A
-linked identity provides cross-device access and recovery if the original device
-session is lost.
+After redemption, the device session provides access to the account; the
+consumed invite code or invitation link cannot be reused to sign in or recover
+it. A linked identity provides cross-device access and recovery if the original
+device session is lost.
 
-Record the inviter-to-invitee relationship permanently. Beyond rate-limiting new
-accounts, the tree gives the suspicious-trade review in section 12 a structure to
-work against, since trade and bid activity concentrated inside one subtree is a
-far stronger collusion signal than the same activity spread across strangers.
-Repeated confirmed abuse within a subtree reduces the inviter's future issuance.
-Issuance rate, outstanding cap, and expiry are configurable tuning; the
-requirement for an invitation is not.
+Record the inviter-to-invitee relationship permanently. Beyond rate-limiting
+new accounts, the tree gives the suspicious-trade review in section 12 a
+structure to work against, since trade and bid activity concentrated inside one
+subtree is a far stronger collusion signal than the same activity spread across
+strangers. Repeated confirmed abuse within a subtree reduces the inviter's
+future issuance. Issuance rate, outstanding cap, and expiry are configurable
+tuning; the requirement for an invitation is not.
 
 ### Desktop connection and window continuity
 
