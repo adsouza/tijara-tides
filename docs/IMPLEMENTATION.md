@@ -50,7 +50,13 @@ New ship availability comes from each generated port's `shipyard.classes`.
 shipyard query; unavailable class/port combinations return
 `:ship_class_unavailable` before commissioning or purchase accounting. The Fleet
 panel lists only offered classes and the Ports panel exposes the same list.
-Empty shipyards explain availability and offer a Guangzhou selector. Regional
+The Fleet panel hides empty shipyards. Companies without ships see an open
+first-ship port chooser above their fleet controls, listing only available ports
+by descending class count, then port name, with concise class labels. Its
+placeholder is unselected; choosing a port activates it and opens the purchase
+section. Explicit Ports-panel choices also open available yards. Refreshes
+preserve this choice, while a replacement company or loss of the last ship
+restores the chooser. The Ports panel retains empty-yard disclosures. Regional
 labels identify Yokohama, Mariveles and Hardinxveld/Aalst, with delivery at the
 selected game port. Provisional Jakarta, Dubai and Athens offerings remain
 disabled. See the [roster](ports.md#new-ship-availability) and

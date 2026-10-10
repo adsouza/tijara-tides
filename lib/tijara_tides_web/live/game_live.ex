@@ -33,6 +33,7 @@ defmodule TijaraTidesWeb.GameLive do
         page_title: gettext("Your shipping company"),
         definitions: Game.definitions(),
         selected_port: "Guangzhou",
+        first_ship_port_selected: false,
         warehouse_draft: %{},
         exchange_good: nil,
         route_drafts: %{},
@@ -393,8 +394,19 @@ defmodule TijaraTidesWeb.GameLive do
 
   def handle_event("port", %{"id" => id}, socket) do
     if socket.assigns.definitions.catalogue["ports"][id],
-      do: {:noreply, assign(socket, :selected_port, id)},
+      do: {:noreply, assign(socket, selected_port: id, first_ship_port_selected: true)},
       else: {:noreply, socket}
+  end
+
+  def handle_event("first-ship-port", %{"port" => id}, socket) do
+    private = socket.assigns.view.private
+
+    if private && private["company"] && map_size(private["ships"]) == 0 &&
+         map_size(GameQueries.shipyard(socket.assigns.definitions, id).classes) > 0 do
+      {:noreply, assign(socket, selected_port: id, first_ship_port_selected: true)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("map-region", %{"id" => region}, socket) do
@@ -1161,6 +1173,17 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   defp apply_view(socket, view, preview) do
+    previous_private = (Map.get(socket.assigns, :view) || %{})[:private]
+    previous_company = previous_private && previous_private["company"]
+    company = view.private && view.private["company"]
+
+    socket =
+      if company != nil &&
+           (previous_company == nil || previous_company["id"] != company["id"] ||
+              (map_size(previous_private["ships"]) > 0 && map_size(view.private["ships"]) == 0)),
+         do: assign(socket, :first_ship_port_selected, false),
+         else: socket
+
     TijaraTides.Localization.put_locale(
       socket.assigns.preferred_locale || (view.private && view.private["account"]["locale"]) ||
         TijaraTides.Localization.locale()
@@ -1577,6 +1600,7 @@ defmodule TijaraTidesWeb.GameLive do
             </nav>
             <div class="workspace-panels">
               <TijaraTidesWeb.GameUI.FleetPanel.panel
+                first_ship_port_selected={@first_ship_port_selected}
                 destination_picker_open={@destination_picker_open}
                 definitions={@definitions}
                 destination={@destination}

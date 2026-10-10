@@ -83,6 +83,36 @@ defmodule TijaraTides.BrowserContractsTest do
     "http://#{:inet.ntoa(ip)}:#{port}"
   end
 
+  @tag timeout: 45_000
+  test "Chromium first-ship chooser activates any offered port, including Guangzhou" do
+    Sql.with_world(fn c ->
+      {conn, token} = TijaraTides.WebFormFixture.session(c)
+      Sql.command(c, token, "company", %{"action" => "company", "name" => "First Ship"})
+      Sql.command(c, token, "loan", %{"action" => "borrow", "amount" => 10_000_000})
+      path = Path.join(System.tmp_dir!(), "tj-first-ship-#{c.world}.json")
+
+      try do
+        File.write!(
+          path,
+          Jason.encode!(%{url: url(), cookie: conn.resp_cookies["_tijara_tides_key"].value})
+        )
+
+        File.chmod!(path, 0o600)
+
+        {output, status} =
+          System.cmd("node", ["test/browser/first_ship.mjs", path], stderr_to_stdout: true)
+
+        assert status == 0, output
+        assert output =~ "First ship chooser contracts passed"
+        snapshot = TijaraTides.Infrastructure.GameServer.snapshot(token, c.server)
+        assert snapshot.private["ships"] == %{}
+        assert snapshot.private["company"]["cash"] == 10_000_000
+      after
+        File.rm(path)
+      end
+    end)
+  end
+
   @tag timeout: 90_000
   test "Chromium berth follows committed handling and survives lifecycle changes" do
     Sql.with_world(fn c ->

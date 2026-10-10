@@ -83,6 +83,7 @@ defmodule TijaraTides.UseCases.GameQueries do
     to: TijaraTides.UseCases.FleetQueries
 
   defdelegate shipyard(definitions, port), to: TijaraTides.UseCases.FleetQueries
+  defdelegate shipyard_ports(definitions), to: TijaraTides.UseCases.FleetQueries
 
   defdelegate route_editor(private, ship, catalogue), to: TijaraTides.UseCases.ShipPlanningQueries
 

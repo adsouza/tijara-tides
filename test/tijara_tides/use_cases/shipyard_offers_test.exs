@@ -94,6 +94,33 @@ defmodule TijaraTides.UseCases.ShipyardOffersTest do
     end
   end
 
+  test "first-ship ports include only executable yards, ranked by class count", c do
+    ports = GameQueries.shipyard_ports(c.definitions)
+
+    assert Enum.map(ports, & &1.port) == [
+             "Guangzhou",
+             "Busan",
+             "Shanghai",
+             "Colombo",
+             "Abu Dhabi",
+             "Ho Chi Minh City",
+             "Mumbai",
+             "Rotterdam",
+             "Manila",
+             "Tokyo"
+           ]
+
+    for yard <- ports do
+      assert yard.classes == GameQueries.shipyard(c.definitions, yard.port).classes
+      assert map_size(yard.classes) > 0
+    end
+
+    definitions =
+      put_in(c.definitions, [:catalogue, "ports", "Guangzhou", "shipyard", "classes"], [])
+
+    refute Enum.any?(GameQueries.shipyard_ports(definitions), &(&1.port == "Guangzhou"))
+  end
+
   test "catalogue changes feed query and command together; missing metadata fails closed", c do
     definitions =
       put_in(c.definitions, [:catalogue, "ports", "Guangzhou", "shipyard", "classes"], ["bulk"])

@@ -3126,8 +3126,23 @@ msgstr "فئات السفن الجديدة: %{classes}"
 msgid "Regional shipyard: %{region}. Ships are delivered to the selected port."
 msgstr "حوض بناء السفن الإقليمي: %{region}. تُسلّم السفن في الميناء المحدد."
 
-msgid "View %{port} shipyard — all ship classes"
-msgstr "عرض حوض بناء السفن في %{port} — جميع فئات السفن"
+msgid "Buy your 1st ship at"
+msgstr "اشترِ سفينتك الأولى من"
+
+msgid "Choose a port"
+msgstr "اختر ميناء"
+
+msgid "Freighter"
+msgstr "سفينة شحن"
+
+msgid "Bulk"
+msgstr "بضائع سائبة"
+
+msgid "Reefer"
+msgstr "مبردة"
+
+msgid "Tanker"
+msgstr "ناقلة"
 
 msgid "Choose a port in the Ports panel to see its ship classes. Ships arrive immediately, empty and docked. Keep cash for cargo, fuel and crew."
 msgstr "اختر ميناءً من لوحة الموانئ للاطلاع على فئات السفن المتوفرة فيه. تصل السفن فورًا، فارغة وراسية. احتفظ بنقود للبضائع والوقود والطاقم."

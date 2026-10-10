@@ -8,6 +8,15 @@ defmodule TijaraTides.UseCases.FleetQueries do
     }
   end
 
+  @doc "Ports offering new ships, most classes first, with port-name tie breaking."
+  def shipyard_ports(definitions) do
+    definitions.catalogue["ports"]
+    |> Map.keys()
+    |> Enum.map(fn port -> Map.put(shipyard(definitions, port), :port, port) end)
+    |> Enum.reject(&(map_size(&1.classes) == 0))
+    |> Enum.sort_by(&{-map_size(&1.classes), &1.port})
+  end
+
   @doc """
   Groups every public ship by `"location"`, `"company"` or `"class"`.
 

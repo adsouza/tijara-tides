@@ -5,8 +5,9 @@ defmodule TijaraTidesWeb.GameUI.ShipyardTest do
   alias TijaraTides.UseCases.{Game, GameQueries}
   alias TijaraTidesWeb.GameUI.{FleetPanel, Presentation}
 
-  defp panel(definitions, port, cash \\ 10_000_000) do
+  defp panel(definitions, port, cash \\ 10_000_000, selected \\ true) do
     render_component(&FleetPanel.panel/1,
+      first_ship_port_selected: selected,
       definitions: definitions,
       destination: nil,
       fleet_status: "all",
@@ -30,7 +31,7 @@ defmodule TijaraTidesWeb.GameUI.ShipyardTest do
     )
   end
 
-  test "every port renders only purchasable class controls, with empty shipyard guidance" do
+  test "every port renders only purchasable controls and hides empty shipyards" do
     definitions = Game.definitions()
 
     for port <- Map.keys(definitions.catalogue["ports"]) do
@@ -40,18 +41,48 @@ defmodule TijaraTidesWeb.GameUI.ShipyardTest do
       assert Enum.sort(LazyHTML.attribute(buttons, "value")) == Enum.sort(Map.keys(offered)), port
 
       if map_size(offered) == 0 do
-        assert LazyHTML.query(tree, "#shipyard-availability") |> LazyHTML.text() =~
-                 "No new cargo ships are offered here"
-
-        assert LazyHTML.query(tree, "#shipyard-select-guangzhou")
-               |> LazyHTML.attribute("phx-value-id") == ["Guangzhou"]
-
+        assert LazyHTML.query(tree, "#shipyard") |> Enum.empty?()
+        assert LazyHTML.query(tree, "#first-ship-port") |> Enum.count() == 1
         assert LazyHTML.query(tree, "#shipyard-purchase") |> Enum.empty?()
       else
         assert LazyHTML.attribute(buttons, "disabled") == []
-        assert LazyHTML.query(tree, "#shipyard-select-guangzhou") |> Enum.empty?()
+        assert LazyHTML.query(tree, "#first-ship-port") |> Enum.empty?()
       end
     end
+  end
+
+  test "an empty fleet starts with an open unselected chooser and ranked concise options" do
+    tree = panel(Game.definitions(), "Guangzhou", 0, false) |> LazyHTML.from_fragment()
+    assert LazyHTML.query(tree, "#shipyard") |> Enum.empty?()
+    assert LazyHTML.query(tree, "#first-ship-port summary") |> Enum.empty?()
+
+    assert LazyHTML.query(tree, "#first-ship-port label") |> LazyHTML.text() |> String.trim() ==
+             "Buy your 1st ship at"
+
+    options = LazyHTML.query(tree, "#first-ship-port-select option")
+
+    assert LazyHTML.query(tree, "#first-ship-port-select option[selected]")
+           |> LazyHTML.attribute("value") == [""]
+
+    assert LazyHTML.attribute(options, "value") == [
+             "",
+             "Guangzhou",
+             "Busan",
+             "Shanghai",
+             "Colombo",
+             "Abu Dhabi",
+             "Ho Chi Minh City",
+             "Mumbai",
+             "Rotterdam",
+             "Manila",
+             "Tokyo"
+           ]
+
+    assert LazyHTML.text(options) =~
+             "Guangzhou (Small freighter, Freighter, Bulk, Reefer, Tanker)"
+
+    assert LazyHTML.text(options) =~ "Tokyo (Bulk)"
+    assert LazyHTML.text(options) =~ "Manila (Tanker)"
   end
 
   test "available offers remain disabled below their unreserved price and enabled at it" do
@@ -81,7 +112,9 @@ defmodule TijaraTidesWeb.GameUI.ShipyardTest do
 
       html = panel(definitions, "Jakarta")
       assert html =~ Localization.l10n("Guangzhou")
-      refute html =~ "No new cargo ships"
+      refute html =~ "Buy your 1st ship at"
+      refute html =~ "Choose a port"
+      refute html =~ "(Small freighter, Freighter, Bulk, Reefer, Tanker)"
       message = Presentation.error_message(:ship_class_unavailable)
       assert message =~ ~r/\p{Arabic}/u
       refute message =~ "not offered"

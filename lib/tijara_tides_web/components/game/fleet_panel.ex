@@ -29,6 +29,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
   end
 
   attr :definitions, :any, required: true
+  attr :first_ship_port_selected, :boolean, default: false
   attr :destination_picker_open, :boolean, default: false
   attr :destination, :any, required: true
   attr :fleet_status, :any, required: true
@@ -47,6 +48,17 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
   def panel(assigns) do
     assigns =
       assign(assigns, :shipyard, GameQueries.shipyard(assigns.definitions, assigns.selected_port))
+
+    assigns =
+      assign(
+        assigns,
+        :first_ship_picker,
+        assigns.view.private && assigns.view.private["company"] &&
+          map_size(assigns.view.private["ships"]) == 0 &&
+          (!assigns.first_ship_port_selected || map_size(assigns.shipyard.classes) == 0)
+      )
+
+    assigns = assign(assigns, :shipyard_ports, GameQueries.shipyard_ports(assigns.definitions))
 
     ~H"""
     <section id="ships-panel" class="workspace-panel" aria-label={gettext("Ships")}>
@@ -186,7 +198,29 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
         </section>
         <section :if={@view.private && @view.private["company"]} class="my-6">
           <h2 class="mb-3 text-xl font-semibold"><.emoji symbol="🚢" />{gettext("Your fleet")}</h2>
+          <form
+            :if={@first_ship_picker}
+            id="first-ship-port"
+            phx-change="first-ship-port"
+            class="mb-3 flex flex-wrap items-center gap-2 rounded border border-slate-600 p-3"
+          >
+            <label for="first-ship-port-select" class="text-sm font-semibold">
+              {gettext("Buy your 1st ship at")}
+            </label>
+            <%!-- A control named "id" shadows form.id, which the DOM patcher uses. --%>
+            <select
+              id="first-ship-port-select"
+              name="port"
+              class="min-w-0 max-w-full rounded bg-slate-800 px-2 py-1"
+            >
+              <option value="" disabled selected>{gettext("Choose a port")}</option>
+              <option :for={yard <- @shipyard_ports} value={yard.port}>
+                {l10n(yard.port)} ({shipyard_class_labels(yard.classes)})
+              </option>
+            </select>
+          </form>
           <details
+            :if={!@first_ship_picker && map_size(@shipyard.classes) > 0}
             id="shipyard"
             phx-mounted={JS.ignore_attributes("open")}
             open={map_size(@view.private["ships"]) == 0}
@@ -203,16 +237,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               )}
             </p>
             <.shipyard_summary shipyard={@shipyard} id="shipyard-availability" />
-            <button
-              :if={map_size(@shipyard.classes) == 0}
-              id="shipyard-select-guangzhou"
-              type="button"
-              phx-click="port"
-              phx-value-id="Guangzhou"
-              class="my-2 rounded border border-teal-600 px-3 py-1"
-            >{gettext("View %{port} shipyard — all ship classes", port: l10n("Guangzhou"))}</button>
             <.form
-              :if={map_size(@shipyard.classes) > 0}
               for={%{}}
               id="shipyard-purchase"
               phx-submit="purchase-ship"
@@ -1113,6 +1138,18 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
       </div>
     </section>
     """
+  end
+
+  defp shipyard_class_labels(classes) do
+    [
+      {"small_freighter", gettext("Small freighter")},
+      {"freighter", gettext("Freighter")},
+      {"bulk", gettext("Bulk")},
+      {"reefer", gettext("Reefer")},
+      {"tanker", gettext("Tanker")}
+    ]
+    |> Enum.filter(fn {id, _} -> Map.has_key?(classes, id) end)
+    |> Enum.map_join(", ", fn {_, label} -> label end)
   end
 
   defp ship_count(count), do: ngettext("%{count} ship", "%{count} ships", count)

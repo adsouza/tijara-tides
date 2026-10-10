@@ -2065,9 +2065,20 @@ port. Repair capacity and construction of naval, offshore or harbour craft do
 not by themselves qualify a yard for these cargo classes. These are vessel-role
 abstractions, not exact real-world capacity or speed specifications.
 
-Shipyards with no available classes show an explanation and a control to select
-Guangzhou. Ships retain the same fixed class prices and arrive immediately,
-empty and docked. Disable purchases that exceed unreserved cash and revalidate
+Hide the ship purchase section when the selected port offers no ship classes.
+When a company has no ships, show an open subsection at the top of Your fleet,
+without a disclosure triangle, labelled "Buy your 1st ship at". Its dropdown
+lists only ports that offer ships, sorted by descending class count with
+alphabetical port-name ties. Show brief available class names in parentheses
+after each port name. Guangzhou appears first, but the dropdown has no default
+selection. Choosing a port makes it active and replaces the chooser with the
+existing purchase section. Explicit selection in the Ports panel also opens an
+available port's purchase section. Refreshes preserve that choice; an empty
+fleet at a port without offerings still shows the chooser. Losing the last ship
+or forming a replacement company restores the unselected chooser.
+
+Ships retain the same fixed class prices and arrive immediately, empty and
+docked. Disable purchases that exceed unreserved cash and revalidate
 class availability, price, funds, ownership and port on the server. Repeated
 delivery of one purchase request creates only one ship and one ledger
 transaction. This policy affects new purchases only; existing hulls, sailing,

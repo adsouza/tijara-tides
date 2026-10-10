@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 168
+TRIPWIRE = 170
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -236,8 +236,10 @@ REQUIREMENTS = [
 
     (201, "The Ports panel also displays new ship availability.", 9, "display", "Port panel"),
     (202, "Regional yards identify their actual location in the UI and deliver at the named game port.", 9, "disclosure", "Fleet and ship detail"),
-    (203, "Shipyards with no available classes show an explanation and a control to select Guangzhou.", 9, "disclosure", "Fleet and ship detail"),
+    (203, "Hide the ship purchase section when the selected port offers no ship classes.", 9, "display", "Fleet and ship detail"),
     (204, "Guangzhou is the default selected port for players without ships because it is the only launch port offering every ship class.", 9, "input", "Port panel"),
+    (205, "When a company has no ships, show an open subsection at the top of Your fleet, without a disclosure triangle, labelled \"Buy your 1st ship at\".", 9, "display", "Fleet and ship detail"),
+    (206, "Show brief available class names in parentheses after each port name.", 9, "disclosure", "Fleet and ship detail"),
 
 ]
 

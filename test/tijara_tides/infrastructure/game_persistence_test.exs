@@ -62,12 +62,18 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     {:ok, view, _} = conn |> recycle() |> live("/play")
     assert has_element?(view, "#port-selector[data-selected=Guangzhou]")
+    assert has_element?(view, "#first-ship-port-select option[value=''][selected]")
+    refute has_element?(view, "#shipyard")
+    render_change(view, "first-ship-port", %{"port" => "Jakarta"})
+    render_change(view, "first-ship-port", %{"port" => "missing"})
+    render_change(view, "first-ship-port", %{"port" => ""})
+    assert has_element?(view, "#port-selector[data-selected=Guangzhou]")
+    send(view.pid, {:game_changed, 0})
+    render_async(view)
+    assert has_element?(view, "#first-ship-port-select option[value=''][selected]")
 
-    for class <- ~w(small_freighter freighter bulk reefer tanker) do
-      assert has_element?(view, "#shipyard-purchase button[value=#{class}]:not([disabled])")
-    end
-
-    render_click(view, "port", %{"id" => "Tokyo"})
+    view |> form("#first-ship-port", %{"port" => "Tokyo"}) |> render_change()
+    refute has_element?(view, "#first-ship-port")
     assert has_element?(view, "#shipyard-purchase button[value=bulk]")
     refute has_element?(view, "#shipyard-purchase button[value=reefer]")
     assert has_element?(view, "#shipyard-availability", "Tokyo Bay (Yokohama)")
@@ -98,18 +104,47 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     render_async(view)
     assert has_element?(view, "#port-selector[data-selected=Tokyo]")
     render_click(view, "port", %{"id" => "Jakarta"})
-    refute has_element?(view, "#shipyard-purchase")
-    assert has_element?(view, "#shipyard-availability", "No new cargo ships are offered here")
-    view |> element("#shipyard-select-guangzhou") |> render_click()
+    refute has_element?(view, "#shipyard")
+
+    assert has_element?(
+             view,
+             "#port-shipyard-availability",
+             "No new cargo ships are offered here"
+           )
+
+    view |> form("#first-ship-port", %{"port" => "Guangzhou"}) |> render_change()
     assert has_element?(view, "#port-selector[data-selected=Guangzhou]")
+
+    for class <- ~w(small_freighter freighter bulk reefer tanker) do
+      assert has_element?(view, "#shipyard-purchase button[value=#{class}]:not([disabled])")
+    end
 
     render_click(view, "port", %{"id" => "Tokyo"})
     view |> form("#shipyard-purchase") |> render_submit(%{"class" => "bulk"})
     private = GameServer.snapshot(token, c.server).private
     assert [%{"class" => "bulk", "port" => "Tokyo"}] = Map.values(private["ships"])
     assert private["company"]["cash"] == 5_000_000
+    render_click(view, "port", %{"id" => "Jakarta"})
+    refute has_element?(view, "#shipyard")
+    refute has_element?(view, "#first-ship-port")
     {:ok, returning, _} = conn |> recycle() |> live("/play")
     assert has_element?(returning, "#port-selector[data-selected=Tokyo]")
+    refute has_element?(returning, "#first-ship-port")
+
+    [ship] = Map.keys(private["ships"])
+
+    {:ok, _} =
+      GameServer.command(
+        token,
+        "sell-last",
+        %{"action" => "sell_ship", "ship" => ship, "minimum" => 0},
+        c.server
+      )
+
+    send(returning.pid, {:game_changed, 0})
+    render_async(returning)
+    assert has_element?(returning, "#first-ship-port-select option[value=''][selected]")
+    refute has_element?(returning, "#shipyard")
   end
 
   test "unavailable newbuilds leave durable ships, balances, revision and receipts unchanged",
@@ -4293,6 +4328,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert empty.private["ships"] == %{}
     assert empty.private["company"]["cash"] == 0
     assert empty.private["finance"]["available"] == 25_000_000
+    assert has_element?(view, "#first-ship-port")
+    view |> form("#first-ship-port", %{"port" => "Guangzhou"}) |> render_change()
     assert has_element?(view, "#shipyard-purchase button[value=freighter][disabled]")
 
     assert render(view)

@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 168
+Heuristic requirement sentences in DESIGN.md at generation: 170
 
 ## Screens
 
@@ -260,8 +260,10 @@ soundtrack and its response to the player's selections.
 | 200 | Each time a piece starts fading in, show its title and credited artist or artists at the top of the screen, with a link to that recording's source page. | 1 | display | Background music |
 | 201 | The Ports panel also displays new ship availability. | 9 | display | Port panel |
 | 202 | Regional yards identify their actual location in the UI and deliver at the named game port. | 9 | disclosure | Fleet and ship detail |
-| 203 | Shipyards with no available classes show an explanation and a control to select Guangzhou. | 9 | disclosure | Fleet and ship detail |
+| 203 | Hide the ship purchase section when the selected port offers no ship classes. | 9 | display | Fleet and ship detail |
 | 204 | Guangzhou is the default selected port for players without ships because it is the only launch port offering every ship class. | 9 | input | Port panel |
+| 205 | When a company has no ships, show an open subsection at the top of Your fleet, without a disclosure triangle, labelled "Buy your 1st ship at". | 9 | display | Fleet and ship detail |
+| 206 | Show brief available class names in parentheses after each port name. | 9 | disclosure | Fleet and ship detail |
 
 ## Defaults that keep the depth optional
 
