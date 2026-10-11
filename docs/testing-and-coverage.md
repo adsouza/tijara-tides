@@ -350,6 +350,20 @@ requiring one per catalogue route for the entire public planning run and
 identical results to planning with server definitions. This guards the browser
 picker against recomputing crossings for every candidate purchase.
 
+The voyage-affordability regression counts funding checks and full profit
+evaluations across a complete destination matrix. Quantity searches must make
+additional funding-only checks rather than evaluate profit at every trial. The
+isolated picker benchmark also compares complete matrices and English/Arabic
+popup HTML before and after a change; see its commands in
+[implementation scope](IMPLEMENTATION.md).
+
+The plan-reuse regression counts purchase searches and tanker onward searches
+when different greedy strategies produce identical cargo plans. Cache tests
+count matrix calculations across close/reopen, supplied-matrix rendering and
+LiveView background refresh, compare invalidated results to uncached queries,
+and require logout to discard cached private data. They exercise each planning
+dependency and reuse across notices, locale and unrelated public revisions.
+
 Repeating-route maximum waits are covered by named cases in
 `test/tijara_tides/domain/ship_routes_test.exs`: limit ownership and bounds;
 the inclusive deadline versus newly fillable targets; partial loading and

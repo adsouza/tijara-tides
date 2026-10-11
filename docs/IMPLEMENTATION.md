@@ -262,6 +262,41 @@ best ROI in each direction (missing directions contribute zero), then sea
 distance. The popup supports Escape, explicit dismissal, keyboard focus
 containment, Arabic labels and RTL layout.
 
+The planner's quantity search checks the shared domain voyage-funding requirement
+without calculating sales, unloading or profit for each trial quantity. Complete
+profit evaluation still selects purchases and ranks the final plans. Identical
+greedy prefixes share purchase-search results within one destination estimate;
+identical completed plans are evaluated once, retaining their first occurrence
+and tie order. Tankers consequently search onward voyages once per distinct
+completed plan. These optimizations preserve the suggestions.
+
+Each LiveView retains at most one completed destination matrix. Opening the
+picker computes it; closing and reopening with identical inputs reuses it.
+Snapshot refreshes invalidate it on changes to the catalogue, clock, markets,
+account identity, company, fleet, route protection or selected ship. An open
+picker recomputes immediately; a closed picker defers computation until opened.
+Losing the owner view or eligible selected ship discards the entry. Notices,
+locale and unrelated public projections can change without replanning; popup
+labels still render in the current locale.
+
+The isolated destination-picker benchmark measures complete matrices and
+server-side popup rendering with public catalogue definitions:
+
+```sh
+MIX_ENV=test mix run --no-start scripts/benchmark-destination-picker.exs --save tmp/destination-picker-before.term
+MIX_ENV=test mix run --no-start scripts/benchmark-destination-picker.exs --compare tmp/destination-picker-before.term
+```
+
+Run the first command before changing the estimator and the second afterwards.
+Comparison requires identical complete matrices and English/Arabic popup HTML
+across eight synthetic scenarios, including tanker onward voyages. Each stage
+reports median and p95 durations from seven timed runs after one warmup; use
+`--samples` to change the count. `picker` measures an empty-cache open, including
+planning and rendering; `cached_picker` measures a reopen with unchanged inputs,
+including cache validation and rendering. Cached and uncached HTML must also
+match exactly in both locales. Neither command starts a server or database.
+Browser patching and network latency are outside this benchmark.
+
 Inspecting another port with a docked ship opens a destination comparison using
 compatible stock at the ship's current port. Each candidate load is capped by
 source supply, destination demand, and remaining weight and volume capacity.

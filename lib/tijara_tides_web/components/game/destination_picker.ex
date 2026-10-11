@@ -9,13 +9,15 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
   attr :view, :any, required: true
   attr :ship, :map, required: true
   attr :destination, :any, default: nil
+  attr :matrix, :any, default: nil
 
   def panel(assigns) do
     assigns =
       assign(
         assigns,
         :matrix,
-        GameQueries.destination_matrix(assigns.definitions, assigns.view, assigns.ship)
+        assigns.matrix ||
+          GameQueries.destination_matrix(assigns.definitions, assigns.view, assigns.ship)
       )
 
     scale =

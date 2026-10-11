@@ -1,6 +1,6 @@
 defmodule TijaraTidesWeb.GameLive do
   use TijaraTidesWeb, :live_view
-  alias TijaraTides.UseCases.{Game, GameQueries}
+  alias TijaraTides.UseCases.{DestinationMatrixCache, Game, GameQueries}
   import TijaraTidesWeb.GameUI.Presentation, except: [error_message: 1, ship_coordinates: 3]
 
   @impl true
@@ -38,6 +38,8 @@ defmodule TijaraTidesWeb.GameLive do
         exchange_good: nil,
         route_drafts: %{},
         destination_picker_open: false,
+        destination_matrix_cache: nil,
+        destination_matrix: nil,
         dropdown_active: false,
         report_open: false,
         report_data: nil,
@@ -920,7 +922,12 @@ defmodule TijaraTidesWeb.GameLive do
     open =
       socket.assigns.ship && socket.assigns.ship["status"] in ["docked", "loading", "unloading"]
 
-    {:noreply, assign(socket, destination_picker_open: !!open, report_open: false)}
+    socket =
+      socket
+      |> assign(destination_picker_open: !!open, report_open: false)
+      |> refresh_destination_matrix()
+
+    {:noreply, socket}
   end
 
   def handle_event("destination-picker-close", _, socket),
@@ -1374,7 +1381,8 @@ defmodule TijaraTidesWeb.GameLive do
     preview =
       if preview, do: Map.put(preview, "protection_quote", preview["protection_options"][choice])
 
-    assign(socket,
+    socket
+    |> assign(
       protection: choice,
       view: view,
       selected_ship: ship && ship["id"],
@@ -1385,6 +1393,20 @@ defmodule TijaraTidesWeb.GameLive do
       trade_quantities: quantities,
       trade_context: context
     )
+    |> refresh_destination_matrix()
+  end
+
+  defp refresh_destination_matrix(socket) do
+    cache =
+      DestinationMatrixCache.refresh(
+        socket.assigns.destination_matrix_cache,
+        socket.assigns.definitions,
+        socket.assigns.view,
+        socket.assigns.ship,
+        socket.assigns.destination_picker_open
+      )
+
+    assign(socket, destination_matrix_cache: cache, destination_matrix: cache && cache.matrix)
   end
 
   defdelegate error_message(reason), to: TijaraTidesWeb.GameUI.Presentation
@@ -1670,6 +1692,7 @@ defmodule TijaraTidesWeb.GameLive do
               <TijaraTidesWeb.GameUI.FleetPanel.panel
                 first_ship_port_selected={@first_ship_port_selected}
                 destination_picker_open={@destination_picker_open}
+                destination_matrix={@destination_matrix}
                 definitions={@definitions}
                 destination={@destination}
                 fleet_status={@fleet_status}

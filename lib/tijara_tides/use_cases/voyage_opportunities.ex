@@ -148,13 +148,28 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
       if company["unpaid"] > 0 or ship["pending_side"],
         do: [],
         else:
-          Enum.map(Enum.uniq(orders), fn order ->
-            Enum.reduce(order, base, fn candidate, plan ->
-              add_purchase(plan, candidate, context)
-            end)
-          end)
+          elem(
+            Enum.map_reduce(Enum.uniq(orders), %{}, fn order, cache ->
+              Enum.reduce(order, {base, cache}, fn candidate, {plan, cache} ->
+                key = {plan, candidate.id}
+
+                case Map.fetch(cache, key) do
+                  {:ok, next} ->
+                    {next, cache}
+
+                  :error ->
+                    next = add_purchase(plan, candidate, context)
+                    {next, Map.put(cache, key, next)}
+                end
+              end)
+            end),
+            0
+          )
 
     [base | plans]
+    # Keep the first occurrence, including ties. Identical completed plans also
+    # need only one onward search for tankers.
+    |> Enum.uniq()
     |> Enum.map(&evaluate(&1, context))
     |> Enum.filter(& &1.funded)
   end
@@ -173,7 +188,9 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
     if CargoRules.compatible_cargo?(plan.ship, c.item) do
       quantity =
         TijaraTides.UseCases.MarketQueries.largest_trade(0, limit, fn n ->
-          evaluate(purchase(plan, c, n, ctx), ctx).funded
+          # Search only needs the command's funding rule. Sales and profit are
+          # evaluated below for the chosen quantity, with the same plan inputs.
+          funded?(purchase(plan, c, n, ctx), ctx)
         end)
 
       proposal = purchase(plan, c, quantity, ctx)
