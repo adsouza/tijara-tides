@@ -154,8 +154,9 @@ of active world time (0.4 lots per minute); buyer budgets recover one lot’s
 reference value on the same interval. Partial intervals carry across ticks. This is a manual
 NPC market adapter, not the eventual central limit order book. Berth capacity
 and queues, warehouses, and standing exchange orders remain deferred. Earned
-invitations grant one per two active-world days of active, solvent operation,
-as detailed in [implementation scope and tuning](IMPLEMENTATION.md).
+invitations use floor(log₂(number of operating companies)) active-world days
+of active, solvent operation, as detailed in
+[implementation scope and tuning](IMPLEMENTATION.md).
 Next-port cargo instructions and optional
 automatic departure are available. Operating shortfalls accumulate as unpaid
 bills and participate in the implemented loan settlement and bankruptcy rules.

@@ -4257,11 +4257,6 @@ msgstr ""
 msgid "About these estimates"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:163
-#, elixir-autogen, elixir-format
-msgid "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
-msgstr ""
-
 #: lib/tijara_tides/localization/notifications.ex:135
 #, elixir-autogen, elixir-format
 msgid "You earned a new invitation. Open the account menu to send it."
@@ -4277,7 +4272,7 @@ msgstr ""
 msgid "Other ports"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:602
+#: lib/tijara_tides_web/components/game/account_panel.ex:608
 #, elixir-autogen, elixir-format
 msgid "An unused invitation returns in %{time} of active-world time (hours:minutes:seconds), unless accepted first."
 msgstr ""
@@ -4874,14 +4869,9 @@ msgstr ""
 msgid "Keep the ship in port until fuel, canal fees and the full purchase budget are available. This preserves the planned buying capacity, but delays deliveries. The ship retries automatically; you are notified when it is blocked and when it departs."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:579
+#: lib/tijara_tides_web/components/game/account_panel.ex:585
 #, elixir-autogen, elixir-format
 msgid "Active-world time remaining (hours:minutes:seconds)"
-msgstr ""
-
-#: lib/tijara_tides_web/components/game/presentation.ex:248
-#, elixir-autogen, elixir-format
-msgid "Clear unpaid bills and loan arrears to resume earning. Progress restarts from two days."
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/presentation.ex:259
@@ -4894,7 +4884,7 @@ msgstr ""
 msgid "Counts down while your company stays active and solvent."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:586
+#: lib/tijara_tides_web/components/game/account_panel.ex:592
 #, elixir-autogen, elixir-format
 msgid "Earning"
 msgstr ""
@@ -4904,22 +4894,22 @@ msgstr ""
 msgid "Form a company and complete an economic action worth at least $100 to start earning."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:595
+#: lib/tijara_tides_web/components/game/account_panel.ex:601
 #, elixir-autogen, elixir-format
 msgid "Hours:minutes:seconds of active-world time. Pauses while the world is stopped."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:573
+#: lib/tijara_tides_web/components/game/account_panel.ex:579
 #, elixir-autogen, elixir-format
 msgid "Next invitation"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:588
+#: lib/tijara_tides_web/components/game/account_panel.ex:594
 #, elixir-autogen, elixir-format
 msgid "Not earning yet"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/account_panel.ex:590
+#: lib/tijara_tides_web/components/game/account_panel.ex:596
 #, elixir-autogen, elixir-format
 msgid "Paused"
 msgstr ""
@@ -5274,4 +5264,19 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/account_panel.ex:46
 #, elixir-autogen, elixir-format
 msgid "Operator accounts are exempt from dormant company closure."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/presentation.ex:248
+#, elixir-autogen, elixir-format
+msgid "Clear unpaid bills and loan arrears to resume earning. Progress restarts from the current earning period."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/account_panel.ex:573
+#, elixir-autogen, elixir-format
+msgid "Current earning period in active-world days: %{days}. This scales with the number of operating companies."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/account_panel.ex:163
+#, elixir-autogen, elixir-format
+msgid "Earn one invitation per earning period of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
 msgstr ""

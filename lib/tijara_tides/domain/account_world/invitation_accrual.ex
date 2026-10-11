@@ -5,6 +5,7 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
 
   @doc "Read the next earning opportunity and unused-invitation expiry without awarding quota."
   def forecast(state, account) do
+    period_ms = period_ms(state)
     company = State.get(state, "companies", account["company_id"])
     row = State.get(state, "invitation_progress", account["id"])
     issued = issued(state, account["id"])
@@ -32,7 +33,8 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
           "capacity"
 
         row == nil or row["company_id"] != account["company_id"] or
-            row["active_until_ms"] < state.clock_ms ->
+          row["active_until_ms"] < state.clock_ms or
+            (period_ms == 0 and not InvitationProgress.within_activity?(row, state.clock_ms)) ->
           "inactive"
 
         true ->
@@ -42,18 +44,28 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
     remaining_ms =
       if status == "earning" do
         elapsed = max(0, min(state.clock_ms, row["active_until_ms"]) - row["checked_ms"])
-        max(0, InvitationProgress.period_ms() - row["progress_ms"] - elapsed)
+        max(0, period_ms - row["progress_ms"] - elapsed)
       else
-        InvitationProgress.period_ms()
+        period_ms
       end
 
     %{
+      "period_ms" => period_ms,
       "status" => status,
       "unlimited" => account["operator"],
       "can_issue" => Account.invitation_available?(Rows.decode(account), length(issued)),
       "remaining_ms" => if(account["operator"], do: nil, else: remaining_ms),
       "refund_ms" => if(account["operator"], do: nil, else: refund_ms)
     }
+  end
+
+  defp period_ms(state) do
+    active_companies =
+      Enum.count(State.entities(state, "companies"), fn {_, company} ->
+        company["bankruptcy_ms"] == nil
+      end)
+
+    InvitationProgress.period_ms(active_companies)
   end
 
   defp issued(state, id),
@@ -89,10 +101,14 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
         |> Enum.uniq()
       end
 
-    Enum.reduce(ids, changed, fn id, state -> advance_account(before, state, id, active) end)
+    period_ms = period_ms(changed)
+
+    Enum.reduce(ids, changed, fn id, state ->
+      advance_account(before, state, id, active, period_ms)
+    end)
   end
 
-  defp advance_account(before, state, id, active) do
+  defp advance_account(before, state, id, active, period_ms) do
     account = State.get(state, "accounts", id)
     company = account["company_id"]
     row = State.get(state, "invitation_progress", id)
@@ -114,7 +130,15 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
         capacity = max(0, InvitationProgress.limit() - account["invite_quota"] - outstanding)
 
         {row, earned} =
-          InvitationProgress.advance(row, company, state.clock_ms, eligible?, active?, capacity)
+          InvitationProgress.advance(
+            row,
+            company,
+            state.clock_ms,
+            eligible?,
+            active?,
+            capacity,
+            period_ms
+          )
 
         state = State.put(state, "invitation_progress", id, row)
 

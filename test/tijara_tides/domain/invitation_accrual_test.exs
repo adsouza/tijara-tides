@@ -5,7 +5,7 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
   alias TijaraTides.Domain.AccountWorld.InvitationAccrual
   @day 86_400_000
 
-  defp world(quota \\ 0) do
+  defp world(quota \\ 0, population \\ 4) do
     account = %{Account.new("a", "sponsor", false, 0) | company_id: "c", invite_quota: quota}
 
     %{clock_ms: 0, entities: %{}}
@@ -17,7 +17,24 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
       "arrears_since" => nil,
       "bankruptcy_ms" => nil
     })
+    |> population(population)
     |> EntityIndex.rebuild()
+  end
+
+  defp population(state, count) do
+    state =
+      Enum.reduce(1..15, state, fn n, acc -> State.delete(acc, "companies", "other-#{n}") end)
+
+    if count > 1 do
+      Enum.reduce(1..(count - 1), state, fn n, acc ->
+        State.put(acc, "companies", "other-#{n}", %{
+          "id" => "other-#{n}",
+          "bankruptcy_ms" => nil
+        })
+      end)
+    else
+      state
+    end
   end
 
   defp action(state, kind \\ "sale", amount \\ 10_000) do
@@ -39,11 +56,148 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
   defp forecast(state),
     do: InvitationAccrual.forecast(state, State.get(state, "accounts", "a"))
 
+  test "population periods use exact floored base-two logarithms" do
+    for {count, days} <- [
+          {0, 0},
+          {1, 0},
+          {2, 1},
+          {3, 1},
+          {4, 2},
+          {7, 2},
+          {8, 3},
+          {15, 3},
+          {16, 4},
+          {1023, 9},
+          {1024, 10},
+          {Integer.pow(2, 60) - 1, 59},
+          {Integer.pow(2, 60), 60}
+        ] do
+      assert InvitationProgress.period_ms(count) == days * @day
+    end
+  end
+
+  test "only open companies count, including operators and financially troubled companies" do
+    state = world(0, 7)
+    assert forecast(state)["period_ms"] == 2 * @day
+    state = State.put(state, "companies", "closed", %{"bankruptcy_ms" => 0})
+    assert forecast(state)["period_ms"] == 2 * @day
+
+    state =
+      State.put(state, "companies", "operator-company", %{"bankruptcy_ms" => nil, "unpaid" => 100})
+
+    assert forecast(state)["period_ms"] == 3 * @day
+    state = State.put(state, "companies", "operator-company", %{"bankruptcy_ms" => @day})
+    assert forecast(state)["period_ms"] == 2 * @day
+  end
+
+  test "one company's qualifying action immediately fills remaining capacity without repeated notices" do
+    state = world(0, 1)
+    assert forecast(state)["status"] == "inactive"
+    assert forecast(state)["period_ms"] == 0
+    assert quota(tick(state, @day)) == 0
+    assert quota(action(state, "sale", 9999)) == 0
+    state = action(state)
+    assert quota(state) == 3
+    assert progress(state) == 0
+    assert length(State.owned(state, "notices", "account_id", "a")) == 1
+    assert tick(state, state.clock_ms) == state
+    assert quota(action(state)) == 3
+
+    # Issuing keeps the outstanding invitation in capacity; redemption frees it.
+    {:ok, issued, _} =
+      AccountWorld.issue_invite(state, State.get(state, "accounts", "a"), %{invite_hash: "zero"})
+
+    assert quota(action(issued)) == 2
+    assert forecast(issued)["status"] == "capacity"
+
+    {:ok, redeemed, _} =
+      AccountWorld.redeem(issued, "zero", "zero-device", %{id: "zero-invitee", wall_ms: 0})
+
+    assert quota(tick(redeemed, 1)) == 2
+    assert quota(action(%{redeemed | clock_ms: 1})) == 3
+
+    troubled =
+      State.put(
+        world(0, 1),
+        "companies",
+        "c",
+        Map.put(State.get(world(0, 1), "companies", "c"), "unpaid", 1)
+      )
+
+    assert quota(action(troubled)) == 0
+
+    suspended =
+      State.put(
+        world(0, 1),
+        "accounts",
+        "a",
+        Map.put(State.get(world(0, 1), "accounts", "a"), "suspended_ms", 0)
+      )
+
+    assert quota(action(suspended)) == 0
+    assert forecast(suspended)["status"] == "suspended"
+
+    issued =
+      State.put(
+        issued,
+        "invitations",
+        "zero",
+        Map.put(State.get(issued, "invitations", "zero"), "status", "redeemed")
+      )
+
+    assert forecast(issued)["status"] == "inactive"
+    assert quota(tick(issued, 0)) == 2
+
+    # A reset checkpoint alone cannot stand in for a qualifying zero-day action.
+    row = InvitationProgress.new("a", "old", 0)
+    {reset, earned} = InvitationProgress.advance(row, "c", 0, true, false, 3, 0)
+    assert earned == 0
+    assert {^reset, 0} = InvitationProgress.advance(reset, "c", 0, true, false, 3, 0)
+
+    # A qualifying action that restores solvency does not credit an insolvent
+    # interval, even when the current population makes the period zero.
+    assert {_, 0} = InvitationProgress.advance(reset, "c", 0, false, true, 3, 0)
+    assert {_, 0} = InvitationProgress.advance(reset, "c", 0, true, true, 0, 0)
+  end
+
+  test "population growth and decline preserve elapsed credit and forecast the enforced threshold" do
+    state = world(0, 7) |> action() |> tick(@day) |> action()
+    grown = population(state, 8)
+    assert forecast(grown)["remaining_ms"] == 2 * @day
+    assert forecast(grown)["period_ms"] == 3 * @day
+    early = tick(grown, 3 * @day - 1)
+    assert quota(early) == 0
+    assert progress(early) == 3 * @day - 1
+    assert quota(tick(early, 3 * @day)) == 1
+
+    declined = population(state, 3)
+    renewed = action(declined)
+    assert State.get(renewed, "invitation_progress", "a")["active_until_ms"] == 3 * @day
+    assert forecast(declined)["remaining_ms"] == 0
+    awarded = tick(declined, @day)
+    assert quota(awarded) == 1
+    assert progress(awarded) == 0
+    assert quota(tick(awarded, @day)) == 1
+    assert quota(tick(population(state, 1), @day)) == 3
+  end
+
+  test "qualifying activity uses the current earning duration" do
+    for {population, days} <- [{2, 1}, {3, 1}, {8, 3}, {15, 3}] do
+      state = world(0, population) |> action()
+      assert State.get(state, "invitation_progress", "a")["active_until_ms"] == days * @day
+      early = tick(state, days * @day - 1)
+      assert forecast(early)["remaining_ms"] == 1
+      assert quota(early) == 0
+      assert quota(tick(early, days * @day)) == 1
+    end
+  end
+
   test "forecasts use saved world-clock progress without granting invitations" do
     assert forecast(world())["status"] == "inactive"
     state = world() |> action() |> tick(@day)
 
     assert forecast(state) == %{
+             "period_ms" => 2 * @day,
              "status" => "earning",
              "remaining_ms" => @day,
              "refund_ms" => nil,
@@ -121,6 +275,7 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
     state = State.put(state, "invitations", "other", Map.put(first, "inviter", "other"))
 
     assert forecast(state) == %{
+             "period_ms" => 2 * @day,
              "status" => "capacity",
              "unlimited" => false,
              "can_issue" => false,
@@ -147,6 +302,7 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
     assert :ok == ChangeSet.assert_complete!(state, operator)
 
     assert forecast(operator) == %{
+             "period_ms" => 2 * @day,
              "status" => "operator",
              "unlimited" => true,
              "can_issue" => true,
@@ -196,7 +352,7 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
     assert tick(awarded, 2 * @day).entities["notices"] == awarded.entities["notices"]
     assert quota(tick(awarded, 2 * @day)) == 1
     assert tick(state, 2 * @day).entities == awarded.entities
-    assert InvitationProgress.period_ms() == 2 * @day
+    assert InvitationProgress.period_ms(4) == 2 * @day
   end
 
   test "world-clock pauses, sign-ins and insignificant actions do not earn invitations" do

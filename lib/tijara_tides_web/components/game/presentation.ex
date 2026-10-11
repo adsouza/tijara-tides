@@ -246,7 +246,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
   def invitation_expectation(%{"status" => "financial_trouble"}),
     do:
       gettext(
-        "Clear unpaid bills and loan arrears to resume earning. Progress restarts from two days."
+        "Clear unpaid bills and loan arrears to resume earning. Progress restarts from the current earning period."
       )
 
   def invitation_expectation(%{"status" => "capacity"}),

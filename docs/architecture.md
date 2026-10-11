@@ -630,16 +630,25 @@ single company, and all of them still commit in one atomic world transaction.
 
 Company attachment validates ownership and exclusive active membership.
 Invitation accrual stores one `game_invitation_progress` checkpoint per earning
-account. `Account.InvitationProgress` applies the two-active-world-day policy;
-`AccountWorld.InvitationAccrual` supplies economic activity, financial health and
-remaining capacity facts. Commands observe only affected owners; world ticks
-observe all accounts after settlement and invitation expiry. Quota and progress
-commit with the same fenced world transaction. A qualifying economic action
-starts or extends activity for two active-world days. Partial progress resets
-after inactivity, financial trouble or company replacement; available plus
-outstanding invitations are capped at three. New checkpoints begin with the
-first qualifying action, without translating wall-clock activity history or
-backdating awards. The invitation-progress migration adds this bounded state.
+account. `Account.InvitationProgress` computes an exact integer base-two
+logarithm of the operating-company count for the earning duration;
+`AccountWorld.InvitationAccrual` counts companies without a closure timestamp
+once per observation and supplies economic activity, financial health, current
+duration and remaining capacity facts. Forecasts call the same duration rule.
+Commands observe only affected owners; world ticks observe all accounts after
+settlement and invitation expiry. Quota and progress commit with the same
+fenced world transaction. A qualifying economic action starts or extends
+activity for the current earning period. Population changes preserve progress
+and existing activity deadlines; subsequent observations use the new threshold.
+Zero-day earning fills remaining capacity only with qualifying activity or an
+existing valid activity window, never merely company formation. Partial
+progress resets after inactivity, financial trouble or company replacement;
+available plus outstanding invitations are capped at three. New checkpoints
+begin with the first qualifying action, without translating wall-clock activity
+history or backdating awards. The invitation-progress migration adds this
+bounded state. The dynamic-period migration removes the fixed two-day SQL
+progress cap while retaining the nonnegative constraint; the domain bounds
+observed progress against the current period.
 
 Invitation commands reload current account state so stale snapshots cannot
 restore spent quota. Expiry restores unused quota only once. Verified email

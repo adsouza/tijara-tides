@@ -859,6 +859,40 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     {:ok, %{"session" => player}} = GameServer.redeem(invitation["code"], c.server)
 
+    # Eight operating companies enforce a three-day earning period. Build the
+    # population through the same durable commands that real players use.
+    assert {:ok, _} =
+             GameServer.command(
+               sponsor,
+               "sponsor-company",
+               %{"action" => "company", "name" => "Earning sponsor"},
+               c.server
+             )
+
+    sponsor_id = GameServer.snapshot(sponsor, c.server).private["account"]["id"]
+
+    assert {:ok, _} =
+             GameServer.promote_operator(
+               {:account, sponsor_id},
+               "earning-population-operator",
+               c.server
+             )
+
+    for n <- 1..6 do
+      {:ok, invite} =
+        GameServer.command(sponsor, "population-invite-#{n}", %{"action" => "invite"}, c.server)
+
+      {:ok, %{"session" => token}} = GameServer.redeem(invite["code"], c.server)
+
+      assert {:ok, _} =
+               GameServer.command(
+                 token,
+                 "population-company-#{n}",
+                 %{"action" => "company", "name" => "Earning population #{n}"},
+                 c.server
+               )
+    end
+
     assert {:ok, _} =
              GameServer.command(
                player,
@@ -871,7 +905,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              GameServer.command(
                player,
                "borrow",
-               %{"action" => "borrow", "amount" => 100_000},
+               %{"action" => "borrow", "amount" => 1_000_000},
                c.server
              )
 
@@ -894,11 +928,15 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert {:ok, lease_reply} = GameServer.command(player, "lease", lease, c.server)
     GameServer.connect(player, c.server)
-    advance(c.server, day)
+    advance(c.server, 2 * day)
     before = :sys.get_state(c.server).game
     progress = State.get(before, "invitation_progress", account["id"])
-    assert progress["progress_ms"] >= day
-    assert progress["progress_ms"] < 2 * day
+
+    assert GameServer.snapshot(player, c.server).private["invitation_forecast"]["period_ms"] ==
+             3 * day
+
+    assert progress["progress_ms"] >= 2 * day
+    assert progress["progress_ms"] < 3 * day
     assert State.get(before, "accounts", account["id"])["invite_quota"] == 0
     assert {:ok, restored} = GameStore.reload(Repo, c.world_id, before)
     assert restored.entities["invitation_progress"] == before.entities["invitation_progress"]
@@ -919,7 +957,10 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     # A former owner may plan an award but cannot persist quota or its checkpoint.
     candidate =
-      TijaraTides.Domain.Services.FinancialSettlement.settle(%{before | clock_ms: 2 * day})
+      TijaraTides.Domain.Services.FinancialSettlement.settle(%{
+        before
+        | clock_ms: progress["active_until_ms"]
+      })
 
     candidate =
       TijaraTides.Domain.AccountWorld.InvitationAccrual.observe(
@@ -958,7 +999,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(view, "#invitations")
     assert resumed.entities["accounts"][account["id"]]["email"] == nil
     GameServer.connect(player, replacement)
-    advance(replacement, 2 * day - resumed.clock_ms + 1)
+    advance(replacement, progress["active_until_ms"] - resumed.clock_ms + 1)
     assert GameServer.snapshot(player, replacement).private["account"]["invite_quota"] == 1
     notices = GameServer.snapshot(player, replacement).private["notices"]
     assert [grant] = Enum.filter(notices, &(&1["code"] == "invitation.earned"))
@@ -966,7 +1007,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     render(view)
     assert render_async(view) =~ "You earned a new invitation. Open the account menu to send it."
     assert has_element?(view, "#invitation-expectation", "Available invitations: 1")
-    assert has_element?(view, "#invitation-countdown", "48:00:00")
+    assert has_element?(view, "#invitation-countdown", "72:00:00")
     refute has_element?(view, "#invitations")
 
     assert_push_event(view, "system-notification", %{

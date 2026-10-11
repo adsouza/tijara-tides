@@ -4,9 +4,14 @@ defmodule TijaraTidesWeb.AccountPanelTest do
   alias TijaraTides.Localization
   alias TijaraTidesWeb.GameUI.AccountPanel
 
-  defp render_forecast(status, remaining \\ 172_800_000, refund \\ nil) do
+  defp render_forecast(status, remaining \\ 172_800_000, refund \\ nil, period \\ 172_800_000) do
     render_component(&AccountPanel.expectation/1,
-      forecast: %{"status" => status, "remaining_ms" => remaining, "refund_ms" => refund}
+      forecast: %{
+        "status" => status,
+        "remaining_ms" => remaining,
+        "refund_ms" => refund,
+        "period_ms" => period
+      }
     )
   end
 
@@ -16,6 +21,12 @@ defmodule TijaraTidesWeb.AccountPanelTest do
     |> LazyHTML.query("#invitation-countdown")
     |> LazyHTML.text()
     |> String.trim()
+  end
+
+  test "an unavailable forecast renders without a countdown" do
+    html = render_component(&AccountPanel.expectation/1, forecast: nil)
+    refute html =~ "invitation-countdown"
+    assert html =~ "Not earning" or html =~ "Complete an economic action"
   end
 
   test "operators see unlimited invitations without an earning or refund countdown" do
@@ -51,7 +62,7 @@ defmodule TijaraTidesWeb.AccountPanelTest do
     refute html =~ "An unused invitation returns"
   end
 
-  test "blocked earning labels the full two-day requirement and gives the action required" do
+  test "blocked earning labels the full current requirement and gives the action required" do
     for {status, label, guidance} <- [
           {"inactive", "Not earning yet", "Complete an economic action worth at least $100"},
           {"no_company", "Not earning yet", "Form a company"},
@@ -64,6 +75,28 @@ defmodule TijaraTidesWeb.AccountPanelTest do
       assert html =~ label
       assert html =~ guidance
     end
+  end
+
+  test "population-scaled periods render before earning and localize in Arabic" do
+    for {period, days, countdown} <- [
+          {0, "0", "00:00:00"},
+          {86_400_000, "1", "24:00:00"},
+          {259_200_000, "3", "72:00:00"}
+        ] do
+      html = render_forecast("inactive", period, nil, period)
+      assert html =~ "Current earning period in active-world days: #{days}"
+      assert html =~ "number of operating companies"
+      assert countdown(html) == countdown
+      refute html =~ "two days"
+    end
+
+    Localization.with_locale("ar", fn ->
+      html = render_forecast("financial_trouble", 259_200_000, nil, 259_200_000)
+      assert countdown(html) == "٧٢:٠٠:٠٠"
+      assert html =~ "٣"
+      refute html =~ "Current earning period"
+      refute html =~ "Progress restarts"
+    end)
   end
 
   test "unused expiry has its own conditional countdown, including when earning is blocked" do

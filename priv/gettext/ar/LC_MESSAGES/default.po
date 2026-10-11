@@ -2557,8 +2557,8 @@ msgstr "تعذّر إكمال هذا الأمر. لا تزال اللعبة تع
 
 #: lib/tijara_tides_web/components/game/account_panel.ex:121
 #, elixir-autogen, elixir-format
-msgid "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
-msgstr "اكسب دعوة واحدة مقابل كل يومين من النشاط التجاري مع الوفاء بالالتزامات المالية. يمكنك الاحتفاظ بثلاث دعوات كحد أقصى، بما فيها الدعوات التي تنتظر القبول."
+msgid "Earn one invitation per earning period of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
+msgstr "اكسب دعوة واحدة مقابل كل فترة اكتساب من النشاط التجاري مع الوفاء بالالتزامات المالية. يمكنك الاحتفاظ بثلاث دعوات كحد أقصى، بما فيها الدعوات التي تنتظر القبول."
 
 #, elixir-autogen, elixir-format
 msgid "You earned a new invitation. Open the account menu to send it."
@@ -2963,8 +2963,8 @@ msgid "Form a company and complete an economic action worth at least $100 to sta
 msgstr "أنشئ شركة وأكمل نشاطًا اقتصاديًا بقيمة ١٠٠ دولار على الأقل لبدء اكتساب الدعوات."
 
 #, elixir-autogen, elixir-format
-msgid "Clear unpaid bills and loan arrears to resume earning. Progress restarts from two days."
-msgstr "سدّد الفواتير غير المدفوعة ومتأخرات القروض لاستئناف اكتساب الدعوات. يبدأ العد مجددًا من يومين."
+msgid "Clear unpaid bills and loan arrears to resume earning. Progress restarts from the current earning period."
+msgstr "سدّد الفواتير غير المدفوعة ومتأخرات القروض لاستئناف اكتساب الدعوات. يبدأ العد مجددًا من فترة الاكتساب الحالية."
 
 #, elixir-autogen, elixir-format
 msgid "Complete an economic action worth at least $100 to start earning."
@@ -3165,3 +3165,7 @@ msgstr "دعوات غير محدودة"
 #, elixir-format
 msgid "Operator accounts are exempt from dormant company closure."
 msgstr "حسابات المشغّلين معفاة من إغلاق الشركة بسبب الخمول."
+
+#, elixir-autogen, elixir-format
+msgid "Current earning period in active-world days: %{days}. This scales with the number of operating companies."
+msgstr "فترة الاكتساب الحالية بأيام العالم النشطة: %{days}. تتغير هذه الفترة بحسب عدد الشركات العاملة."

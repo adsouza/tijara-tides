@@ -161,7 +161,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             </p>
             <p :if={!@view.private["account"]["operator"]} class="text-sm text-slate-400">
               {gettext(
-                "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
+                "Earn one invitation per earning period of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
               )}
             </p>
             <div
@@ -559,7 +559,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
       assign(
         assigns,
         :forecast,
-        assigns.forecast || %{"status" => "inactive", "refund_ms" => nil}
+        assigns.forecast || %{"status" => "inactive", "refund_ms" => nil, "period_ms" => 0}
       )
 
     ~H"""
@@ -568,6 +568,12 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
       <p :if={@forecast["unlimited"]}>{gettext("Unlimited invitations")}</p>
       <p :if={!@forecast["unlimited"]}>
         {gettext("Available invitations: %{value1}", value1: display_number(@available))}
+      </p>
+      <p :if={!@forecast["unlimited"]} class="text-sm text-slate-400">
+        {gettext(
+          "Current earning period in active-world days: %{days}. This scales with the number of operating companies.",
+          days: display_number(div(@forecast["period_ms"], 86_400_000))
+        )}
       </p>
       <div :if={@forecast["remaining_ms"] != nil} class="rounded border border-slate-600 p-3">
         <p class="text-sm">{gettext("Next invitation")}</p>
