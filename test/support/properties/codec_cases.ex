@@ -46,12 +46,13 @@ defmodule TijaraTides.Domain.CodecCases do
              "visit" => now,
              "configured" => if(optional?, do: amount),
              "policy" => "wait",
+             "protection" => if(optional?, do: "both", else: "none"),
              "required" => amount,
              "blocked_ms" => now,
              "accumulated" => div(amount, 2),
              "window_deadline_ms" => optional,
              "cooldown_ms" => nil
-           }, %{}}
+           }, %{"protection" => "none"}}
 
         :pool ->
           {LiquidationPool.Rows,

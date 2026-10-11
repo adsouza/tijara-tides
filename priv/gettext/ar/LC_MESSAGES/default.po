@@ -3279,3 +3279,33 @@ msgstr "يُحجز الوقود عند المغادرة وتُدفع رسوم ا
 
 msgid "None"
 msgstr "بدون حماية"
+
+msgid "Guards and insurance"
+msgstr "الحراس والتأمين"
+
+msgid "Save protection"
+msgstr "حفظ الحماية"
+
+msgid "Applies to the next automatic departure request. Waiting requests keep their choice and use current prices. Insurance is charged only on legs that cross pirate zones."
+msgstr "يُطبَّق على طلب المغادرة الآلية التالي. تحتفظ الطلبات المنتظرة باختيارها وتستخدم الأسعار الحالية. يُدفع التأمين فقط للمراحل التي تعبر مناطق القراصنة."
+
+msgid "Waiting departure protection: %{choice}"
+msgstr "حماية المغادرة المنتظرة: %{choice}"
+
+msgid "Waiting for available funds for fuel, canal fees and protection"
+msgstr "بانتظار الأموال المتاحة للوقود ورسوم القنوات والحماية"
+
+msgid "Waiting for fuel, protection and the configured purchase budget"
+msgstr "بانتظار تمويل الوقود والحماية وميزانية الشراء المحددة"
+
+msgid "Guards"
+msgstr "الحراس"
+
+msgid "Insurance"
+msgstr "التأمين"
+
+msgid "Includes route protection: %{cost}."
+msgstr "يشمل حماية المسار: %{cost}."
+
+msgid "Protection"
+msgstr "الحماية"

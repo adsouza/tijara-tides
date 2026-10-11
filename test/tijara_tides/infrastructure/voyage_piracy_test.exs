@@ -31,6 +31,131 @@ defmodule TijaraTides.Infrastructure.VoyagePiracyTest do
     :ok
   end
 
+  test "route protection and waiting choice survive SQL, replay and automatic departure" do
+    Sql.with_world(fn c ->
+      {conn, token} = TijaraTides.WebFormFixture.session(c)
+
+      {:ok, %{"company_id" => company}} =
+        TijaraTides.CompanyFixture.command(
+          token,
+          "auto-formation",
+          %{
+            "action" => "company",
+            "name" => "Auto protected",
+            "port" => "Tangier",
+            "package" => "general"
+          },
+          c.server
+        )
+
+      ship_id = company <> ":1"
+
+      route = fn operation, values ->
+        Map.merge(%{"action" => "route", "ship" => ship_id, "operation" => operation}, values)
+      end
+
+      Sql.command(c, token, "auto-first", route.("add_stop", %{"port" => "Tangier"}))
+      Sql.command(c, token, "auto-next", route.("add_stop", %{"port" => "Athens"}))
+      {:ok, view, _} = conn |> recycle() |> live("/play")
+      render_click(view, "ship", %{"id" => ship_id})
+      assert has_element?(view, "[id='route-protection-#{ship_id}'] option[value=none][selected]")
+
+      render_submit(element(view, "[id='route-protection-#{ship_id}']"), %{
+        "protection" => "both",
+        "request_id" => "auto-protection"
+      })
+
+      assert :sys.get_state(c.server).game.entities["ship_routes"][ship_id]["protection"] ==
+               "both"
+
+      Sql.command(c, token, "auto-start", route.("start", %{"auto_depart" => true}))
+      s = :sys.get_state(c.server).game
+      cat = :sys.get_state(c.server).catalogue
+      co = s.entities["companies"][company]
+
+      s =
+        TijaraTides.Domain.CompanyFinanceWorld.post(s, company, "test_funds", [
+          {"cash_available", -co["cash"] + co["reserved"]},
+          {"capital", co["cash"] - co["reserved"]}
+        ])
+
+      s =
+        s
+        |> TijaraTides.Domain.ShipWorld.prepare_visits(cat)
+        |> TijaraTides.Domain.Services.DepartureFunding.advance(cat)
+
+      waiting = s.entities["departure_requests"][ship_id]
+      assert waiting["protection"] == "both"
+      Sql.persist(c, s)
+      # The saved request retains both while the route's next request uses none.
+      payload = route.("set_protection", %{"protection" => "none"})
+      Sql.command(c, token, "auto-next-choice", payload)
+      s = :sys.get_state(c.server).game
+      assert s.entities["departure_requests"][ship_id]["protection"] == "both"
+      restored = Sql.assert_rows(c, s)
+      assert restored.entities["ship_routes"][ship_id]["protection"] == "none"
+      GenServer.stop(view.pid, :normal)
+      c = Sql.restart(c)
+      Application.put_env(:tijara_tides, :game_server, c.server)
+      before = :sys.get_state(c.server).game
+      Sql.command(c, token, "auto-next-choice", payload)
+      assert :sys.get_state(c.server).game.revision == before.revision
+      assert before.entities["departure_requests"][ship_id] == waiting
+      {:ok, view, _} = conn |> recycle() |> live("/play")
+      render_click(view, "ship", %{"id" => ship_id})
+      assert has_element?(view, "[id='route-protection-#{ship_id}'] option[value=none][selected]")
+
+      assert has_element?(
+               view,
+               "[id='route-request-protection-#{ship_id}']",
+               "Guards and insurance"
+             )
+
+      GenServer.stop(view.pid, :normal)
+      conn = conn |> recycle() |> post("/locale", %{"locale" => "ar", "return_to" => "/play"})
+      {:ok, view, _} = conn |> recycle() |> live("/play")
+      render_click(view, "ship", %{"id" => ship_id})
+      assert has_element?(view, "[id='route-protection-#{ship_id}']", "حفظ الحماية")
+      assert has_element?(view, "[id='route-request-protection-#{ship_id}']", "الحراس والتأمين")
+      s = :sys.get_state(c.server).game
+      n = waiting["required"] + 10_000
+
+      s =
+        TijaraTides.Domain.CompanyFinanceWorld.post(s, company, "test_funds", [
+          {"cash_available", n},
+          {"capital", -n}
+        ])
+
+      Sql.persist(c, s)
+      Sql.advance(c.server, 1)
+      next = :sys.get_state(c.server).game
+      ship = next.entities["ships"][ship_id]
+      assert ship["status"] == "sailing"
+      assert ship["piracy"]["protection"] == "both"
+      assert next.entities["departure_requests"][ship_id] == nil
+      assert next.entities["ship_routes"][ship_id]["protection"] == "none"
+
+      entries =
+        TijaraTides.Infrastructure.Persistence.Repo.query!(
+          "SELECT e.account_code,e.amount_cents FROM game_journal_entries e JOIN game_journal_transactions t ON t.id=e.transaction_id WHERE t.world_id=$1 AND t.kind='departure' AND t.sealed",
+          [c.world]
+        ).rows
+
+      assert Enum.any?(entries, fn [account, amount] ->
+               account == "piracy_guard_expense" && amount > 0
+             end)
+
+      assert Enum.any?(entries, fn [account, amount] ->
+               account == "piracy_premium_expense" && amount > 0
+             end)
+
+      Sql.assert_rows(c, next)
+      GenServer.stop(view.pid, :normal)
+      c = Sql.restart(c)
+      assert :sys.get_state(c.server).game.entities["ships"][ship_id]["piracy"] == ship["piracy"]
+    end)
+  end
+
   test "protection toggles quote and pay once, survive restart, and reimburse insured attacks" do
     model = GameCatalogue.all()["piracy"]
     # Force an insured incident without making the guard fee free.

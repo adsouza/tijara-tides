@@ -2219,6 +2219,15 @@ and their prices join fuel and canals in the funding check. Diversions retain
 purchased protection, charge only newly crossed zones and refund nothing for
 zones dropped from the route.
 
+Repeating route plans offer none, guards, insurance, or both, defaulting to none.
+The choice applies to the next automatic departure request; a waiting request
+keeps its choice while current campaign prices are requoted. Guard fees and
+premiums join fuel and canals before allocating purchase budgets. Insurance is
+charged only on legs that cross pirate zones. Changes to prices preserve a
+request's waiting age and deadline, and return accumulated cash above its new
+requirement. Purchase offers and voyage plans include configured route protection
+in their onward funding checks.
+
 Fuel is an automatically calculated voyage expense based on ship efficiency,
 distance, and cargo load. Show the estimate and reserve the necessary cash before
 dispatch; players do not manually manage bunkering.

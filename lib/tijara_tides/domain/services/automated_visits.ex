@@ -204,19 +204,22 @@ defmodule TijaraTides.Domain.Services.AutomatedVisits do
         ship = get(changed, "ships", trade.ship_id)
 
         quote =
-          Fleet.voyage_quote(
+          Fleet.automated_quote(
             %{ship | "status" => "docked"},
             trade.destination,
             catalogue,
             changed.clock_ms + max(0, ship["arrive_ms"] - changed.clock_ms),
-            changed.clock_ms
+            changed.clock_ms,
+            Fleet.route_protection(entities(changed, "ship_routes"), ship["id"])
           )
 
         company = get(changed, "companies", ship["company_id"])
 
-        if quote && company["cash"] - company["reserved"] >= quote["fuel"] + quote["canal_fees"],
-          do: {:ok, changed, reply},
-          else: {:error, :insufficient_cash}
+        if quote &&
+             company["cash"] - company["reserved"] >=
+               quote["fuel"] + quote["canal_fees"] + quote["protection_quote"]["cost"],
+           do: {:ok, changed, reply},
+           else: {:error, :insufficient_cash}
 
       {:error, :warehouse_berth_busy} ->
         {:error, :berth_busy}

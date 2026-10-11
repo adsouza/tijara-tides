@@ -17,7 +17,7 @@ defmodule TijaraTides.SettledCheck do
   def assert_settled!(before, state, catalogue, where) do
     introduced =
       (violations(state, catalogue) -- violations(before, catalogue)) ++
-        piracy_transition(before, state, where)
+        piracy_transition(before, state, where) ++ protection_requests(before, state)
 
     case introduced do
       [] ->
@@ -39,6 +39,13 @@ defmodule TijaraTides.SettledCheck do
         handling(state) ++
         operator_dormancy(state) ++ piracy_indices(state)
     )
+  end
+
+  defp protection_requests(before, state) do
+    for row <- rows(state, "departure_requests"),
+        old = get(before, "departure_requests", row["id"]),
+        old != nil && old["protection"] != row["protection"],
+        do: {:piracy, :request_protection_changed, row["id"]}
   end
 
   defp rows(state, kind), do: Map.values(ReadState.entities(state, kind))

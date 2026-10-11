@@ -144,8 +144,19 @@ defmodule TijaraTides.UseCases.GameQueries do
   defdelegate purchase_offer(view, ship, destination, good, catalogue, options \\ %{}),
     to: TijaraTides.UseCases.MarketQueries
 
-  defdelegate purchase_voyage(ship, item, quantity, destination, fleet, clock, catalogue),
-    to: TijaraTides.UseCases.MarketQueries
+  defdelegate route_protection(routes, ship_id), to: TijaraTides.Domain.Fleet
+
+  defdelegate purchase_voyage(
+                ship,
+                item,
+                quantity,
+                destination,
+                fleet,
+                clock,
+                catalogue,
+                protection \\ "none"
+              ),
+              to: TijaraTides.UseCases.MarketQueries
 
   defdelegate handling_time(quote, quantity, ship, item, side),
     to: TijaraTides.UseCases.MarketQueries

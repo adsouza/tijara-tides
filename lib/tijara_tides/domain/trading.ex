@@ -29,9 +29,26 @@ defmodule TijaraTides.Domain.Trading do
 
   defdelegate trade_admission(ship, side), to: TijaraTides.Domain.Ship
 
-  defdelegate purchase_voyage(ship, item, quantity, destination, fleet, clock, catalogue),
-    to: TijaraTides.Domain.Services.TradeSettlement
+  defdelegate purchase_voyage(
+                ship,
+                item,
+                quantity,
+                destination,
+                fleet,
+                clock,
+                catalogue,
+                protection \\ "none"
+              ),
+              to: TijaraTides.Domain.Services.TradeSettlement
 
-  defdelegate voyage_requirement(loaded, loading, destination, fleet, clock, catalogue),
-    to: TijaraTides.Domain.Services.TradeSettlement
+  defdelegate voyage_requirement(
+                loaded,
+                loading,
+                destination,
+                fleet,
+                clock,
+                catalogue,
+                protection \\ "none"
+              ),
+              to: TijaraTides.Domain.Services.TradeSettlement
 end

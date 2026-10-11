@@ -7,7 +7,7 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
   defp requirement(quote, spec, policy),
     do:
       Automation.requirement(
-        quote["fuel"] + quote["canal_fees"],
+        quote["fuel"] + quote["canal_fees"] + quote["protection_quote"]["cost"],
         if(spec.pre_reserved, do: nil, else: spec.configured),
         policy
       )
@@ -221,7 +221,17 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
       Enum.reduce(plans, state, fn plan, s ->
         ship = State.get(s, "ships", plan["ship_id"])
         spec = spec(s, ship, plan["onward"])
-        quote = Fleet.voyage_quote(ship, plan["onward"], catalogue, state.clock_ms)
+
+        quote =
+          Fleet.automated_quote(
+            ship,
+            plan["onward"],
+            catalogue,
+            state.clock_ms,
+            nil,
+            spec.protection
+          )
+
         company = State.get(s, "companies", ship["company_id"])
         account = State.get(s, "accounts", company["account_id"])
         policy = account["funding_policy"] || "wait"
@@ -324,24 +334,19 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
       plans_by_ship = Map.new(ready_plans(state), &{&1["ship_id"], &1})
 
       Enum.reduce(rows, state, fn row, s ->
-        if request_valid?(s, row, plans_by_ship[row["ship_id"]], catalogue),
-          do: s,
-          else: AutomationWorld.abandon_request(s, row)
+        case departure_terms(s, row, plans_by_ship[row["ship_id"]], catalogue) do
+          nil ->
+            AutomationWorld.abandon_request(s, row)
+
+          {current, quote} ->
+            AutomationWorld.reprice_request(
+              s,
+              row,
+              row["policy"],
+              requirement(quote, current, row["policy"])
+            )
+        end
       end)
-    end
-  end
-
-  defp request_valid?(s, row, plan, catalogue) do
-    company = State.get(s, "companies", row["company_id"])
-    account = State.get(s, "accounts", company["account_id"])
-
-    case departure_terms(s, row, plan, catalogue) do
-      nil ->
-        false
-
-      {current, quote} ->
-        row["policy"] == (account["funding_policy"] || "wait") &&
-          row["required"] == requirement(quote, current, row["policy"])
     end
   end
 
@@ -350,7 +355,18 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
     ship = State.get(s, "ships", row["ship_id"])
     company = State.get(s, "companies", row["company_id"])
     current = if ship && plan, do: spec(s, ship, plan["onward"])
-    quote = if ship && plan, do: Fleet.voyage_quote(ship, plan["onward"], catalogue, s.clock_ms)
+
+    quote =
+      if ship && plan,
+        do:
+          Fleet.automated_quote(
+            ship,
+            plan["onward"],
+            catalogue,
+            s.clock_ms,
+            nil,
+            row["protection"]
+          )
 
     if current && quote && company["bankruptcy_ms"] == nil &&
          row["destination"] == current.port && row["stop_id"] == current.stop_id &&
@@ -500,12 +516,25 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
     if available(state, row["company_id"]) + row["accumulated"] >= row["required"] &&
          State.get(state, "companies", row["company_id"])["unpaid"] == 0 do
       ship = State.get(state, "ships", row["ship_id"])
-      quote = Fleet.voyage_quote(ship, row["destination"], catalogue, state.clock_ms)
+
+      quote =
+        Fleet.automated_quote(
+          ship,
+          row["destination"],
+          catalogue,
+          state.clock_ms,
+          nil,
+          row["protection"]
+        )
+
       spec = spec(state, ship, row["destination"])
       # Conversion and Fleet's ordinary fuel reservation are one pure candidate,
       # returned only if departure succeeds. The old accumulation is not spent twice.
       candidate = AutomationWorld.release_accumulation(state, row)
-      free = available(candidate, row["company_id"]) - quote["fuel"] - quote["canal_fees"]
+
+      free =
+        available(candidate, row["company_id"]) - quote["fuel"] - quote["canal_fees"] -
+          quote["protection_quote"]["cost"]
 
       effective =
         if spec.pre_reserved || free >= (spec.configured || 0), do: "wait", else: row["policy"]
@@ -541,7 +570,9 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
              ship["id"],
              row["destination"],
              quote["fuel"],
-             catalogue
+             catalogue,
+             quote["protection_quote"]["protection"],
+             quote["protection_quote"]["cost"]
            ) do
         {:ok, changed, _} ->
           changed
@@ -571,13 +602,22 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
     plan = State.get(state, "visit_plans", ship["id"] <> "|" <> ship["port"])
 
     reason =
-      if State.get(state, "companies", row["company_id"])["unpaid"] > 0,
-        do: "Waiting for unpaid operating costs to clear",
-        else:
-          if(row["configured"] == nil,
-            do: "Waiting for available funds for fuel and canal fees",
-            else: "Waiting for fuel and the configured purchase budget"
-          )
+      cond do
+        State.get(state, "companies", row["company_id"])["unpaid"] > 0 ->
+          "Waiting for unpaid operating costs to clear"
+
+        row["protection"] != "none" && row["configured"] == nil ->
+          "Waiting for available funds for fuel, canal fees and protection"
+
+        row["protection"] != "none" ->
+          "Waiting for fuel, protection and the configured purchase budget"
+
+        row["configured"] == nil ->
+          "Waiting for available funds for fuel and canal fees"
+
+        true ->
+          "Waiting for fuel and the configured purchase budget"
+      end
 
     if plan, do: ShipWorld.wait_for_departure(state, plan["id"], reason), else: state
   end
@@ -593,6 +633,7 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
     pre_reserved = is_nil(stop) && State.get(state, "visit_budgets", id) != nil
 
     %{
+      protection: Fleet.route_protection(State.entities(state, "ship_routes"), ship["id"]),
       pre_reserved: pre_reserved,
       id: if(stop, do: stop["id"], else: ship["id"] <> "|" <> destination),
       ship_id: ship["id"],

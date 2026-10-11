@@ -273,6 +273,7 @@ soundtrack and its response to the player's selections.
 | 205 | When a company has no ships, show an open subsection at the top of Your fleet, without a disclosure triangle, labelled "Buy your 1st ship at". | 9 | display | Fleet and ship detail |
 | 206 | Show brief available class names in parentheses after each port name. | 9 | disclosure | Fleet and ship detail |
 | 216 | Protection is optional and defaults to none for manual dispatch. | 10 | input | Fleet and ship detail |
+| 217 | Repeating route plans offer none, guards, insurance, or both, defaulting to none. | 8 | input | Route planner |
 | 215 | Zone threat, campaigns and protection prices are public before dispatch. | 10 | disclosure | Fleet and ship detail |
 
 ## Defaults that keep the depth optional
@@ -285,7 +286,7 @@ each one is what keeps its mechanic off the path to a first purchase.
 
 | Mechanic | Default when the player configures nothing | § |
 |----------|--------------------------------------------|---|
-| Voyage protection | None. Armed guards and insurance are optional at manual dispatch; diversions retain the purchased cover. | 10 |
+| Voyage protection | None for manual dispatch and repeating routes. Waiting automatic requests retain their choice; diversions retain purchased cover. | 10 |
 | Arrival purchase funding | Available unreserved cash at berth, up to the stop's spending cap. An earmarked advance budget is optional. | 8 |
 | Owned stock collection | Ships claim available owned stock when berthed. Reserving specific stock in advance for one ship is optional. | 8 |
 | Insufficient funds at departure | Wait and notify. Sail with a reduced budget and Skip purchases are alternatives, set once globally. | 8 |

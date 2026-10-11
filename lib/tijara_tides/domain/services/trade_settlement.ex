@@ -4,7 +4,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
   @moduledoc "Atomic manual trades across company cash, ship cargo and market liquidity, with journal postings."
   import TijaraTides.Domain.State
-  import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2, voyage_quote: 5]
+  import TijaraTides.Domain.Fleet, only: [classes: 0, capacity: 2]
   import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2, handling_ms: 4, max_lots: 0]
   import TijaraTides.Domain.PortCargoMarketWorld, only: [quote: 4]
   import TijaraTides.Domain.PortCargoMarket, only: [handling_rate: 1]
@@ -245,7 +245,16 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
 
   # Estimate from the loaded ship, including this purchase. This is an affordability
   # check, not a cash reservation or an instruction to sail automatically.
-  def purchase_voyage(ship, item, quantity, destination, fleet, clock, catalogue) do
+  def purchase_voyage(
+        ship,
+        item,
+        quantity,
+        destination,
+        fleet,
+        clock,
+        catalogue,
+        protection \\ "none"
+      ) do
     loaded =
       Map.update!(ship, "cargo", &(&1 ++ [%{"good" => item["id"], "quantity" => quantity}]))
 
@@ -255,7 +264,7 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
         cleaning_cost(ship, item)
       )
 
-    voyage_requirement(loaded, loading, destination, fleet, clock, catalogue)
+    voyage_requirement(loaded, loading, destination, fleet, clock, catalogue, protection)
   end
 
   @doc """
@@ -263,9 +272,25 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
   crew and maintenance upkeep for the whole fleet until it arrives. `nil` when
   there is no allowed voyage. Purchases and voyage planners share it.
   """
-  def voyage_requirement(loaded, loading, destination, fleet, clock, catalogue) do
+  def voyage_requirement(
+        loaded,
+        loading,
+        destination,
+        fleet,
+        clock,
+        catalogue,
+        protection \\ "none"
+      ) do
     with true <- is_binary(destination) and destination != loaded["port"],
-         %{} = voyage <- voyage_quote(loaded, destination, catalogue, clock + loading, clock),
+         %{} = voyage <-
+           TijaraTides.Domain.Fleet.automated_quote(
+             loaded,
+             destination,
+             catalogue,
+             clock + loading,
+             clock,
+             protection
+           ),
          true <- voyage["duration_ms"] <= TijaraTides.Domain.Fleet.max_voyage_ms() do
       horizon = loading + voyage["duration_ms"]
 
@@ -292,7 +317,8 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
         "maintenance_estimate" =>
           TijaraTides.Domain.ShipMaintenance.estimate(loaded, clock + loading, clock + horizon),
         "upkeep" => upkeep,
-        "required" => voyage["fuel"] + voyage["canal_fees"] + upkeep
+        "required" =>
+          voyage["fuel"] + voyage["canal_fees"] + voyage["protection_quote"]["cost"] + upkeep
       })
     else
       _ -> nil
@@ -326,7 +352,17 @@ defmodule TijaraTides.Domain.Services.TradeSettlement do
       |> Map.values()
       |> Enum.filter(&(&1["company_id"] == company["id"]))
 
-    voyage = purchase_voyage(ship, item, quantity, destination, fleet, state.clock_ms, catalogue)
+    voyage =
+      purchase_voyage(
+        ship,
+        item,
+        quantity,
+        destination,
+        fleet,
+        state.clock_ms,
+        catalogue,
+        TijaraTides.Domain.Fleet.route_protection(entities(state, "ship_routes"), ship["id"])
+      )
 
     budget =
       if budget_id,

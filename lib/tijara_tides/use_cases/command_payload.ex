@@ -53,6 +53,7 @@ defmodule TijaraTides.UseCases.CommandPayload do
       ~w(stop side good quantity limit quantity_mode budget linked_warehouse_id min_remaining_ms),
     "update_rule" =>
       ~w(stop rule side good quantity limit quantity_mode budget linked_warehouse_id min_remaining_ms),
+    "set_protection" => ~w(protection),
     "set_wait" => ~w(stop max_wait_ms),
     "remove_rule" => ~w(rule),
     "remove_stop" => ~w(stop),

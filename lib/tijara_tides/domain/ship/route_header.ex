@@ -2,6 +2,7 @@ defmodule TijaraTides.Domain.Ship.RouteHeader do
   @moduledoc "Typed route header; persisted fields are decoded explicitly."
   @fields ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason)a
   @wait_defaults [
+    protection: "none",
     visit_arrived_ms: nil,
     wait_deadline_ms: nil,
     wait_timed_out: false,
@@ -30,7 +31,8 @@ defmodule TijaraTides.Domain.Ship.RouteHeader do
   end
 
   defp validate!(child) do
-    unless child.status in ["draft", "running", "paused"] and
+    unless child.protection in ~w(none guards insurance both) and
+             child.status in ["draft", "running", "paused"] and
              child.phase in ["arrival", "selling", "buying"] and is_integer(child.cursor) and
              child.cursor >= 0 and is_integer(child.visit) and child.visit >= 0 and
              is_boolean(child.auto_depart) and is_boolean(child.stop_after) and

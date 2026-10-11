@@ -53,6 +53,48 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
             )
         )}
       </p>
+      <.form
+        :if={@model.route}
+        for={%{}}
+        id={"route-protection-" <> @ship["id"]}
+        phx-submit="route"
+        class="my-3 flex flex-wrap items-end gap-2 text-sm"
+      >
+        <input type="hidden" name="operation" value="set_protection" />
+        <input type="hidden" name="request_id" value={@request_id} />
+        <label>
+          {gettext("Protection")}
+          <select name="protection" class="block rounded bg-slate-800 p-2">
+            <option value="none" selected={(@model.route["protection"] || "none") == "none"}>
+              {gettext("None")}
+            </option>
+            <option value="guards" selected={@model.route["protection"] == "guards"}>
+              {gettext("Guards")}
+            </option>
+            <option value="insurance" selected={@model.route["protection"] == "insurance"}>
+              {gettext("Insurance")}
+            </option>
+            <option value="both" selected={@model.route["protection"] == "both"}>
+              {gettext("Guards and insurance")}
+            </option>
+          </select>
+        </label>
+        <button class="rounded border px-3 py-2">{gettext("Save protection")}</button>
+        <p class="basis-full text-xs text-slate-400">
+          {gettext(
+            "Applies to the next automatic departure request. Waiting requests keep their choice and use current prices. Insurance is charged only on legs that cross pirate zones."
+          )}
+        </p>
+      </.form>
+      <p
+        :if={@model.funding_request}
+        class="my-2 text-xs text-amber-200"
+        id={"route-request-protection-" <> @ship["id"]}
+      >
+        {gettext("Waiting departure protection: %{choice}",
+          choice: protection_label(@model.funding_request["protection"] || "none")
+        )}
+      </p>
       <ol class="space-y-2">
         <li :for={stop <- @model.stops} class="rounded border border-slate-700 p-2 text-sm">
           <div class="flex items-center justify-between gap-2">
@@ -535,4 +577,9 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
     </details>
     """
   end
+
+  defp protection_label("guards"), do: gettext("Guards")
+  defp protection_label("insurance"), do: gettext("Insurance")
+  defp protection_label("both"), do: gettext("Guards and insurance")
+  defp protection_label(_), do: gettext("None")
 end

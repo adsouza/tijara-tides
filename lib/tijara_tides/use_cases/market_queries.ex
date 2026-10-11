@@ -175,7 +175,8 @@ defmodule TijaraTides.UseCases.MarketQueries do
                 destination,
                 view.private["ships"],
                 view.public["clock_ms"],
-                definitions.catalogue
+                definitions.catalogue,
+                Fleet.route_protection(view.private["ship_routes"], ship["id"])
               )
 
         profit =
@@ -303,7 +304,16 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
       largest_trade(0, capacity, fn quantity ->
         voyage =
-          purchase_voyage(ship, item, quantity, destination, private["ships"], clock, catalogue)
+          purchase_voyage(
+            ship,
+            item,
+            quantity,
+            destination,
+            private["ships"],
+            clock,
+            catalogue,
+            Fleet.route_protection(private["ship_routes"], ship["id"])
+          )
 
         total = Trading.purchase_total(q, ship, item, quantity)
 
@@ -325,17 +335,27 @@ defmodule TijaraTides.UseCases.MarketQueries do
       else: largest_trade(low, mid - 1, feasible)
   end
 
-  def purchase_voyage(ship, item, quantity, destination, fleet, clock, catalogue),
-    do:
-      Trading.purchase_voyage(
+  def purchase_voyage(
         ship,
         item,
         quantity,
         destination,
-        Map.values(fleet),
+        fleet,
         clock,
-        catalogue
-      )
+        catalogue,
+        protection \\ "none"
+      ),
+      do:
+        Trading.purchase_voyage(
+          ship,
+          item,
+          quantity,
+          destination,
+          Map.values(fleet),
+          clock,
+          catalogue,
+          protection
+        )
 
   @doc "Displayed handling time, including tank cleaning when a purchase would charge it."
   def handling_time(quote, quantity, ship, item, side),

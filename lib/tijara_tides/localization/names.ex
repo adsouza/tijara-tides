@@ -104,6 +104,12 @@ defmodule TijaraTides.Localization.Names do
   def translate("Waiting for cargo handling to finish"),
     do: gettext("Waiting for cargo handling to finish")
 
+  def translate("Waiting for available funds for fuel, canal fees and protection"),
+    do: gettext("Waiting for available funds for fuel, canal fees and protection")
+
+  def translate("Waiting for fuel, protection and the configured purchase budget"),
+    do: gettext("Waiting for fuel, protection and the configured purchase budget")
+
   def translate("Waiting for available funds for fuel and canal fees"),
     do: gettext("Waiting for available funds for fuel and canal fees")
 

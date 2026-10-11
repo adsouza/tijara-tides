@@ -348,7 +348,8 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
           @destination,
           @view.private["ships"],
           @view.public["clock_ms"],
-          @definitions.catalogue
+          @definitions.catalogue,
+          GameQueries.route_protection(@view.private["ship_routes"], @ship["id"])
         ) %>
       <p
         :if={voyage}
@@ -367,6 +368,11 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
           value6: money(voyage["canal_fees"]),
           value7: money(voyage["upkeep"])
         )}
+        <span :if={voyage["protection_quote"]["cost"] > 0}>
+          {gettext("Includes route protection: %{cost}.",
+            cost: money(voyage["protection_quote"]["cost"])
+          )}
+        </span>
       </p>
     <% end %>
     <p
@@ -618,7 +624,8 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
                       @destination,
                       @view.private["ships"],
                       @view.public["clock_ms"],
-                      @definitions.catalogue
+                      @definitions.catalogue,
+                      GameQueries.route_protection(@view.private["ship_routes"], @ship["id"])
                     ) %>
                   <% unaffordable =
                     is_nil(voyage) or

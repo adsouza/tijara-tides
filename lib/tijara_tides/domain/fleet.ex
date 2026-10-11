@@ -198,6 +198,26 @@ defmodule TijaraTides.Domain.Fleet do
     TijaraTides.Domain.Ship.capacity(%TijaraTides.Domain.Ship{cargo: cargo}, catalogue)
   end
 
+  @doc "Configured protection for the next automated request; existing requests retain their choice."
+  def route_protection(routes, ship_id),
+    do: get_in(routes || %{}, [ship_id, "protection"]) || "none"
+
+  @doc "Automatic funding pays insurance only on legs with pirate crossings."
+  def automated_quote(ship, destination, catalogue, clock, cutoff, protection) do
+    case voyage_quote(ship, destination, catalogue, clock, cutoff, protection) do
+      nil ->
+        nil
+
+      quote ->
+        choice =
+          if quote["protection_quote"]["insurance_available"],
+            do: protection,
+            else: if(protection in ~w(guards both), do: "guards", else: "none")
+
+        Map.put(quote, "protection_quote", quote["protection_options"][choice])
+    end
+  end
+
   def voyage_quote(
         ship,
         destination,

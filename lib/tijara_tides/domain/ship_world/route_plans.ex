@@ -268,6 +268,16 @@ defmodule TijaraTides.Domain.ShipWorld.RoutePlans do
     end
   end
 
+  defp edit(state, ship, %{"operation" => "set_protection", "protection" => protection}, _context) do
+    route = get(state, "ship_routes", ship["id"])
+
+    cond do
+      is_nil(route) -> {:error, :route_missing}
+      protection not in ~w(none guards insurance both) -> {:error, :departure_protection_invalid}
+      true -> {:ok, put(state, "ship_routes", ship["id"], %{route | protection: protection}), %{}}
+    end
+  end
+
   defp edit(state, ship, %{"operation" => "set_wait", "stop" => id} = p, _context) do
     stop = get(state, "route_stops", id)
     wait = p["max_wait_ms"]

@@ -14,6 +14,7 @@ defmodule TijaraTides.Domain.RouteChildrenTest do
          "visit" => 4,
          "phase" => "buying",
          "auto_depart" => true,
+         "protection" => "both",
          "stop_after" => false,
          "reason" => "Following route",
          "visit_arrived_ms" => 100,

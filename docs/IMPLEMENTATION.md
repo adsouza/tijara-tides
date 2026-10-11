@@ -1249,7 +1249,23 @@ all 40 hull/zone pairs and the conservative unannounced campaign exposure. Pure
 contract tests cover exact funding and one-cent shortfalls; SQL/LiveView tests
 cover toggles, journal postings, receipt replay, restart and insured recovery.
 The settled oracle checks protection postings and retained diversion coverage.
-Route-plan protection and automated funding remain phase 4.
+Phase 4 adds a saved route Protection setting, defaulting to none. Automatic
+requests snapshot the choice, so route edits affect the next request without
+replacing waiting work. Each allocation reprices fuel, canals and protection
+before testing affordability, retaining age and deadlines and releasing excess
+accumulation. Reduced and Skip policies fully fund protection before assigning
+purchase budgets. Safe legs skip insurance but retain the route preference.
+Trading, owned-stock collection, offered quantities and voyage plans use the
+same protected quotes as dispatch.
+
+Pure contracts exercise all choices, exact and one-cent-short funding, campaign
+repricing, reservation releases, route edits and purchase/collection offers. The
+settled oracle rejects changes to a live request's choice. SQL/LiveView coverage
+checks the route selector, Arabic labels, complete rows, receipt replay, restart,
+automatic departure and journal expenses. Migration
+`20261011000001_add_automation_protection.exs` adds bounded non-null protection
+columns to route headers and departure requests; existing rows default to none.
+No request is recreated or voyage changed by this migration.
 
 Migration `20261011000000_add_voyage_piracy.exs` adds nullable `game_ships.piracy`
 and the three piracy expense accounts. Production derives a private salt from

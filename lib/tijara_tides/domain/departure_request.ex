@@ -1,6 +1,6 @@
 defmodule TijaraTides.Domain.DepartureRequest do
   @moduledoc "Pure departure request lifecycle and economic rules."
-  @fields ~w(id ship_id company_id destination stop_id visit configured policy required blocked_ms accumulated window_deadline_ms cooldown_ms)a
+  @fields ~w(id ship_id company_id destination stop_id visit configured protection policy required blocked_ms accumulated window_deadline_ms cooldown_ms)a
   @enforce_keys @fields
   defstruct @fields
 
@@ -13,6 +13,7 @@ defmodule TijaraTides.Domain.DepartureRequest do
       stop_id: spec.stop_id,
       visit: spec.visit,
       configured: spec.configured,
+      protection: Map.get(spec, :protection, "none"),
       policy: policy,
       required: required,
       blocked_ms: now,

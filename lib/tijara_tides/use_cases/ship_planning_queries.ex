@@ -335,7 +335,8 @@ defmodule TijaraTides.UseCases.ShipPlanningQueries do
             port,
             fleet,
             clock,
-            catalogue
+            catalogue,
+            Fleet.route_protection(view.private["ship_routes"], ship["id"])
           )
 
         if voyage,
@@ -394,11 +395,21 @@ defmodule TijaraTides.UseCases.ShipPlanningQueries do
             cleaning
           )
 
-        voyage = Fleet.voyage_quote(loaded, onward, catalogue, clock + loading, clock)
+        voyage =
+          Fleet.automated_quote(
+            loaded,
+            onward,
+            catalogue,
+            clock + loading,
+            clock,
+            Fleet.route_protection(view.private["ship_routes"], ship["id"])
+          )
+
         total = n * handling + cleaning
 
         voyage && (is_nil(options.cap) || total <= options.cap) &&
-          cash - total >= voyage["fuel"] + voyage["canal_fees"]
+          cash - total >=
+            voyage["fuel"] + voyage["canal_fees"] + voyage["protection_quote"]["cost"]
       end)
     else
       0

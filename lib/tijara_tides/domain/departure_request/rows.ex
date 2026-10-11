@@ -2,8 +2,9 @@ defmodule TijaraTides.Domain.DepartureRequest.Rows do
   @moduledoc "Closed codec for the existing durable departure request row."
   alias TijaraTides.Domain.DepartureRequest
 
-  @fields ~w(id ship_id company_id destination stop_id visit configured policy required blocked_ms accumulated window_deadline_ms cooldown_ms)a
+  @fields ~w(id ship_id company_id destination stop_id visit configured protection policy required blocked_ms accumulated window_deadline_ms cooldown_ms)a
   def decode(row) do
+    row = Map.put_new(row, "protection", "none")
     keys = Enum.map(@fields, &Atom.to_string/1)
 
     unless Map.keys(row) -- keys == [],

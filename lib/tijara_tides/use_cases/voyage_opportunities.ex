@@ -99,6 +99,7 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
     cash = max(0, company["cash"] - company["reserved"])
 
     context = %{
+      protection: Fleet.route_protection(view.private["ship_routes"], ship["id"]),
       catalogue: catalogue,
       view: view,
       destination: destination,
@@ -225,7 +226,8 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
            ctx.destination,
            ctx.fleet,
            ctx.clock,
-           ctx.catalogue
+           ctx.catalogue,
+           ctx.protection
          ) do
       nil -> false
       voyage -> plan.spent + voyage["required"] <= ctx.cash
@@ -234,12 +236,13 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
 
   defp evaluate(plan, ctx) do
     voyage =
-      Fleet.voyage_quote(
+      Fleet.automated_quote(
         plan.ship,
         ctx.destination,
         ctx.catalogue,
         ctx.clock + plan.loading,
-        ctx.clock
+        ctx.clock,
+        ctx.protection
       )
 
     arrival = ctx.clock + plan.loading + voyage["duration_ms"]
@@ -275,7 +278,11 @@ defmodule TijaraTides.UseCases.VoyageOpportunities do
     horizon = plan.loading + voyage["duration_ms"] + unloading
     upkeep = upkeep(plan.ship, ctx.clock, horizon, voyage["sailing_ms"] || voyage["duration_ms"])
     maintenance = Fleet.maintenance_estimate(plan.ship, ctx.clock, ctx.clock + horizon)
-    costs = voyage["fuel"] + voyage["canal_fees"] + upkeep - maintenance
+
+    costs =
+      voyage["fuel"] + voyage["canal_fees"] + voyage["protection_quote"]["cost"] + upkeep -
+        maintenance
+
     # Reserve fleet upkeep through completion without attributing other ships' costs
     # to this voyage's profit. No destination sale proceeds finance departure.
     fleet_reserve =

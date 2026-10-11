@@ -399,20 +399,22 @@ sequence renders as two glyphs and for screen readers.
 
 ### Automation
 
-Route plans gain a Protection setting: none, guards, insurance, or both,
+Route plans have a Protection setting: none, guards, insurance, or both,
 defaulting to none. `DepartureFunding.requirement/3`,
-`Trading.voyage_requirement` and the collect-visit check in
+`Trading.voyage_requirement/7` and the collect-visit check in
 `Services.AutomatedVisits` add protection costs from the shared quote; trade and
 planning queries derive the requirement from those same functions. A departure
-request records the protection choice it was created for, and `Fleet.sail` gains
-a protection argument (all four call sites in `DepartureFunding`, plus
-`Commands`). A changed setting applies to the next request.
+request records the protection choice it was created for, and automatic
+`Fleet.sail` admission uses that choice and the freshly quoted price ceiling. A
+changed setting applies to the next request. Safe legs omit insurance charges
+while retaining the route preference for later exposed legs.
 
 The premium can change while a request waits, because a campaign announced in
-the meantime raises it. Each attempt therefore recomputes `required` from the
-current quote and updates the row, clamping `accumulated` to the new `required`
-and releasing any excess, as fuel is already requoted at attempt time. A request
-can never be stranded below a stale requirement.
+the meantime raises it. Each allocation therefore recomputes `required` from the
+current quote before accumulating or attempting departure and updates the row,
+clamping `accumulated` to the new `required` and releasing any excess. Repricing
+keeps waiting age, deadline and cooldown. A request can never be stranded below
+a stale requirement.
 
 ## Architecture
 

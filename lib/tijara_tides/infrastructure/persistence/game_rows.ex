@@ -17,7 +17,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ),
     "departure_requests" =>
       Enum.map(
-        ~w(id company_id ship_id destination stop_id visit configured policy required blocked_ms accumulated window_deadline_ms cooldown_ms),
+        ~w(id company_id ship_id destination stop_id visit configured protection policy required blocked_ms accumulated window_deadline_ms cooldown_ms),
         &{&1, &1}
       ),
     "warehouse_liquidations" =>
@@ -141,7 +141,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     ],
     "ship_routes" =>
       Enum.map(
-        ~w(id ship_id company_id status cursor visit phase auto_depart stop_after reason visit_arrived_ms wait_deadline_ms wait_timed_out visit_finished),
+        ~w(id ship_id company_id status cursor visit phase auto_depart protection stop_after reason visit_arrived_ms wait_deadline_ms wait_timed_out visit_finished),
         &{&1, &1}
       ),
     "route_stops" => [
@@ -338,7 +338,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       ~w(aging_bps award_grace space_volumes grace_ms surcharge_bps window_ms clearance_bps),
     "merchant_warehouses" => ~w(aging_bps),
     "accounts" => ~w(funding_policy locale operator),
-    "ship_routes" => ~w(visit_finished),
+    "ship_routes" => ~w(visit_finished protection),
     "notices" => ~w(arguments)
   }
   @strict ~w(weather piracy_campaigns markdown_presets remote_links visit_budgets departure_requests warehouse_liquidations company_dormancy)

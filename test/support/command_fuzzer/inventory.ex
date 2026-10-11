@@ -204,7 +204,7 @@ defmodule TijaraTides.CommandFuzzer.Inventory do
 
   def route_contracts do
     sequence = ~w(add_stop add_rule remove_rule start pause resume)
-    excluded = ~w(update_rule set_wait remove_stop stop_after delete)
+    excluded = ~w(update_rule set_wait set_protection remove_stop stop_after delete)
 
     Map.new(
       Enum.map(sequence, &{&1, :sequence}) ++

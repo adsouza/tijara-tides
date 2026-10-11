@@ -1293,6 +1293,15 @@ purchased choice and recovery parameters live in the voyage snapshot; diversions
 reuse them, and skip continued crossings. No quote returns attack fractions or
 private rolls.
 
+Route headers and departure requests encode protection explicitly. Route edits
+change only the next request's preference; `DepartureFunding` quotes an existing
+request with its saved choice, reprices it in place before allocation, and
+releases accumulation above the new requirement through `AutomationWorld`.
+Automatic dispatch, purchase admission, collection and planning use
+`Fleet.automated_quote/6`; safe legs omit insurance. Purchases account for route
+protection through `Trading.voyage_requirement/7`, and read models call the same
+rule. The test oracle detects a changed protection choice on a retained request.
+
 Route editor warehouse options are prepared per stop and cargo by
 `ShipPlanningQueries`, using `Warehouse.receiving_allowed?` with the committed
 world clock. Command-side link validation uses that same predicate; award-only,
