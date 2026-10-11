@@ -11,7 +11,7 @@ defmodule TijaraTides.OwnLog do
   use Boundary
   import ExUnit.CaptureLog
 
-  @doc "Runs `fun` and returns the formatted entries this process logged, in order."
+  @doc "Runs `fun` and returns this process's plain-text log entries, in order."
   def capture(fun) do
     marker = "own-log-#{System.unique_integer([:positive])}"
     previous = Logger.metadata()[:own_log]
@@ -19,7 +19,10 @@ defmodule TijaraTides.OwnLog do
 
     try do
       # A NUL separator survives multi-line messages such as stack traces.
-      capture_log([format: "\0$metadata$message\n", metadata: [:own_log]], fun)
+      capture_log(
+        [format: "\0$metadata$message\n", metadata: [:own_log], colors: [enabled: false]],
+        fun
+      )
       |> String.split("\0", trim: true)
       |> Enum.flat_map(fn entry ->
         case String.split(entry, "own_log=#{marker} ", parts: 2) do

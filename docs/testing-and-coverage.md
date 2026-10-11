@@ -323,6 +323,16 @@ rejection of invalid freshness terms.
 
 ## Server failure scenarios
 
+`TijaraTides.OwnLog` captures plain-text log entries from the calling process,
+including multi-line failures, while excluding concurrent processes. Its
+regression test forces the default formatter's colours on so terminal ANSI
+settings cannot change assertions or break the pre-push checks.
+
+The destination planner's piracy regression counts geometry calculations,
+requiring one per catalogue route for the entire public planning run and
+identical results to planning with server definitions. This guards the browser
+picker against recomputing crossings for every candidate purchase.
+
 Repeating-route maximum waits are covered by named cases in
 `test/tijara_tides/domain/ship_routes_test.exs`: limit ownership and bounds;
 the inclusive deadline versus newly fillable targets; partial loading and

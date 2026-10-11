@@ -1272,7 +1272,10 @@ when the path coordinates and zone polygons match. Changed runtime polygons,
 historical voyage polygons and uncatalogued diversion paths use the same pure
 geometry calculation. Tuning, private attack rolls and weather-dependent prices
 remain live calculations. The derived index is excluded from public catalogue
-data and durable voyage models.
+data and durable voyage models. The public destination planner prepares a
+temporary index once per run and shares it across candidate purchases and
+onward voyages, so its salt-free definitions do not force every candidate to
+recalculate geometry.
 
 `ShipWorld` owns the nullable voyage `piracy` snapshot: model, protection,
 pending crossings, current-path crossing identities, private rolls, resolved

@@ -1,7 +1,8 @@
 defmodule TijaraTides.Domain.PiracyCrossingsTest do
   use ExUnit.Case, async: false
-  alias TijaraTides.Domain.{Fleet, Piracy}
+  alias TijaraTides.Domain.{Fleet, Piracy, Visibility, Markets}
   alias TijaraTides.Infrastructure.GameCatalogue
+  alias TijaraTides.UseCases.GameQueries
 
   defp ship(port),
     do: %{
@@ -76,6 +77,30 @@ defmodule TijaraTides.Domain.PiracyCrossingsTest do
 
       refute Piracy.crossings(path, rules) == Piracy.crossings(route, model)
     end
+  end
+
+  test "public destination planning calculates geometry once per route, with identical plans" do
+    {state, catalogue} = TijaraTides.CommandFuzzer.fixture()
+    account = state.entities["accounts"]["account"]
+
+    view = %{
+      public: Visibility.public(state, catalogue),
+      private: Visibility.private(state, account),
+      markets: Markets.quotes(state, catalogue)
+    }
+
+    ship = view.private["ships"]["company:1"]
+    expected = GameQueries.destination_matrix(%{catalogue: catalogue}, view, ship)
+    public = Map.put(catalogue, "piracy", Piracy.public_model(catalogue["piracy"]))
+
+    assert calculations(fn ->
+             actual = GameQueries.destination_matrix(%{catalogue: public}, view, ship)
+             assert actual == expected
+             assert length(actual.rows) == 24
+           end) == map_size(catalogue["routes"])
+
+    refute Map.has_key?(public["piracy"], :crossings)
+    refute Map.has_key?(public["piracy"], "salt")
   end
 
   test "tuning changes reuse geometry without freezing prices or private rolls" do

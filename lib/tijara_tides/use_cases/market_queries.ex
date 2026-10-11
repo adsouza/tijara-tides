@@ -1,11 +1,19 @@
 defmodule TijaraTides.UseCases.MarketQueries do
   @moduledoc "Pure market comparisons, cargo projections and trade estimates."
-  alias TijaraTides.Domain.{Fleet, Trading, CargoRules, Ship}
+  alias TijaraTides.Domain.{Fleet, Trading, CargoRules, Ship, Piracy}
   import TijaraTides.Domain.CargoRules, only: [compatible_cargo?: 2]
 
   @doc "Read-only market spreads for choosing a destination; quantities are market availability, not executable orders."
   def destination_matrix(definitions, view, ship) do
     if ship && ship["status"] in ["docked", "loading", "unloading"] do
+      # Public definitions omit derived indexes. Prepare geometry once for all
+      # candidate purchases and onward voyages in this planning run.
+      catalogue = definitions.catalogue
+
+      catalogue =
+        Map.update(catalogue, "piracy", nil, &Piracy.prepare_crossings(&1, catalogue["routes"]))
+
+      definitions = %{definitions | catalogue: catalogue}
       aboard = Enum.group_by(ship["cargo"] || [], & &1["good"])
 
       goods =
