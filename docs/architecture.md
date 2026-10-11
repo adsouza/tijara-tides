@@ -1272,10 +1272,14 @@ when the path coordinates and zone polygons match. Changed runtime polygons,
 historical voyage polygons and uncatalogued diversion paths use the same pure
 geometry calculation. Tuning, private attack rolls and weather-dependent prices
 remain live calculations. The derived index is excluded from public catalogue
-data and durable voyage models. The public destination planner prepares a
-temporary index once per run and shares it across candidate purchases and
-onward voyages, so its salt-free definitions do not force every candidate to
-recalculate geometry.
+data and durable voyage models. The destination planner retains caller-owned
+piracy and weather geometry across ticks, keyed by exact paths and polygons.
+Current tuning and time remain separate from those partitions. Uncatalogued
+weather paths fall back to the pure geometry calculation; derived weather
+partitions are excluded from the forecast's durable model. LiveView runs the
+planner asynchronously, hides invalidated estimates and rejects obsolete
+completions by generation and exact planning inputs. Pending world updates
+coalesce without restarting the expensive initial geometry preparation.
 
 `ShipWorld` owns the nullable voyage `piracy` snapshot: model, protection,
 pending crossings, current-path crossing identities, private rolls, resolved

@@ -310,6 +310,12 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
     if ctx[:port], do: render_click(ctx.view, "port", %{"id" => ctx.port})
     for {event, values} <- ctx[:clicks] || [], do: render_click(ctx.view, event, values)
 
+    if Enum.any?(ctx[:clicks] || [], fn {event, _} -> event == "destination-picker-open" end) do
+      render_async(ctx.view, 10_000)
+      render_async(ctx.view, 10_000)
+      refute has_element?(ctx.view, "#destination-picker-loading")
+    end
+
     for control <- ControlSweep.controls(render(ctx.view), facts) do
       control = resolve(control, ctx)
       Map.put(control, :unit, unit(control, prefixes))

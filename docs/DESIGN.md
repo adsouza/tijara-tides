@@ -1135,6 +1135,12 @@ candidate destination and sold at another reachable port, excluding the current 
 Rank ports by the sum of the best ROI in each direction, then distance. Clicking a port
 selects it and dismisses the popup.
 
+The destination popup opens immediately and shows a loading state while trade
+estimates are calculated. World updates refresh those estimates without
+blocking dismissal or ship selection. Invalidated estimates stay hidden while
+recalculating, and completed work for an older selection cannot replace the
+current selection's estimates.
+
 
 A shared exchange interface exposes separate local markets at each port.
 Players have free worldwide access to current prices, order-book depth, recent

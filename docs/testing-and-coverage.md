@@ -366,24 +366,28 @@ forces an eight-minute piracy hold on the Guangzhou–Jakarta delivery route,
 disables storm suppression, and checks docking and ledger reconciliation. This
 case must fail when delivery uses the old two-minute allowance.
 
-The destination planner's piracy regression counts geometry calculations,
-requiring one per catalogue route for the entire public planning run and
-identical results to planning with server definitions. This guards the browser
-picker against recomputing crossings for every candidate purchase.
+The destination planner's geometry regressions count piracy and weather path
+calculations. Retained geometry must perform no new geometry work across ticks,
+cargo changes, funding changes or tuning changes. Changed polygons rebuild
+piracy partitions; changed paths rebuild both partitions. Prepared forecasts,
+protection quotes and complete matrices must exactly match uncached results,
+including expiry and tanker onward planning. Uncatalogued paths exercise the
+weather fallback, and derived indexes must stay out of durable forecast models.
 
 The voyage-affordability regression counts funding checks and full profit
 evaluations across a complete destination matrix. Quantity searches must make
 additional funding-only checks rather than evaluate profit at every trial. The
-isolated picker benchmark also compares complete matrices and English/Arabic
-popup HTML before and after a change; see its commands in
-[implementation scope](IMPLEMENTATION.md).
+isolated picker benchmark compares complete matrices and English/Arabic popup
+HTML before and after a change, and measures next-tick geometry reuse and the
+initial loading popup; see its commands in [implementation scope](IMPLEMENTATION.md).
 
 The plan-reuse regression counts purchase searches and tanker onward searches
-when different greedy strategies produce identical cargo plans. Cache tests
-count matrix calculations across close/reopen, supplied-matrix rendering and
-LiveView background refresh, compare invalidated results to uncached queries,
-and require logout to discard cached private data. They exercise each planning
-dependency and reuse across notices, locale and unrelated public revisions.
+when different greedy strategies produce identical cargo plans. Matrix cache
+tests exercise every planning dependency and reuse across notices, locale and
+unrelated public revisions. Async tests require opening and loading rendering
+to do no synchronous planning, exercise an actual connected task, and drive
+obsolete completion, coalescing, ship changes, close/reopen, logout, failure and
+retry. Invalidated or late results must never become visible estimates.
 
 Repeating-route maximum waits are covered by named cases in
 `test/tijara_tides/domain/ship_routes_test.exs`: limit ownership and bounds;

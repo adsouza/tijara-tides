@@ -40,6 +40,10 @@ defmodule TijaraTidesWeb.GameLive do
         destination_picker_open: false,
         destination_matrix_cache: nil,
         destination_matrix: nil,
+        destination_geometry_cache: nil,
+        destination_matrix_generation: 0,
+        destination_matrix_running: false,
+        destination_matrix_error: false,
         dropdown_active: false,
         report_open: false,
         report_data: nil,
@@ -178,6 +182,37 @@ defmodule TijaraTidesWeb.GameLive do
         if socket.assigns.refresh_pending && !socket.assigns.dropdown_active,
           do: background_refresh(socket),
           else: socket
+
+      {:noreply, socket}
+    end
+  end
+
+  def handle_async({:destination_matrix, generation}, result, socket) do
+    if generation != socket.assigns.destination_matrix_generation ||
+         !socket.assigns.destination_matrix_running do
+      {:noreply, socket}
+    else
+      socket = assign(socket, destination_matrix_running: false)
+
+      socket =
+        case result do
+          {:ok, {cache, geometry}} ->
+            socket = assign(socket, destination_geometry_cache: geometry)
+
+            if socket.assigns.destination_picker_open &&
+                 cache.key === destination_matrix_key(socket) do
+              assign(socket,
+                destination_matrix_cache: cache,
+                destination_matrix: cache.matrix,
+                destination_matrix_error: false
+              )
+            else
+              refresh_destination_matrix(socket)
+            end
+
+          {:exit, _reason} ->
+            assign(socket, destination_matrix: nil, destination_matrix_error: true)
+        end
 
       {:noreply, socket}
     end
@@ -931,7 +966,8 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   def handle_event("destination-picker-close", _, socket),
-    do: {:noreply, assign(socket, destination_picker_open: false)}
+    do:
+      {:noreply, socket |> assign(destination_picker_open: false) |> cancel_destination_matrix()}
 
   def handle_event("preview", %{"destination" => dest}, socket) do
     preview = Game.preview(socket.assigns.token, socket.assigns.selected_ship, dest)
@@ -1397,16 +1433,63 @@ defmodule TijaraTidesWeb.GameLive do
   end
 
   defp refresh_destination_matrix(socket) do
-    cache =
-      DestinationMatrixCache.refresh(
-        socket.assigns.destination_matrix_cache,
+    key = destination_matrix_key(socket)
+    cache = socket.assigns.destination_matrix_cache
+    cache = if key && cache && cache.key === key, do: cache
+
+    socket =
+      assign(socket, destination_matrix_cache: cache, destination_matrix: cache && cache.matrix)
+
+    cond do
+      !key || !socket.assigns.destination_picker_open ->
+        cancel_destination_matrix(socket)
+
+      cache ->
+        assign(socket, destination_matrix_error: false)
+
+      Map.get(socket.assigns, :destination_matrix_running, false) ->
+        # Let one calculation finish and retain its static geometry. Completion
+        # discards obsolete estimates and starts from the latest snapshot.
+        socket
+
+      true ->
+        definitions = socket.assigns.definitions
+        view = socket.assigns.view
+        ship = socket.assigns.ship
+        geometry = Map.get(socket.assigns, :destination_geometry_cache)
+        generation = Map.get(socket.assigns, :destination_matrix_generation, 0) + 1
+
+        socket
+        |> assign(
+          destination_matrix_generation: generation,
+          destination_matrix_running: true,
+          destination_matrix_error: false
+        )
+        |> start_async({:destination_matrix, generation}, fn ->
+          DestinationMatrixCache.calculate(definitions, view, ship, geometry)
+        end)
+    end
+  end
+
+  defp destination_matrix_key(socket),
+    do:
+      DestinationMatrixCache.key(
         socket.assigns.definitions,
         socket.assigns.view,
-        socket.assigns.ship,
-        socket.assigns.destination_picker_open
+        socket.assigns.ship
       )
 
-    assign(socket, destination_matrix_cache: cache, destination_matrix: cache && cache.matrix)
+  defp cancel_destination_matrix(socket) do
+    if Map.get(socket.assigns, :destination_matrix_running, false) do
+      socket
+      |> cancel_async({:destination_matrix, socket.assigns.destination_matrix_generation})
+      |> assign(
+        destination_matrix_running: false,
+        destination_matrix_generation: socket.assigns.destination_matrix_generation + 1
+      )
+    else
+      socket
+    end
   end
 
   defdelegate error_message(reason), to: TijaraTidesWeb.GameUI.Presentation
@@ -1693,6 +1776,7 @@ defmodule TijaraTidesWeb.GameLive do
                 first_ship_port_selected={@first_ship_port_selected}
                 destination_picker_open={@destination_picker_open}
                 destination_matrix={@destination_matrix}
+                destination_matrix_error={@destination_matrix_error}
                 definitions={@definitions}
                 destination={@destination}
                 fleet_status={@fleet_status}

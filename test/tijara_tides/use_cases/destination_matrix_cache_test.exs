@@ -115,45 +115,17 @@ defmodule TijaraTides.UseCases.DestinationMatrixCacheTest do
     assert refreshed.matrix === GameQueries.destination_matrix(float_definitions, c.view, c.ship)
   end
 
-  test "LiveView close and reopen and supplied-matrix rendering perform no new planning", c do
-    socket = %Phoenix.LiveView.Socket{
+  defp socket(c) do
+    %Phoenix.LiveView.Socket{
       assigns: %{
         __changed__: %{},
         destination_matrix_cache: nil,
-        definitions: c.definitions,
-        view: c.view,
-        ship: c.ship
-      }
-    }
-
-    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket)
-    assert calls(c) == 1
-    {:noreply, closed} = GameLive.handle_event("destination-picker-close", %{}, opened)
-    {:noreply, reopened} = GameLive.handle_event("destination-picker-open", %{}, closed)
-    assert reopened.assigns.destination_matrix === opened.assigns.destination_matrix
-
-    html =
-      render_component(&DestinationPicker.panel/1,
-        definitions: c.definitions,
-        view: c.view,
-        ship: c.ship,
-        matrix: reopened.assigns.destination_matrix
-      )
-
-    assert html =~ "destination-picker"
-    assert calls(c) == 1
-  end
-
-  test "LiveView background refresh invalidates an open picker and discards private data on logout",
-       c do
-    cache = DestinationMatrixCache.refresh(nil, c.definitions, c.view, c.ship, true)
-
-    socket = %Phoenix.LiveView.Socket{
-      assigns: %{
-        __changed__: %{},
-        destination_matrix_cache: cache,
-        destination_matrix: cache.matrix,
-        destination_picker_open: true,
+        destination_matrix: nil,
+        destination_geometry_cache: nil,
+        destination_matrix_generation: 0,
+        destination_matrix_running: false,
+        destination_matrix_error: false,
+        destination_picker_open: false,
         definitions: c.definitions,
         view: c.view,
         ship: c.ship,
@@ -171,28 +143,208 @@ defmodule TijaraTides.UseCases.DestinationMatrixCacheTest do
         dropdown_active: false
       }
     }
+  end
 
-    {:noreply, unchanged} =
-      GameLive.handle_async({:world_refresh, 1}, {:ok, {c.view, nil}}, socket)
+  defp complete(socket, c) do
+    result = DestinationMatrixCache.calculate(c.definitions, c.view, c.ship, nil)
 
+    GameLive.handle_async(
+      {:destination_matrix, socket.assigns.destination_matrix_generation},
+      {:ok, result},
+      socket
+    )
+  end
+
+  test "opening and loading rendering do no synchronous planning; completed results are reused",
+       c do
+    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket(c))
+    assert opened.assigns.destination_picker_open
+    assert opened.assigns.destination_matrix_running
+    assert opened.assigns.destination_matrix == nil
+    assert calls(c) == 0
+
+    html =
+      render_component(&DestinationPicker.panel/1,
+        definitions: c.definitions,
+        view: c.view,
+        ship: c.ship,
+        matrix: nil
+      )
+
+    assert html =~ "destination-picker-loading"
+    assert html =~ "Calculating trade estimates..."
+    assert calls(c) == 0
+
+    {:noreply, ready} = complete(opened, c)
     assert calls(c) == 1
-    assert unchanged.assigns.destination_matrix === cache.matrix
+    assert ready.assigns.destination_matrix != nil
+    refute ready.assigns.destination_matrix_running
+    {:noreply, closed} = GameLive.handle_event("destination-picker-close", %{}, ready)
+    {:noreply, reopened} = GameLive.handle_event("destination-picker-open", %{}, closed)
+    assert reopened.assigns.destination_matrix === ready.assigns.destination_matrix
+    assert calls(c) == 1
+  end
+
+  test "connected opening launches a task and accepts its result", c do
+    connected = %{socket(c) | transport_pid: self()}
+    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, connected)
+    assert opened.assigns.destination_matrix == nil
+    generation = opened.assigns.destination_matrix_generation
+
+    assert_receive {:phoenix, :async_result,
+                    {:start, {_ref, nil, {:destination_matrix, ^generation}, {:ok, result}}}},
+                   5000
+
+    {:noreply, ready} =
+      GameLive.handle_async({:destination_matrix, generation}, {:ok, result}, opened)
+
+    assert ready.assigns.destination_matrix === elem(result, 0).matrix
+  end
+
+  test "world updates coalesce; obsolete completion retains geometry but never publishes estimates",
+       c do
+    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket(c))
     changed = put_in(c.view, [:public, "clock_ms"], 1)
 
     {:noreply, updated} =
-      GameLive.handle_async({:world_refresh, 1}, {:ok, {changed, nil}}, unchanged)
+      GameLive.handle_async({:world_refresh, 1}, {:ok, {changed, nil}}, opened)
 
-    assert calls(c) == 2
+    assert updated.assigns.destination_matrix_generation ==
+             opened.assigns.destination_matrix_generation
 
-    assert updated.assigns.destination_matrix ==
+    assert updated.assigns.destination_matrix == nil
+    assert calls(c) == 0
+
+    {:noreply, rescheduled} = complete(updated, c)
+    assert rescheduled.assigns.destination_matrix == nil
+    assert rescheduled.assigns.destination_matrix_cache == nil
+    assert rescheduled.assigns.destination_geometry_cache != nil
+
+    assert rescheduled.assigns.destination_matrix_generation >
+             opened.assigns.destination_matrix_generation
+
+    assert rescheduled.assigns.destination_matrix_running
+
+    {:noreply, ready} = complete(rescheduled, %{c | view: changed})
+
+    assert ready.assigns.destination_matrix ===
              GameQueries.destination_matrix(c.definitions, changed, c.ship)
 
+    {:noreply, unchanged} =
+      GameLive.handle_async({:world_refresh, 1}, {:ok, {changed, nil}}, ready)
+
+    assert unchanged.assigns.destination_matrix === ready.assigns.destination_matrix
+    refute unchanged.assigns.destination_matrix_running
+
+    changed_again = put_in(changed, [:public, "clock_ms"], 2)
+
+    {:noreply, refreshing} =
+      GameLive.handle_async({:world_refresh, 1}, {:ok, {changed_again, nil}}, ready)
+
+    assert refreshing.assigns.destination_matrix == nil
+    assert refreshing.assigns.destination_matrix_running
+  end
+
+  test "closing, reopening and logout reject late results", c do
+    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket(c))
+    old_generation = opened.assigns.destination_matrix_generation
+    result = DestinationMatrixCache.calculate(c.definitions, c.view, c.ship, nil)
+    {:noreply, closed} = GameLive.handle_event("destination-picker-close", %{}, opened)
+    {:noreply, reopened} = GameLive.handle_event("destination-picker-open", %{}, closed)
+
+    {:noreply, ignored} =
+      GameLive.handle_async({:destination_matrix, old_generation}, {:ok, result}, reopened)
+
+    assert ignored === reopened
+
     {:noreply, logged_out} =
-      GameLive.handle_async({:world_refresh, 1}, {:ok, {%{changed | private: nil}, nil}}, updated)
+      GameLive.handle_async({:world_refresh, 1}, {:ok, {%{c.view | private: nil}, nil}}, reopened)
 
     assert logged_out.assigns.destination_matrix_cache == nil
     assert logged_out.assigns.destination_matrix == nil
     refute logged_out.assigns.destination_picker_open
+    refute logged_out.assigns.destination_matrix_running
+
+    {:noreply, ignored} =
+      GameLive.handle_async(
+        {:destination_matrix, reopened.assigns.destination_matrix_generation},
+        {:ok, result},
+        logged_out
+      )
+
+    assert ignored === logged_out
+  end
+
+  test "a different ship or changed financial state rejects old estimates", c do
+    for changed <- [
+          put_in(c.view, [:private, "company", "cash"], 0),
+          put_in(c.view, [:private, "ships", c.ship["id"], "cargo"], [
+            %{"good" => "lumber", "quantity" => 1, "unit_cost" => 1}
+          ])
+        ] do
+      {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket(c))
+
+      {:noreply, updated} =
+        GameLive.handle_async({:world_refresh, 1}, {:ok, {changed, nil}}, opened)
+
+      {:noreply, pending} = complete(updated, c)
+      assert pending.assigns.destination_matrix == nil
+      assert pending.assigns.destination_matrix_running
+    end
+
+    other = Map.put(c.ship, "id", "other")
+    other_view = put_in(c.view, [:private, "ships", "other"], other)
+    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket(c))
+    switched = Phoenix.Component.assign(opened, selected_ship: "other")
+
+    {:noreply, updated} =
+      GameLive.handle_async({:world_refresh, 1}, {:ok, {other_view, nil}}, switched)
+
+    {:noreply, pending} = complete(updated, c)
+    assert pending.assigns.ship["id"] == "other"
+    assert pending.assigns.destination_matrix == nil
+  end
+
+  test "failure leaves a usable popup and explicit retry starts a new generation", c do
+    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket(c))
+
+    {:noreply, failed} =
+      GameLive.handle_async(
+        {:destination_matrix, opened.assigns.destination_matrix_generation},
+        {:exit, :failed},
+        opened
+      )
+
+    assert failed.assigns.destination_matrix_error
+    refute failed.assigns.destination_matrix_running
+
+    html =
+      render_component(&DestinationPicker.panel/1,
+        definitions: c.definitions,
+        view: c.view,
+        ship: c.ship,
+        matrix: nil,
+        error: true
+      )
+
+    assert html =~ "Could not calculate trade estimates."
+    assert html =~ "Try again"
+    refute html =~ "Calculating trade estimates..."
+    {:noreply, retry} = GameLive.handle_event("destination-picker-open", %{}, failed)
+    assert retry.assigns.destination_matrix_running
+    refute retry.assigns.destination_matrix_error
+
+    assert retry.assigns.destination_matrix_generation >
+             opened.assigns.destination_matrix_generation
+
+    {:noreply, ignored} =
+      GameLive.handle_async(
+        {:destination_matrix, opened.assigns.destination_matrix_generation},
+        {:exit, :failed},
+        retry
+      )
+
+    assert ignored === retry
   end
 
   defp calls(c) do

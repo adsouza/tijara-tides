@@ -5,6 +5,11 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
   alias TijaraTidesWeb.GameUI.DestinationPicker
   alias TijaraTides.Localization
 
+  defp render_picker(options) do
+    matrix = GameQueries.destination_matrix(options[:definitions], options[:view], options[:ship])
+    render_component(&DestinationPicker.panel/1, Keyword.put(options, :matrix, matrix))
+  end
+
   defp fixture do
     definitions = %{
       catalogue: %{
@@ -123,7 +128,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
         Localization.put_locale(locale)
 
         tree =
-          render_component(&DestinationPicker.panel/1,
+          render_picker(
             definitions: definitions,
             view: view,
             ship: ship
@@ -173,7 +178,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     assert_in_delta opportunity.roi, 800 / 3000, 0.00001
 
     html =
-      render_component(&DestinationPicker.panel/1,
+      render_picker(
         definitions: definitions,
         view: view,
         ship: ship
@@ -267,7 +272,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     assert opportunity.lots == 5
 
     html =
-      render_component(&DestinationPicker.panel/1,
+      render_picker(
         definitions: definitions,
         view: view,
         ship: ship
@@ -314,7 +319,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
              Enum.map(original.rows, &{&1.port, &1.best})
 
     tree =
-      render_component(&DestinationPicker.panel/1,
+      render_picker(
         definitions: definitions,
         view: view,
         ship: ship
@@ -377,7 +382,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     for locale <- ["en", "ar"] do
       tree =
         Localization.with_locale(locale, fn ->
-          render_component(&DestinationPicker.panel/1,
+          render_picker(
             definitions: definitions,
             view: view,
             ship: ship
@@ -567,7 +572,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     assert colombo.plan.onward == nil
 
     html =
-      render_component(&DestinationPicker.panel/1,
+      render_picker(
         definitions: definitions,
         view: view,
         ship: ship
@@ -606,7 +611,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
     for locale <- ["en", "ar"] do
       html =
         Localization.with_locale(locale, fn ->
-          render_component(&DestinationPicker.panel/1,
+          render_picker(
             definitions: definitions,
             view: view,
             ship: ship

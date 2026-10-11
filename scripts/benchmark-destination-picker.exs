@@ -100,7 +100,7 @@ defmodule DestinationPickerBenchmark do
               definitions: definitions,
               view: scenario,
               ship: ship,
-              matrix: prepared
+              matrix: prepared || matrix.()
             )
           end)
         end
@@ -114,7 +114,7 @@ defmodule DestinationPickerBenchmark do
         end
 
         if baseline do
-          unless output === baseline[label].output,
+          unless comparable(output) === comparable(baseline[label].output),
             do: raise("Destination suggestions or rendered picker changed: #{label}")
         end
 
@@ -128,13 +128,40 @@ defmodule DestinationPickerBenchmark do
           render.("en", reused.matrix)
         end
 
+        {_, geometry} = DestinationMatrixCache.calculate(definitions, scenario, ship, nil)
+        next_view = put_in(scenario, [:public, "clock_ms"], 5000)
+
+        {next_cache, reused} =
+          DestinationMatrixCache.calculate(definitions, next_view, ship, geometry)
+
+        unless reused === geometry &&
+                 next_cache.matrix ===
+                   GameQueries.destination_matrix(definitions, next_view, ship),
+               do: raise("Geometry reuse changed next-tick estimates: #{label}")
+
+        geometry_cached = fn ->
+          {fresh, _} = DestinationMatrixCache.calculate(definitions, next_view, ship, geometry)
+          render.("en", fresh.matrix)
+        end
+
+        loading = fn ->
+          render_component(&DestinationPicker.panel/1,
+            definitions: definitions,
+            view: scenario,
+            ship: ship,
+            matrix: nil
+          )
+        end
+
         timings = %{
           matrix: measure.(matrix),
           picker: measure.(cold),
-          cached_picker: measure.(warm)
+          cached_picker: measure.(warm),
+          geometry_cached_picker: measure.(geometry_cached),
+          loading_picker: measure.(loading)
         }
 
-        for stage <- [:matrix, :picker, :cached_picker] do
+        for stage <- [:matrix, :picker, :cached_picker, :geometry_cached_picker, :loading_picker] do
           timing = timings[stage]
 
           comparison =
@@ -163,7 +190,17 @@ defmodule DestinationPickerBenchmark do
     end
 
     if baseline,
-      do: IO.puts("All 8 matrices and English/Arabic picker renders are exactly unchanged.")
+      do:
+        IO.puts(
+          "All 8 matrices are exactly unchanged; English/Arabic renders match apart from intertag whitespace."
+        )
+  end
+
+  # Conditional loading/error branches introduce empty intertag whitespace only.
+  defp comparable(output) do
+    Enum.reduce([:en, :ar], output, fn locale, result ->
+      Map.update!(result, locale, &String.replace(&1, ~r/>\s+</u, "><"))
+    end)
   end
 end
 

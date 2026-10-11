@@ -24,6 +24,7 @@ defmodule TijaraTides.UseCases do
       CommandResult,
       GameQueries,
       DestinationMatrixCache,
+      DestinationGeometryCache,
       WorldProjection
     ]
 end

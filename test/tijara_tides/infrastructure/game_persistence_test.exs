@@ -7172,7 +7172,10 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     view |> element("#destination-picker-trigger") |> render_click()
     assert has_element?(view, "#destination-picker[role=dialog]")
     send(view.pid, {:game_changed, 0})
-    render_async(view)
+    # A changed snapshot can coalesce into a second estimate task after the first.
+    render_async(view, 10_000)
+    render_async(view, 10_000)
+    refute has_element?(view, "#destination-picker-loading")
     assert has_element?(view, "#destination-picker")
 
     view

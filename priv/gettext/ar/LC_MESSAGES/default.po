@@ -3309,3 +3309,12 @@ msgstr "يشمل حماية المسار: %{cost}."
 
 msgid "Protection"
 msgstr "الحماية"
+
+msgid "Calculating trade estimates..."
+msgstr "جارٍ حساب تقديرات التجارة..."
+
+msgid "Could not calculate trade estimates."
+msgstr "تعذّر حساب تقديرات التجارة."
+
+msgid "Try again"
+msgstr "حاول مرة أخرى"

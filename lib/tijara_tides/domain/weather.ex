@@ -13,6 +13,16 @@ defmodule TijaraTides.Domain.Weather do
 
   def model(catalogue), do: Map.merge(@defaults, catalogue["weather"] || %{})
 
+  @doc "Static regional partitions indexed by exact path, with no weather or clock inputs."
+  def prepare_segments(routes) do
+    routes
+    |> Map.values()
+    |> Enum.filter(&(is_list(&1["coordinates"]) && length(&1["coordinates"]) >= 2))
+    |> Map.new(fn route ->
+      {route["coordinates"], Enum.map(segments(route), &Tuple.to_list/1)}
+    end)
+  end
+
   def region([longitude, latitude]) do
     [longitude, _] = Navigation.normalize([longitude, latitude])
     x = min(5, max(0, floor((longitude + 180) / 60)))
@@ -85,6 +95,7 @@ defmodule TijaraTides.Domain.Weather do
 
     parts =
       cached_segments ||
+        (model[:segments] || %{})[route["coordinates"]] ||
         if is_list(route["coordinates"]) and length(route["coordinates"]) >= 2,
           do: Enum.map(segments(route), &Tuple.to_list/1),
           else: []
@@ -128,7 +139,7 @@ defmodule TijaraTides.Domain.Weather do
     %{
       "segments" => parts,
       "sailing_ms" => sailing_ms,
-      "model" => model,
+      "model" => Map.delete(model, :segments),
       "since_ms" => since,
       "cutoff_ms" => cutoff,
       "holds" => holds,

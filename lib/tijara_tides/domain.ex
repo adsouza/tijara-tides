@@ -37,6 +37,7 @@ defmodule TijaraTides.Domain do
       Markets,
       Visibility,
       Piracy,
+      Weather,
       ReadState
     ]
 end

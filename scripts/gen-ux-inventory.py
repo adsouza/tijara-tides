@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 178
+TRIPWIRE = 179
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -252,6 +252,7 @@ REQUIREMENTS = [
     (216, "Protection is optional and defaults to none for manual dispatch.", 10, "input", "Fleet and ship detail"),
     (217, "Repeating route plans offer none, guards, insurance, or both, defaulting to none.", 8, "input", "Route planner"),
 
+    (218, "The destination popup opens immediately and shows a loading state while trade estimates are calculated. World updates refresh those estimates without blocking dismissal or ship selection. Invalidated estimates stay hidden while recalculating, and completed work for an older selection cannot replace the current selection's estimates.", 7, "display", "Fleet and ship detail"),
 ]
 
 # Every mechanically deep feature in sections 7 and 8 is opt-in with a stated

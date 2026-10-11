@@ -1,6 +1,5 @@
 defmodule TijaraTidesWeb.GameUI.DestinationPicker do
   use TijaraTidesWeb, :html
-  alias TijaraTides.UseCases.GameQueries
 
   import TijaraTidesWeb.GameUI.Presentation,
     only: [cargo_roi: 1, cargo_label: 1, cargo_emoji: 1, money: 1]
@@ -10,14 +9,14 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
   attr :ship, :map, required: true
   attr :destination, :any, default: nil
   attr :matrix, :any, default: nil
+  attr :error, :boolean, default: false
 
   def panel(assigns) do
     assigns =
       assign(
         assigns,
-        :matrix,
-        assigns.matrix ||
-          GameQueries.destination_matrix(assigns.definitions, assigns.view, assigns.ship)
+        loading: is_nil(assigns.matrix),
+        matrix: assigns.matrix || %{rows: [], goods: []}
       )
 
     scale =
@@ -79,7 +78,20 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
             <span class="text-yellow-400">● {gettext("Return")}</span>
             <span class="text-orange-400">● {gettext("Other ports")}</span>
           </div>
-          <div class="destination-matrix-scroll">
+          <p :if={@loading && !@error} id="destination-picker-loading" role="status" class="my-4">
+            {gettext("Calculating trade estimates...")}
+          </p>
+          <div :if={@error} role="alert" class="my-4">
+            <p>{gettext("Could not calculate trade estimates.")}</p>
+            <button
+              type="button"
+              phx-click="destination-picker-open"
+              class="mt-2 rounded border px-3 py-1"
+            >
+              {gettext("Try again")}
+            </button>
+          </div>
+          <div :if={!@loading} class="destination-matrix-scroll">
             <table class="destination-matrix text-sm">
               <thead>
                 <tr>
@@ -256,7 +268,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
               </tbody>
             </table>
           </div>
-          <p :if={@matrix.goods == []} class="mt-3 text-sm text-slate-400">
+          <p :if={!@loading && @matrix.goods == []} class="mt-3 text-sm text-slate-400">
             {gettext("No compatible trade opportunities right now. You can still choose a port.")}
           </p>
         </section>

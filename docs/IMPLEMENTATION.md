@@ -270,14 +270,28 @@ identical completed plans are evaluated once, retaining their first occurrence
 and tie order. Tankers consequently search onward voyages once per distinct
 completed plan. These optimizations preserve the suggestions.
 
-Each LiveView retains at most one completed destination matrix. Opening the
-picker computes it; closing and reopening with identical inputs reuses it.
-Snapshot refreshes invalidate it on changes to the catalogue, clock, markets,
-account identity, company, fleet, route protection or selected ship. An open
-picker recomputes immediately; a closed picker defers computation until opened.
-Losing the owner view or eligible selected ship discards the entry. Notices,
-locale and unrelated public projections can change without replanning; popup
-labels still render in the current locale.
+Each LiveView retains at most one completed destination matrix and one static
+geometry cache. Opening the picker immediately shows a loading state and starts
+an asynchronous estimate calculation. Closing and reopening with identical
+planning inputs reuses the completed matrix. Snapshot refreshes invalidate
+estimates on changes to the catalogue, clock, markets, account identity,
+company, fleet, route protection or selected ship. Invalidated estimates are
+hidden while recalculating; notices, locale and unrelated public projections do
+not invalidate them. Popup labels render in the current locale.
+
+Static piracy crossings and weather regions survive clock, market and fleet
+changes. Exact path coordinates identify weather partitions; coordinates and
+zone polygons identify piracy partitions. Current weather settings, campaigns,
+protection prices, cargo, expiry, funding and clock remain live calculation
+inputs. Changed paths or polygons rebuild the affected geometry in the worker.
+Derived geometry stays out of public definitions and durable forecast models.
+
+At most one estimate task runs per LiveView. World updates during calculation
+coalesce into the latest snapshot. An obsolete completion retains only its
+static geometry and starts a new calculation; it cannot publish an old matrix.
+Closing, changing ships or losing the owner view cancels the task, and a
+completion from an earlier generation is ignored. Failed calculations leave
+Close and Try again available. A closed picker defers estimates until opened.
 
 The isolated destination-picker benchmark measures complete matrices and
 server-side popup rendering with public catalogue definitions:
@@ -289,13 +303,17 @@ MIX_ENV=test mix run --no-start scripts/benchmark-destination-picker.exs --compa
 
 Run the first command before changing the estimator and the second afterwards.
 Comparison requires identical complete matrices and English/Arabic popup HTML
-across eight synthetic scenarios, including tanker onward voyages. Each stage
-reports median and p95 durations from seven timed runs after one warmup; use
-`--samples` to change the count. `picker` measures an empty-cache open, including
-planning and rendering; `cached_picker` measures a reopen with unchanged inputs,
-including cache validation and rendering. Cached and uncached HTML must also
-match exactly in both locales. Neither command starts a server or database.
-Browser patching and network latency are outside this benchmark.
+excluding intertag whitespace across eight synthetic scenarios, including tanker
+onward voyages. Each stage reports median and p95 durations from seven timed
+runs after one warmup; use `--samples` to change the count. `picker` measures
+cold estimate completion and rendering; `cached_picker` measures a reopen with
+unchanged inputs, including cache validation and rendering.
+`geometry_cached_picker` recalculates and renders the next tick using retained
+geometry; its complete matrix must exactly match an uncached next-tick
+calculation. `loading_picker` measures the initial popup without estimates.
+Cached and uncached HTML must also match exactly in both locales. Neither
+command starts a server or database. Browser patching and network latency are
+outside this benchmark.
 
 Inspecting another port with a docked ship opens a destination comparison using
 compatible stock at the ship's current port. Each candidate load is capped by
