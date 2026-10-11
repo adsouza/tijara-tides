@@ -1249,8 +1249,10 @@ Ship root changes accepted path, forecast and arrival terms. Its pause timeline
 is the shared authority for navigation, fuel and crew settlement; read-side
 helpers use that same motion function. Ship rows snapshot the weather model,
 and legacy voyages activate it prospectively, preventing historical weather
-from rewriting completed movement. All weather and fleet changes commit with
-the world clock in the existing atomic tick transaction.
+from rewriting completed movement. Forecasts also store their announcement
+cutoff; protection pricing uses departure time when reading older forecasts
+without it. All weather and fleet changes commit with the world clock in the
+existing atomic tick transaction.
 
 ### Pirate zones and campaigns
 
@@ -1258,10 +1260,11 @@ the world clock in the existing atomic tick transaction.
 campaign row per zone. The pure `Piracy` model derives campaign windows from
 the catalogue seed; every rule that depends on a campaign calls
 `Piracy.campaign_active?/3` at the time in question, and the rows are a public
-projection read only by queries. `VoyageHazards` refreshes weather and the
-projection before movement on every tick; `Simulation.initialize` refreshes
-both at startup. `GameCatalogue.all/0` merges the `:piracy` runtime
-configuration and validates the model before the server starts.
+projection read by queries and by `VoyageHazards` for campaign notices.
+`VoyageHazards` refreshes weather and the projection before movement on every
+tick; `Simulation.initialize` refreshes both at startup. `GameCatalogue.all/0`
+merges the `:piracy` runtime configuration and validates the model before the
+server starts.
 
 `GameCatalogue` prepares an immutable piracy crossing index when the generated
 catalogue is compiled. `Piracy.crossings/2` reuses its exact path partitions only
@@ -1272,34 +1275,46 @@ remain live calculations. The derived index is excluded from public catalogue
 data and durable voyage models.
 
 `ShipWorld` owns the nullable voyage `piracy` snapshot: model, protection,
-pending crossings, private rolls, resolved records and absolute-time incidents.
-The salt remains in server configuration; departure precomputes each roll and
-attack fraction, and neither the durable model nor public definitions contain
-the salt. Owner projections omit the model and pending roll/fraction data.
-Legacy voyages remain exempt until diverted. Diversions retain resolved records
-and incidents, discard obsolete pending fractions, continue indices and skip a
-new roll when still inside a resolved zone. A current incident forbids diversion.
+pending crossings, current-path crossing identities, private rolls, resolved
+records and absolute-time incidents. The salt remains in server configuration;
+departure precomputes each roll and attack fraction, and neither the durable
+model nor public definitions contain the salt. Owner projections omit the model
+and pending roll/fraction data. Legacy voyages remain exempt until diverted.
+Diversions retain resolved records and incidents, and identify the occupied
+crossing by its path interval and index. A pending continuation keeps its roll
+and remaps the remaining relative attack position onto the new interval,
+retaining storm suppression already earned; a resolved continuation stays
+resolved. New entries allocate new indices, including re-entry into a
+previously resolved zone. A current incident forbids diversion. Frozen models
+and snapshots tolerate older catalogue shapes: protection settings and per-zone
+fees have defaults, and older snapshots reconstruct path identities from their
+allocation sequence.
 
 `Ship.timeline/7` builds one forecast for storms and recorded incidents;
-`apply_weather` and attack resolution share it. `VoyageHazards` resolves the next
-due crossing, records its outcome through `ShipWorld`, posts any charge through
-`CompanyFinanceWorld`, then forecasts again before considering later crossings.
-Small-boat attacks are suppressed by eligible storms between entry and attack;
-militia ignores storms. Charges preserve fuel reservations and create operating
-bills for unpaid balances. Incidents, notices, journal and movement commit in the
-same world transaction. Public pause records expose kind, zone and countdown,
-while charge and recovery remain private. The test-only settled oracle checks
-incident postings, protection payments and retained diversion coverage, unique
-crossing indices and held-voyage command immutability.
+`apply_weather` and attack resolution share it. `VoyageHazards` resolves the
+next due crossing, records its outcome through `ShipWorld`, posts any charge
+through `CompanyFinanceWorld`, then forecasts again before considering later
+crossings. Small-boat attacks are suppressed by eligible storms between entry
+and attack; militia ignores storms. Charges preserve fuel reservations and
+create operating bills for unpaid balances. Incidents, notices, journal and
+movement commit in the same world transaction. Public pause records expose
+kind, zone and countdown, while charge and recovery remain private. The
+test-only settled oracle checks incident postings in both directions,
+protection payments and retained diversion coverage, unique crossing indices
+and held-voyage command immutability. When arrival clears the snapshot in the
+same tick, changed incident notices retain the amounts used by the test oracle,
+including reused notice keys and immediate automated redeparture.
 
-`Piracy.protection_quotes/6` prices private snapshotted attack timings against
-the public campaigns announced at departure. `Fleet` exposes safe quote options
-to authenticated preview queries and calls the same function for departure and
-diversion admission. Commands validate protection choices and price ceilings
-before posting guard and premium expenses through `CompanyFinanceWorld`. The
-purchased choice and recovery parameters live in the voyage snapshot; diversions
-reuse them, and skip continued crossings. No quote returns attack fractions or
-private rolls.
+`Piracy.protection_quotes/6` prices public crossing midpoints against campaigns
+and storms announced by the forecast cutoff. Salt and private attack positions
+cannot affect a premium. `Fleet` exposes safe quote options to authenticated
+preview queries and calls the same function for departure and diversion
+admission. Commands validate protection choices and price ceilings before
+posting guard and premium expenses through `CompanyFinanceWorld`. The purchased
+choice and recovery parameters live in the voyage snapshot; diversions reuse
+them, and skip already paid continued crossings. Each nonempty new insurance
+purchase, including a diversion top-up, has its own minimum premium. No quote
+returns attack fractions or private rolls.
 
 Route headers and departure requests encode protection explicitly. Route edits
 change only the next request's preference; `DepartureFunding` quotes an existing

@@ -131,26 +131,30 @@ defmodule TijaraTides.Domain.Piracy do
     resolved = (previous && previous["resolved"]) || []
     first = (previous && previous["next_index"]) || 0
     parts = crossings(route, model)
+    continuing = previous && previous["continuing"]
 
-    {pending, continued} =
+    {pending, path_crossings, next_index} =
       parts
-      |> Enum.with_index(first)
-      |> Enum.reduce({[], []}, fn {{zone, from, into}, index}, {pending, continued} ->
-        if from < 1.0e-10 and Enum.any?(resolved, &(&1["zone"] == zone)) do
-          {pending,
-           continued ++
-             [
-               %{
-                 "index" => index,
-                 "zone" => zone,
-                 "zone_name" => model["zones"][zone]["name"],
-                 "mark" => model["kinds"][model["zones"][zone]["kind"]]["mark"],
-                 "label" => kind_label(model["zones"][zone]["kind"]),
-                 "outcome" => "continued",
-                 "charge" => 0,
-                 "recovery" => 0
-               }
-             ]}
+      |> Enum.reduce({[], [], first}, fn {zone, from, into}, {pending, paths, index} ->
+        path = %{
+          "index" => index,
+          "zone" => zone,
+          "from_fraction" => from,
+          "into_fraction" => into
+        }
+
+        if (from < 1.0e-10 and continuing) && continuing["zone"] == zone do
+          path = Map.put(path, "index", continuing["index"])
+
+          carried =
+            if continuing["pending"] do
+              continuing["pending"]
+              |> Map.merge(path)
+              |> Map.put("attack_fraction", from + (into - from) * continuing["remaining"])
+              |> Map.put("continued", true)
+            end
+
+          {pending ++ if(carried, do: [carried], else: []), paths ++ [path], index}
         else
           fraction =
             from +
@@ -160,16 +164,13 @@ defmodule TijaraTides.Domain.Piracy do
                     1_000_000_000
                   ) + 1) / 1_000_000_001)
 
-          crossing = %{
-            "index" => index,
-            "zone" => zone,
-            "from_fraction" => from,
-            "into_fraction" => into,
-            "attack_fraction" => fraction,
-            "roll" => :erlang.phash2({model["salt"], ship_id, departure, index}, 10_000)
-          }
+          crossing =
+            Map.merge(path, %{
+              "attack_fraction" => fraction,
+              "roll" => :erlang.phash2({model["salt"], ship_id, departure, index}, 10_000)
+            })
 
-          {pending ++ [crossing], continued}
+          {pending ++ [crossing], paths ++ [path], index + 1}
         end
       end)
 
@@ -177,10 +178,77 @@ defmodule TijaraTides.Domain.Piracy do
       "model" => public_model(model),
       "protection" => (previous && previous["protection"]) || "none",
       "pending" => pending,
-      "resolved" => resolved ++ continued,
+      "resolved" => resolved,
       "incidents" => (previous && previous["incidents"]) || [],
-      "next_index" => first + length(parts)
+      "path_crossings" => path_crossings,
+      "next_index" => next_index
     }
+  end
+
+  @doc "Identify the occupied crossing by path interval and index before changing a voyage."
+  def diversion_context(ship, clock, catalogue) do
+    previous = ship["piracy"]
+
+    if previous do
+      fraction = TijaraTides.Domain.VoyageNavigation.progress(ship, clock)
+
+      paths =
+        previous["path_crossings"] ||
+          legacy_paths(ship, previous, voyage_model(ship, catalogue), catalogue)
+
+      path =
+        Enum.find(paths, fn c ->
+          c["from_fraction"] <= fraction and fraction < c["into_fraction"]
+        end)
+
+      continuing =
+        if path do
+          pending = Enum.find(previous["pending"], &(&1["index"] == path["index"]))
+
+          pending =
+            if pending do
+              Map.put(
+                pending,
+                "suppressed",
+                suppressed?(pending, ship["depart_ms"], ship["weather"], previous["model"], clock)
+              )
+            end
+
+          path
+          |> Map.put("pending", pending)
+          |> Map.put(
+            "remaining",
+            if(pending,
+              do:
+                max(
+                  0.0,
+                  min(
+                    1.0,
+                    (pending["attack_fraction"] - fraction) / (path["into_fraction"] - fraction)
+                  )
+                ),
+              else: 0.0
+            )
+          )
+        end
+
+      Map.put(previous, "continuing", continuing)
+    end
+  end
+
+  # Older snapshots allocated one index per path partition, including resolved continuations.
+  defp legacy_paths(ship, previous, model, catalogue) do
+    parts =
+      crossings(
+        %{"coordinates" => TijaraTides.Domain.VoyageNavigation.path(ship, catalogue)},
+        model
+      )
+
+    parts
+    |> Enum.with_index(previous["next_index"] - length(parts))
+    |> Enum.map(fn {{zone, from, into}, index} ->
+      %{"zone" => zone, "index" => index, "from_fraction" => from, "into_fraction" => into}
+    end)
   end
 
   @doc "The departure model; diversions retain the purchased voyage's public rules."
@@ -208,17 +276,19 @@ defmodule TijaraTides.Domain.Piracy do
         (model || %{})["protection"] || %{}
       )
 
-  @doc "Safe public prices from private attack timing, with only currently announced campaigns."
+  @doc "Public prices use crossing midpoints and only announced campaigns and storms."
   def protection_quotes(route, ship, departure, weather, model, previous \\ nil) do
     snapshot = snapshot(route, model, ship["id"], departure, previous)
     pending = (snapshot && snapshot["pending"]) || []
     crossing_quotes(pending, ship, departure, weather, model)
   end
 
-  @doc "Price an already snapshotted set of crossings without deriving new private timings."
+  @doc "Price new crossing coverage at public midpoints; carried crossings are already paid."
   def crossing_quotes(pending, ship, departure, weather, model) do
+    pending = Enum.reject(pending, & &1["continued"])
     class = TijaraTides.Domain.ShipClass.all()[ship["class"]]
     settings = protection_settings(model)
+    known_ms = weather["cutoff_ms"] || departure
 
     Map.new(~w(none guards insurance both), fn choice ->
       guards = choice in ["guards", "both"]
@@ -226,6 +296,13 @@ defmodule TijaraTides.Domain.Piracy do
 
       crossings =
         Enum.map(pending, fn crossing ->
+          crossing =
+            Map.put(
+              crossing,
+              "attack_fraction",
+              (crossing["from_fraction"] + crossing["into_fraction"]) / 2
+            )
+
           zone = model["zones"][crossing["zone"]]
           kind = model["kinds"][zone["kind"]]
           at = TijaraTides.Domain.Weather.time_at(weather, departure, crossing["attack_fraction"])
@@ -233,13 +310,13 @@ defmodule TijaraTides.Domain.Piracy do
           campaign =
             campaign(crossing["zone"], div(max(0, at), model["campaign"]["period_ms"]), model)
 
-          public_campaign = campaign && campaign["announced_ms"] <= departure
+          public_campaign = campaign && campaign["announced_ms"] <= known_ms
 
           quoted_model =
             if public_campaign, do: model, else: put_in(model, ["campaign", "multiplier"], 1)
 
           bps =
-            if suppressed?(crossing, departure, weather, model),
+            if suppressed?(crossing, departure, weather, model, known_ms),
               do: 0,
               else: attack_bps(crossing["zone"], at, quoted_model, class["speed"], guards)
 
@@ -309,7 +386,7 @@ defmodule TijaraTides.Domain.Piracy do
   end
 
   @doc "Small boats are suppressed by any eligible storm between entry and the attack point."
-  def suppressed?(crossing, departure, weather, model) do
+  def suppressed?(crossing, departure, weather, model, cutoff \\ nil) do
     alias TijaraTides.Domain.Weather
     zone = model["zones"][crossing["zone"]]
     kind = model["kinds"][zone["kind"]]
@@ -321,6 +398,14 @@ defmodule TijaraTides.Domain.Piracy do
         from <= crossing["attack_fraction"] and crossing["attack_fraction"] < into
       end)
 
+    if kind["storm_suppressed"] and crossing["suppressed"] do
+      true
+    else
+      storm_between?(kind, segment, entry, attack, weather, cutoff)
+    end
+  end
+
+  defp storm_between?(kind, segment, entry, attack, weather, cutoff) do
     if kind["storm_suppressed"] and segment do
       [sector, _, _] = segment
       wmodel = weather["model"]
@@ -335,9 +420,9 @@ defmodule TijaraTides.Domain.Piracy do
 
       last >= first and
         Enum.any?(first..last, fn slot ->
-          w = Weather.window(sector, slot, wmodel)
+          w = TijaraTides.Domain.Weather.window(sector, slot, wmodel)
 
-          w != nil and w["starts_ms"] <= attack and
+          w != nil and (is_nil(cutoff) or w["starts_ms"] <= cutoff) and w["starts_ms"] <= attack and
             w["until_ms"] > max(entry, weather["since_ms"])
         end)
     else

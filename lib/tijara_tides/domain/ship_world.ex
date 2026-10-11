@@ -184,14 +184,12 @@ defmodule TijaraTides.Domain.ShipWorld do
 
   def reroute(state, id, destination, quote, paid, catalogue \\ %{}) do
     previous = hull(state, id)
-
-    model =
-      if previous.piracy,
-        do: Map.put(previous.piracy["model"], "salt", catalogue["piracy"]["salt"]),
-        else: TijaraTides.Domain.Piracy.model(catalogue)
+    row = Ship.Rows.encode(previous)
+    model = TijaraTides.Domain.Piracy.voyage_model(row, catalogue)
+    context = TijaraTides.Domain.Piracy.diversion_context(row, state.clock_ms, catalogue)
 
     ship = Ship.reroute(previous, destination, quote, paid, state.clock_ms)
-    store(state, Ship.snapshot_piracy(ship, model, previous.piracy))
+    store(state, Ship.snapshot_piracy(ship, model, context))
   end
 
   def record_crossing(state, id, index, outcome, incident, charge, recovery),

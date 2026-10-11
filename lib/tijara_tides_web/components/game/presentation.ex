@@ -195,7 +195,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
   defp protection_name("guards"), do: gettext("Armed guards")
   defp protection_name("insurance"), do: gettext("Voyage insurance")
   defp protection_name("both"), do: gettext("Armed guards and voyage insurance")
-  defp protection_name(_), do: gettext("None")
+  defp protection_name(_), do: gettext("No protection")
 
   defp piracy_outcome("hit"), do: gettext("Attacked")
   defp piracy_outcome("missed"), do: gettext("Passed safely")

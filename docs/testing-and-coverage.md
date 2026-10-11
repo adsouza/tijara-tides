@@ -129,6 +129,16 @@ before evaluating any receiving warehouse, including shared allocations.
 `route_offers_test.exs` and `market_offers_test.exs` show each offered value is
 accepted and one more, or any value withheld, is refused.
 
+`protection_offers_test.exs` checks exact departure and diversion funding,
+stale protection price errors, public/private quote parity at campaign
+boundaries, announced-storm pricing and continued crossing coverage. The
+automatic funding and purchase contracts in `automation_protection_test.exs`
+cover every protection choice, one-cent shortfalls, public planning offers,
+request repricing and reservation releases. Piracy regressions separately
+exercise the odds cap, late hold clamp, attack-time campaign boundaries,
+suppression interval bounds and both directions of the incident/posting
+invariant.
+
 Submission success alone does not establish the outcome of a deferred command.
 `instruction_offers_test.exs` takes the actual next-port defaults through fills
 and handling, with fixed boundary witnesses and shrinking properties for cash,

@@ -130,6 +130,7 @@ defmodule TijaraTides.Domain.Weather do
       "sailing_ms" => sailing_ms,
       "model" => model,
       "since_ms" => since,
+      "cutoff_ms" => cutoff,
       "holds" => holds,
       "delay_ms" => Enum.sum(for h <- holds, do: h["until_ms"] - h["starts_ms"])
     }

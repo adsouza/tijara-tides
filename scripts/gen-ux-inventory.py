@@ -248,9 +248,9 @@ REQUIREMENTS = [
     (204, "Guangzhou is the default selected port for players without ships because it is the only launch port offering every ship class.", 9, "input", "Port panel"),
     (205, "When a company has no ships, show an open subsection at the top of Your fleet, without a disclosure triangle, labelled \"Buy your 1st ship at\".", 9, "display", "Fleet and ship detail"),
     (206, "Show brief available class names in parentheses after each port name.", 9, "disclosure", "Fleet and ship detail"),
+    (215, "Zone threat, campaigns and protection prices are public before dispatch.", 10, "disclosure", "Fleet and ship detail"),
     (216, "Protection is optional and defaults to none for manual dispatch.", 10, "input", "Fleet and ship detail"),
     (217, "Repeating route plans offer none, guards, insurance, or both, defaulting to none.", 8, "input", "Route planner"),
-    (215, "Zone threat, campaigns and protection prices are public before dispatch.", 10, "disclosure", "Fleet and ship detail"),
 
 ]
 

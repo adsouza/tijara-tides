@@ -66,7 +66,7 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
           {gettext("Protection")}
           <select name="protection" class="block rounded bg-slate-800 p-2">
             <option value="none" selected={(@model.route["protection"] || "none") == "none"}>
-              {gettext("None")}
+              {gettext("No protection")}
             </option>
             <option value="guards" selected={@model.route["protection"] == "guards"}>
               {gettext("Guards")}
@@ -581,5 +581,5 @@ defmodule TijaraTidesWeb.ShipRouteEditor do
   defp protection_label("guards"), do: gettext("Guards")
   defp protection_label("insurance"), do: gettext("Insurance")
   defp protection_label("both"), do: gettext("Guards and insurance")
-  defp protection_label(_), do: gettext("None")
+  defp protection_label(_), do: gettext("No protection")
 end

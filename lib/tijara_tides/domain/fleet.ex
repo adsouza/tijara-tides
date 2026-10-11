@@ -315,7 +315,7 @@ defmodule TijaraTides.Domain.Fleet do
             clock,
             nil,
             get_in(ship, ["piracy", "protection"]) || "none",
-            ship["piracy"]
+            TijaraTides.Domain.Piracy.diversion_context(ship, clock, catalogue)
           )
 
         paid = paid_canals(ship, catalogue)
@@ -366,7 +366,11 @@ defmodule TijaraTides.Domain.Fleet do
          true <- ship["status"] == "sailing",
          %{} = quote <- reroute_quote(ship, destination, state.clock_ms, catalogue),
          true <- is_integer(limit) and limit >= quote["fuel"],
-         true <- protection_accepted?(quote, protection_limit),
+         :ok <-
+           if(protection_accepted?(quote, protection_limit),
+             do: :ok,
+             else: {:error, :departure_protection_changed}
+           ),
          true <- quote["duration_ms"] <= @max_voyage_ms do
       delta = quote["fuel"] - (ship["fuel_total"] - ship["fuel_burned"])
 
@@ -405,6 +409,7 @@ defmodule TijaraTides.Domain.Fleet do
         {:ok, state, %{"arrive_ms" => state.clock_ms + quote["duration_ms"]}}
       end
     else
+      {:error, :departure_protection_changed} = error -> error
       _ -> {:error, :reroute_invalid}
     end
   end

@@ -62,4 +62,24 @@ defmodule TijaraTidesWeb.PiracyPresentationTest do
       end
     end
   end
+
+  test "no-protection labels and changed diversion prices have specific localized messages" do
+    {state, cat} = TijaraTides.CommandFuzzer.fixture()
+    ship = state.entities["ships"]["company:1"] |> Map.put("port", "Tangier")
+    quote = TijaraTides.Domain.Fleet.voyage_quote(ship, "Athens", cat, 0)
+
+    for {locale, label, price} <- [
+          {"en", "No protection", "Protection prices changed"},
+          {"ar", "بدون حماية", "تغيرت أسعار الحماية"}
+        ] do
+      {html, message} =
+        TijaraTides.Localization.with_locale(locale, fn ->
+          {render_component(&Presentation.protection_quote/1, quote: quote, sailing: true),
+           Presentation.error_message(:departure_protection_changed)}
+        end)
+
+      assert html =~ label
+      assert message =~ price
+    end
+  end
 end

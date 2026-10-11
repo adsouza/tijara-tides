@@ -3277,7 +3277,7 @@ msgstr "لا يمكن تمويل الوقود الإضافي أو رسوم ال�
 msgid "Departure reserves fuel and pays canal fees and selected protection. Crew and maintenance accrue as the voyage runs and become unpaid bills if available cash falls short."
 msgstr "يُحجز الوقود عند المغادرة وتُدفع رسوم القنوات والحماية المختارة. تتراكم تكاليف الطاقم والصيانة خلال الرحلة وتصبح فواتير غير مدفوعة إذا لم يكفِ النقد المتاح."
 
-msgid "None"
+msgid "No protection"
 msgstr "بدون حماية"
 
 msgid "Guards and insurance"

@@ -154,7 +154,7 @@ defmodule TijaraTides.Domain.Visibility do
     if ship["piracy"] do
       Map.update!(ship, "piracy", fn piracy ->
         piracy
-        |> Map.delete("model")
+        |> Map.drop(["model", "path_crossings"])
         |> Map.update!("pending", fn pending ->
           Enum.map(pending, &Map.take(&1, ~w(index zone)))
         end)

@@ -277,7 +277,9 @@ defmodule TijaraTides.UseCases.AutomationProtectionTest do
       markets: Markets.quotes(s, c.cat)
     }
 
-    assert GameQueries.trade_limits(view, ship, "Athens", c.cat)[{"buy", "everyday_clothing"}] ==
+    public = Map.put(c.cat, "piracy", Piracy.public_model(c.cat["piracy"]))
+
+    assert GameQueries.trade_limits(view, ship, "Athens", public)[{"buy", "everyday_clothing"}] ==
              2
 
     trade = %Trade{
@@ -347,7 +349,8 @@ defmodule TijaraTides.UseCases.AutomationProtectionTest do
       markets: Markets.quotes(s, c.cat)
     }
 
-    definitions = %{catalogue: c.cat, classes: Fleet.classes()}
+    public = Map.put(c.cat, "piracy", Piracy.public_model(c.cat["piracy"]))
+    definitions = %{catalogue: public, classes: Fleet.classes()}
 
     model =
       GameQueries.instruction_editor(
@@ -386,5 +389,84 @@ defmodule TijaraTides.UseCases.AutomationProtectionTest do
              %{trade | quantity: 3},
              c.cat
            ) == {:error, :insufficient_cash}
+  end
+
+  test "public instruction and purchase quantities remain admissible at campaign price boundaries",
+       c do
+    model =
+      c.cat["piracy"]
+      |> put_in(["campaign"], %{
+        "period_ms" => 1_000_000,
+        "duration_ms" => 400_000,
+        "warning_ms" => 100_000,
+        "multiplier" => 4
+      })
+      |> put_in(["zones", "barbary_coast", "campaign_bps"], 10_000)
+
+    c = %{c | cat: Map.put(c.cat, "piracy", model)}
+    s = route(c, "both")
+    ship = State.get(s, "ships", c.id)
+    item = c.cat["goods"]["everyday_clothing"]
+    market = Markets.quote(s, c.cat, "Tangier", item["id"])
+    fleet = Map.values(State.entities(s, "ships"))
+    baseline = Trading.purchase_voyage(ship, item, 2, "Athens", fleet, 0, c.cat, "both")
+    [{_, from, into}] = Piracy.crossings(c.cat["routes"]["Tangier|Athens"], model)
+    midpoint = round(baseline["sailing_ms"] * (from + into) / 2)
+    campaign = Piracy.campaign("barbary_coast", 2, model)
+    public = Map.put(c.cat, "piracy", Piracy.public_model(model))
+
+    for edge <- [campaign["starts_ms"], campaign["until_ms"]], delta <- [-1, 0, 1] do
+      clock = edge - baseline["loading_ms"] - midpoint + delta
+      s = %{s | clock_ms: clock}
+      voyage = Trading.purchase_voyage(ship, item, 2, "Athens", fleet, clock, c.cat, "both")
+
+      assert voyage ==
+               Trading.purchase_voyage(ship, item, 2, "Athens", fleet, clock, public, "both")
+
+      total = Trading.purchase_total(market, ship, item, 2)
+      s = free(s, total + voyage["required"])
+
+      view = %{
+        public: Visibility.public(s, c.cat),
+        private: Visibility.private(s, c.a),
+        markets: Markets.quotes(s, c.cat)
+      }
+
+      assert GameQueries.trade_limits(view, ship, "Athens", public)[{"buy", item["id"]}] == 2
+
+      editor =
+        GameQueries.instruction_editor(
+          %{catalogue: public, classes: Fleet.classes()},
+          ship,
+          %{"side" => "buy", "good" => item["id"]},
+          view.markets,
+          "Tangier",
+          view.private["company"],
+          view
+        )
+
+      assert editor.maximum == 2
+
+      trade = %Trade{
+        side: "buy",
+        ship_id: c.id,
+        good: item["id"],
+        quantity: editor.maximum,
+        limit: market["ask"],
+        destination: "Athens"
+      }
+
+      assert TradeSettlement.validate(s, c.a, trade, c.cat) == :ok
+
+      assert {:error, {:purchase_voyage_funds, _, _, _}} =
+               TradeSettlement.validate(
+                 free(s, total + voyage["required"] - 1),
+                 c.a,
+                 trade,
+                 c.cat
+               )
+
+      refute TradeSettlement.validate(s, c.a, %{trade | quantity: 3}, c.cat) == :ok
+    end
   end
 end

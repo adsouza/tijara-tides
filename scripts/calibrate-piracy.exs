@@ -1,7 +1,9 @@
 # mix run --no-start scripts/calibrate-piracy.exs
 # Independent economic audit; no state mutations or database connections.
 alias TijaraTides.Domain.{Piracy, ShipClass}
-model = Jason.decode!(File.read!("priv/game/catalogue.json"))["piracy"]
+# Tests can supply a different catalogue through Code.eval_string/3's binding.
+catalogue_path = Keyword.get(binding(), :catalogue_path, "priv/game/catalogue.json")
+model = Jason.decode!(File.read!(catalogue_path))["piracy"]
 p = Piracy.protection_settings(model)
 IO.puts("class,zone,guard_fee,base_prevented,campaign_prevented,unannounced_loss_loading")
 
@@ -51,5 +53,5 @@ failures =
 if failures != [], do: raise("Piracy calibration failed: #{inspect(failures)}")
 
 IO.puts(
-  "PASS: 40 class/zone pairs; base guards within 0.75–1.3x avoided cost; campaigns above 2.5x; insurance loading covers unannounced campaigns."
+  "PASS: #{map_size(ShipClass.all()) * map_size(model["zones"])} class/zone pairs; base guards within 0.75–1.3x avoided cost; campaigns above 2.5x; insurance loading covers unannounced campaigns."
 )

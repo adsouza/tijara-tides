@@ -2208,16 +2208,28 @@ but ships do not randomly sink or lose cargo in the initial game. Show known
 delays before dispatch and revised arrival estimates underway. Delay affects
 perishable freshness and commercial opportunities.
 
-Some sea lanes carry a published risk of attack. An attacked ship is held for
-a period and its owner pays a ransom or repair bill; cargo stays aboard and
+Some sea lanes carry a published risk of attack. An attacked ship is held for a
+period and its owner pays a ransom or repair bill; cargo stays aboard and
 continues to age. Armed guards lower the chance of attack and voyage insurance
-reimburses most of the charge. Zone threat, campaigns and protection prices
-are public before dispatch. Protection is optional and defaults to none for
-manual dispatch. Insurance reimburses 80% of attack charges and covers money,
-while holds still delay the voyage. Guards and premiums are paid at departure,
-and their prices join fuel and canals in the funding check. Diversions retain
-purchased protection, charge only newly crossed zones and refund nothing for
-zones dropped from the route.
+reimburses most of the charge. Zone threat, campaigns and protection prices are
+public before dispatch. Protection is optional and defaults to none for manual
+dispatch. Insurance reimburses 80% of attack charges and covers money, while
+holds still delay the voyage. Guards and premiums are paid at departure, and
+their prices join fuel and canals in the funding check. Prices use the public
+midpoint of each crossing on the forecast, with only campaigns and storms
+already announced at the quote's cutoff. Actual attack positions and rolls
+remain private. Public planning offers and server admission use the same
+pricing rule.
+
+Diversions retain purchased protection and charge only new crossings, with no
+refund for crossings dropped from the route. The crossing currently occupied
+keeps its identity: a pending crossing keeps its roll and the remaining
+relative attack position within that zone; a resolved crossing stays resolved.
+Neither pays a second guard fee or premium. Leaving and re-entering a zone
+creates a new crossing even if an earlier entry was resolved. A qualifying
+storm already encountered continues to suppress that crossing after diversion.
+Each diversion that buys new insurance coverage pays a fresh minimum premium of
+2,500 cents; a continuation with no new crossings costs nothing.
 
 Repeating route plans offer none, guards, insurance, or both, defaulting to none.
 The choice applies to the next automatic departure request; a waiting request

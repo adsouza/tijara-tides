@@ -165,10 +165,14 @@ At departure the ship's path is partitioned at zone boundaries in the manner of
 fraction is seeded between `from_fraction` and `into_fraction` from the salt,
 ship id, `depart_ms` and index. The list is snapshotted in `ships.piracy`
 together with the protection bought, a copy of the model without the salt, and
-each crossing's precomputed private roll. This keeps the salt out of durable and
-player-visible state and preserves underway outcomes across secret rotation.
-Owner projections omit the model, pending rolls and attack fractions. Catalogue
-changes never alter a voyage underway.
+each crossing's precomputed private roll. This keeps the salt out of durable
+and player-visible state and preserves underway outcomes across secret
+rotation. Owner projections omit the model, current-path crossing intervals,
+pending rolls and attack fractions. Catalogue changes never alter a voyage
+underway. Frozen models tolerate older shapes through default protection
+settings and per-zone fees. Older snapshots reconstruct current-path crossing
+identities from the path partitions and their original index allocation
+sequence.
 
 **Legacy voyages.** Ships already sailing when phase 2 deploys have no snapshot.
 They are never attacked and carry no protection. A diversion of a legacy voyage
@@ -177,15 +181,19 @@ creates a snapshot for the new path from the diversion point.
 **Diversions.** `Ship.reroute` replaces the path and sets `depart_ms` to now, so
 fractions on the old path mean nothing on the new one. A reroute therefore:
 
-1. Keeps resolved crossings as fraction-free records `{index, zone, outcome,
-   charge, recovery}`.
-2. Drops pending crossings of the old path.
-3. Partitions the new path and appends its crossings with indices continuing
-   after the old count.
-4. Marks a new crossing as resolved with outcome `continued` if it starts at the
-   diversion point (`from_fraction` 0) and a resolved record of that zone
-   exists. A diversion can therefore never re-roll a zone the ship is still
-   crossing. A `continued` crossing carries no guard fee and no premium term.
+1. Identifies the occupied crossing by the ship's motion fraction within its
+   current path interval, using the crossing's index rather than its zone id.
+2. Keeps resolved crossings as fraction-free records `{index, zone, outcome,
+   charge, recovery}` and drops obsolete pending crossings of the old path.
+3. Partitions the new path. An interval starting at fraction 0 in the occupied
+   crossing's zone keeps that crossing's index. A resolved continuation stays
+   resolved. A pending continuation keeps its private roll, and maps the
+   remaining relative attack position onto the new interval. Storm suppression
+   already earned before diversion is retained.
+4. Allocates new indices after the old count for every other entry, including
+   re-entry into a zone with older resolved records. The snapshot stores the
+   current path intervals and identities for later diversions. Pending carried
+   crossings are marked `continued`; they carry no guard fee or premium term.
 
 Incidents already recorded keep their absolute times (see The hold).
 
@@ -194,7 +202,8 @@ Incidents already recorded keep their absolute times (see The hold).
 Each pending crossing resolves once, when the ship's motion on the shared
 timeline reaches its attack fraction. The attack time is the world time at which
 that happens on the forecast. Chance is computed in integer basis points in this
-order, so the dispatch quote and the tick agree exactly:
+order. Quotes use the same arithmetic at the public pricing midpoint; actual
+attacks use their private position:
 
 ```
 bps = base_bps
@@ -202,20 +211,23 @@ bps = bps * multiplier                      if campaign_active?(zone, attack_tim
 bps = div(bps * (100 - guard_pct), 100)     if the voyage carries guards
 bps = div(bps * 22, class_speed)            for small-boat kinds; militia skip this
 bps = min(bps, 10_000)
-hit = phash2({salt, ship_id, depart_ms, index}, 10_000) < bps
+hit = stored_roll < bps
 ```
 
-`Piracy.campaign_active?(zone, at_ms, model)` is the pure seeded model; the roll
-and the quote both call it. The `piracy_campaigns` rows are a public projection
-of the current moment, read only by queries, so a large tick that passes the end
-of a campaign still applies it to an attack that happened before the end. The
-class factor makes a slow bulk carrier (18 knots) easier to board than a fast
-reefer (24 knots). The salt is set in `config/runtime.exs` under `:tijara_tides,
-:piracy` and injected into the loaded catalogue by `GameCatalogue`, as weather
-overrides already are. It is never written to `priv/game/catalogue.json`; a
-generated-file test asserts that. A public salt would let players precompute
-outcomes and time departures to dodge them; storms can use the public seed
-because they are announced.
+`Piracy.campaign_active?(zone, at_ms, model)` is the pure seeded model; the
+roll and the quote both call it. The `piracy_campaigns` rows are a public
+projection of the current moment, read by queries and by `VoyageHazards` for
+campaign notices, so a large tick that passes the end of a campaign still
+applies it to an attack that happened before the end. The class factor makes a
+slow bulk carrier (18 knots) easier to board than a fast reefer (24 knots). The
+salt is set in `config/runtime.exs` under `:tijara_tides, :piracy` and injected
+into the loaded catalogue by `GameCatalogue`, as weather overrides already are.
+The stored roll is generated once as `phash2({salt, ship_id, depart_ms, index},
+10_000)` when a new crossing is snapshotted, and survives continuation. The
+salt is never written to `priv/game/catalogue.json`; a generated-file test
+asserts that. A public salt would let players precompute outcomes and time
+departures to dodge them; storms can use the public seed because they are
+announced.
 
 Resolution is deterministic across replays, restarts and tick sizes. Every input
 either precedes the attack time or is fixed at departure. Storms that started
@@ -229,14 +241,17 @@ attack point's weather sector overlaps the interval from the ship's entry into
 the crossing to the attack time. The sector is that of the snapshotted weather
 segment (`ships.weather["segments"]`) containing the attack fraction. Windows
 come from the snapshotted weather model, filtered by the same `first_slot` and
-`since_ms` rules `cross/7` applies, so suppression never counts a storm the
-forecast ignored. Entry is the forecast time of `from_fraction`; for a crossing
-starting at fraction 0 it is `depart_ms`. The crossing is then recorded with
-outcome `suppressed` ("rough seas kept the raiders away"). Checking the interval
-rather than the instant matters: a storm pauses the ship, so the ship reaches
-its attack point either before a storm or after it, never during one. Militia
-strikes ignore weather. The check reads `Weather.window/3` for the sector's
-slots in that interval and adds no state.
+`since_ms` rules `cross/7` applies. Pricing additionally limits storm starts to
+the forecast's announcement cutoff; actual resolution can consider every storm
+that started before the attack. Entry is the forecast time of `from_fraction`;
+for a crossing starting at fraction 0 it is `depart_ms`. The crossing is then
+recorded with outcome `suppressed` ("rough seas kept the raiders away").
+Checking the interval rather than the instant matters: a storm pauses the ship,
+so the ship reaches its attack point either before a storm or after it, never
+during one. Militia strikes ignore weather. The check reads `Weather.window/3`
+for the sector's slots in that interval. A pending continuation records whether
+a qualifying storm was already encountered so diversion cannot erase its
+suppression.
 
 ### The hold
 
@@ -302,12 +317,13 @@ fee}`), after the same affordability check.
 | Caribbean Sea | 480 | $19.20 |
 
 The original flat 15 bps fee overcharged low-risk zones. The calibration script
-checks all 40 class/zone pairs: base prevented charges plus idle crew cost stay
-within 0.75–1.3 times the fee, campaign prevented costs exceed 2.5 times the
-fee, and insurance loading covers a conservative unannounced campaign duty
-cycle. Insurance transfers monetary risk at a loaded price; its expected payout
-alone does not exceed its premium. The script reads the generated catalogue
-without starting the application or touching storage.
+checks every class/zone pair (currently 40), reporting the count actually
+checked: base prevented charges plus idle crew cost stay within 0.75–1.3 times
+the fee, campaign prevented costs exceed 2.5 times the fee, and insurance
+loading covers a conservative unannounced campaign duty cycle. Insurance
+transfers monetary risk at a loaded price; its expected payout alone does not
+exceed its premium. The script reads the generated catalogue without starting
+the application or touching storage.
 
 ```sh
 mix run --no-start scripts/calibrate-piracy.exs
@@ -322,14 +338,17 @@ premium  = max(2_500, div(expected * 140, 100))
 
 The premium is expensed at departure to `piracy_premium_expense`. Insurance is
 not offered on a route that crosses no zone. The quoted chance applies the roll
-formula to each crossing's forecast attack time. The campaign term there counts
-only campaigns active or announced at dispatch whose window covers that attack
-time. Known storm suppression sets a quoted chance to zero. The server computes
-the private attack timing and returns only zone, chance, charge and price;
-preview responses never expose fractions, rolls, salt or the voyage model.
-The premium deliberately uses public campaign information only: a campaign
-announced after dispatch is the insurer's risk, and the calibration script
-accounts for it. Insurance covers money, not time.
+arithmetic at the forecast time of each crossing's public midpoint,
+`(from_fraction + into_fraction) / 2`. The campaign term counts only campaigns
+already announced by the forecast cutoff whose window covers that pricing time.
+Storm suppression also counts only storms announced by that cutoff. Planning
+before future loading uses the planning clock as the cutoff. Salt and private
+attack positions cannot affect prices, so public catalogue planning offers and
+private server admission agree. Quotes return only zone, chance, charge and
+price; preview responses never expose private fractions, rolls, salt or the
+voyage model. The premium deliberately uses public campaign information only: a
+campaign announced after dispatch is the insurer's risk, and the calibration
+script accounts for it. Insurance covers money, not time.
 
 **Charges.** At the attack the company is charged the kind's share of class
 price, and an insured incident is reimbursed `recovery = div(charge * 80, 100)`
@@ -353,10 +372,13 @@ amounts.
 test `Fleet.advance` and `Services.Estates` already use) resolve with outcome
 `exempt`. Estates are never charged or reimbursed.
 
-**Diversions.** A reroute adds guard fees for newly crossed zones, excluding
-`continued` crossings, (if the voyage has guards) and premium for new crossings
-(if insured), through the same quote. Nothing is refunded for zones no longer
-crossed. The existing `reroute_funds` admission covers these amounts.
+**Diversions.** A reroute adds guard fees for new crossing entries (if the
+voyage has guards) and premium for those entries (if insured), excluding paid
+continuations through the same quote. Nothing is refunded for crossings no
+longer present. Each nonempty insurance top-up pays a fresh 2,500-cent minimum;
+an occupied crossing alone has no top-up cost. The `reroute_funds` admission
+covers these amounts, and a stale protection price ceiling returns the same
+specific protection-price error as dispatch.
 
 **Economy.** Guards, premiums and charges leave the economy; recoveries return
 part of it. With a 1.4 loading the insurance flows are a net drain in
@@ -449,10 +471,11 @@ the other. Roots never call `Services.*`.
 
 Phase 1 already added the `piracy_campaigns` table. Phase 2 adds nullable
 `ships.piracy` (JSON: model without salt, protection, pending crossings and
-private rolls, resolved records, incidents) and the three piracy expense
-accounts in one migration. Row codecs write complete rows. `PiracyWorld` joins
-the table-ownership boundary tests in `test/docs/`. On arrival the ship's
-`piracy` snapshot is cleared with its weather snapshot.
+private rolls, current-path intervals and identities, resolved records,
+incidents) and the three piracy expense accounts in one migration. Row codecs
+write complete rows. `PiracyWorld` joins the table-ownership boundary tests in
+`test/docs/`. On arrival the ship's `piracy` snapshot is cleared with its
+weather snapshot.
 
 ### Tick safety
 
@@ -464,16 +487,20 @@ Nothing reachable from the tick raises:
 - Incident starts never precede `last_cost_ms`.
 - Receivership ships are exempt rather than charged.
 
-`TijaraTides.SettledCheck` gains these invariants. The first three need the
-states before and after plus the transition's `state.journal`, so they form a
-new clause in `assert_settled!/4`; the fourth fits the per-state `violations/2`
-list.
+`TijaraTides.SettledCheck` checks transitions with the states before and after
+plus `state.journal`. Crossing uniqueness also fits the per-state
+`violations/2` list.
 
-- Every incident added in a transition matches exactly one
+- Every nonzero incident charge added in a transition matches exactly one
   `piracy_charge_expense` debit in that transition's `state.journal` for the
   stored charge.
 - For insured incidents, the incident matches exactly one recovery credit for
   the stored recovery.
+- Every piracy charge or recovery posting matches a new incident, regardless
+  of the journal event's kind. Stray and replayed postings fail the invariant.
+  If arrival clears the voyage snapshot in that tick, changed incident notices
+  retain the charge and recovery amounts for the test oracle, including reused
+  notice keys and immediate automated redeparture.
 - A ship whose current hold is an incident keeps the same `destination`,
   `voyage_path` and `depart_ms` across any command.
 - Every crossing index appears at most once among resolved records.
@@ -497,15 +524,20 @@ list.
   zones.
 - **Automation:** a campaign announced while a request waits raises its
   `required` on the next attempt and the request still departs once funded.
-- **Diversion:** resolved records survive; `continued` crossings carry no fee; a
-  diversion inside a resolved zone cannot re-roll it; indices continue; a legacy
-  voyage gains a snapshot only on diversion.
-- **Contracts:** the offered protection quote is accepted and one cent more is
-  refused, for dispatch, reroute and automated funding
+- **Diversion:** resolved records survive; pending continuations retain their
+  roll and remaining relative attack position; neither pending nor resolved
+  continuations carry a fee. Re-entry remains a new crossing despite earlier
+  resolved records. Indices continue, older snapshots reconstruct path
+  identities, and a legacy voyage gains a snapshot only on diversion.
+- **Contracts:** exact offered funding is accepted and one cent less is
+  refused, for dispatch, reroute and automated funding. A stale protection
+  ceiling one cent below the quote is refused with the protection-price error;
+  public planning quantities are admitted by the private command
   (`test/tijara_tides/use_cases/*_offers_test.exs`).
-- **Finance:** uninsured and insured incidents; a charge with zero available
-  cash becoming an operating bill without raising; reserved fuel cash untouched;
-  receivership exemption; report categories.
+- **Finance:** both incident-to-posting and posting-to-incident checks,
+  including stray/replayed charges; uninsured and insured incidents; a charge
+  with zero available cash becoming an operating bill without raising; reserved
+  fuel cash untouched; receivership exemption; report categories.
 - **Catalogue:** the tracked `catalogue.json` contains no salt.
 - **Database:** round trip of `ships.piracy` and `piracy_campaigns`.
 - **LiveView:** protection toggles, the 🏴‍☠️ and 💥 marks beside their labels,

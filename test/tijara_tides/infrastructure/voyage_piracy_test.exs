@@ -363,4 +363,88 @@ defmodule TijaraTides.Infrastructure.VoyagePiracyTest do
                )
     end)
   end
+
+  test "an occupied pending crossing survives SQL, restart and diversion replay without new protection fees" do
+    Sql.with_world(fn c ->
+      {_conn, token} = TijaraTides.WebFormFixture.session(c)
+
+      {:ok, %{"company_id" => company}} =
+        TijaraTides.CompanyFixture.command(
+          token,
+          "carry-formation",
+          %{
+            "action" => "company",
+            "name" => "Carried crossing",
+            "port" => "Tangier",
+            "package" => "general"
+          },
+          c.server
+        )
+
+      id = company <> ":1"
+      quote = GameServer.preview(token, id, "Athens", c.server)
+
+      Sql.command(c, token, "carry-dispatch", %{
+        "action" => "sail",
+        "ship" => id,
+        "destination" => "Athens",
+        "fuel_limit" => quote["fuel"],
+        "protection" => "both",
+        "protection_limit" => quote["protection_options"]["both"]["cost"]
+      })
+
+      state = :sys.get_state(c.server).game
+      ship = state.entities["ships"][id]
+      crossing = hd(ship["piracy"]["pending"])
+      fraction = (crossing["from_fraction"] + crossing["attack_fraction"]) / 2
+      at = TijaraTides.Domain.Weather.time_at(ship["weather"], ship["depart_ms"], fraction)
+      Sql.advance(c.server, at - state.clock_ms)
+      state = :sys.get_state(c.server).game
+      catalogue = :sys.get_state(c.server).catalogue
+
+      quote =
+        TijaraTides.Domain.Fleet.reroute_quote(
+          state.entities["ships"][id],
+          "Valencia",
+          state.clock_ms,
+          catalogue
+        )
+
+      assert quote["protection_quote"]["cost"] == 0
+
+      payload = %{
+        "action" => "reroute",
+        "ship" => id,
+        "destination" => "Valencia",
+        "fuel_limit" => quote["fuel"],
+        "protection_limit" => 0
+      }
+
+      reply = Sql.command(c, token, "carry-diversion", payload)
+      assert %{"arrive_ms" => _} = reply
+      next = :sys.get_state(c.server).game
+      carried = hd(next.entities["ships"][id]["piracy"]["pending"])
+      assert carried["index"] == crossing["index"]
+      assert carried["roll"] == crossing["roll"]
+      assert carried["continued"]
+      Sql.assert_rows(c, next)
+      c = Sql.restart(c)
+      assert Sql.command(c, token, "carry-diversion", payload) == reply
+      restored = :sys.get_state(c.server).game
+      assert restored.revision == next.revision
+      assert restored.entities["ships"][id]["piracy"] == next.entities["ships"][id]["piracy"]
+
+      entries =
+        TijaraTides.Infrastructure.Persistence.Repo.query!(
+          "SELECT e.account_code,e.amount_cents FROM game_journal_entries e JOIN game_journal_transactions t ON t.id=e.transaction_id WHERE t.world_id=$1 AND t.kind='reroute' AND t.sealed",
+          [c.world]
+        ).rows
+
+      refute Enum.any?(entries, fn [account, _] ->
+               account in ["piracy_guard_expense", "piracy_premium_expense"]
+             end)
+
+      Sql.assert_rows(c, restored)
+    end)
+  end
 end

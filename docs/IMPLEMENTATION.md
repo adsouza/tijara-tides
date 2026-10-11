@@ -1243,30 +1243,38 @@ Legacy voyages are exempt until diversion, resolved crossings survive diversion,
 and a held ship cannot divert. English and Arabic held status is public; crossing
 outcomes, charges and structured notices are private to the owner.
 
-Phase 3 adds optional guards and insurance at manual dispatch. The authenticated
-server preview offers all four protection choices from the same pure quote the
-command accepts, using private attack timing and public campaign announcements.
-Prices include known storm suppression and the class factor. Guards lower attack
-odds; insurance reimburses 80% of monetary charges, with a $25 minimum premium
-and 1.4 loading. Immediate affordability includes protection, fuel and canals,
-and a protection price ceiling prevents silently accepting a larger bill. Owner
-controls and retained coverage render in English and Arabic. Diversions keep
-protection and charge only new pending crossings, with no refunds for dropped
-zones or fees for continued zones.
+Phase 3 adds optional guards and insurance at manual dispatch. The
+authenticated server preview offers all four protection choices from the same
+pure quote the command accepts, using public crossing midpoints and campaign
+announcements. Prices include only storms announced by the forecast cutoff and
+the class factor. Public planning quotes therefore match private admission
+independently of the attack salt. Guards lower attack odds; insurance
+reimburses 80% of monetary charges, with a $25 minimum premium and 1.4 loading.
+Immediate affordability includes protection, fuel and canals, and a protection
+price ceiling prevents silently accepting a larger bill. Owner controls and
+retained coverage render in English and Arabic. Diversions keep protection and
+charge only new pending crossings, with no refunds for dropped zones or fees
+for continued crossings. An occupied pending crossing keeps its roll and remaps
+the remaining relative attack position after diversion; a resolved crossing
+stays resolved. Re-entry gets a new identity even if the same zone has older
+resolved records. A nonempty insurance top-up pays the minimum premium again.
+Frozen older snapshots reconstruct their current path identities and use legacy
+protection defaults.
 
-Guard fees vary by zone and scale with hull price. The calibration script checks
-all 40 hull/zone pairs and the conservative unannounced campaign exposure. Pure
-contract tests cover exact funding and one-cent shortfalls; SQL/LiveView tests
-cover toggles, journal postings, receipt replay, restart and insured recovery.
-The settled oracle checks protection postings and retained diversion coverage.
-Phase 4 adds a saved route Protection setting, defaulting to none. Automatic
-requests snapshot the choice, so route edits affect the next request without
-replacing waiting work. Each allocation reprices fuel, canals and protection
-before testing affordability, retaining age and deadlines and releasing excess
-accumulation. Reduced and Skip policies fully fund protection before assigning
-purchase budgets. Safe legs skip insurance but retain the route preference.
-Trading, owned-stock collection, offered quantities and voyage plans use the
-same protected quotes as dispatch.
+Guard fees vary by zone and scale with hull price. The calibration script
+checks all 40 hull/zone pairs and the conservative unannounced campaign
+exposure. Pure contract tests cover exact funding and one-cent shortfalls;
+SQL/LiveView tests cover toggles, journal postings, receipt replay, restart and
+insured recovery. The settled oracle checks protection postings and retained
+diversion coverage, and rejects piracy charge postings without a corresponding
+new incident. Phase 4 adds a saved route Protection setting, defaulting to
+none. Automatic requests snapshot the choice, so route edits affect the next
+request without replacing waiting work. Each allocation reprices fuel, canals
+and protection before testing affordability, retaining age and deadlines and
+releasing excess accumulation. Reduced and Skip policies fully fund protection
+before assigning purchase budgets. Safe legs skip insurance but retain the
+route preference. Trading, owned-stock collection, offered quantities and
+voyage plans use the same protected quotes as dispatch.
 
 Pure contracts exercise all choices, exact and one-cent-short funding, campaign
 repricing, reservation releases, route edits and purchase/collection offers. The

@@ -66,10 +66,26 @@ defmodule TijaraTides.SettledCheck do
       prior = get_in(old, ["piracy", "incidents"]) || []
       added = (get_in(ship, ["piracy", "incidents"]) || []) -- prior
 
+      # Arrival clears the voyage, and automation can start another in this tick.
+      # Its notices retain the amounts, including replacements of older voyages' keys.
+      added =
+        if is_nil(ship["piracy"]) or
+             (old["status"] == "sailing" and ship["port"] == old["destination"]) do
+          for {id, notice} <- ReadState.entities(state, "notices"),
+              notice["code"] == "ship.piracy",
+              String.starts_with?(id, "piracy:" <> ship["id"] <> ":"),
+              get(before, "notices", id) != notice,
+              do: notice["arguments"]
+        else
+          added
+        end
+
       postings =
         for event <- events,
-            event.kind == "piracy" and event.ship == ship["id"],
-            do: event.entries
+            event.ship == ship["id"],
+            entries = Enum.filter(event.entries, &(elem(&1, 0) == "piracy_charge_expense")),
+            entries != [],
+            do: entries
 
       expected =
         Enum.frequencies(
@@ -85,15 +101,10 @@ defmodule TijaraTides.SettledCheck do
                 )
         )
 
-      actual =
-        Enum.frequencies(
-          Enum.map(postings, fn entries ->
-            Enum.filter(entries, &(elem(&1, 0) == "piracy_charge_expense"))
-          end)
-        )
+      actual = Enum.frequencies(postings)
 
       money =
-        if added != [] and expected != actual,
+        if expected != actual,
           do: [{:piracy, :incident_posting, ship["id"]}],
           else: []
 
@@ -154,7 +165,11 @@ defmodule TijaraTides.SettledCheck do
         end
 
       money ++ motion ++ protected
-    end)
+    end) ++
+      for event <- events,
+          Enum.any?(event.entries, &(elem(&1, 0) == "piracy_charge_expense")) and
+            is_nil(get(state, "ships", event.ship)),
+          do: {:piracy, :incident_posting, event.ship}
   end
 
   defp operator_dormancy(state) do

@@ -5396,13 +5396,6 @@ msgstr ""
 msgid "Insurance covers %{percent}% of attack charges. Holds still delay the voyage."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/presentation.ex:198
-#: lib/tijara_tides_web/components/ship_route_editor.ex:69
-#: lib/tijara_tides_web/components/ship_route_editor.ex:584
-#, elixir-autogen, elixir-format
-msgid "None"
-msgstr ""
-
 #: lib/tijara_tides_web/components/game/presentation.ex:442
 #, elixir-autogen, elixir-format
 msgid "Protection prices changed or insurance is unavailable. Review the voyage and confirm again."
@@ -5489,4 +5482,11 @@ msgstr ""
 #: lib/tijara_tides_web/components/game/ports_panel.ex:372
 #, elixir-autogen, elixir-format
 msgid "Includes route protection: %{cost}."
+msgstr ""
+
+#: lib/tijara_tides_web/components/game/presentation.ex:198
+#: lib/tijara_tides_web/components/ship_route_editor.ex:69
+#: lib/tijara_tides_web/components/ship_route_editor.ex:584
+#, elixir-autogen, elixir-format
+msgid "No protection"
 msgstr ""

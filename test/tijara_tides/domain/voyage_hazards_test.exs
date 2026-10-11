@@ -132,8 +132,8 @@ defmodule TijaraTides.Domain.VoyageHazardsTest do
 
     assert Piracy.attack_bps("first", c["until_ms"], m, 22) == 400
     saturated = put_in(m, ["zones", "first", "chance_bps"], 9000)
-    # corrected below by a separate cap witness
     assert Piracy.attack_bps("first", c["starts_ms"], saturated, 22, true) == 3600
+    assert Piracy.attack_bps("first", c["starts_ms"], saturated, 18) == 10_000
     {_, militia, _} = fixture()
     assert Piracy.attack_bps("first", 0, militia["piracy"], 18) == 10_000
     assert Piracy.attack_bps("first", 0, militia["piracy"], 24) == 10_000
@@ -324,8 +324,9 @@ defmodule TijaraTides.Domain.VoyageHazardsTest do
 
     diverted = ShipWorld.reroute(next, id, "Tokyo", quote, 0, cat).entities["ships"][id]["piracy"]
     assert hd(diverted["resolved"]) == hd(ship["piracy"]["resolved"])
-    assert Enum.find(diverted["resolved"], &(&1["index"] == 2))["outcome"] == "continued"
-    assert Enum.map(diverted["pending"], & &1["index"]) == [3]
+    assert diverted["resolved"] == ship["piracy"]["resolved"]
+    assert hd(diverted["path_crossings"])["index"] == 0
+    assert Enum.map(diverted["pending"], & &1["index"]) == [2]
     assert diverted["incidents"] == ship["piracy"]["incidents"]
   end
 
@@ -347,6 +348,7 @@ defmodule TijaraTides.Domain.VoyageHazardsTest do
 
     private = Visibility.private(next, account)["ships"][id]["piracy"]
     refute Map.has_key?(private, "model")
+    refute Map.has_key?(private, "path_crossings")
     for c <- private["pending"], do: assert(Map.keys(c) |> Enum.sort() == ["index", "zone"])
 
     assert Enum.any?(next.entities["notices"], fn {key, n} ->
@@ -472,5 +474,313 @@ defmodule TijaraTides.Domain.VoyageHazardsTest do
     key = "campaign:" <> campaign["window_id"] <> ":" <> id
     assert next.entities["notices"][key]["code"] == "ship.piracy_campaign"
     assert advance(next, cat, 0).entities["notices"] == next.entities["notices"]
+  end
+
+  test "a late attack hold starts at the settled cursor, never retroactively" do
+    {state, cat, id} = fixture()
+
+    state =
+      state
+      |> put_in([:entities, "ships", id, "last_cost_ms"], 4000)
+      |> put_in(
+        [:entities, "ships", id, "piracy", "pending", Access.at(0), "attack_fraction"],
+        0.25
+      )
+      |> Map.put(:clock_ms, 4000)
+
+    next = advance(state, cat, 1000)
+    incident = hd(next.entities["ships"][id]["piracy"]["incidents"])
+    assert incident["starts_ms"] == 4000
+    assert incident["until_ms"] == 6000
+  end
+
+  test "campaign odds use the attack time on both sides of a boundary, not the tick clock" do
+    {state, cat, id} = fixture()
+
+    model =
+      cat["piracy"]
+      |> put_in(["zones", "first", "chance_bps"], 1000)
+      |> put_in(["zones", "first", "campaign_bps"], 10_000)
+
+    campaign = Piracy.campaign("first", 1, model)
+    cat = Map.put(cat, "piracy", model)
+
+    for {attack, tick, outcome} <- [
+          {campaign["starts_ms"] - 1, campaign["starts_ms"] + 1, "missed"},
+          {campaign["until_ms"] - 1, campaign["until_ms"] + 1, "hit"}
+        ] do
+      departure = attack - 30_000
+
+      q = %{
+        "route" => route(),
+        "duration_ms" => 100_000,
+        "fuel" => 1000,
+        "weather" => Weather.forecast(route(), 100_000, departure, departure, Weather.model(cat))
+      }
+
+      row = state.entities["ships"][id]
+
+      ship =
+        row
+        |> Map.put("status", "docked")
+        |> Ship.Rows.decode()
+        |> Ship.begin_voyage("Singapore", q, departure, 600)
+        |> Ship.snapshot_piracy(model)
+        |> Ship.Rows.encode()
+        |> Map.put("last_cost_ms", departure)
+        |> put_in(["piracy", "pending", Access.at(0), "attack_fraction"], 0.3)
+        |> put_in(["piracy", "pending", Access.at(0), "roll"], 2000)
+
+      s = TijaraTides.Domain.State.put(%{state | clock_ms: departure}, "ships", id, ship)
+      next = advance(s, cat, tick - departure)
+      assert hd(next.entities["ships"][id]["piracy"]["resolved"])["outcome"] == outcome
+    end
+  end
+
+  test "suppression excludes storms ending at entry or before the retained forecast interval" do
+    {_, cat, _} = fixture("piracy")
+
+    storm = %{
+      "period_ms" => 10_000,
+      "duration_ms" => 1000,
+      "chance_bps" => 10_000,
+      "first_slot" => 1,
+      "seed" => 1,
+      "stagger" => false
+    }
+
+    weather = Weather.forecast(route(), 10_000, 7000, 7000, storm)
+    crossing = %{"zone" => "first", "from_fraction" => 0.4, "attack_fraction" => 0.6}
+    refute Piracy.suppressed?(crossing, 7000, weather, cat["piracy"])
+    before_end = Map.put(crossing, "from_fraction", 0.3999)
+    assert Piracy.suppressed?(before_end, 7000, weather, cat["piracy"])
+
+    refute Piracy.suppressed?(
+             before_end,
+             7000,
+             Map.put(weather, "since_ms", 11_000),
+             cat["piracy"]
+           )
+  end
+
+  test "re-entry keeps its own pending roll through diversions despite an earlier resolved entry" do
+    {state, cat, id} = fixture()
+    model = Map.update!(cat["piracy"], "zones", &Map.take(&1, ["first"]))
+    cat = Map.put(cat, "piracy", model)
+    original = %{route() | "coordinates" => [[100, 10], [105, 10], [100, 10], [105, 10]]}
+
+    q = %{
+      "route" => original,
+      "duration_ms" => 15_000,
+      "fuel" => 1000,
+      "weather" => Weather.forecast(original, 15_000, 0, 0, Weather.model(cat))
+    }
+
+    row = state.entities["ships"][id]
+
+    row =
+      row
+      |> Map.put("status", "docked")
+      |> Ship.Rows.decode()
+      |> Ship.begin_voyage("Singapore", q, 0, 600)
+      |> Ship.snapshot_piracy(model)
+      |> Ship.record_crossing(0, "missed", nil, 0, 0)
+      |> Ship.Rows.encode()
+      |> put_in(["piracy", "pending", Access.at(0), "attack_fraction"], 0.5)
+      |> put_in(["piracy", "pending", Access.at(0), "roll"], 1234)
+      |> put_in(["piracy", "protection"], "both")
+
+    for legacy <- [false, true] do
+      row =
+        if legacy do
+          row
+          |> update_in(["piracy"], &Map.delete(&1, "path_crossings"))
+          |> update_in(["piracy", "model"], &Map.delete(&1, "protection"))
+          |> update_in(["piracy", "model", "zones"], fn zones ->
+            Map.new(zones, fn {key, zone} -> {key, Map.delete(zone, "guard_fee_ppm")} end)
+          end)
+        else
+          row
+        end
+
+      s = TijaraTides.Domain.State.put(%{state | clock_ms: 7000}, "ships", id, row)
+      context = Piracy.diversion_context(row, 7000, cat)
+      assert context["continuing"]["index"] == 1
+      changed = %{route() | "coordinates" => [[103, 10], [100, 10], [105, 10]]}
+
+      q = %{
+        "route" => changed,
+        "duration_ms" => 8000,
+        "fuel" => 1000,
+        "weather" => Weather.forecast(changed, 8000, 7000, 7000, Weather.model(cat))
+      }
+
+      diverted = ShipWorld.reroute(s, id, "Tokyo", q, 0, cat).entities["ships"][id]
+      [carried, fresh] = diverted["piracy"]["pending"]
+      assert carried["index"] == 1
+      assert carried["roll"] == hd(row["piracy"]["pending"])["roll"]
+      assert carried["continued"]
+      assert fresh["index"] == 3
+      refute fresh["continued"]
+      assert diverted["piracy"]["resolved"] == row["piracy"]["resolved"]
+
+      terms =
+        Piracy.crossing_quotes(
+          diverted["piracy"]["pending"],
+          row,
+          7000,
+          q["weather"],
+          diverted["piracy"]["model"]
+        )
+
+      assert length(terms["both"]["crossings"]) == 1
+      assert terms["both"]["guard_fee"] > 0
+
+      at =
+        Weather.time_at(
+          q["weather"],
+          7000,
+          (fresh["from_fraction"] + fresh["attack_fraction"]) / 2
+        )
+
+      context = Piracy.diversion_context(diverted, at, cat)
+
+      next =
+        Piracy.snapshot(
+          %{"coordinates" => [[103, 10], [105, 10]]},
+          Piracy.voyage_model(diverted, cat),
+          id,
+          at,
+          context
+        )
+
+      assert [again] = next["pending"]
+      assert again["index"] == 3
+      assert again["roll"] == fresh["roll"]
+      assert again["continued"]
+      assert next["resolved"] == row["piracy"]["resolved"]
+    end
+  end
+
+  test "the money oracle rejects stray and replayed charges, including unknown ship ids" do
+    {state, cat, id} = fixture()
+    company = state.entities["ships"][id]["company_id"]
+
+    for ship <- [id, "missing"] do
+      stray = CompanyFinanceWorld.piracy_charge(state, company, ship, 1000, 800)
+
+      assert_raise ArgumentError, ~r/incident_posting/, fn ->
+        TijaraTides.SettledCheck.assert_settled!(state, stray, cat, "tick")
+      end
+    end
+
+    mislabeled =
+      Journal.post(
+        state,
+        company,
+        "accidental",
+        [{"piracy_charge_expense", 1000}, {"cash_available", -1000}],
+        %{ship: id}
+      )
+
+    assert_raise ArgumentError, ~r/incident_posting/, fn ->
+      TijaraTides.SettledCheck.assert_settled!(state, mislabeled, cat, "tick")
+    end
+
+    next = advance(state, cat, 5000) |> Journal.clear()
+    incident = hd(next.entities["ships"][id]["piracy"]["incidents"])
+
+    replay =
+      CompanyFinanceWorld.piracy_charge(
+        next,
+        company,
+        id,
+        incident["charge"],
+        incident["recovery"]
+      )
+
+    assert_raise ArgumentError, ~r/incident_posting/, fn ->
+      TijaraTides.SettledCheck.assert_settled!(next, replay, cat, "tick")
+    end
+
+    arrived = advance(state, cat, 20_000) |> Fleet.advance(20_000)
+    assert arrived.entities["ships"][id]["piracy"] == nil
+    assert TijaraTides.SettledCheck.assert_settled!(state, arrived, cat, "tick") == arrived
+  end
+
+  test "the money oracle follows arrival and redeparture when incident notice keys are reused" do
+    {state, cat, id} = fixture()
+    ship = state.entities["ships"][id]
+    account = state.entities["companies"][ship["company_id"]]["account_id"]
+
+    before =
+      Enum.reduce(0..1, state, fn index, acc ->
+        TijaraTides.Domain.State.put(acc, "notices", "piracy:#{id}:#{index}", %{
+          "account_id" => account,
+          "code" => "ship.piracy",
+          "clock_ms" => -1000,
+          "arguments" => %{"charge" => 1000, "recovery" => 0}
+        })
+      end)
+
+    arrived = advance(before, cat, 20_000) |> Fleet.advance(20_000)
+    assert arrived.entities["ships"][id]["piracy"] == nil
+    assert TijaraTides.SettledCheck.assert_settled!(before, arrived, cat, "tick") == arrived
+
+    quote = %{
+      "duration_ms" => 10_000,
+      "fuel" => 1000,
+      "route" => route(),
+      "weather" => Weather.forecast(route(), 10_000, 20_000, 20_000, Weather.model(cat))
+    }
+
+    departed = ShipWorld.depart(arrived, id, "Tokyo", quote, 600, cat)
+    assert departed.entities["ships"][id]["piracy"]["incidents"] == []
+    assert TijaraTides.SettledCheck.assert_settled!(before, departed, cat, "tick") == departed
+
+    idle = advance(before, cat, 20_000) |> Fleet.advance(20_000) |> Journal.clear()
+    stray = CompanyFinanceWorld.piracy_charge(idle, ship["company_id"], id, 1000, 0)
+
+    assert_raise ArgumentError, ~r/incident_posting/, fn ->
+      TijaraTides.SettledCheck.assert_settled!(idle, stray, cat, "tick")
+    end
+  end
+
+  test "a pending continuation retains suppression from a storm encountered before diversion" do
+    {state, cat, id} = fixture("piracy")
+
+    storm = %{
+      "period_ms" => 10_000,
+      "duration_ms" => 1000,
+      "chance_bps" => 10_000,
+      "first_slot" => 1,
+      "seed" => 1,
+      "stagger" => false
+    }
+
+    row =
+      state.entities["ships"][id]
+      |> Map.put("depart_ms", 7000)
+      |> Map.put("arrive_ms", 18_000)
+      |> Map.put("weather", Weather.forecast(route(), 10_000, 7000, 11_500, storm))
+      |> put_in(["piracy", "pending", Access.at(0), "attack_fraction"], 0.39)
+
+    state = TijaraTides.Domain.State.put(%{state | clock_ms: 11_500}, "ships", id, row)
+    changed = %{route() | "coordinates" => [[103.5, 10], [110, 10]]}
+
+    quote = %{
+      "route" => changed,
+      "duration_ms" => 6500,
+      "fuel" => 1000,
+      "weather" => Weather.forecast(changed, 6500, 11_500, 11_500, storm)
+    }
+
+    diverted = ShipWorld.reroute(state, id, "Tokyo", quote, 0, cat)
+    crossing = hd(diverted.entities["ships"][id]["piracy"]["pending"])
+    assert crossing["suppressed"]
+    assert crossing["continued"]
+    next = advance(diverted, cat, 600)
+    assert hd(next.entities["ships"][id]["piracy"]["resolved"])["outcome"] == "suppressed"
+    assert next.entities["ships"][id]["piracy"]["incidents"] == []
   end
 end

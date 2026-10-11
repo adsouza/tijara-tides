@@ -588,9 +588,19 @@ SELECT 'ship', world_id, id, name FROM game_ships WHERE length(name) > 140;
 Migration `20261011000000_add_voyage_piracy.exs` adds nullable JSONB
 `game_ships.piracy` and piracy guard, premium and charge expense accounts.
 Existing voyages retain null snapshots and remain exempt until diverted.
-Crossings, precomputed private rolls, resolved outcomes and incidents commit
-atomically with operating bills, notices and the ledger. Restart restores them
-without resolving or charging a crossing twice. Arrival clears the snapshot.
-Only the server configuration contains the attack salt; persisted rolls preserve
-existing voyages across secret rotation. Production may set `PIRACY_SALT` (at
-least 32 bytes) or use the dedicated derivation from `SECRET_KEY_BASE`.
+Crossings, current-path crossing identities, precomputed private rolls,
+resolved outcomes and incidents commit atomically with operating bills, notices
+and the ledger. Restart restores them without resolving or charging a crossing
+twice. Arrival clears the snapshot. Only the server configuration contains the
+attack salt; persisted rolls preserve existing voyages across secret rotation.
+Production may set `PIRACY_SALT` (at least 32 bytes) or use the dedicated
+derivation from `SECRET_KEY_BASE`.
+
+### Automated voyage protection
+
+Migration `20261011000001_add_automation_protection.exs` adds a non-null text
+`protection` column to `game_ship_routes` and `game_departure_requests`. Both
+default to `none` and accept only `none`, `guards`, `insurance` or `both`.
+Existing routes and requests retain their identities, waiting age and reserved
+funds. Editing the route changes the next request's choice; a waiting request
+retains its saved choice while prices and funding are recalculated.

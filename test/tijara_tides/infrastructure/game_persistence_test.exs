@@ -6328,7 +6328,10 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     after_tick = GameServer.snapshot(token, replacement)
     # The server's monotonic clock may advance a millisecond during the retry;
     # assert the weather transition is not reapplied, rather than freezing crew cost.
-    assert after_tick.private["ships"][id]["weather"] == delayed["weather"]
+    forecast = after_tick.private["ships"][id]["weather"]
+    assert forecast["cutoff_ms"] == :sys.get_state(replacement).game.clock_ms
+    assert forecast["cutoff_ms"] >= delayed["weather"]["cutoff_ms"]
+    assert Map.delete(forecast, "cutoff_ms") == Map.delete(delayed["weather"], "cutoff_ms")
     assert after_tick.private["ships"][id]["arrive_ms"] == delayed["arrive_ms"]
     assert after_tick.private["notices"] == before.private["notices"]
     assert :ok = FinancialLedger.audit(Repo, c.world_id)
