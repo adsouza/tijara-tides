@@ -3149,3 +3149,15 @@ msgstr "اختر ميناءً من لوحة الموانئ للاطلاع على
 
 msgid "This ship class is not offered at the selected port. Choose another port or class."
 msgstr "لا تتوفر هذه الفئة من السفن في الميناء المحدد. اختر ميناءً أو فئةً أخرى."
+
+#, elixir-format
+msgid "Operators can issue unlimited invitations. Invitations still expire if unused."
+msgstr "يمكن للمشغّلين إصدار دعوات غير محدودة. وتظل الدعوات تنتهي صلاحيتها إذا لم تُستخدم."
+
+#, elixir-format
+msgid "The recipient verifies the email when redeeming the link. You will not receive their sign-in credential."
+msgstr "يتحقق المستلم من البريد الإلكتروني عند استخدام الرابط. ولن تحصل على بيانات تسجيل دخوله."
+
+#, elixir-format
+msgid "Unlimited invitations"
+msgstr "دعوات غير محدودة"

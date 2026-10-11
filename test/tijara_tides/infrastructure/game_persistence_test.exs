@@ -147,6 +147,58 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(returning, "#shipyard")
   end
 
+  test "operator account UI offers invitations with zero quota and preserves ordinary account controls",
+       c do
+    previous_email_enabled = Application.get_env(:tijara_tides, :email_enabled)
+    Application.put_env(:tijara_tides, :email_enabled, true)
+    on_exit(fn -> Application.put_env(:tijara_tides, :email_enabled, previous_email_enabled) end)
+    {conn, token} = TijaraTides.WebFormFixture.session(c)
+
+    {:ok, _} =
+      GameServer.email_request(
+        token,
+        "link",
+        "operator-ui@example.com",
+        "operator-ui-link",
+        "test",
+        c.server
+      )
+
+    [link] = GameServer.email_pending(c.server)
+
+    {:ok, _} =
+      GameServer.email_redeem(
+        GameServer.email_token(link["id"]),
+        GameServer.token(),
+        token,
+        c.server
+      )
+
+    for n <- 1..3 do
+      {:ok, _} = GameServer.command(token, "ordinary-#{n}", %{"action" => "invite"}, c.server)
+    end
+
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    refute has_element?(view, "#send-invitation")
+    assert has_element?(view, "#invitation-countdown")
+    account_id = GameServer.snapshot(token, c.server).private["account"]["id"]
+    assert {:ok, _} = GameServer.promote_operator({:account, account_id}, "promote-ui", c.server)
+    render_async(view)
+    assert has_element?(view, "#invitation-expectation", "Unlimited invitations")
+    refute has_element?(view, "#invitation-countdown")
+    assert has_element?(view, "#send-invitation")
+    assert has_element?(view, "#email-invite-form button:not([disabled])")
+    refute render(view) =~ "Uses one invitation."
+    view |> element("#send-invitation") |> render_click()
+    assert GameServer.snapshot(token, c.server).private["account"]["invite_quota"] == 0
+
+    assert [[4]] =
+             Repo.query!(
+               "SELECT count(*) FROM game_invitations WHERE world_id=$1 AND inviter_account_id=$2 AND status='issued'",
+               [c.world_id, account_id]
+             ).rows
+  end
+
   test "unavailable newbuilds leave durable ships, balances, revision and receipts unchanged",
        c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)

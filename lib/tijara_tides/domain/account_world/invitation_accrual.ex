@@ -19,6 +19,9 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
         account["suspended_ms"] != nil ->
           "suspended"
 
+        account["operator"] ->
+          "operator"
+
         company == nil or company["bankruptcy_ms"] != nil ->
           "no_company"
 
@@ -44,7 +47,13 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
         InvitationProgress.period_ms()
       end
 
-    %{"status" => status, "remaining_ms" => remaining_ms, "refund_ms" => refund_ms}
+    %{
+      "status" => status,
+      "unlimited" => account["operator"],
+      "can_issue" => Account.invitation_available?(Rows.decode(account), length(issued)),
+      "remaining_ms" => if(account["operator"], do: nil, else: remaining_ms),
+      "refund_ms" => if(account["operator"], do: nil, else: refund_ms)
+    }
   end
 
   defp issued(state, id),
@@ -91,35 +100,40 @@ defmodule TijaraTides.Domain.AccountWorld.InvitationAccrual do
 
     # Existing companies begin earning with their first qualifying action after
     # upgrade. Wall-clock participation history cannot backdate world-clock credit.
-    if row || active? do
-      row = row || InvitationProgress.new(id, company, state.clock_ms)
-      previous = State.get(before, "accounts", id)
-      eligible? = healthy?(before, previous) and healthy?(state, account)
+    cond do
+      account["operator"] ->
+        State.delete(state, "invitation_progress", id)
 
-      outstanding = length(issued(state, id))
+      row || active? ->
+        row = row || InvitationProgress.new(id, company, state.clock_ms)
+        previous = State.get(before, "accounts", id)
+        eligible? = healthy?(before, previous) and healthy?(state, account)
 
-      capacity = max(0, InvitationProgress.limit() - account["invite_quota"] - outstanding)
+        outstanding = length(issued(state, id))
 
-      {row, earned} =
-        InvitationProgress.advance(row, company, state.clock_ms, eligible?, active?, capacity)
+        capacity = max(0, InvitationProgress.limit() - account["invite_quota"] - outstanding)
 
-      state = State.put(state, "invitation_progress", id, row)
+        {row, earned} =
+          InvitationProgress.advance(row, company, state.clock_ms, eligible?, active?, capacity)
 
-      if earned > 0 do
-        account = account |> Rows.decode() |> Account.earn_invitations(earned)
+        state = State.put(state, "invitation_progress", id, row)
 
+        if earned > 0 do
+          account = account |> Rows.decode() |> Account.earn_invitations(earned)
+
+          state
+          |> State.put("accounts", id, Rows.encode(account))
+          |> Notices.notice(
+            id,
+            "invitation-earned:" <> id <> ":" <> to_string(state.clock_ms),
+            {"invitation.earned", %{}}
+          )
+        else
+          state
+        end
+
+      true ->
         state
-        |> State.put("accounts", id, Rows.encode(account))
-        |> Notices.notice(
-          id,
-          "invitation-earned:" <> id <> ":" <> to_string(state.clock_ms),
-          {"invitation.earned", %{}}
-        )
-      else
-        state
-      end
-    else
-      state
     end
   end
 

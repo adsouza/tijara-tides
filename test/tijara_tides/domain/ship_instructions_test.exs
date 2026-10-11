@@ -649,7 +649,13 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     assert {:error, :instruction_not_active} =
              ShipInstructions.cancel(state, %{"company_id" => "other"}, "price", c.catalogue)
 
-    assert Game.private(state, %{"id" => "other", "company_id" => "other"})["ship_instructions"] ==
+    assert Game.private(
+             state,
+             TijaraTides.Domain.Account.Rows.encode(%{
+               TijaraTides.Domain.Account.new("other", nil, false, 0)
+               | company_id: "other"
+             })
+           )["ship_instructions"] ==
              %{}
 
     refute Map.has_key?(Game.public(state, c.catalogue), "ship_instructions")
@@ -1039,7 +1045,13 @@ defmodule TijaraTides.Domain.ShipInstructionsTest do
     assert Game.entities(planned, "ships") == Game.entities(c.state, "ships")
     refute Map.has_key?(Game.public(planned, c.catalogue), "visit_plans")
 
-    assert Game.private(planned, %{"id" => "other", "company_id" => "other"})["visit_plans"] ==
+    assert Game.private(
+             planned,
+             TijaraTides.Domain.Account.Rows.encode(%{
+               TijaraTides.Domain.Account.new("other", nil, false, 0)
+               | company_id: "other"
+             })
+           )["visit_plans"] ==
              %{}
 
     arrived = arrive(c, planned)

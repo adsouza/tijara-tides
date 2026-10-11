@@ -23,6 +23,77 @@ defmodule TijaraTides.UseCases.OperatorCommandsTest do
     }
   end
 
+  test "promotion normalizes selectors, records a separate receipt and preserves all other account fields" do
+    store =
+      {Store,
+       fn
+         {:receipt, "operator:promote_operator", "promote", fingerprint} ->
+           assert byte_size(fingerprint) == 64
+           :new
+
+         {:commit, before, changed, {"operator:promote_operator", "promote", _, result}} ->
+           assert changed.entities["accounts"]["a"] ==
+                    Map.put(before.entities["accounts"]["a"], "operator", true)
+
+           assert result["operator_after"]
+           assert :ok == TijaraTides.Domain.ChangeSet.assert_complete!(before, changed)
+           {:ok, :ok}
+       end}
+
+    assert {:ok, %{committed?: true}} =
+             OperatorCommands.promote_operator(
+               game(),
+               {:email, " Player@Example.com "},
+               "promote",
+               %{wall_ms: 0},
+               store
+             )
+
+    replay = %{"operator_after" => true}
+
+    replay_store =
+      {Store, fn {:receipt, "operator:promote_operator", "promote", _} -> {:replay, replay} end}
+
+    assert {:ok, %{committed?: false, reply: ^replay}} =
+             OperatorCommands.promote_operator(
+               game(),
+               {:account, "missing"},
+               "promote",
+               %{wall_ms: 0},
+               replay_store
+             )
+
+    no_storage = {Store, fn _ -> flunk("invalid promotion touched storage") end}
+
+    assert {:error, :invalid_request_id} =
+             OperatorCommands.promote_operator(
+               game(),
+               {:account, "a"},
+               "",
+               %{wall_ms: 0},
+               no_storage
+             )
+
+    assert {:error, :invalid_account_selector} =
+             OperatorCommands.promote_operator(game(), "a", "valid", %{wall_ms: 0}, no_storage)
+
+    failure =
+      {Store,
+       fn
+         {:receipt, _, _, _} -> :new
+         {:commit, _, _, _} -> {:error, :ownership_lost}
+       end}
+
+    assert {:halt, :ownership_lost} =
+             OperatorCommands.promote_operator(
+               game(),
+               {:account, "a"},
+               "failed",
+               %{wall_ms: 0},
+               failure
+             )
+  end
+
   test "normalized email resolves a verified account and commits an isolated operator receipt" do
     store =
       {Store,

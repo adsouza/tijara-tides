@@ -98,6 +98,28 @@ defmodule TijaraTides.Release do
     end
   end
 
+  @doc "Promote an existing account via RPC, or standalone with the normal server stopped."
+  def promote_operator(selector, request_id) do
+    prepare_target("Operator promotion")
+
+    case TijaraTides.Infrastructure.GameServer.validate_operator_promotion(selector, request_id) do
+      {:ok, selector} ->
+        {:ok, _} = Application.ensure_all_started(:tijara_tides)
+
+        case TijaraTides.Infrastructure.GameServer.promote_operator(selector, request_id) do
+          {:ok, result} ->
+            IO.puts("Operator promotion receipt: #{Jason.encode!(result)}")
+            result
+
+          {:error, reason} ->
+            raise "Operator promotion failed: #{reason}"
+        end
+
+      {:error, reason} ->
+        raise "Invalid operator promotion: #{reason}"
+    end
+  end
+
   @doc false
   def prepare_target(operation) do
     Application.load(:tijara_tides)

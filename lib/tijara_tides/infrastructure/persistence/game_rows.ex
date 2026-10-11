@@ -201,6 +201,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"created_ms", "created_ms"}
     ],
     "accounts" => [
+      {"operator", "operator"},
       {"funding_policy", "funding_policy"},
       {"locale", "locale"},
       {"id", "id"},
@@ -335,7 +336,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     "warehouses" =>
       ~w(aging_bps award_grace space_volumes grace_ms surcharge_bps window_ms clearance_bps),
     "merchant_warehouses" => ~w(aging_bps),
-    "accounts" => ~w(funding_policy locale),
+    "accounts" => ~w(funding_policy locale operator),
     "ship_routes" => ~w(visit_finished),
     "notices" => ~w(arguments)
   }

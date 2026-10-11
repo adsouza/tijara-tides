@@ -597,7 +597,15 @@ defmodule TijaraTides.Domain.GameTest do
     public = Game.public(state, catalogue)
     refute Map.has_key?(public["ships"]["company:1"], "cargo")
     refute Map.has_key?(public["companies"]["company"], "cash")
-    assert Game.private(state, %{"id" => "stranger", "company_id" => "other"})["ships"] == %{}
+
+    assert Game.private(
+             state,
+             TijaraTides.Domain.Account.Rows.encode(%{
+               TijaraTides.Domain.Account.new("stranger", nil, false, 0)
+               | company_id: "other"
+             })
+           )["ships"] == %{}
+
     arrived = Game.advance(state, estimate["duration_ms"], catalogue)
     assert Game.get(arrived, "ships", "company:1")["port"] == "Singapore"
     assert Game.get(arrived, "companies", "company")["reserved"] == 0

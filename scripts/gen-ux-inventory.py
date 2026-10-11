@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 170
+TRIPWIRE = 172
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -32,7 +32,9 @@ SCREENS = [
 
 # (id, verbatim quote from DESIGN.md, section, kind, screen)
 REQUIREMENTS = [
-    (147, "The account menu always shows a prominent hours:minutes:seconds countdown to the next earned invitation, including before email verification and while available invitations remain.", 2, "display", "Company and account"),
+    (208, 'Do not show an earning or quota-refund countdown for them.', 2, "display", "Company and account"),
+    (207, 'Show "Unlimited invitations" in the account menu for operator accounts.', 2, "display", "Company and account"),
+    (147, "Ordinary accounts always see a prominent hours:minutes:seconds countdown in the account menu to the next earned invitation, including before email verification and while available invitations remain.", 2, "display", "Company and account"),
     (146, "Each earned grant notifies its owner and points them to the account menu to send the invitation.", 2, "notification", "Notifications"),
     (141, 'The Ports column includes a collapsed Warehouses disclosure whose open state survives live updates.', 11, "display", "Port panel"),
     (145, "The Ports column provides a collapsed Luxury auctions disclosure with scheduled", 7, "input", "Auction house"),

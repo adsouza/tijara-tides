@@ -49,6 +49,40 @@ defmodule TijaraTides.UseCases.OperatorCommands do
     end
   end
 
+  def validate_promotion(selector, request_id) do
+    if valid_identifier?(request_id),
+      do: normalize_selector(selector),
+      else: {:error, :invalid_request_id}
+  end
+
+  def promote_operator(game, selector, request_id, context, {store, storage} = port) do
+    with {:ok, selector} <- validate_promotion(selector, request_id) do
+      owner = "operator:promote_operator"
+
+      fingerprint =
+        :crypto.hash(:sha256, :erlang.term_to_binary({:promote_operator, selector}))
+        |> Base.encode16(case: :lower)
+
+      CommitExecutor.replan(game, port, fn fresh ->
+        case store.receipt(storage, owner, request_id, fingerprint) do
+          {:replay, result} ->
+            CommitExecutor.outcome(fresh, result, false)
+
+          {:error, reason} ->
+            {:error, reason}
+
+          :new ->
+            with {:ok, account_id} <- resolve(fresh, selector),
+                 {:ok, changed, result} <- AccountWorld.promote_operator(fresh, account_id) do
+              result = Map.put(result, "request_id", request_id)
+              receipt = {owner, request_id, fingerprint, result}
+              CommitExecutor.commit(fresh, changed, result, receipt, port, & &1, context.wall_ms)
+            end
+        end
+      end)
+    end
+  end
+
   defp normalize_selector({:account, id}) do
     if valid_identifier?(id), do: {:ok, {:account, id}}, else: {:error, :invalid_account_id}
   end

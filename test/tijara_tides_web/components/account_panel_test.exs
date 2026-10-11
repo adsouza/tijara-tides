@@ -18,6 +18,28 @@ defmodule TijaraTidesWeb.AccountPanelTest do
     |> String.trim()
   end
 
+  test "operators see unlimited invitations without an earning or refund countdown" do
+    forecast = %{
+      "status" => "operator",
+      "unlimited" => true,
+      "remaining_ms" => nil,
+      "refund_ms" => nil
+    }
+
+    html = render_component(&AccountPanel.expectation/1, forecast: forecast)
+    assert html =~ "Unlimited invitations"
+    refute html =~ "Available invitations: 0"
+    refute html =~ "Next invitation"
+    refute html =~ "invitation-countdown"
+    refute html =~ "Complete an economic action"
+
+    Localization.with_locale("ar", fn ->
+      translated = render_component(&AccountPanel.expectation/1, forecast: forecast)
+      refute translated =~ "Unlimited invitations"
+      assert translated =~ ~r/\p{Arabic}/u
+    end)
+  end
+
   test "shows remaining earning time with active-world and continuing-operation conditions" do
     html = render_forecast("earning", 86_400_000)
     assert html =~ "Available invitations: 0"

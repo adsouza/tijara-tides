@@ -1,8 +1,8 @@
 defmodule TijaraTides.Domain.Account.Rows do
-  @moduledoc "Codec for the unchanged account row and locale fallback."
+  @moduledoc "Complete persisted account rows and legacy locale fallback."
   alias TijaraTides.Domain.Account
 
-  @fields ~w(id company_id inviter bankruptcies suspended_ms email invite_quota created_ms locale funding_policy)a
+  @fields ~w(id company_id inviter bankruptcies suspended_ms email invite_quota created_ms locale funding_policy operator)a
   def decode(row) do
     row = Map.put(row, "funding_policy", row["funding_policy"] || "wait")
 

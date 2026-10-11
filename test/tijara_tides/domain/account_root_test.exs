@@ -3,6 +3,29 @@ defmodule TijaraTides.Domain.AccountRootTest do
   alias TijaraTides.Domain.Account
   alias Account.{BankruptcyEvent, Rows}
 
+  test "only explicit promotion grants unlimited invitations, and suspension still blocks them" do
+    for seed <- [true, false] do
+      account = Account.new("a", nil, seed, 0)
+      refute account.operator
+      promoted = Account.promote_operator(account)
+      assert promoted == %{account | operator: true}
+
+      for outstanding <- [0, 3, 10, 100], quota <- [0, 2] do
+        operator = %{promoted | invite_quota: quota}
+        assert Account.invitation_available?(operator, outstanding)
+        assert {:ok, ^operator} = Account.issue_invitation(operator, outstanding)
+        assert Account.restore_invitation(operator) == operator
+
+        assert {:error, :unlimited_invitations} =
+                 Account.grant_invitations(operator, 1, outstanding)
+
+        suspended = %{operator | suspended_ms: 0}
+        refute Account.invitation_available?(suspended, outstanding)
+        assert {:error, :no_invitation_quota} = Account.issue_invitation(suspended, outstanding)
+      end
+    end
+  end
+
   test "operator grants accept exact remaining capacity and refuse one more" do
     for quota <- 0..3, outstanding <- 0..(3 - quota), count <- 1..3 do
       account = %{Account.new("a", "sponsor", false, 0) | invite_quota: quota}

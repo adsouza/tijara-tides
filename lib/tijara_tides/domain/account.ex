@@ -5,6 +5,7 @@ defmodule TijaraTides.Domain.Account do
   @fields ~w(id company_id inviter bankruptcies suspended_ms email invite_quota created_ms locale)a
   defstruct @fields ++
               [
+                operator: false,
                 funding_policy: "wait",
                 sessions: [],
                 invitations: [],
@@ -34,21 +35,30 @@ defmodule TijaraTides.Domain.Account do
   end
 
   def consume_invitation(%__MODULE__{} = account) do
-    unless not suspended?(account) and is_integer(account.invite_quota) and
-             account.invite_quota > 0,
-           do: raise(ArgumentError, "Account has no available invitation quota")
+    unless invitation_available?(account, 0),
+      do: raise(ArgumentError, "Account has no available invitation quota")
 
-    %{account | invite_quota: account.invite_quota - 1}
+    if account.operator, do: account, else: %{account | invite_quota: account.invite_quota - 1}
   end
 
+  def invitation_available?(%__MODULE__{} = account, outstanding),
+    do:
+      not suspended?(account) and
+        (account.operator or
+           (is_integer(account.invite_quota) and account.invite_quota > 0 and
+              outstanding < invitation_limit()))
+
   def issue_invitation(%__MODULE__{} = account, outstanding) do
-    if not suspended?(account) and account.invite_quota > 0 and outstanding < 3,
+    if invitation_available?(account, outstanding),
       do: {:ok, consume_invitation(account)},
       else: {:error, :no_invitation_quota}
   end
 
   def restore_invitation(%__MODULE__{} = account),
-    do: %{account | invite_quota: account.invite_quota + 1}
+    do:
+      if(account.operator, do: account, else: %{account | invite_quota: account.invite_quota + 1})
+
+  def promote_operator(%__MODULE__{} = account), do: %{account | operator: true}
 
   def earn_invitations(%__MODULE__{} = account, count) when is_integer(count) and count > 0,
     do: %{account | invite_quota: account.invite_quota + count}
@@ -62,6 +72,9 @@ defmodule TijaraTides.Domain.Account do
 
       suspended?(account) ->
         {:error, :account_suspended}
+
+      account.operator ->
+        {:error, :unlimited_invitations}
 
       account.invite_quota + outstanding + count > limit ->
         {:error, :invitation_capacity}

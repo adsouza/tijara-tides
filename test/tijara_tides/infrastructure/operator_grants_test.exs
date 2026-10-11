@@ -39,6 +39,167 @@ defmodule TijaraTides.Infrastructure.OperatorGrantsTest do
     %{world: world, server: server, player: player, account_id: account_id, sponsor: sponsor}
   end
 
+  test "operator promotion is durable, replayable and gives unlimited invitations without changing the company",
+       c do
+    {:ok, _} =
+      GameServer.command(
+        c.player,
+        "company",
+        %{"action" => "company", "name" => "Operator Company"},
+        c.server
+      )
+
+    {:ok, _} =
+      GameServer.email_request(c.player, "link", "operator@example.com", "link", "test", c.server)
+
+    [link] = GameServer.email_pending(c.server)
+
+    {:ok, _} =
+      GameServer.email_redeem(
+        GameServer.email_token(link["id"]),
+        GameServer.token(),
+        c.player,
+        c.server
+      )
+
+    before = GameServer.snapshot(c.player, c.server).private
+    clock = :sys.get_state(c.server).game.clock_ms
+
+    assert {:ok, result} =
+             GameServer.promote_operator({:email, " Operator@Example.com "}, "promote", c.server)
+
+    after_promotion = GameServer.snapshot(c.player, c.server).private
+    assert after_promotion["account"] == Map.put(before["account"], "operator", true)
+    assert after_promotion["company"] == before["company"]
+    assert after_promotion["invitation_forecast"]["can_issue"]
+    assert after_promotion["invitation_forecast"]["unlimited"]
+    assert :sys.get_state(c.server).game.clock_ms == clock
+
+    codes =
+      for n <- 1..5 do
+        assert {:ok, invite} =
+                 GameServer.command(
+                   c.player,
+                   "operator-invite-#{n}",
+                   %{"action" => "invite"},
+                   c.server
+                 )
+
+        invite["code"]
+      end
+
+    assert quota(c) == 0
+
+    assert {:ok, _} =
+             GameServer.email_request(
+               c.player,
+               "invite",
+               "invitee@example.com",
+               "email-invite",
+               "test",
+               c.server
+             )
+
+    assert [[6]] =
+             Repo.query!(
+               "SELECT count(*) FROM game_invitations WHERE world_id=$1 AND inviter_account_id=$2 AND status='issued'",
+               [c.world, c.account_id]
+             ).rows
+
+    assert {:ok, %{"session" => invited_session}} = GameServer.redeem(hd(codes), c.server)
+    refute GameServer.snapshot(invited_session, c.server).private["account"]["operator"]
+
+    assert {:error, :no_invitation_quota} =
+             GameServer.command(invited_session, "invite", %{"action" => "invite"}, c.server)
+
+    revision = :sys.get_state(c.server).game.revision
+
+    assert {:ok, ^result} =
+             GameServer.promote_operator({:email, "operator@example.com"}, "promote", c.server)
+
+    assert :sys.get_state(c.server).game.revision == revision
+    sponsor_id = GameServer.snapshot(c.sponsor, c.server).private["account"]["id"]
+
+    assert {:error, :request_conflict} =
+             GameServer.promote_operator({:account, sponsor_id}, "promote", c.server)
+
+    assert {:error, :account_not_found} =
+             GameServer.promote_operator({:email, "missing@example.com"}, "missing", c.server)
+
+    assert {:error, :unsupported_command} =
+             GameServer.command(
+               c.sponsor,
+               "self-promote",
+               %{"action" => "promote_operator"},
+               c.server
+             )
+
+    refute GameServer.snapshot(c.sponsor, c.server).private["account"]["operator"]
+
+    stop_supervised!(GameServer)
+
+    restarted =
+      start_supervised!(
+        {GameServer, name: nil, enabled: true, world_id: c.world, tick_ms: 86_400_000}
+      )
+
+    assert GameServer.snapshot(c.player, restarted).private["account"]["operator"]
+
+    assert {:ok, ^result} =
+             GameServer.promote_operator({:email, "operator@example.com"}, "promote", restarted)
+
+    assert [[^result]] =
+             Repo.query!(
+               "SELECT result FROM game_receipts WHERE world_id=$1 AND account_id=$2 AND request_id=$3",
+               [c.world, "operator:promote_operator", "promote"]
+             ).rows
+
+    assert {:ok, _} = GameServer.command(c.player, "seventh", %{"action" => "invite"}, restarted)
+    TijaraTides.SqlReplay.advance(restarted, 3 * 86_400_000)
+    assert quota(c) == 0
+  end
+
+  test "fencing and transaction failure cannot persist a partial promotion", c do
+    before = :sys.get_state(c.server).game
+    {:ok, owner} = GameStore.claim(Repo, c.world)
+
+    assert {:error, :ownership_lost} =
+             GameServer.promote_operator({:account, c.account_id}, "fenced-promotion", c.server)
+
+    assert :sys.get_state(c.server).game == before
+
+    assert [[false]] =
+             Repo.query!("SELECT operator FROM game_accounts WHERE world_id=$1 AND id=$2", [
+               c.world,
+               c.account_id
+             ]).rows
+
+    {:ok, changed, result} = AccountWorld.promote_operator(owner, c.account_id)
+
+    assert_raise Postgrex.Error, fn ->
+      GameStore.commit(
+        Repo,
+        c.world,
+        owner.epoch,
+        owner,
+        changed,
+        {"operator:promote_operator", "rollback-promotion", nil, result}
+      )
+    end
+
+    assert [[false]] =
+             Repo.query!("SELECT operator FROM game_accounts WHERE world_id=$1 AND id=$2", [
+               c.world,
+               c.account_id
+             ]).rows
+
+    assert [] ==
+             Repo.query!(
+               "SELECT request_id FROM game_receipts WHERE world_id=$1 AND account_id=$2",
+               [c.world, "operator:promote_operator"]
+             ).rows
+  end
+
   test "receipt and quota survive spending, concurrent retries and restart; changed requests conflict",
        c do
     :ok = GameServer.subscribe()

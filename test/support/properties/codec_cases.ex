@@ -171,6 +171,7 @@ defmodule TijaraTides.Domain.CodecCases do
              "suspended_ms" => optional,
              "email" => nil,
              "invite_quota" => 2,
+             "operator" => optional?,
              "created_ms" => now,
              "locale" => "ar",
              "funding_policy" => "reduced"

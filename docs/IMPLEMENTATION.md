@@ -329,35 +329,35 @@ automatic departure are available. Operating shortfalls accumulate as unpaid
 bills and participate in the implemented loan settlement and bankruptcy rules.
 
 Launch invitations grant three outgoing invitations; ordinary invitees initially
-have no outgoing quota. All players can earn invitations through qualifying
+have no outgoing quota. Ordinary players can earn invitations through qualifying
 economic actions worth at least $100, including automated trades. Each action
 keeps a company active for two active-world days; forming a company, signing in,
 and drawing credit do not qualify. Earning requires an unsuspended owner, an
 operating company, no unpaid bills, and no loan arrears. Inactivity, financial
-trouble, or a replacement company resets partial progress. Available plus
-outstanding invitations are capped at three, with no banked progress while full.
-Progress and quota commit atomically and survive reloads. Players receive a
-localized notice with each earned grant, pointing to the account menu. The notice
-commits with the grant and is not repeated by retries. Existing companies
-start with their next qualifying action, without retroactive credit. Unused
-invitations expire after three active-world days
-and restore their inviter's quota. Device sessions expire after one wall-clock
-year. Before redemption, GET /play delivers a private random device credential
-in the signed, HTTP-only cookie. A lost redemption response can be retried using
-that same credential, including after server restart. Another device holding
-only the invitation cannot recover the account; revoked or expired credentials
-cannot be revived. POST without the pre-issued cookie consumes nothing.
-Operators can grant one to three additional invitations to an existing,
-unsuspended account by account ID or verified email. The grant fails in full if
-available plus outstanding invitations would exceed three. Quota and a durable
-operator receipt commit together; repeating the same request returns its original
-result, and reusing its ID with a different target or count is rejected. Grants
-do not record a player visit or economic activity. See the
-[operator command](database.md#operator-invitation-grants).
-Verified email linking, email delivery, and email sign-in are implemented. Players
-with a linked email can regain access on another device; accounts without a linked
-email still depend on their existing device session. Desktop users can redeem an
-emailed token inside the app. Google sign-in remains deferred.
+trouble, or a replacement company resets partial progress. Ordinary accounts'
+available plus outstanding invitations are capped at three, with no banked
+progress while full. Progress and quota commit atomically and survive reloads.
+Players receive a localized notice with each earned grant, pointing to the
+account menu. The notice commits with the grant and is not repeated by retries.
+Existing companies start with their next qualifying action, without retroactive
+credit. Unused invitations expire after three active-world days and restore an
+ordinary inviter's quota. Device sessions expire after one wall-clock year.
+Before redemption, GET /play delivers a private random device credential in the
+signed, HTTP-only cookie. A lost redemption response can be retried using that
+same credential, including after server restart. Another device holding only the
+invitation cannot recover the account; revoked or expired credentials cannot be
+revived. POST without the pre-issued cookie consumes nothing. Operators can
+grant one to three additional invitations to an existing, unsuspended account by
+account ID or verified email. The grant fails in full if available plus
+outstanding invitations would exceed three. Quota and a durable operator receipt
+commit together; repeating the same request returns its original result, and
+reusing its ID with a different target or count is rejected. Grants do not
+record a player visit or economic activity. See the [operator
+command](database.md#operator-invitation-grants). Verified email linking, email
+delivery, and email sign-in are implemented. Players with a linked email can
+regain access on another device; accounts without a linked email still depend on
+their existing device session. Desktop users can redeem an emailed token inside
+the app. Google sign-in remains deferred.
 
 ## Verification gates
 
@@ -456,6 +456,13 @@ with a 20% residual. Estate reserves use 10% of cargo reference or ship book val
 these are provisional tuning constants. Perishables use a two-hour expedited
 window if they survive it; otherwise the receiver disposes of them immediately.
 
+Operator accounts persist an explicit flag on their stable account ID. A trusted,
+receipt-protected promotion command enables unlimited invitation issuance while
+retaining expiry, email throttles and suspension checks. Operators see unlimited
+availability instead of an earning countdown. Ordinary accounts and invitation
+ancestry retain their existing rules. See the
+[operator promotion command](database.md#operator-account-promotion).
+
 ## Verified email identities
 
 Players can link an email from the account menu. Email verification appears above
@@ -470,13 +477,14 @@ the verified address appears on the left of the popup header beside Close; the
 verification form and delivery status are hidden. The underlying identity workflow supports replacement and preserves
 an existing email until the new address is confirmed. Email sign-in on the web
 creates a new device session for the same account. Google sign-in remains deferred.
-Email invitation controls sit on the left, with available invitations above the
-email field. The shareable-code button sits to the right, separated by "or", with
-bottom edges aligned. The controls wrap on narrow screens. When no invitations
-remain, the controls and explanatory text are hidden; the zero count and any
-already-generated code remain visible.
-An email invitation consumes the sponsor's normal quota and atomically creates an
-account with the verified recipient email when redeemed. Shareable invitations
+Email invitation controls sit on the left, with availability above the email
+field. The shareable-code button sits to the right, separated by "or", with
+bottom edges aligned. The controls wrap on narrow screens. When an ordinary
+account has no invitations, the controls and explanatory text are hidden; the
+zero count and any already-generated code remain visible. Operators see unlimited
+availability and retain the controls while unsuspended.
+An email invitation consumes an ordinary sponsor's quota and atomically creates
+an account with the verified recipient email when redeemed. Shareable invitations
 continue to create accounts without an email. Sponsors see delivery status and
 acceptance, never the recipient's credential; accounts are not implicitly merged.
 

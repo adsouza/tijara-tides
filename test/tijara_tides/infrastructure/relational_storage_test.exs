@@ -319,7 +319,7 @@ defmodule TijaraTides.Infrastructure.RelationalStorageTest do
   end
 
   defp legacy_data("accounts", data),
-    do: Map.drop(data, ["suspended_ms", "email", "locale", "funding_policy"])
+    do: Map.drop(data, ["suspended_ms", "email", "locale", "funding_policy", "operator"])
 
   defp legacy_data("companies", data),
     do:

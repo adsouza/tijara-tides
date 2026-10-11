@@ -42,7 +42,15 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
   test "forecasts use saved world-clock progress without granting invitations" do
     assert forecast(world())["status"] == "inactive"
     state = world() |> action() |> tick(@day)
-    assert forecast(state) == %{"status" => "earning", "remaining_ms" => @day, "refund_ms" => nil}
+
+    assert forecast(state) == %{
+             "status" => "earning",
+             "remaining_ms" => @day,
+             "refund_ms" => nil,
+             "unlimited" => false,
+             "can_issue" => false
+           }
+
     projected = %{state | clock_ms: @day + 1000}
     assert forecast(projected)["remaining_ms"] == @day - 1000
     assert quota(projected) == 0
@@ -114,6 +122,8 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
 
     assert forecast(state) == %{
              "status" => "capacity",
+             "unlimited" => false,
+             "can_issue" => false,
              "remaining_ms" => 2 * @day,
              "refund_ms" => @day
            }
@@ -121,6 +131,54 @@ defmodule TijaraTides.Domain.InvitationAccrualTest do
     state = State.put(state, "invitations", "code-1", Map.put(first, "status", "redeemed"))
     assert forecast(state)["status"] == "earning"
     assert forecast(state)["refund_ms"] == 3 * @day
+  end
+
+  test "promotion discards earning progress and projects unlimited issuance even without a company" do
+    state = world() |> action() |> tick(@day)
+    {:ok, operator, result} = AccountWorld.promote_operator(state, "a")
+    assert result["operator_before"] == false
+    assert result["operator_after"] == true
+    assert State.get(operator, "invitation_progress", "a") == nil
+
+    assert State.get(operator, "accounts", "a") ==
+             Map.put(State.get(state, "accounts", "a"), "operator", true)
+
+    assert operator.clock_ms == state.clock_ms
+    assert :ok == ChangeSet.assert_complete!(state, operator)
+
+    assert forecast(operator) == %{
+             "status" => "operator",
+             "unlimited" => true,
+             "can_issue" => true,
+             "remaining_ms" => nil,
+             "refund_ms" => nil
+           }
+
+    next = operator |> action() |> tick(3 * @day)
+    assert quota(next) == 0
+    assert State.get(next, "invitation_progress", "a") == nil
+
+    no_company =
+      State.put(
+        next,
+        "accounts",
+        "a",
+        Map.put(State.get(next, "accounts", "a"), "company_id", nil)
+      )
+
+    assert forecast(no_company)["can_issue"]
+
+    suspended =
+      State.put(
+        next,
+        "accounts",
+        "a",
+        Map.put(State.get(next, "accounts", "a"), "suspended_ms", 0)
+      )
+
+    assert forecast(suspended)["status"] == "suspended"
+    refute forecast(suspended)["can_issue"]
+    assert {:error, :account_not_found} = AccountWorld.promote_operator(state, "missing")
   end
 
   test "ordinary players earn exactly at two days and splitting ticks preserves the award" do

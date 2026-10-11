@@ -17,7 +17,8 @@ defmodule TijaraTides.ReleaseTest do
           &TijaraTides.Release.audit_ledger/0,
           &TijaraTides.Release.migrate/0,
           &TijaraTides.Release.seed/0,
-          fn -> TijaraTides.Release.grant_invitations({:account, "a"}, 1, "grant") end
+          fn -> TijaraTides.Release.grant_invitations({:account, "a"}, 1, "grant") end,
+          fn -> TijaraTides.Release.promote_operator({:account, "a"}, "promote") end
         ] do
       error = assert_raise RuntimeError, operation
       assert Exception.message(error) =~ "Both DATABASE_URL and TIJARA_LOCAL_DB_PORT"
@@ -63,6 +64,14 @@ defmodule TijaraTides.ReleaseTest do
     assert Process.whereis(Repo) == before
 
     ExUnit.CaptureIO.capture_io(fn ->
+      assert_raise RuntimeError, "Invalid operator promotion: invalid_request_id", fn ->
+        TijaraTides.Release.promote_operator({:account, "a"}, "")
+      end
+    end)
+
+    assert Process.whereis(Repo) == before
+
+    ExUnit.CaptureIO.capture_io(fn ->
       assert_raise RuntimeError, "Invalid invitation grant: invalid_invitation_count", fn ->
         TijaraTides.Release.grant_invitations({:account, "a"}, 4, "grant")
       end
@@ -102,6 +111,29 @@ defmodule TijaraTides.ReleaseTest do
           env: env,
           stderr_to_stdout: true
         )
+
+      assert status != 0
+      assert output =~ "Usage:"
+      refute output =~ "Game storage is not configured"
+    end
+  end
+
+  test "promotion script rejects duplicate or mixed selectors before startup" do
+    env = [{"MIX_ENV", "test"}, {"DATABASE_URL", nil}, {"TIJARA_LOCAL_DB_PORT", nil}]
+    command = ["run", "--no-compile", "--no-start", "scripts/promote-operator.exs", "--"]
+    args = ["--email", "operator@example.com", "--request-id", "promote"]
+    {output, status} = System.cmd("mix", command ++ args, env: env, stderr_to_stdout: true)
+    assert status != 0
+    assert output =~ "Game storage is not configured"
+
+    for extra <- [
+          ["--account", "a"],
+          ["--email", "other@example.com"],
+          ["--request-id", "again"],
+          ["--count", "2"]
+        ] do
+      {output, status} =
+        System.cmd("mix", command ++ args ++ extra, env: env, stderr_to_stdout: true)
 
       assert status != 0
       assert output =~ "Usage:"

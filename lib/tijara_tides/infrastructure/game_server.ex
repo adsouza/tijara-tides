@@ -96,6 +96,13 @@ defmodule TijaraTides.Infrastructure.GameServer do
     to: TijaraTides.UseCases.OperatorCommands,
     as: :validate
 
+  def promote_operator(selector, request_id, server \\ default_server()),
+    do: GenServer.call(server, {:promote_operator, selector, request_id}, @call_timeout)
+
+  defdelegate validate_operator_promotion(selector, request_id),
+    to: TijaraTides.UseCases.OperatorCommands,
+    as: :validate_promotion
+
   def sign_out(token, server \\ default_server()),
     do: GenServer.call(server, {:sign_out, token}, @call_timeout)
 
@@ -343,6 +350,24 @@ defmodule TijaraTides.Infrastructure.GameServer do
           state.game,
           selector,
           count,
+          request_id,
+          context(state),
+          store(state)
+        )
+      end,
+      &accept_outcome/2,
+      &refresh_game/2
+    )
+  end
+
+  def handle_call({:promote_operator, selector, request_id}, _from, %{status: :ready} = state) do
+    OperationBoundary.call(
+      :promote_operator,
+      state,
+      fn ->
+        TijaraTides.UseCases.OperatorCommands.promote_operator(
+          state.game,
+          selector,
           request_id,
           context(state),
           store(state)

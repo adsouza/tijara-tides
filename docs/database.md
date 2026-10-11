@@ -162,16 +162,16 @@ bills and participate in the implemented loan settlement and bankruptcy rules.
 
 Launch invitations grant three outgoing invitations; ordinary invitees initially
 have no outgoing quota but can earn invitations through substantial economic
-activity. Available plus outstanding invitations are capped at three. Unused
-invitations expire after three active-world days
-and restore their inviter's quota. Device sessions expire after one wall-clock
-year. Before redemption, GET /play delivers a private random device credential
-in the signed, HTTP-only cookie. A lost redemption response can be retried using
-that same credential, including after server restart. Another device holding
-only the invitation cannot recover the account; revoked or expired credentials
-cannot be revived. POST without the pre-issued cookie consumes nothing.
-Verified email linking, email delivery, and email sign-in are implemented. Players
-with a linked email can regain access on another device; accounts without a linked
+activity. Ordinary accounts' available plus outstanding invitations are capped
+at three. Unused invitations expire after three active-world days and restore an
+ordinary inviter's quota. Device sessions expire after one wall-clock year.
+Before redemption, GET /play delivers a private random device credential in the
+signed, HTTP-only cookie. A lost redemption response can be retried using that
+same credential, including after server restart. Another device holding only the
+invitation cannot recover the account; revoked or expired credentials cannot be
+revived. POST without the pre-issued cookie consumes nothing. Verified email
+linking, email delivery, and email sign-in are implemented. Players with a
+linked email can regain access on another device; accounts without a linked
 email still depend on their existing device session. Desktop users can redeem an
 emailed token inside the app. Google sign-in remains deferred.
 
@@ -217,12 +217,14 @@ remain deferred.
 
 Grant additional invitation allowance to an existing player, selected by their
 stable account ID or verified email. This does not create a new player or a
-launch-root invitation. Counts must be integers from one to three. Suspended or
-missing accounts are rejected. The entire grant is rejected if available quota
-plus issued invitations plus the requested count exceeds three. Pending invitations
-still occupy capacity until redeemed or expired by the normal world lifecycle.
-An account without a verified email can receive quota by ID; sending emailed
-invitations still requires the player to verify an email in the account menu.
+launch-root invitation. Counts must be integers from one to three. Operator
+accounts already have unlimited invitations and cannot receive finite grants.
+Suspended or missing accounts are rejected. The entire grant is rejected if
+available quota plus issued invitations plus the requested count exceeds three.
+Pending invitations still occupy capacity until redeemed or expired by the
+normal world lifecycle. An account without a verified email can receive quota by
+ID; sending emailed invitations still requires the player to verify an email in
+the account menu.
 
 Stop the normal server before using the standalone command. Configure the
 intended database as for other maintenance commands, then run:
@@ -269,6 +271,37 @@ Grants use the normal fenced, atomic world transaction. They do not advance time
 create financial activity or count as a player visit. Filling capacity discards
 partial invitation earning progress immediately. No player command or web route
 exposes this operation. Quota remains visible in the existing account menu.
+
+### Operator account promotion
+
+Operator accounts have unlimited invitation issuance. They retain the normal
+invitation expiry, email delivery throttles and suspension rules; their invitees
+remain ordinary accounts. This grants no account recovery, deletion or other
+administrative controls in the player UI. Operator status is persisted on the
+stable account ID, independently of email and invitation ancestry. All existing
+and newly created accounts default to ordinary status, including launch roots.
+
+Apply migrations and stop the normal server before using the standalone command:
+
+```sh
+mix run --no-start scripts/promote-operator.exs -- \
+  --email player@example.com --request-id operator-promotion-20261010-1
+```
+
+Use `--account ACCOUNT_ID` instead of `--email` for an unlinked account. The
+trusted release API is `TijaraTides.Release.promote_operator(selector, request_id)`.
+Use release `eval` with the server stopped, or `rpc` only when distribution is
+explicitly enabled. Restart the normal server after standalone maintenance.
+Never start a standalone owner alongside the normal server.
+
+Promotion preserves identity, company, quota and invitation ancestry, deletes
+partial invitation earning progress, and does not count as player activity or
+advance the world clock. The printed JSON receipt reports the account ID, prior
+and resulting operator status, active-world timestamp and request ID. Successful
+receipts are persisted under `operator:promote_operator`. Reuse the exact selector
+and request ID after an uncertain outcome; changing selectors with the same ID
+fails with `request_conflict`. No player command or HTTP route can promote an
+account. The command only promotes; demotion is not exposed.
 
 ### Full ledger audit
 
@@ -329,13 +362,14 @@ the verified address appears on the left of the popup header beside Close; the
 verification form and delivery status are hidden. The underlying identity workflow supports replacement and preserves
 an existing email until the new address is confirmed. Email sign-in on the web
 creates a new device session for the same account. Google sign-in remains deferred.
-Email invitation controls sit on the left, with available invitations above the
-email field. The shareable-code button sits to the right, separated by "or", with
-bottom edges aligned. The controls wrap on narrow screens. When no invitations
-remain, the controls and explanatory text are hidden; the zero count and any
-already-generated code remain visible.
-An email invitation consumes the sponsor's normal quota and atomically creates an
-account with the verified recipient email when redeemed. Shareable invitations
+Email invitation controls sit on the left, with availability above the email
+field. The shareable-code button sits to the right, separated by "or", with
+bottom edges aligned. The controls wrap on narrow screens. When an ordinary
+account has no invitations, the controls and explanatory text are hidden; the
+zero count and any already-generated code remain visible. Operators see unlimited
+availability and retain the controls while unsuspended.
+An email invitation consumes an ordinary sponsor's quota and atomically creates
+an account with the verified recipient email when redeemed. Shareable invitations
 continue to create accounts without an email. Sponsors see delivery status and
 acceptance, never the recipient's credential; accounts are not implicitly merged.
 

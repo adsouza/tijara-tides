@@ -140,13 +140,18 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             id="invitations"
             class="my-4 space-y-2"
           >
-            <p class="text-sm text-slate-400">
+            <p :if={@view.private["account"]["operator"]} class="text-sm text-slate-400">
+              {gettext(
+                "Operators can issue unlimited invitations. Invitations still expire if unused."
+              )}
+            </p>
+            <p :if={!@view.private["account"]["operator"]} class="text-sm text-slate-400">
               {gettext(
                 "Earn one invitation per two days of active, solvent operation. You can hold up to three invitations, including those awaiting acceptance."
               )}
             </p>
             <div
-              :if={@view.private["account"]["invite_quota"] > 0}
+              :if={@view.private["invitation_forecast"]["can_issue"]}
               class="flex flex-wrap items-end gap-3"
             >
               <div class="min-w-0 flex-[1_1_16rem] space-y-1">
@@ -168,10 +173,7 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
                     class="min-w-0 flex-1 rounded bg-slate-800 p-2"
                   />
                   <button
-                    disabled={
-                      @view.private["account"]["invite_quota"] < 1 or
-                        not is_nil(@view.private["account"]["suspended_ms"])
-                    }
+                    disabled={!@view.private["invitation_forecast"]["can_issue"]}
                     class="rounded border p-2 disabled:opacity-40"
                   ><.emoji symbol="✉️" />{gettext("Send invitation")}</button>
                 </.form>
@@ -194,14 +196,20 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
             </p>
             <p
               :if={
-                @view.private["account"]["invite_quota"] > 0 and
+                @view.private["invitation_forecast"]["can_issue"] and
                   Application.get_env(:tijara_tides, :email_enabled, false)
               }
               class="text-sm"
             >
-              {gettext(
-                "Uses one invitation. The recipient verifies the email when redeeming the link. You will not receive their sign-in credential."
-              )}
+              {if @view.private["account"]["operator"],
+                do:
+                  gettext(
+                    "The recipient verifies the email when redeeming the link. You will not receive their sign-in credential."
+                  ),
+                else:
+                  gettext(
+                    "Uses one invitation. The recipient verifies the email when redeeming the link. You will not receive their sign-in credential."
+                  )}
             </p>
             <ul class="text-xs space-y-1">
               <li
@@ -543,7 +551,10 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
     ~H"""
     <section id="invitation-expectation" class="my-4 space-y-2">
       <h2 class="text-xl"><.emoji symbol="🎟️" />{gettext("Invitations")}</h2>
-      <p>{gettext("Available invitations: %{value1}", value1: display_number(@available))}</p>
+      <p :if={@forecast["unlimited"]}>{gettext("Unlimited invitations")}</p>
+      <p :if={!@forecast["unlimited"]}>
+        {gettext("Available invitations: %{value1}", value1: display_number(@available))}
+      </p>
       <div :if={@forecast["remaining_ms"] != nil} class="rounded border border-slate-600 p-3">
         <p class="text-sm">{gettext("Next invitation")}</p>
         <div class="my-1 flex flex-wrap items-center gap-3">
@@ -570,7 +581,9 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
           {gettext("Hours:minutes:seconds of active-world time. Pauses while the world is stopped.")}
         </p>
       </div>
-      <p class="text-sm text-slate-400">{invitation_expectation(@forecast)}</p>
+      <p :if={@forecast["status"] != "operator"} class="text-sm text-slate-400">
+        {invitation_expectation(@forecast)}
+      </p>
       <p :if={@forecast["refund_ms"] != nil} class="text-sm text-slate-400">
         {gettext(
           "An unused invitation returns in %{time} of active-world time (hours:minutes:seconds), unless accepted first.",

@@ -297,6 +297,29 @@ defmodule TijaraTides.Domain.AccountWorld do
     end
   end
 
+  @doc "Promote an existing account without changing its identity or company."
+  def promote_operator(state, account_id) do
+    case get(state, "accounts", account_id) do
+      nil ->
+        {:error, :account_not_found}
+
+      row ->
+        changed =
+          state
+          |> store(row |> Rows.decode() |> Account.promote_operator())
+          |> delete("invitation_progress", account_id)
+
+        {:ok, changed,
+         %{
+           "operation" => "promote_operator",
+           "account_id" => account_id,
+           "operator_before" => row["operator"],
+           "operator_after" => true,
+           "clock_ms" => state.clock_ms
+         }}
+    end
+  end
+
   @doc "Operator allowance grant; preserves identity and never records player activity."
   def grant_invitations(state, account_id, count) do
     case get(state, "accounts", account_id) do

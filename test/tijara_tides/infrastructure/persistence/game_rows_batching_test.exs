@@ -122,6 +122,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
       "suspended_ms" => nil,
       "email" => nil,
       "invite_quota" => 0,
+      "operator" => false,
       "created_ms" => 0
     }
 
@@ -135,6 +136,17 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
 
     # The account codec writes these itself, and rejects rows without them.
     encoded = Map.merge(account, %{"funding_policy" => "wait", "locale" => "en"})
+
+    assert_raise ArgumentError, ~s(Missing fields for accounts: ["operator"]), fn ->
+      GameRows.write(
+        CountingRepo,
+        "world",
+        before,
+        State.put(before, "accounts", "a", Map.delete(encoded, "operator"))
+      )
+    end
+
+    assert statements() == []
     GameRows.write(CountingRepo, "world", before, State.put(before, "accounts", "a", encoded))
     [{statement, params}] = statements()
     assert statement =~ "game_accounts"

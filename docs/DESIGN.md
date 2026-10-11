@@ -270,36 +270,48 @@ Invitations are earned through sustained play, provisionally one per two real
 days of active, solvent operation, measured on the active-world clock rather
 than granted at signup. A qualifying economic action worth at least $100,
 including automated trades, keeps the company active for two active-world days.
-Formation, sign-in, and borrowing alone do not count. Solvent operation
-requires a current company, an unsuspended account, no unpaid operating bills,
-and no loan arrears. Inactivity, financial trouble, or company replacement
-resets partial progress. World pauses preserve progress. Available and
-outstanding invitations together are capped at three; time spent at that cap
-does not bank future awards. Existing companies start earning with a qualifying
-action after this feature is introduced, with no retroactive awards. Earned
-invitation entitlements belong to the inviter and cannot be transferred between
-accounts. Operators may grant an existing, unsuspended account additional
-invitation allowance for playtests. These grants obey the same combined cap of
-three, never transfer another player's entitlement, and do not count as
-economic activity. Each grant has a durable request ID for safe retries. Each
-earned grant notifies its owner and points them to the account menu to send the
-invitation. The notice commits with the grant and is not repeated by retries.
-The account menu always shows a prominent hours:minutes:seconds countdown to
-the next earned invitation, including before email verification and while
-available invitations remain. Show whether it is earning, not yet earning or
-paused, with the action needed to start or resume. Blocked states show the full
-two-day earning requirement rather than a running deadline. Also show the
-earliest unused invitation expiry. Earning estimates assume continued active,
-solvent operation; expiry estimates assume the invitation remains unused. World
-pauses preserve both countdowns. The resulting invite codes can be shared with
-prospective players. Invitations expire if unused, and each account holds only
-a small number outstanding, so they cannot be hoarded and released as a
+Formation, sign-in, and borrowing alone do not count. Solvent operation requires
+a current company, an unsuspended account, no unpaid operating bills, and no
+loan arrears. Inactivity, financial trouble, or company replacement resets
+partial progress. World pauses preserve progress. Available and outstanding
+invitations together are capped at three; time spent at that cap does not bank
+future awards. Existing companies start earning with a qualifying action after
+this feature is introduced, with no retroactive awards. Earned invitation
+entitlements belong to the inviter and cannot be transferred between accounts.
+Operators may grant an existing, unsuspended account additional invitation
+allowance for playtests. These grants obey the same combined cap of three, never
+transfer another player's entitlement, and do not count as economic activity.
+Each grant has a durable request ID for safe retries. Each earned grant notifies
+its owner and points them to the account menu to send the invitation. The notice
+commits with the grant and is not repeated by retries. Ordinary accounts always
+see a prominent hours:minutes:seconds countdown in the account menu to the next
+earned invitation, including before email verification and while available
+invitations remain. Show whether it is earning, not yet earning or paused, with
+the action needed to start or resume. Blocked states show the full two-day
+earning requirement rather than a running deadline. Also show the earliest
+unused invitation expiry. Earning estimates assume continued active, solvent
+operation; expiry estimates assume the invitation remains unused. World pauses
+preserve both countdowns. The resulting invite codes can be shared with
+prospective players. Invitations expire if unused, and each account holds only a
+small number outstanding, so they cannot be hoarded and released as a
 coordinated wave of accounts. A configured set of seed accounts roots the tree
 at launch. Browsing the public world without an invitation remains available:
 the invitation gates company creation, not spectating.
 
-An inviter chooses one of two modes, each reserving one available invitation
-entitlement:
+An existing account can be explicitly promoted to operator status by a trusted
+maintenance command. Operator status belongs to the stable account ID and is
+never inferred from email or invitation ancestry. Operator accounts can issue
+unlimited invitations without consuming quota or requiring an active, solvent
+company. Both invitation modes retain their normal expiry, email delivery
+throttles and single-use redemption. Suspended operators cannot issue
+invitations. Operator status is not inherited by invitees and does not bypass
+any other gameplay rule. Promotion preserves the account, company and inviter,
+discards partial earning progress, and records a durable request receipt. Show
+"Unlimited invitations" in the account menu for operator accounts. Do not show
+an earning or quota-refund countdown for them.
+
+An inviter chooses one of two modes. Ordinary inviters reserve one available
+invitation entitlement in either mode; operators reserve no quota:
 
 - **Email invitation:** supply the recipient's email address and have the game
   automatically send a single-use invitation magic link. When the recipient
