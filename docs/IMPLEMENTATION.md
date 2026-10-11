@@ -456,12 +456,14 @@ with a 20% residual. Estate reserves use 10% of cargo reference or ship book val
 these are provisional tuning constants. Perishables use a two-hour expedited
 window if they survive it; otherwise the receiver disposes of them immediately.
 
-Operator accounts persist an explicit flag on their stable account ID. A trusted,
-receipt-protected promotion command enables unlimited invitation issuance while
-retaining expiry, email throttles and suspension checks. Operators see unlimited
-availability instead of an earning countdown. Ordinary accounts and invitation
-ancestry retain their existing rules. See the
-[operator promotion command](database.md#operator-account-promotion).
+Operator accounts persist an explicit flag on their stable account ID. A
+trusted, receipt-protected promotion command enables unlimited invitation
+issuance while retaining expiry, email throttles and suspension checks.
+Operators see unlimited availability instead of an earning countdown. Ordinary
+accounts and invitation ancestry retain their existing rules. Operator-owned
+companies are exempt from dormant closure and its warnings; promotion cancels
+pending warnings atomically. See the [operator promotion
+command](database.md#operator-account-promotion).
 
 ## Verified email identities
 
@@ -1037,6 +1039,13 @@ liquidation fills, strict budgets, fair allocation, timeout, plan changes,
 receivership, database reload, command replay and rollback.
 
 ## Owner absence and dormant closure
+
+Operator-owned companies do not accrue owner absence warnings or close for
+dormancy. Promotion cancels a pending closure deadline, notice and queued warning
+email in the same commit. Existing operator warnings from earlier releases are
+cancelled on the next dormancy check, including startup. The account menu shows
+the exemption instead of the ordinary absence policy. Financial bankruptcy still
+applies, and promotion does not reopen an already closed company.
 
 Owner interactions coalesce into at most one ordinary dormancy visit per wall
 minute. Gameplay commands include the visit in their own commit; rapid form

@@ -18,16 +18,21 @@ defmodule TijaraTides.Domain.AccountWorld.Dormancy do
     settings = Dormancy.settings(catalogue)
 
     Enum.reduce(Enum.sort(accounts), state, fn {_, account}, acc ->
+      account = get(acc, "accounts", account["id"])
       company = get(acc, "companies", account["company_id"])
 
       if company && company["bankruptcy_ms"] == nil do
-        old = record(acc, company, now)
-        warned = Dormancy.warn(old, now, settings)
-        acc = put(acc, "company_dormancy", company["id"], Dormancy.to_row(warned))
+        if exempt?(account) do
+          cancel_pending(acc, company["id"])
+        else
+          old = record(acc, company, now)
+          warned = Dormancy.warn(old, now, settings)
+          acc = put(acc, "company_dormancy", company["id"], Dormancy.to_row(warned))
 
-        if old.warned_ms == nil and warned.warned_ms != nil,
-          do: warning(acc, company, account, warned),
-          else: acc
+          if old.warned_ms == nil and warned.warned_ms != nil,
+            do: warning(acc, company, account, warned),
+            else: acc
+        end
       else
         acc
       end
@@ -37,6 +42,8 @@ defmodule TijaraTides.Domain.AccountWorld.Dormancy do
   @doc "Accounts whose live company has passed its closure deadline; receivership closes them."
   def due(state, accounts, now) do
     for account <- Enum.sort_by(accounts, & &1["id"]),
+        account = get(state, "accounts", account["id"]),
+        account && not exempt?(account),
         company = get(state, "companies", account["company_id"]),
         company && company["bankruptcy_ms"] == nil,
         row = get(state, "company_dormancy", company["id"]),
@@ -45,24 +52,35 @@ defmodule TijaraTides.Domain.AccountWorld.Dormancy do
   end
 
   def visit(state, account, now) do
+    account = get(state, "accounts", account["id"])
     company = get(state, "companies", account["company_id"])
 
     if company && company["bankruptcy_ms"] == nil do
-      old = record(state, company, now)
-
-      if old.warned_ms != nil or get(state, "company_dormancy", company["id"]) == nil or
-           now - old.last_visit_ms >= 60_000 do
-        state =
-          put(state, "company_dormancy", company["id"], Dormancy.to_row(Dormancy.visit(old, now)))
-
-        if old.warned_ms != nil, do: cancel_warning(state, company["id"], old), else: state
+      if exempt?(account) do
+        cancel_pending(state, company["id"])
       else
-        state
+        visit_company(state, company, now)
       end
     else
       state
     end
   end
+
+  defp visit_company(state, company, now) do
+    old = record(state, company, now)
+
+    if old.warned_ms != nil or get(state, "company_dormancy", company["id"]) == nil or
+         now - old.last_visit_ms >= 60_000 do
+      state =
+        put(state, "company_dormancy", company["id"], Dormancy.to_row(Dormancy.visit(old, now)))
+
+      if old.warned_ms != nil, do: cancel_warning(state, company["id"], old), else: state
+    else
+      state
+    end
+  end
+
+  defp exempt?(account), do: Account.dormancy_exempt?(Account.Rows.decode(account))
 
   def record_closure(state, account_id, company_id, escrow, now) do
     account = AccountWorld.fetch(state, account_id)

@@ -3161,3 +3161,7 @@ msgstr "يتحقق المستلم من البريد الإلكتروني عند 
 #, elixir-format
 msgid "Unlimited invitations"
 msgstr "دعوات غير محدودة"
+
+#, elixir-format
+msgid "Operator accounts are exempt from dormant company closure."
+msgstr "حسابات المشغّلين معفاة من إغلاق الشركة بسبب الخمول."

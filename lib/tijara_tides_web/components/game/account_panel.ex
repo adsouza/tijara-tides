@@ -38,7 +38,18 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
           >{gettext("Close ✕")}</button>
         </div>
         <Layouts.language_selector />
-        <p id="dormancy-policy" class="my-3 text-sm text-slate-400">
+        <p
+          :if={@view.private["account"]["operator"]}
+          id="operator-dormancy-policy"
+          class="my-3 text-sm text-slate-400"
+        >
+          {gettext("Operator accounts are exempt from dormant company closure.")}
+        </p>
+        <p
+          :if={!@view.private["account"]["operator"]}
+          id="dormancy-policy"
+          class="my-3 text-sm text-slate-400"
+        >
           {gettext(
             "After %{days} days without an authenticated visit, your company receives %{warning} days' warning before closure. Returning before closure cancels it; automated trading and unattended refreshes do not. Dormant closure does not increase your bankruptcy count.",
             days:
@@ -53,7 +64,10 @@ defmodule TijaraTidesWeb.GameUI.AccountPanel do
               )
           )}
         </p>
-        <p :if={is_nil(@view.private["account"]["email"])} class="my-2 text-sm text-amber-100">
+        <p
+          :if={!@view.private["account"]["operator"] and is_nil(@view.private["account"]["email"])}
+          class="my-2 text-sm text-amber-100"
+        >
           {gettext(
             "Without a verified email, closure warnings can reach you only in the app. Losing this device session also ends access permanently. An unread warning does not postpone closure."
           )}

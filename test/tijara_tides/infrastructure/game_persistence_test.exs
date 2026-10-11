@@ -147,6 +147,41 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute has_element?(returning, "#shipyard")
   end
 
+  test "unlinked operators see the dormancy exemption and retain device access guidance", c do
+    {conn, token} = TijaraTides.WebFormFixture.session(c)
+    {:ok, view, _} = conn |> recycle() |> live("/play")
+    assert has_element?(view, "#dormancy-policy")
+    assert render(view) =~ "An unread warning does not postpone closure."
+    account_id = GameServer.snapshot(token, c.server).private["account"]["id"]
+
+    assert {:ok, _} =
+             GameServer.promote_operator({:account, account_id}, "promote-unlinked-ui", c.server)
+
+    render_async(view)
+    assert has_element?(view, "#operator-dormancy-policy", "exempt from dormant company closure")
+    refute has_element?(view, "#dormancy-policy")
+    refute render(view) =~ "closure warnings can reach you only in the app"
+    assert render(view) =~ "Keep this device session to retain access."
+
+    TijaraTides.Localization.with_locale("ar", fn ->
+      html =
+        render_component(&TijaraTidesWeb.GameUI.AccountPanel.panel/1,
+          view: GameServer.snapshot(token, c.server),
+          invite_code: nil,
+          request_id: "ar-ui"
+        )
+
+      text =
+        html
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query("#operator-dormancy-policy")
+        |> LazyHTML.text()
+
+      assert text =~ "معفاة"
+      refute text =~ "Operator accounts"
+    end)
+  end
+
   test "operator account UI offers invitations with zero quota and preserves ordinary account controls",
        c do
     previous_email_enabled = Application.get_env(:tijara_tides, :email_enabled)
@@ -180,11 +215,14 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     {:ok, view, _} = conn |> recycle() |> live("/play")
     refute has_element?(view, "#send-invitation")
+    assert has_element?(view, "#dormancy-policy")
     assert has_element?(view, "#invitation-countdown")
     account_id = GameServer.snapshot(token, c.server).private["account"]["id"]
     assert {:ok, _} = GameServer.promote_operator({:account, account_id}, "promote-ui", c.server)
     render_async(view)
     assert has_element?(view, "#invitation-expectation", "Unlimited invitations")
+    assert has_element?(view, "#operator-dormancy-policy", "exempt from dormant company closure")
+    refute has_element?(view, "#dormancy-policy")
     refute has_element?(view, "#invitation-countdown")
     assert has_element?(view, "#send-invitation")
     assert has_element?(view, "#email-invite-form button:not([disabled])")

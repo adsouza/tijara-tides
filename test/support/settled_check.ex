@@ -32,11 +32,35 @@ defmodule TijaraTides.SettledCheck do
         bids(state) ++
         links(state) ++
         budgets(state, catalogue) ++
-        handling(state)
+        handling(state) ++
+        operator_dormancy(state)
     )
   end
 
   defp rows(state, kind), do: Map.values(ReadState.entities(state, kind))
+
+  defp operator_dormancy(state) do
+    warnings =
+      for row <- rows(state, "company_dormancy"),
+          get(state, "accounts", row["account_id"])["operator"],
+          row["closed_ms"] == nil,
+          row["warned_ms"] != nil or row["closes_ms"] != nil,
+          do: {:dormancy, :operator_warning, row["id"]}
+
+    notices =
+      for row <- rows(state, "notices"),
+          get(state, "accounts", row["account_id"])["operator"],
+          row["code"] == "company.dormancy_warning",
+          do: {:dormancy, :operator_notice, row["id"]}
+
+    emails =
+      for row <- rows(state, "email_requests"),
+          get(state, "accounts", row["account_id"])["operator"],
+          row["purpose"] == "dormancy" and row["delivery"] == "pending",
+          do: {:dormancy, :operator_email, row["id"]}
+
+    warnings ++ notices ++ emails
+  end
 
   defp handling(state) do
     for ship <- rows(state, "ships"),

@@ -304,11 +304,13 @@ never inferred from email or invitation ancestry. Operator accounts can issue
 unlimited invitations without consuming quota or requiring an active, solvent
 company. Both invitation modes retain their normal expiry, email delivery
 throttles and single-use redemption. Suspended operators cannot issue
-invitations. Operator status is not inherited by invitees and does not bypass
-any other gameplay rule. Promotion preserves the account, company and inviter,
-discards partial earning progress, and records a durable request receipt. Show
-"Unlimited invitations" in the account menu for operator accounts. Do not show
-an earning or quota-refund countdown for them.
+invitations. Operator status is not inherited by invitees. Operator-owned
+companies are exempt from dormant closure, including its warnings, but retain
+normal trading, credit and bankruptcy rules. Promotion preserves the account,
+company and inviter, discards partial earning progress, and records a durable
+request receipt. Show "Unlimited invitations" in the account menu for operator
+accounts. Do not show an earning or quota-refund countdown for them. Show the
+dormancy exemption in the account menu for operators.
 
 An inviter chooses one of two modes. Ordinary inviters reserve one available
 invitation entitlement in either mode; operators reserve no quota:
@@ -921,6 +923,11 @@ Two constraints on the metric are deliberate:
   local demand. A global index dilutes that effort to nothing.
 
 ### Dormant companies
+
+Operator-owned companies are exempt from dormant closure and its warnings.
+Promotion cancels any pending closure deadline, in-app warning and queued warning
+email in the same transaction. It does not reopen a company already closed or
+prevent bankruptcy for financial reasons.
 
 A company becomes eligible for dormant closure after its owner has been absent
 for a configured interval. Track the owner's last authenticated visit, including

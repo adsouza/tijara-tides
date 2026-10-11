@@ -280,6 +280,8 @@ remain ordinary accounts. This grants no account recovery, deletion or other
 administrative controls in the player UI. Operator status is persisted on the
 stable account ID, independently of email and invitation ancestry. All existing
 and newly created accounts default to ordinary status, including launch roots.
+Operator-owned companies are exempt from dormant closure and its warnings;
+normal financial bankruptcy rules still apply.
 
 Apply migrations and stop the normal server before using the standalone command:
 
@@ -302,6 +304,11 @@ receipts are persisted under `operator:promote_operator`. Reuse the exact select
 and request ID after an uncertain outcome; changing selectors with the same ID
 fails with `request_conflict`. No player command or HTTP route can promote an
 account. The command only promotes; demotion is not exposed.
+
+Promotion also cancels any pending dormant-closure deadline, in-app notice and
+queued warning email in the same commit. It preserves closure history and does
+not reopen companies already closed. Dormancy checks cancel warnings left on
+operator accounts by older releases, including during startup.
 
 ### Full ledger audit
 

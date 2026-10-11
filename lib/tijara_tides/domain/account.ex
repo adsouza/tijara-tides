@@ -60,6 +60,8 @@ defmodule TijaraTides.Domain.Account do
 
   def promote_operator(%__MODULE__{} = account), do: %{account | operator: true}
 
+  def dormancy_exempt?(%__MODULE__{} = account), do: account.operator
+
   def earn_invitations(%__MODULE__{} = account, count) when is_integer(count) and count > 0,
     do: %{account | invite_quota: account.invite_quota + count}
 

@@ -200,6 +200,156 @@ defmodule TijaraTides.Infrastructure.OperatorGrantsTest do
              ).rows
   end
 
+  test "promotion persists warning cancellation and preserves an absent operator company through restart",
+       c do
+    {:ok, wall} = Agent.start_link(fn -> 0 end)
+
+    :sys.replace_state(c.server, fn state ->
+      %{
+        state
+        | wall_clock: fn -> Agent.get(wall, & &1) end,
+          catalogue:
+            Map.put(state.catalogue, "dormancy", %{"absence_ms" => 100, "warning_ms" => 200})
+      }
+    end)
+
+    {:ok, %{"company_id" => company}} =
+      GameServer.command(
+        c.player,
+        "company",
+        %{"action" => "company", "name" => "Operator Company"},
+        c.server
+      )
+
+    {:ok, _} =
+      GameServer.email_request(
+        c.player,
+        "link",
+        "dormancy-operator@example.com",
+        "link",
+        "test",
+        c.server
+      )
+
+    [link] = GameServer.email_pending(c.server)
+
+    {:ok, _} =
+      GameServer.email_redeem(
+        GameServer.email_token(link["id"]),
+        GameServer.token(),
+        c.player,
+        c.server
+      )
+
+    Agent.update(wall, fn _ -> 100 end)
+    send(c.server, :dormancy_check)
+    :sys.get_state(c.server)
+    [email] = GameServer.email_pending(c.server)
+    assert email["purpose"] == "dormancy"
+
+    assert [[100, 300]] =
+             Repo.query!(
+               "SELECT warned_ms,closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+               [c.world, company]
+             ).rows
+
+    # A failed receipt write must also roll back the deadline and warning cancellation.
+    before = :sys.get_state(c.server).game
+    {:ok, candidate, promotion} = AccountWorld.promote_operator(before, c.account_id)
+
+    assert_raise Postgrex.Error, fn ->
+      GameStore.commit(
+        Repo,
+        c.world,
+        before.epoch,
+        before,
+        candidate,
+        {"operator:promote_operator", "failed-dormancy", nil, promotion}
+      )
+    end
+
+    assert [[false]] =
+             Repo.query!("SELECT operator FROM game_accounts WHERE world_id=$1 AND id=$2", [
+               c.world,
+               c.account_id
+             ]).rows
+
+    assert [[100, 300]] =
+             Repo.query!(
+               "SELECT warned_ms,closes_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+               [c.world, company]
+             ).rows
+
+    assert [["pending"]] =
+             Repo.query!("SELECT delivery FROM game_email_requests WHERE world_id=$1 AND id=$2", [
+               c.world,
+               email["id"]
+             ]).rows
+
+    assert Repo.query!(
+             "SELECT id FROM game_notices WHERE world_id=$1 AND code='company.dormancy_warning'",
+             [c.world]
+           ).num_rows == 1
+
+    assert {:ok, result} =
+             GameServer.promote_operator({:account, c.account_id}, "promote-dormancy", c.server)
+
+    assert [[0, nil, nil, nil]] =
+             Repo.query!(
+               "SELECT last_visit_ms,warned_ms,closes_ms,closed_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+               [c.world, company]
+             ).rows
+
+    assert [["ignored"]] =
+             Repo.query!("SELECT delivery FROM game_email_requests WHERE world_id=$1 AND id=$2", [
+               c.world,
+               email["id"]
+             ]).rows
+
+    assert [] ==
+             Repo.query!(
+               "SELECT id FROM game_notices WHERE world_id=$1 AND code='company.dormancy_warning'",
+               [c.world]
+             ).rows
+
+    stop_supervised!(GameServer)
+    Agent.update(wall, fn _ -> 1_000_000_000_000 end)
+
+    restarted =
+      start_supervised!(
+        {GameServer,
+         name: nil,
+         enabled: true,
+         world_id: c.world,
+         wall_clock: fn -> Agent.get(wall, & &1) end,
+         tick_ms: 86_400_000}
+      )
+
+    send(restarted, :dormancy_check)
+    :sys.get_state(restarted)
+
+    assert [[true, ^company]] =
+             Repo.query!(
+               "SELECT operator,company_id FROM game_accounts WHERE world_id=$1 AND id=$2",
+               [c.world, c.account_id]
+             ).rows
+
+    assert [[nil]] =
+             Repo.query!("SELECT bankruptcy_ms FROM game_companies WHERE world_id=$1 AND id=$2", [
+               c.world,
+               company
+             ]).rows
+
+    assert [[0, nil, nil, nil]] =
+             Repo.query!(
+               "SELECT last_visit_ms,warned_ms,closes_ms,closed_ms FROM game_company_dormancy WHERE world_id=$1 AND company_id=$2",
+               [c.world, company]
+             ).rows
+
+    assert {:ok, ^result} =
+             GameServer.promote_operator({:account, c.account_id}, "promote-dormancy", restarted)
+  end
+
   test "receipt and quota survive spending, concurrent retries and restart; changed requests conflict",
        c do
     :ok = GameServer.subscribe()

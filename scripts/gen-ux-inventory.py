@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 172
+TRIPWIRE = 173
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -32,6 +32,7 @@ SCREENS = [
 
 # (id, verbatim quote from DESIGN.md, section, kind, screen)
 REQUIREMENTS = [
+    (209, 'Show the dormancy exemption in the account menu for operators.', 2, "display", "Company and account"),
     (208, 'Do not show an earning or quota-refund countdown for them.', 2, "display", "Company and account"),
     (207, 'Show "Unlimited invitations" in the account menu for operator accounts.', 2, "display", "Company and account"),
     (147, "Ordinary accounts always see a prominent hours:minutes:seconds countdown in the account menu to the next earned invitation, including before email verification and while available invitations remain.", 2, "display", "Company and account"),

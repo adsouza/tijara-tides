@@ -5,6 +5,113 @@ defmodule TijaraTides.Domain.DormancyTest do
   alias TijaraTides.Domain.AccountWorld.EmailIdentity
   alias TijaraTides.Domain.Services.Estates
 
+  test "operators, including suspended operators, never acquire absence warnings or visit baselines" do
+    {state, catalogue} = fixture()
+    {:ok, promoted, _} = AccountWorld.promote_operator(state, "owner")
+    promoted = State.delete(promoted, "company_dormancy", "company")
+
+    for suspended <- [nil, 0] do
+      operator = Map.put(State.get(promoted, "accounts", "owner"), "suspended_ms", suspended)
+      exempt = State.put(promoted, "accounts", "owner", operator)
+
+      assert TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(exempt, 1_000_000, catalogue) ==
+               exempt
+
+      assert TijaraTides.Domain.Services.Bankruptcy.advance_owner_dormancy(
+               exempt,
+               operator,
+               1_000_000,
+               catalogue
+             ) == exempt
+
+      assert AccountWorld.owner_visit(exempt, operator, 1_000_000) == exempt
+      assert State.get(exempt, "company_dormancy", "company") == nil
+      assert State.get(exempt, "companies", "company")["bankruptcy_ms"] == nil
+    end
+  end
+
+  test "promotion cancels existing warnings and queued email atomically, even past the deadline" do
+    {state, catalogue} = fixture()
+    state = AccountWorld.verify_email(state, "owner", "owner@example.com", "session", 9999)
+    warned = TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 100, catalogue)
+    original_account = State.get(warned, "accounts", "owner")
+    {:ok, promoted, _} = AccountWorld.promote_operator(warned, "owner")
+    assert State.get(promoted, "accounts", "owner") == Map.put(original_account, "operator", true)
+
+    assert State.get(promoted, "companies", "company") ==
+             State.get(warned, "companies", "company")
+
+    record = State.get(promoted, "company_dormancy", "company")
+    assert record["warned_ms"] == nil
+    assert record["closes_ms"] == nil
+    assert record["last_visit_ms"] == 0
+    assert record["closed_ms"] == nil
+    assert promoted.clock_ms == warned.clock_ms
+    assert State.get(promoted, "notices", "dormancy:company") == nil
+    email = State.get(warned, "email_requests", "dormancy:company:100")
+    assert State.get(promoted, "email_requests", email["id"])["delivery"] == "ignored"
+    assert EmailIdentity.delivered(promoted, email) == promoted
+    assert EmailIdentity.delivery_failed(promoted, email, 1000) == promoted
+    assert TijaraTides.Domain.ChangeSet.assert_complete!(warned, promoted) == :ok
+
+    assert TijaraTides.SettledCheck.assert_settled!(warned, promoted, catalogue, "promotion") ==
+             promoted
+
+    assert TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(promoted, 1000, catalogue) ==
+             promoted
+
+    # Older releases may have already recorded warnings on an operator account.
+    stale = State.put(warned, "accounts", "owner", Map.put(original_account, "operator", true))
+    assert AccountWorld.Dormancy.due(stale, [original_account], 1000) == []
+
+    assert TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(stale, 1000, catalogue) ==
+             promoted
+
+    assert TijaraTides.Domain.Services.Bankruptcy.advance_owner_dormancy(
+             stale,
+             original_account,
+             1000,
+             catalogue
+           ) == promoted
+
+    assert AccountWorld.owner_visit(stale, original_account, 1000) == promoted
+
+    assert_raise ArgumentError, ~r/operator_warning/, fn ->
+      TijaraTides.SettledCheck.assert_settled!(warned, stale, catalogue, "broken promotion")
+    end
+  end
+
+  test "operator exemption does not prevent financial bankruptcy or restore a closed company" do
+    {state, catalogue} = fixture()
+    {:ok, promoted, _} = AccountWorld.promote_operator(state, "owner")
+
+    {:ok, bankrupt, _} =
+      TijaraTides.Domain.Services.Bankruptcy.bankrupt(
+        promoted,
+        State.get(promoted, "accounts", "owner"),
+        "forced"
+      )
+
+    assert State.get(bankrupt, "accounts", "owner")["bankruptcies"] == 1
+    assert State.get(bankrupt, "accounts", "owner")["operator"]
+
+    closed =
+      TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(state, 100, catalogue)
+      |> TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(300, catalogue)
+
+    {:ok, promoted_closed, _} = AccountWorld.promote_operator(closed, "owner")
+    assert State.get(promoted_closed, "accounts", "owner")["company_id"] == nil
+
+    assert State.get(promoted_closed, "company_dormancy", "company") ==
+             State.get(closed, "company_dormancy", "company")
+
+    assert TijaraTides.Domain.Services.Bankruptcy.advance_dormancy(
+             promoted_closed,
+             1000,
+             catalogue
+           ) == promoted_closed
+  end
+
   defp fixture do
     catalogue =
       TijaraTides.Infrastructure.GameCatalogue.all()

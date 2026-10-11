@@ -308,6 +308,7 @@ defmodule TijaraTides.Domain.AccountWorld do
           state
           |> store(row |> Rows.decode() |> Account.promote_operator())
           |> delete("invitation_progress", account_id)
+          |> __MODULE__.Dormancy.cancel_pending(row["company_id"])
 
         {:ok, changed,
          %{

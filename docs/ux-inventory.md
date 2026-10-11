@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 172
+Heuristic requirement sentences in DESIGN.md at generation: 173
 
 ## Screens
 
@@ -58,6 +58,7 @@ soundtrack and its response to the player's selections.
 
 | # | Requirement | Section | Kind | Screen |
 |---|-------------|---------|------|--------|
+| 209 | Show the dormancy exemption in the account menu for operators. | 2 | display | Company and account |
 | 208 | Do not show an earning or quota-refund countdown for them. | 2 | display | Company and account |
 | 207 | Show "Unlimited invitations" in the account menu for operator accounts. | 2 | display | Company and account |
 | 147 | Ordinary accounts always see a prominent hours:minutes:seconds countdown in the account menu to the next earned invitation, including before email verification and while available invitations remain. | 2 | display | Company and account |
