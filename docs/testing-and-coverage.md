@@ -207,6 +207,23 @@ check, but a new CI job must be added to its `needs` list to gate merges.
   `desktop/server-url.mjs`. This is not coverage of the browser hooks or the Rust
   desktop application. Those areas have no coverage instrumentation in this setup.
 
+Low module percentages need the HTML report's line context. CLDR generates the
+`Localization.Numbers` backend and its `Currency` module at `use Cldr`; the
+application's English and Arabic number and USD formatting contracts live in
+`localization_test.exs`. Similarly, the web entry point's quoted setup runs during
+compilation, before coverage starts. `ErrorHTML`'s runtime render line is already
+covered by its 404 and 500 tests; the uncovered line is component setup. These
+modules remain in the report, without changing the coverage threshold or scope.
+
+Focused tests cover cargo lot allocation, exhaustion, FIFO selection and split
+lineage, including original versus conditioned expiry. Test-support contracts
+check fixture ID uniqueness, callback forwarding, control discovery, disabled
+controls and telemetry cleanup on failure. Compatibility tests exercise market
+replenishment and route departure; existing offer and editor contracts also enter
+through the infrastructure query adapter. Deliberately dropping split parents,
+retaining disabled controls, reusing fixture IDs, omitting the trade catalogue,
+skipping market replenishment or skipping route departure fails these tests.
+
 ## Required branch and condition tests
 
 New or changed Elixir decisions must have behavioral tests covering every reachable

@@ -76,6 +76,33 @@ defmodule TijaraTides.Domain.ShipRoutesTest do
     s
   end
 
+  test "compatibility execution predicate distinguishes missing, draft, running and paused routes",
+       c do
+    assert ShipRoutes.executable?(c.state, "company:1")
+    {:ok, draft, _} = command(c, c.state, "s1", %{"operation" => "add_stop", "port" => "Jakarta"})
+    refute ShipRoutes.executable?(draft, "company:1")
+    running = route(c, false)
+    assert ShipRoutes.executable?(running, "company:1")
+    {:ok, paused, _} = command(c, running, "pause", %{"operation" => "pause"})
+    refute ShipRoutes.executable?(paused, "company:1")
+  end
+
+  test "compatibility departure advances the route cursor and clears the completed visit", c do
+    assert ShipRoutes.departed(c.state, "company:1", "Singapore") == c.state
+    state = route(c, false) |> ShipRoutes.advance(c.catalogue)
+    before = Game.get(state, "ship_routes", "company:1")
+    assert Game.entities(state, "ship_instructions") != %{}
+
+    next = ShipRoutes.departed(state, "company:1", "Singapore")
+    after_route = Game.get(next, "ship_routes", "company:1")
+    assert after_route["cursor"] == 1
+    assert after_route["visit"] == before["visit"] + 1
+    assert after_route["phase"] == "arrival"
+    assert after_route["status"] == "running"
+    assert Game.entities(next, "ship_instructions") == %{}
+    assert Game.entities(next, "visit_plans") == %{}
+  end
+
   test "freshness terms validate, snapshot qualifying cargo aboard and defer edits to future visits",
        c do
     c = %{c | state: put_in(c.state, [:entities, "ships", "company:1", "class"], "reefer")}

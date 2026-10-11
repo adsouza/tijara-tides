@@ -4,7 +4,7 @@ defmodule TijaraTides.UseCases.RouteOffersTest do
   use ExUnit.Case, async: true
 
   alias TijaraTides.Domain.{Game, ShipWorld, Visibility}
-  alias TijaraTides.UseCases.GameQueries
+  alias TijaraTides.Infrastructure.GameQueries
 
   setup do
     cat = TijaraTides.UseCases.Game.definitions().catalogue

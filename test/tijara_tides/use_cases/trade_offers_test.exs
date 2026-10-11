@@ -40,7 +40,16 @@ defmodule TijaraTides.UseCases.TradeOffersTest do
 
   defp offer(s, side, good, destination) do
     v = view(s)
-    GameQueries.trade_limits(v, v.private["ships"]["aco:1"], destination, cat())[{side, good}]
+
+    limits =
+      TijaraTides.Infrastructure.GameQueries.trade_limits(
+        v,
+        v.private["ships"]["aco:1"],
+        destination
+      )
+
+    assert limits == GameQueries.trade_limits(v, v.private["ships"]["aco:1"], destination, cat())
+    limits[{side, good}]
   end
 
   defp trade(side, good, n, limit, destination),

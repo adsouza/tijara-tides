@@ -7,7 +7,7 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     {state, account, catalogue} = fixture()
     definitions = %{catalogue: catalogue}
     snapshot = view(state, account, catalogue)
-    query = TijaraTides.UseCases.GameQueries
+    query = TijaraTides.Infrastructure.GameQueries
     all = query.cargo_options(definitions, snapshot, false)
     assert all == query.cargo_options(definitions, snapshot, false, nil)
     assert {"crude_oil", _} = List.keyfind(all, "crude_oil", 0)
@@ -72,7 +72,9 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
         ]
     }
 
-    editor = &TijaraTides.UseCases.GameQueries.instruction_editor(%{catalogue: catalogue}, &1, &2)
+    editor =
+      &TijaraTides.Infrastructure.GameQueries.instruction_editor(%{catalogue: catalogue}, &1, &2)
+
     draft = %{"side" => "sell", "good" => "lumber", "quantity" => "99"}
     assert %{maximum: 5, quantity: 5, good: "lumber"} = editor.(ship, draft)
 
@@ -87,7 +89,7 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     }
 
     defaults =
-      TijaraTides.UseCases.GameQueries.instruction_editor(
+      TijaraTides.Infrastructure.GameQueries.instruction_editor(
         %{catalogue: catalogue},
         ship,
         %{"side" => "sell", "good" => "lumber"},
@@ -103,7 +105,7 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
       unavailable = put_in(markets, ["Singapore|lumber", "demand"], demand)
 
       result =
-        TijaraTides.UseCases.GameQueries.instruction_editor(
+        TijaraTides.Infrastructure.GameQueries.instruction_editor(
           %{catalogue: catalogue},
           ship,
           draft,
@@ -124,7 +126,7 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
     }
 
     assert %{quantity: 2, limit: "150"} =
-             TijaraTides.UseCases.GameQueries.instruction_editor(
+             TijaraTides.Infrastructure.GameQueries.instruction_editor(
                %{catalogue: catalogue},
                ship,
                edited,
@@ -133,7 +135,7 @@ defmodule TijaraTides.Infrastructure.TradeLimitsTest do
              )
 
     assert %{goods: [], quantity: 0, limit: "0"} =
-             TijaraTides.UseCases.GameQueries.instruction_editor(
+             TijaraTides.Infrastructure.GameQueries.instruction_editor(
                %{catalogue: catalogue},
                ship,
                edited,
