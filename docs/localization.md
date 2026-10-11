@@ -29,6 +29,11 @@ values machine-readable; format displayed USD amounts through the shared CLDR
 formatter. Currency remains USD regardless of language. Arabic number-format data
 is bundled in `priv/cldr/locales` for reproducible builds.
 
+Decimal is a direct dependency with a minimum version of 3.1.2, which fixes
+[CVE-2026-97853](https://github.com/ericmj/decimal/security/advisories/GHSA-6c27-994x-c52f).
+Keep rounding precision fixed by the application rather than accepting a
+player-supplied number of decimal places.
+
 Arabic sets the document to RTL, including portrait navigation. Geographic map
 coordinates and routes are unchanged. Email addresses, tokens and numeric inputs
 remain LTR. Port, harbor and region names and all 25 port descriptions have Arabic display

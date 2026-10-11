@@ -70,6 +70,7 @@ defmodule TijaraTides.MixProject do
       {:telemetry_metrics_prometheus_core, "~> 1.2"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
+      {:decimal, "~> 3.1.2"},
       {:gettext, "~> 1.0"},
       {:ex_cldr_numbers, "~> 2.38"},
       {:remote_ip, "~> 1.2"},
