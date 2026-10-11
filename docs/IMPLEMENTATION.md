@@ -527,6 +527,10 @@ depreciation, net profit and average capital employed. Public results never expo
 cargo holdings or cost breakdowns. Bankruptcy history remains attached to accounts;
 former companies retain their own reports and restart companies begin afresh.
 
+The public provisional and unranked list includes only operating companies.
+Closure removes a company from that list and its pagination count. Owner history
+and eligible rankings for completed periods before closure remain available.
+
 Periods are anchored to active-world clock zero: quarters last seven days and
 years twenty-eight. Journal events at an exact boundary belong to the new period.
 Capital is integrated with integer cent-milliseconds between committed asset

@@ -74,7 +74,7 @@ defmodule TijaraTides.Infrastructure.Persistence.ReportStore do
           repo,
           base,
           params,
-          "NOT eligible",
+          "NOT eligible AND bankruptcy_ms IS NULL",
           "name, company_id",
           selection,
           expected.clock_ms

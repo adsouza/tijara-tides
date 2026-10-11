@@ -2749,6 +2749,10 @@ This replaces the earlier age-only one-quarter eligibility rule. A restarted
 company has its own results and eligibility clock; account history persists.
 The first complete reporting year likewise determines yearly eligibility.
 
+Only operating companies appear in the public provisional and unranked list.
+Closed companies retain owner-visible reports and any eligible rankings from
+completed periods before closure.
+
 Track each cargo batch's actual acquisition cost; partial sales recognize the
 cost attributable to the quantity actually sold. Internal transfers retain that
 cost and do not realize profit. Usable cargo remains at cost through changes in

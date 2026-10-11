@@ -2527,6 +2527,110 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
              Repo.query!("SELECT count(*) FROM game_route_rules WHERE world_id=$1", [c.world_id]).rows
   end
 
+  test "closed companies leave provisional report pages and counts while retaining owner history and past rankings",
+       c do
+    alias TijaraTides.Infrastructure.Persistence.ReportStore
+    alias TijaraTides.UseCases.{CommitPreparation, ReportQueries}
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => company}} =
+      GameServer.command(
+        token,
+        "company",
+        %{"action" => "company", "name" => "Operating 00"},
+        c.server
+      )
+
+    {:ok, _} =
+      GameServer.command(token, "loan", %{"action" => "borrow", "amount" => 1_000_000}, c.server)
+
+    game = :sys.get_state(c.server).game
+    owner = GameServer.snapshot(token, c.server).private["account"]["id"]
+
+    # Closed rows sort before live companies, so filtering after LIMIT would leave short pages.
+    for {table, changes} <- [
+          {"game_companies",
+           "'id','report-'||n,'name',CASE WHEN n=12 THEN 'A Trader Toe Knee' WHEN n=13 THEN 'A Tygre Trafficking' ELSE 'Operating '||lpad(n::text,2,'0') END,'bankruptcy_ms',CASE WHEN n>=12 THEN 0 ELSE NULL END"},
+          {"game_reporting_accounts", "'id','report-'||n"}
+        ] do
+      Repo.query!(
+        "INSERT INTO #{table} SELECT (jsonb_populate_record(NULL::#{table},to_jsonb(t)||jsonb_build_object(#{changes}))).* FROM #{table} t CROSS JOIN generate_series(1,13) n WHERE world_id=$1 AND id=$2",
+        [c.world_id, company]
+      )
+    end
+
+    for period <- ["quarter", "year"], metric <- ["profit", "roi"] do
+      params = %{"period" => period, "metric" => metric, "index" => 0}
+      assert {:ok, first} = GameServer.reports(token, params, c.server)
+      assert first.ranked_count == 0
+      assert first.provisional_count == 12
+      assert length(first.provisional) == 10
+      assert Enum.all?(first.provisional, &String.starts_with?(&1["name"], "Operating"))
+      assert first.own_count == 14
+
+      assert {:ok, second} =
+               GameServer.reports(
+                 token,
+                 Map.merge(params, %{"page" => 1, "own_page" => 1}),
+                 c.server
+               )
+
+      assert length(second.provisional) == 2
+      assert Enum.all?(second.provisional, &String.starts_with?(&1["name"], "Operating"))
+
+      assert MapSet.disjoint?(
+               MapSet.new(first.provisional, & &1["company_id"]),
+               MapSet.new(second.provisional, & &1["company_id"])
+             )
+
+      assert Enum.any?(first.own, &(&1["company_id"] == "report-12"))
+      assert Enum.any?(first.own, &(&1["company_id"] == "report-13"))
+      assert {:ok, anonymous} = GameServer.reports(nil, params, c.server)
+      assert anonymous.provisional == first.provisional
+      assert anonymous.provisional_count == 12
+      assert anonymous.own == []
+    end
+
+    # Closing after a complete quarter keeps that quarter's legitimate ranking.
+    quarter = 604_800_000
+
+    changed =
+      CommitPreparation.prepare(game, %{game | clock_ms: quarter + 1, revision: game.revision + 1})
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, game.epoch, game, changed)
+
+    Repo.query!("UPDATE game_companies SET bankruptcy_ms=$3 WHERE world_id=$1 AND id=$2", [
+      c.world_id,
+      company,
+      quarter + 1
+    ])
+
+    assert {:ok, historical} =
+             ReportStore.page(
+               %{repo: Repo, world_id: c.world_id},
+               ReportQueries.selection(changed.clock_ms, %{"index" => 0}),
+               owner,
+               changed
+             )
+
+    assert historical.ranked_count == 12
+    assert Enum.any?(historical.ranked, &(&1["company_id"] == company))
+    assert historical.provisional_count == 0
+    assert historical.own_count == 14
+
+    assert {:ok, current} =
+             ReportStore.page(
+               %{repo: Repo, world_id: c.world_id},
+               ReportQueries.selection(changed.clock_ms, %{"index" => 1}),
+               owner,
+               changed
+             )
+
+    assert current.provisional_count == 11
+    refute Enum.any?(current.provisional, &(&1["company_id"] == company))
+    assert current.own_count == 14
+  end
+
   test "historical report pages survive compaction and restart, enforce privacy and remain bounded",
        c do
     alias TijaraTides.UseCases.CommitPreparation
