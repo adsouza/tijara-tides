@@ -2,6 +2,7 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
   @moduledoc "Versioned static definitions, loaded once and excluded from durable entity writes."
   @external_resource Path.expand("../../../priv/game/catalogue.json", __DIR__)
   @catalogue @external_resource |> File.read!() |> Jason.decode!()
+  @piracy TijaraTides.Domain.Piracy.prepare_crossings(@catalogue["piracy"], @catalogue["routes"])
   @land_path Path.expand("../../../priv/game/land.json", __DIR__)
   @external_resource @land_path
   @land @land_path |> File.read!() |> Jason.decode!()
@@ -12,7 +13,7 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
   def land, do: @land
 
   def all do
-    piracy = Map.merge(@catalogue["piracy"], Application.get_env(:tijara_tides, :piracy, %{}))
+    piracy = Map.merge(@piracy, Application.get_env(:tijara_tides, :piracy, %{}))
     TijaraTides.Domain.Piracy.validate!(piracy)
     TijaraTides.Domain.Piracy.validate_salt!(piracy)
 
@@ -36,6 +37,6 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
 
   def public do
     catalogue = all()
-    Map.update!(catalogue, "piracy", &Map.delete(&1, "salt"))
+    Map.update!(catalogue, "piracy", &TijaraTides.Domain.Piracy.public_model/1)
   end
 end

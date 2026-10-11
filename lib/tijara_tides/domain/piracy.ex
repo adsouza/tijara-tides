@@ -20,10 +20,46 @@ defmodule TijaraTides.Domain.Piracy do
     model
   end
 
-  @doc "Partition the actual path at polygon edges, including entry and exit within one leg."
+  @doc "Prepare an immutable index of catalogue paths; only geometry determines its contents."
+  def prepare_crossings(nil, _routes), do: nil
+
+  def prepare_crossings(model, routes) do
+    model = Map.delete(model, :crossings)
+
+    index =
+      Map.new(routes, fn {_, route} ->
+        {route["coordinates"], crossings(route, model)}
+      end)
+
+    Map.put(model, :crossings, {polygons(model), index})
+  end
+
+  @doc "Public and durable rules exclude private configuration and the derived geometry index."
+  def public_model(model), do: Map.drop(model, ["salt", :crossings])
+
+  defp polygons(model), do: Map.new(model["zones"], fn {id, zone} -> {id, zone["polygon"]} end)
+
+  @doc "Partition the actual path, reusing prepared crossings only for the same path and polygons."
   def crossings(_route, nil), do: []
 
   def crossings(route, model) do
+    case model[:crossings] do
+      {geometry, index} ->
+        if geometry == polygons(model) do
+          case Map.fetch(index, route["coordinates"]) do
+            {:ok, parts} -> parts
+            :error -> calculate_crossings(route, model)
+          end
+        else
+          calculate_crossings(route, model)
+        end
+
+      nil ->
+        calculate_crossings(route, model)
+    end
+  end
+
+  defp calculate_crossings(route, model) do
     alias TijaraTides.Domain.VoyageNavigation, as: Navigation
 
     legs =
@@ -138,7 +174,7 @@ defmodule TijaraTides.Domain.Piracy do
       end)
 
     %{
-      "model" => Map.delete(model, "salt"),
+      "model" => public_model(model),
       "protection" => (previous && previous["protection"]) || "none",
       "pending" => pending,
       "resolved" => resolved ++ continued,
@@ -149,9 +185,15 @@ defmodule TijaraTides.Domain.Piracy do
 
   @doc "The departure model; diversions retain the purchased voyage's public rules."
   def voyage_model(ship, catalogue) do
-    if get_in(ship, ["piracy", "model"]),
-      do: Map.put(ship["piracy"]["model"], "salt", get_in(catalogue, ["piracy", "salt"])),
-      else: model(catalogue)
+    current = model(catalogue)
+
+    if get_in(ship, ["piracy", "model"]) do
+      ship["piracy"]["model"]
+      |> Map.put("salt", current["salt"])
+      |> Map.put(:crossings, current[:crossings])
+    else
+      current
+    end
   end
 
   def protection_settings(model),

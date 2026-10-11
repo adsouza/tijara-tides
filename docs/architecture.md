@@ -1263,6 +1263,14 @@ projection before movement on every tick; `Simulation.initialize` refreshes
 both at startup. `GameCatalogue.all/0` merges the `:piracy` runtime
 configuration and validates the model before the server starts.
 
+`GameCatalogue` prepares an immutable piracy crossing index when the generated
+catalogue is compiled. `Piracy.crossings/2` reuses its exact path partitions only
+when the path coordinates and zone polygons match. Changed runtime polygons,
+historical voyage polygons and uncatalogued diversion paths use the same pure
+geometry calculation. Tuning, private attack rolls and weather-dependent prices
+remain live calculations. The derived index is excluded from public catalogue
+data and durable voyage models.
+
 `ShipWorld` owns the nullable voyage `piracy` snapshot: model, protection,
 pending crossings, private rolls, resolved records and absolute-time incidents.
 The salt remains in server configuration; departure precomputes each roll and

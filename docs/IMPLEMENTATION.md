@@ -1212,6 +1212,16 @@ Aden, 194 the Singapore Strait, 194 the Malacca Strait, 220 the South China Sea,
 76 the Caribbean Sea, 128 the English Channel and 192 the Barbary Coast; 42
 routes between North European and East Asian ports cross seven zones.
 
+Catalogue compilation precomputes crossing intervals for every generated route.
+Quotes and departures reuse these immutable intervals, including empty lists,
+after checking the path and polygon identity. Changed polygons and diversion
+paths fall back to geometry calculation; chance and price tuning can reuse the
+index. Public definitions and saved voyage models exclude it. Regression tests
+compare every route's crossings, snapshots and complete quotes with the
+uncached calculation, and count geometry calls across repeated quotes.
+`mix run --no-start scripts/benchmark-voyage-quotes.exs` compares cached and
+uncached quotes in one VM without starting a server or database.
+
 Each zone rolls a campaign once per 12-hour period from the public catalogue
 seed: 25% (Red Sea 40%) for a 3-hour campaign announced 30 minutes ahead,
 quadrupling the zone's published chance per crossing while it runs.
