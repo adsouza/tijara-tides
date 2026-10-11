@@ -78,6 +78,56 @@ defmodule TijaraTides.BrowserContractsTest do
     end)
   end
 
+  @tag timeout: 50_000
+  test "Chromium destination grid and markers persist through clock refreshes" do
+    Sql.with_world(fn c ->
+      f = TijaraTides.WebFormFixture.fixture(c)
+      path = Path.join(System.tmp_dir!(), "tj-picker-#{c.world}.json")
+
+      try do
+        File.write!(path, Jason.encode!(%{url: url(), cookie: f.cookie, ship: f.ship}))
+        File.chmod!(path, 0o600)
+
+        port =
+          Port.open({:spawn_executable, System.find_executable("node")}, [
+            :binary,
+            :exit_status,
+            :stderr_to_stdout,
+            {:line, 8192},
+            {:args, ["test/browser/destination_picker.mjs", path]}
+          ])
+
+        output = picker_runner(port, c, "")
+        assert output =~ "Destination picker browser contracts passed"
+        Sql.assert_rows(c, :sys.get_state(c.server).game)
+      after
+        File.rm(path)
+        if Process.alive?(f.view.pid), do: GenServer.stop(f.view.pid, :normal)
+      end
+    end)
+  end
+
+  defp picker_runner(port, c, output) do
+    receive do
+      {^port, {:data, {_, "PICKER_TICK"}}} ->
+        Sql.advance(c.server, 3000)
+        picker_runner(port, c, output)
+
+      {^port, {:data, {_, line}}} ->
+        picker_runner(port, c, output <> line <> "\n")
+
+      {^port, {:exit_status, 0}} ->
+        output
+
+      {^port, {:exit_status, status}} ->
+        flunk("Destination browser exited #{status}:\n#{output}")
+    after
+      40_000 ->
+        Port.close(port)
+        flunk("Destination browser timed out:\n#{output}")
+    end
+  end
+
   defp url do
     {:ok, {ip, port}} = TijaraTidesWeb.Endpoint.server_info(:http)
     "http://#{:inet.ntoa(ip)}:#{port}"

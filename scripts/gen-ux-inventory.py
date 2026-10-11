@@ -252,7 +252,7 @@ REQUIREMENTS = [
     (216, "Protection is optional and defaults to none for manual dispatch.", 10, "input", "Fleet and ship detail"),
     (217, "Repeating route plans offer none, guards, insurance, or both, defaulting to none.", 8, "input", "Route planner"),
 
-    (218, "The destination popup opens immediately and shows a loading state while trade estimates are calculated. World updates refresh those estimates without blocking dismissal or ship selection. Invalidated estimates stay hidden while recalculating, and completed work for an older selection cannot replace the current selection's estimates.", 7, "display", "Fleet and ship detail"),
+    (218, "The destination popup opens immediately with its port rows and cargo columns. Estimate cells stay blank until the first calculation completes. World updates keep the last completed grid visible while replacements are calculated, then update estimates and row ranking together without an empty-grid flicker. Dismissal and port selection remain available throughout. Completed work for an older selection cannot replace the current selection's estimates.", 7, "display", "Fleet and ship detail"),
 ]
 
 # Every mechanically deep feature in sections 7 and 8 is opt-in with a stated

@@ -10,13 +10,20 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
   attr :destination, :any, default: nil
   attr :matrix, :any, default: nil
   attr :error, :boolean, default: false
+  attr :updating, :boolean, default: false
 
   def panel(assigns) do
     assigns =
       assign(
         assigns,
         loading: is_nil(assigns.matrix),
-        matrix: assigns.matrix || %{rows: [], goods: []}
+        matrix:
+          assigns.matrix ||
+            TijaraTides.UseCases.GameQueries.destination_grid(
+              assigns.definitions,
+              assigns.view,
+              assigns.ship
+            )
       )
 
     scale =
@@ -78,9 +85,14 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
             <span class="text-yellow-400">● {gettext("Return")}</span>
             <span class="text-orange-400">● {gettext("Other ports")}</span>
           </div>
-          <p :if={@loading && !@error} id="destination-picker-loading" role="status" class="my-4">
-            {gettext("Calculating trade estimates...")}
-          </p>
+          <div class="min-h-6 text-sm text-slate-400">
+            <p :if={@loading && !@error} id="destination-picker-loading" role="status">
+              {gettext("Calculating trade estimates...")}
+            </p>
+            <p :if={!@loading && @updating && !@error} id="destination-picker-updating">
+              {gettext("Updating trade estimates...")}
+            </p>
+          </div>
           <div :if={@error} role="alert" class="my-4">
             <p>{gettext("Could not calculate trade estimates.")}</p>
             <button
@@ -91,8 +103,12 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
               {gettext("Try again")}
             </button>
           </div>
-          <div :if={!@loading} class="destination-matrix-scroll">
-            <table class="destination-matrix text-sm">
+          <div class="destination-matrix-scroll">
+            <table
+              id="destination-matrix"
+              class="destination-matrix text-sm"
+              aria-busy={to_string(@loading || @updating)}
+            >
               <thead>
                 <tr>
                   <th scope="col" class="destination-port">
@@ -100,13 +116,16 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                   </th>
                   <th scope="col"><.emoji symbol="💰" />{gettext("Estimated net profit")}</th>
                   <th scope="col"><.emoji symbol="📏" />{gettext("Distance (nm)")}</th>
-                  <th :for={{id, good} <- @matrix.goods} scope="col">
+                  <th :for={{id, good} <- @matrix.goods} id={"destination-cargo-" <> id} scope="col">
                     <.cargo_label good={id} name={l10n(good["name"])} />
                   </th>
                 </tr>
               </thead>
               <tbody>
-                <tr :for={row <- @matrix.rows}>
+                <tr
+                  :for={row <- @matrix.rows}
+                  id={"destination-row-" <> URI.encode_www_form(row.port)}
+                >
                   <th scope="row" class="destination-port">
                     <button
                       type="button"
@@ -120,59 +139,65 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                     </button>
                   </th>
                   <td class="tabular-nums text-left">
-                    <%= if row.plan do %>
-                      <strong>{money(row.best)}</strong>
-                      <p :if={@ship["class"] == "tanker"} class="text-xs text-slate-400">
-                        {if row.plan.onward,
-                          do: gettext("Two voyages"),
-                          else: gettext("No profitable onward load")}
-                      </p>
-                      <details
-                        id={"destination-plan-" <> row.port}
-                        phx-mounted={JS.ignore_attributes(["open"])}
-                      >
-                        <summary class="cursor-pointer text-xs">
-                          {gettext("Suggested cargo mix")}
-                        </summary>
-                        <div class="min-w-48 text-xs">
-                          <p>
-                            {gettext("Next voyage profit: %{profit}", profit: money(row.plan.profit))}
-                          </p>
-                          <p>{gettext("Voyage costs: %{cost}", cost: money(row.plan.costs))}</p>
-                          <p>{gettext("Purchases: %{cost}", cost: money(row.plan.spent))}</p>
-                          <p :for={cargo <- row.plan.purchases}>
-                            <.emoji symbol={cargo_emoji(cargo.good)} />
-                            {gettext("Buy %{lots} lots of %{cargo}",
-                              lots: display_number(cargo.lots),
-                              cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
-                            )}
-                          </p>
-                          <p :for={cargo <- row.plan.sales}>
-                            <.emoji symbol={cargo_emoji(cargo.good)} />
-                            {gettext("Sell %{lots} lots of %{cargo}",
-                              lots: display_number(cargo.lots),
-                              cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
-                            )}
-                          </p>
-                          <%= if Map.get(row.plan, :onward) do %>
-                            <p class="mt-2 font-semibold">
-                              {gettext("Then sail to %{port}: %{profit}",
-                                port: l10n(row.plan.onward.destination),
-                                profit: money(row.plan.onward.profit)
+                    <%= if @loading do %>
+                      <span aria-hidden="true">—</span>
+                    <% else %>
+                      <%= if row.plan do %>
+                        <strong>{money(row.best)}</strong>
+                        <p :if={@ship["class"] == "tanker"} class="text-xs text-slate-400">
+                          {if row.plan.onward,
+                            do: gettext("Two voyages"),
+                            else: gettext("No profitable onward load")}
+                        </p>
+                        <details
+                          id={"destination-plan-" <> row.port}
+                          phx-mounted={JS.ignore_attributes(["open"])}
+                        >
+                          <summary class="cursor-pointer text-xs">
+                            {gettext("Suggested cargo mix")}
+                          </summary>
+                          <div class="min-w-48 text-xs">
+                            <p>
+                              {gettext("Next voyage profit: %{profit}",
+                                profit: money(row.plan.profit)
                               )}
                             </p>
-                            <p :for={cargo <- row.plan.onward.purchases}>
+                            <p>{gettext("Voyage costs: %{cost}", cost: money(row.plan.costs))}</p>
+                            <p>{gettext("Purchases: %{cost}", cost: money(row.plan.spent))}</p>
+                            <p :for={cargo <- row.plan.purchases}>
                               <.emoji symbol={cargo_emoji(cargo.good)} />
                               {gettext("Buy %{lots} lots of %{cargo}",
                                 lots: display_number(cargo.lots),
                                 cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
                               )}
                             </p>
-                          <% end %>
-                        </div>
-                      </details>
-                    <% else %>
-                      <span class="text-xs">{gettext("Insufficient voyage funds")}</span>
+                            <p :for={cargo <- row.plan.sales}>
+                              <.emoji symbol={cargo_emoji(cargo.good)} />
+                              {gettext("Sell %{lots} lots of %{cargo}",
+                                lots: display_number(cargo.lots),
+                                cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
+                              )}
+                            </p>
+                            <%= if Map.get(row.plan, :onward) do %>
+                              <p class="mt-2 font-semibold">
+                                {gettext("Then sail to %{port}: %{profit}",
+                                  port: l10n(row.plan.onward.destination),
+                                  profit: money(row.plan.onward.profit)
+                                )}
+                              </p>
+                              <p :for={cargo <- row.plan.onward.purchases}>
+                                <.emoji symbol={cargo_emoji(cargo.good)} />
+                                {gettext("Buy %{lots} lots of %{cargo}",
+                                  lots: display_number(cargo.lots),
+                                  cargo: l10n(@definitions.catalogue["goods"][cargo.good]["name"])
+                                )}
+                              </p>
+                            <% end %>
+                          </div>
+                        </details>
+                      <% else %>
+                        <span class="text-xs">{gettext("Insufficient voyage funds")}</span>
+                      <% end %>
                     <% end %>
                   </td>
                   <td class="tabular-nums">{display_number(row.distance)}</td>
@@ -260,7 +285,10 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                       </span>
                     <% end %>
                     <span
-                      :if={!row.cells[id].outbound && !row.cells[id].inbound && !row.cells[id].onward}
+                      :if={
+                        !@loading && !row.cells[id].outbound && !row.cells[id].inbound &&
+                          !row.cells[id].onward
+                      }
                       aria-label={gettext("No trade opportunity")}
                     >—</span>
                   </td>

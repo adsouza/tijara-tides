@@ -1277,9 +1277,13 @@ piracy and weather geometry across ticks, keyed by exact paths and polygons.
 Current tuning and time remain separate from those partitions. Uncatalogued
 weather paths fall back to the pure geometry calculation; derived weather
 partitions are excluded from the forecast's durable model. LiveView runs the
-planner asynchronously, hides invalidated estimates and rejects obsolete
-completions by generation and exact planning inputs. Pending world updates
-coalesce without restarting the expensive initial geometry preparation.
+planner asynchronously. A lightweight comparison query provides the initial
+port rows and cargo columns without geometry or voyage planning. Completed
+estimates remain visible for the same owner, hull, departure port and catalogue
+grid while a refresh runs; they are replaced together with the newly computed
+ranking. Obsolete completions are rejected by generation and exact planning
+inputs. Pending world updates coalesce without restarting the expensive initial
+geometry preparation.
 
 `ShipWorld` owns the nullable voyage `piracy` snapshot: model, protection,
 pending crossings, current-path crossing identities, private rolls, resolved

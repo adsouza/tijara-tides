@@ -173,6 +173,11 @@ defmodule TijaraTides.UseCases.DestinationMatrixCacheTest do
 
     assert html =~ "destination-picker-loading"
     assert html =~ "Calculating trade estimates..."
+    tree = LazyHTML.from_fragment(html)
+    assert LazyHTML.query(tree, "#destination-matrix tbody tr") |> Enum.count() == 1
+    assert LazyHTML.query(tree, "#destination-preview-Colombo") |> Enum.count() == 1
+    refute html =~ "Insufficient voyage funds"
+    refute html =~ "No trade opportunity"
     assert calls(c) == 0
 
     {:noreply, ready} = complete(opened, c)
@@ -241,8 +246,36 @@ defmodule TijaraTides.UseCases.DestinationMatrixCacheTest do
     {:noreply, refreshing} =
       GameLive.handle_async({:world_refresh, 1}, {:ok, {changed_again, nil}}, ready)
 
-    assert refreshing.assigns.destination_matrix == nil
+    assert refreshing.assigns.destination_matrix === ready.assigns.destination_matrix
+    assert refreshing.assigns.destination_matrix_cache === ready.assigns.destination_matrix_cache
     assert refreshing.assigns.destination_matrix_running
+
+    html =
+      render_component(&DestinationPicker.panel/1,
+        definitions: c.definitions,
+        view: changed_again,
+        ship: c.ship,
+        matrix: refreshing.assigns.destination_matrix,
+        updating: true
+      )
+
+    assert html =~ "destination-matrix"
+    assert html =~ "destination-picker-updating"
+    refute html =~ "destination-picker-loading"
+
+    {:noreply, still_refreshing} = complete(refreshing, %{c | view: changed})
+    assert still_refreshing.assigns.destination_matrix === ready.assigns.destination_matrix
+    assert still_refreshing.assigns.destination_matrix_running
+
+    {:noreply, replaced} = complete(still_refreshing, %{c | view: changed_again})
+
+    assert replaced.assigns.destination_matrix_cache.key ===
+             DestinationMatrixCache.key(c.definitions, changed_again, c.ship)
+
+    assert replaced.assigns.destination_matrix ===
+             GameQueries.destination_matrix(c.definitions, changed_again, c.ship)
+
+    refute replaced.assigns.destination_matrix_running
   end
 
   test "closing, reopening and logout reject late results", c do
@@ -303,6 +336,120 @@ defmodule TijaraTides.UseCases.DestinationMatrixCacheTest do
     {:noreply, pending} = complete(updated, c)
     assert pending.assigns.ship["id"] == "other"
     assert pending.assigns.destination_matrix == nil
+  end
+
+  test "a replacement publishes changed ranking together with its new estimates", c do
+    {_, catalogue} = TijaraTides.CommandFuzzer.fixture()
+
+    definitions =
+      c.definitions
+      |> put_in([:catalogue, "ports", "Dubai"], catalogue["ports"]["Dubai"])
+      |> put_in([:catalogue, "routes", "Singapore|Dubai"], catalogue["routes"]["Singapore|Dubai"])
+
+    view =
+      update_in(c.view, [:markets], fn markets ->
+        Map.new(markets, fn {key, quote} ->
+          {key,
+           if(String.starts_with?(key, ["Colombo|", "Dubai|"]),
+             do: %{quote | "demand" => 0},
+             else: quote
+           )}
+        end)
+      end)
+
+    buyer = %{view.markets["Colombo|lumber"] | "demand" => 100, "buyer_budget" => 100_000_000}
+
+    view =
+      view
+      |> put_in([:markets, "Colombo|lumber"], %{buyer | "bid" => 100_000})
+      |> put_in([:markets, "Dubai|lumber"], %{buyer | "bid" => 10_000})
+
+    view =
+      view
+      |> put_in([:private, "company", "cash"], 100_000_000)
+      |> put_in([:markets, "Singapore|lumber", "stock"], 100)
+      |> put_in([:markets, "Singapore|lumber", "ask"], 1000)
+
+    c = %{c | definitions: definitions, view: view}
+    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket(c))
+    {:noreply, ready} = complete(opened, c)
+    assert Enum.map(ready.assigns.destination_matrix.rows, & &1.port) == ["Colombo", "Dubai"]
+
+    changed =
+      view
+      |> put_in([:markets, "Colombo|lumber", "bid"], 10_000)
+      |> put_in([:markets, "Dubai|lumber", "bid"], 100_000)
+
+    {:noreply, pending} = GameLive.handle_async({:world_refresh, 1}, {:ok, {changed, nil}}, ready)
+    assert pending.assigns.destination_matrix === ready.assigns.destination_matrix
+    {:noreply, replaced} = complete(pending, %{c | view: changed})
+    assert Enum.map(replaced.assigns.destination_matrix.rows, & &1.port) == ["Dubai", "Colombo"]
+
+    html =
+      render_component(&DestinationPicker.panel/1,
+        definitions: definitions,
+        view: changed,
+        ship: c.ship,
+        matrix: replaced.assigns.destination_matrix
+      )
+
+    assert LazyHTML.from_fragment(html) |> LazyHTML.query("tbody tr") |> LazyHTML.attribute("id") ==
+             ["destination-row-Dubai", "destination-row-Colombo"]
+  end
+
+  test "failed refresh keeps completed estimates and retries without clearing them", c do
+    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket(c))
+    {:noreply, ready} = complete(opened, c)
+    changed = put_in(c.view, [:private, "company", "cash"], 0)
+
+    {:noreply, refreshing} =
+      GameLive.handle_async({:world_refresh, 1}, {:ok, {changed, nil}}, ready)
+
+    assert refreshing.assigns.destination_matrix === ready.assigns.destination_matrix
+
+    {:noreply, failed} =
+      GameLive.handle_async(
+        {:destination_matrix, refreshing.assigns.destination_matrix_generation},
+        {:exit, :failed},
+        refreshing
+      )
+
+    assert failed.assigns.destination_matrix === ready.assigns.destination_matrix
+    assert failed.assigns.destination_matrix_error
+    {:noreply, retry} = GameLive.handle_event("destination-picker-open", %{}, failed)
+    assert retry.assigns.destination_matrix === ready.assigns.destination_matrix
+    assert retry.assigns.destination_matrix_running
+    {:noreply, replaced} = complete(retry, %{c | view: changed})
+
+    assert replaced.assigns.destination_matrix ===
+             GameQueries.destination_matrix(c.definitions, changed, c.ship)
+
+    assert replaced.assigns.destination_matrix != ready.assigns.destination_matrix
+  end
+
+  test "completed estimates never carry over to another owner, hull or departure port", c do
+    {:noreply, opened} = GameLive.handle_event("destination-picker-open", %{}, socket(c))
+    {:noreply, ready} = complete(opened, c)
+
+    for changed <- [
+          put_in(c.view, [:private, "account", "id"], "another-owner"),
+          put_in(c.view, [:private, "ships", c.ship["id"], "port"], "Colombo")
+        ] do
+      {:noreply, updated} =
+        GameLive.handle_async({:world_refresh, 1}, {:ok, {changed, nil}}, ready)
+
+      assert updated.assigns.destination_matrix == nil
+      assert updated.assigns.destination_matrix_cache == nil
+    end
+
+    other = Map.put(c.ship, "id", "other")
+    changed = put_in(c.view, [:private, "ships", "other"], other)
+    selected = Phoenix.Component.assign(ready, selected_ship: "other")
+
+    {:noreply, updated} =
+      GameLive.handle_async({:world_refresh, 1}, {:ok, {changed, nil}}, selected)
+
+    assert updated.assigns.destination_matrix == nil
   end
 
   test "failure leaves a usable popup and explicit retry starts a new generation", c do

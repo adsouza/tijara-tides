@@ -122,6 +122,8 @@ defmodule TijaraTides.UseCases.GameQueries do
   defdelegate instruction_onwards(private, ship_id, port),
     to: TijaraTides.UseCases.ShipPlanningQueries
 
+  defdelegate destination_grid(definitions, view, ship), to: TijaraTides.UseCases.MarketQueries
+
   defdelegate destination_matrix(definitions, view, ship), to: TijaraTides.UseCases.MarketQueries
 
   defdelegate destination_options(definitions, view, ship, destination),

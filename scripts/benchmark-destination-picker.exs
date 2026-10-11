@@ -19,7 +19,7 @@ defmodule DestinationPickerBenchmark do
   def run do
     {options, [], []} =
       OptionParser.parse(System.argv(),
-        strict: [save: :string, compare: :string, samples: :integer]
+        strict: [save: :string, compare: :string, samples: :integer, matrices_only: :boolean]
       )
 
     samples = Keyword.get(options, :samples, 7)
@@ -114,8 +114,12 @@ defmodule DestinationPickerBenchmark do
         end
 
         if baseline do
-          unless comparable(output) === comparable(baseline[label].output),
-            do: raise("Destination suggestions or rendered picker changed: #{label}")
+          unless output.matrix === baseline[label].output.matrix,
+            do: raise("Destination suggestions changed: #{label}")
+
+          unless options[:matrices_only] ||
+                   comparable(output) === comparable(baseline[label].output),
+                 do: raise("Rendered picker changed: #{label}")
         end
 
         cold = fn ->
@@ -192,7 +196,12 @@ defmodule DestinationPickerBenchmark do
     if baseline,
       do:
         IO.puts(
-          "All 8 matrices are exactly unchanged; English/Arabic renders match apart from intertag whitespace."
+          if(options[:matrices_only],
+            do:
+              "All 8 matrices are exactly unchanged; cached/uncached English/Arabic renders match.",
+            else:
+              "All 8 matrices are exactly unchanged; English/Arabic renders match apart from intertag whitespace."
+          )
         )
   end
 

@@ -211,7 +211,7 @@ defmodule TijaraTidesWeb.GameLive do
             end
 
           {:exit, _reason} ->
-            assign(socket, destination_matrix: nil, destination_matrix_error: true)
+            assign(socket, destination_matrix_error: true)
         end
 
       {:noreply, socket}
@@ -1435,7 +1435,15 @@ defmodule TijaraTidesWeb.GameLive do
   defp refresh_destination_matrix(socket) do
     key = destination_matrix_key(socket)
     cache = socket.assigns.destination_matrix_cache
-    cache = if key && cache && cache.key === key, do: cache
+
+    context =
+      DestinationMatrixCache.context(
+        socket.assigns.definitions,
+        socket.assigns.view,
+        socket.assigns.ship
+      )
+
+    cache = if key && cache && cache.context === context, do: cache
 
     socket =
       assign(socket, destination_matrix_cache: cache, destination_matrix: cache && cache.matrix)
@@ -1444,12 +1452,13 @@ defmodule TijaraTidesWeb.GameLive do
       !key || !socket.assigns.destination_picker_open ->
         cancel_destination_matrix(socket)
 
-      cache ->
+      cache && cache.key === key ->
         assign(socket, destination_matrix_error: false)
 
       Map.get(socket.assigns, :destination_matrix_running, false) ->
         # Let one calculation finish and retain its static geometry. Completion
-        # discards obsolete estimates and starts from the latest snapshot.
+        # rejects obsolete results and starts from the latest snapshot, keeping
+        # the last completed matrix visible until a current replacement is ready.
         socket
 
       true ->
@@ -1777,6 +1786,7 @@ defmodule TijaraTidesWeb.GameLive do
                 destination_picker_open={@destination_picker_open}
                 destination_matrix={@destination_matrix}
                 destination_matrix_error={@destination_matrix_error}
+                destination_matrix_running={@destination_matrix_running}
                 definitions={@definitions}
                 destination={@destination}
                 fleet_status={@fleet_status}

@@ -6,10 +6,51 @@ defmodule TijaraTides.UseCases.MarketQueries do
 
   @doc "Read-only market spreads for choosing a destination; quantities are market availability, not executable orders."
   def destination_matrix(definitions, view, ship) do
-    if ship && ship["status"] in ["docked", "loading", "unloading"] do
+    comparisons = destination_comparisons(definitions, view, ship)
+
+    if comparisons.rows == [] do
+      comparisons
+    else
       {_, definitions} =
         DestinationGeometryCache.prepare(definitions[:destination_geometry], definitions)
 
+      estimator =
+        if ship["class"] == "tanker",
+          do: &TijaraTides.UseCases.VoyageOpportunities.tanker_estimate/4,
+          else: &TijaraTides.UseCases.VoyageOpportunities.estimate/4
+
+      rows =
+        Enum.map(comparisons.rows, fn row ->
+          plan = estimator.(definitions.catalogue, view, ship, row.port)
+          %{row | best: plan && Map.get(plan, :combined_profit, plan.profit), plan: plan}
+        end)
+
+      %{
+        comparisons
+        | rows: Enum.sort_by(rows, &{is_nil(&1.best), -(&1.best || 0), &1.distance, &1.port})
+      }
+    end
+  end
+
+  @doc "Immediate destination grid with the same ports and cargo columns, without voyage estimates."
+  def destination_grid(definitions, view, ship) do
+    comparisons = destination_comparisons(definitions, view, ship)
+
+    rows =
+      comparisons.rows
+      |> Enum.map(fn row ->
+        cells =
+          Map.new(row.cells, fn {id, _} -> {id, %{outbound: nil, inbound: nil, onward: nil}} end)
+
+        %{row | cells: cells}
+      end)
+      |> Enum.sort_by(&{&1.distance, &1.port})
+
+    %{comparisons | rows: rows}
+  end
+
+  defp destination_comparisons(definitions, view, ship) do
+    if ship && ship["status"] in ["docked", "loading", "unloading"] do
       aboard = Enum.group_by(ship["cargo"] || [], & &1["good"])
 
       goods =
@@ -50,29 +91,8 @@ defmodule TijaraTides.UseCases.MarketQueries do
                }}
             end)
 
-          estimator =
-            if ship["class"] == "tanker",
-              do: &TijaraTides.UseCases.VoyageOpportunities.tanker_estimate/4,
-              else: &TijaraTides.UseCases.VoyageOpportunities.estimate/4
-
-          plan =
-            estimator.(
-              definitions.catalogue,
-              view,
-              ship,
-              port
-            )
-
-          %{
-            port: port,
-            distance: distance,
-            cells: cells,
-            best: plan && Map.get(plan, :combined_profit, plan.profit),
-            plan: plan
-          }
+          %{port: port, distance: distance, cells: cells, best: nil, plan: nil}
         end
-
-      rows = Enum.sort_by(rows, &{is_nil(&1.best), -(&1.best || 0), &1.distance, &1.port})
 
       goods =
         Enum.filter(goods, fn {id, _} ->

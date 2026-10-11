@@ -3318,3 +3318,6 @@ msgstr "تعذّر حساب تقديرات التجارة."
 
 msgid "Try again"
 msgstr "حاول مرة أخرى"
+
+msgid "Updating trade estimates..."
+msgstr "جارٍ تحديث تقديرات التجارة..."

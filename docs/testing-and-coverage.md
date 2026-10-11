@@ -374,6 +374,14 @@ protection quotes and complete matrices must exactly match uncached results,
 including expiry and tanker onward planning. Uncatalogued paths exercise the
 weather fallback, and derived indexes must stay out of durable forecast models.
 
+Destination selector regressions render localized port rows and matching cargo
+columns before any planning runs. Delayed, superseded and failed refreshes must
+retain the previous complete matrix. Replacements publish their estimates and
+changed ranking together; another owner, hull or departure port must never
+inherit that display. Stable row identities keep controls attached to their
+ports through reordering. Mutation checks break grid rendering and retained
+refresh behavior and require the corresponding regressions to fail.
+
 The voyage-affordability regression counts funding checks and full profit
 evaluations across a complete destination matrix. Quantity searches must make
 additional funding-only checks rather than evaluate profit at every trial. The

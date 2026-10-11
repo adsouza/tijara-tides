@@ -271,13 +271,21 @@ and tie order. Tankers consequently search onward voyages once per distinct
 completed plan. These optimizations preserve the suggestions.
 
 Each LiveView retains at most one completed destination matrix and one static
-geometry cache. Opening the picker immediately shows a loading state and starts
-an asynchronous estimate calculation. Closing and reopening with identical
-planning inputs reuses the completed matrix. Snapshot refreshes invalidate
-estimates on changes to the catalogue, clock, markets, account identity,
-company, fleet, route protection or selected ship. Invalidated estimates are
-hidden while recalculating; notices, locale and unrelated public projections do
-not invalidate them. Popup labels render in the current locale.
+geometry cache. Opening the picker immediately shows reachable port rows,
+distances and the same cargo columns as the completed matrix, with estimate
+cells blank and port buttons usable. This lightweight grid query shares market
+comparison and cargo selection with the full planner but performs no geometry
+or voyage estimates. An asynchronous task fills estimates and ranks rows when
+complete. Stable row identities preserve controls when ranking changes.
+
+Closing and reopening with identical planning inputs reuses the completed
+matrix. Snapshot refreshes schedule new estimates on changes to the catalogue,
+clock, markets, company, fleet or route protection. The last completed matrix
+stays visible while calculating its replacement, with an updating indicator;
+estimates and the new row order publish together. Owner, hull, departure port,
+ship class or catalogue grid changes clear the previous display. Notices,
+locale and unrelated public projections do not invalidate estimates. Popup
+labels render in the current locale.
 
 Static piracy crossings and weather regions survive clock, market and fleet
 changes. Exact path coordinates identify weather partitions; coordinates and
@@ -290,8 +298,9 @@ At most one estimate task runs per LiveView. World updates during calculation
 coalesce into the latest snapshot. An obsolete completion retains only its
 static geometry and starts a new calculation; it cannot publish an old matrix.
 Closing, changing ships or losing the owner view cancels the task, and a
-completion from an earlier generation is ignored. Failed calculations leave
-Close and Try again available. A closed picker defers estimates until opened.
+completion from an earlier generation is ignored. Failed calculations retain
+the previous display and leave port selection, Close and Try again available.
+A closed picker defers estimates until opened.
 
 The isolated destination-picker benchmark measures complete matrices and
 server-side popup rendering with public catalogue definitions:
@@ -302,10 +311,13 @@ MIX_ENV=test mix run --no-start scripts/benchmark-destination-picker.exs --compa
 ```
 
 Run the first command before changing the estimator and the second afterwards.
-Comparison requires identical complete matrices and English/Arabic popup HTML
-excluding intertag whitespace across eight synthetic scenarios, including tanker
-onward voyages. Each stage reports median and p95 durations from seven timed
-runs after one warmup; use `--samples` to change the count. `picker` measures
+For an intentional popup layout change, add `--matrices-only` to compare the
+complete estimates against the baseline while still checking cached/uncached
+render equality in both locales. Default comparison requires identical complete
+matrices and English/Arabic popup HTML, excluding intertag whitespace, across
+eight synthetic scenarios, including tanker onward voyages. Each stage reports
+median and p95 durations from seven timed runs after one warmup; use `--samples`
+to change the count. `picker` measures
 cold estimate completion and rendering; `cached_picker` measures a reopen with
 unchanged inputs, including cache validation and rendering.
 `geometry_cached_picker` recalculates and renders the next tick using retained

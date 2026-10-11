@@ -83,6 +83,39 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
      }}
   end
 
+  test "pending estimates render the complete localized grid with selectable ports" do
+    {definitions, view, ship} = fixture()
+    ready = GameQueries.destination_matrix(definitions, view, ship)
+
+    for locale <- ["en", "ar"] do
+      tree =
+        Localization.with_locale(locale, fn ->
+          render_component(&DestinationPicker.panel/1,
+            definitions: definitions,
+            view: view,
+            ship: ship
+          )
+        end)
+        |> LazyHTML.from_fragment()
+
+      assert LazyHTML.query(tree, "#destination-matrix[aria-busy=true]") |> Enum.count() == 1
+
+      assert LazyHTML.query(tree, "thead th[id]") |> LazyHTML.attribute("id") ==
+               Enum.map(ready.goods, fn {id, _} -> "destination-cargo-" <> id end)
+
+      assert LazyHTML.query(tree, "tbody tr") |> LazyHTML.attribute("id") |> Enum.sort() ==
+               Enum.map(ready.rows, &("destination-row-" <> &1.port)) |> Enum.sort()
+
+      assert LazyHTML.query(tree, "button[phx-click=preview]")
+             |> LazyHTML.attribute("phx-value-destination") ==
+               ["Colombo", "Dubai"]
+
+      refute LazyHTML.to_html(tree) =~ "Insufficient voyage funds"
+      assert LazyHTML.query(tree, ".opportunity-disc") |> Enum.empty?()
+      assert LazyHTML.query(tree, "[aria-label='No trade opportunity']") |> Enum.empty?()
+    end
+  end
+
   test "matrix computes both directions, handling-adjusted ROI, market lots and ranking" do
     {definitions, view, ship} = fixture()
     matrix = GameQueries.destination_matrix(definitions, view, ship)

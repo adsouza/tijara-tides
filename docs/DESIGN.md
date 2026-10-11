@@ -1135,11 +1135,12 @@ candidate destination and sold at another reachable port, excluding the current 
 Rank ports by the sum of the best ROI in each direction, then distance. Clicking a port
 selects it and dismisses the popup.
 
-The destination popup opens immediately and shows a loading state while trade
-estimates are calculated. World updates refresh those estimates without
-blocking dismissal or ship selection. Invalidated estimates stay hidden while
-recalculating, and completed work for an older selection cannot replace the
-current selection's estimates.
+The destination popup opens immediately with its port rows and cargo columns.
+Estimate cells stay blank until the first calculation completes. World updates
+keep the last completed grid visible while replacements are calculated, then
+update estimates and row ranking together without an empty-grid flicker.
+Dismissal and port selection remain available throughout. Completed work for an
+older selection cannot replace the current selection's estimates.
 
 
 A shared exchange interface exposes separate local markets at each port.

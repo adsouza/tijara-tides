@@ -238,7 +238,7 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 .destination-matrix .destination-port { position: sticky; inset-inline-start: 0; z-index: 1; background: #0f172a; min-width: 135px; }
 .destination-matrix thead .destination-port { z-index: 3; background: #1e293b; }
 .destination-matrix button[aria-pressed=true] { font-weight: 700; color: #fff; }
-.opportunity-cell { white-space: nowrap; }
+.opportunity-cell { white-space: nowrap; height: 68px; }
 .opportunity-disc { display: inline-block; position: relative; vertical-align: middle; outline-offset: 2px; }
 .opportunity-disc.outbound { color: #4ade80; }
 .opportunity-disc.inbound { color: #facc15; }
