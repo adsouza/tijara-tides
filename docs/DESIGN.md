@@ -2762,7 +2762,9 @@ The first complete reporting year likewise determines yearly eligibility.
 
 Only operating companies appear in the public provisional and unranked list.
 Closed companies retain owner-visible reports and any eligible rankings from
-completed periods before closure.
+completed periods before closure. Hide closed-company result cards by default;
+owners can reveal them with "Show closed companies". Label revealed cards
+"Closed company".
 
 Track each cargo batch's actual acquisition cost; partial sales recognize the
 cost attributable to the quantity actually sold. Internal transfers retain that

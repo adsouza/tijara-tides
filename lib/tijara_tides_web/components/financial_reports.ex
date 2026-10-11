@@ -4,9 +4,10 @@ defmodule TijaraTidesWeb.FinancialReports do
   attr :data, :any, default: nil
   attr :open, :boolean, default: false
   attr :error, :any, default: nil
+  attr :authenticated, :boolean, default: false
 
   def panel(assigns) do
-    assigns = assign(assigns, :own_page, 0)
+    assigns = assign(assigns, own_page: 0, show_closed: false)
     assigns = if assigns.data, do: assign(assigns, assigns.data), else: assigns
 
     ~H"""
@@ -109,6 +110,18 @@ defmodule TijaraTidesWeb.FinancialReports do
             )}
           </p>
         </details>
+        <form
+          :if={@authenticated}
+          id="report-own-visibility"
+          phx-change="report-own-visibility"
+          class="mb-3 text-sm"
+        >
+          <input type="hidden" name="show_closed" value="false" />
+          <label class="flex items-center gap-2">
+            <input type="checkbox" name="show_closed" value="true" checked={@show_closed} />
+            {gettext("Show closed companies")}
+          </label>
+        </form>
         <section
           :for={row <- @own}
           class="mb-4 rounded border border-slate-700 p-3"
@@ -118,6 +131,9 @@ defmodule TijaraTidesWeb.FinancialReports do
             {row["name"]} · {if row["eligible"],
               do: gettext("Final results"),
               else: gettext("Provisional / unranked")}
+            <span :if={!is_nil(row["bankruptcy_ms"])} class="text-sm text-slate-400">
+              · {gettext("Closed company")}
+            </span>
           </h3>
           <dl class="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
             <dt>{gettext("Sales revenue")}</dt><dd class="text-right">{cash(row["revenue"])}</dd>

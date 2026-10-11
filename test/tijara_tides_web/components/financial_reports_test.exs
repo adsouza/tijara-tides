@@ -31,6 +31,23 @@ defmodule TijaraTidesWeb.FinancialReportsTest do
     refute html =~ ~s(type="number")
     assert html =~ "Quarter 4 (current)"
     assert html =~ "Previous page"
+    refute html =~ "report-own-visibility"
+
+    owner_html =
+      render_component(&FinancialReports.panel/1,
+        data: data,
+        open: true,
+        authenticated: true
+      )
+
+    assert owner_html =~ "Show closed companies"
+    tree = LazyHTML.from_fragment(owner_html)
+
+    assert LazyHTML.query(tree, "#report-own-visibility input[type=checkbox]") |> Enum.count() ==
+             1
+
+    assert LazyHTML.query(tree, "#report-own-visibility input[type=checkbox][checked]")
+           |> Enum.count() == 0
 
     own_html =
       render_component(&FinancialReports.panel/1,
@@ -64,7 +81,8 @@ defmodule TijaraTidesWeb.FinancialReportsTest do
         minimum: 0,
         ranked: [],
         provisional: [],
-        own: [Map.put(row, "eligible", eligible)],
+        own: [Map.merge(row, %{"eligible" => eligible, "bankruptcy_ms" => 0})],
+        show_closed: true,
         page: 0,
         limit: 10,
         ranked_count: 0,
@@ -74,11 +92,19 @@ defmodule TijaraTidesWeb.FinancialReportsTest do
 
       html =
         TijaraTides.Localization.with_locale("ar", fn ->
-          render_component(&FinancialReports.panel/1, data: data, open: true)
+          render_component(&FinancialReports.panel/1, data: data, open: true, authenticated: true)
         end)
 
       tree = LazyHTML.from_fragment(html)
       assert LazyHTML.query(tree, "section h3") |> LazyHTML.text() =~ expected
+      assert LazyHTML.query(tree, "section h3") |> LazyHTML.text() =~ "شركة مغلقة"
+      assert html =~ "إظهار الشركات المغلقة"
+
+      assert LazyHTML.query(tree, "#report-own-visibility input[type=checkbox][checked]")
+             |> Enum.count() == 1
+
+      refute html =~ "Show closed companies"
+      refute html =~ "Closed company"
       refute html =~ "Provisional / unranked"
       refute html =~ "Final results"
       refute html =~ "In progress"

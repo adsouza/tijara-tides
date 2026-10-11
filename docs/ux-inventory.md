@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 176
+Heuristic requirement sentences in DESIGN.md at generation: 178
 
 ## Screens
 
@@ -58,6 +58,9 @@ soundtrack and its response to the player's selections.
 
 | # | Requirement | Section | Kind | Screen |
 |---|-------------|---------|------|--------|
+| 212 | Hide closed-company result cards by default; | 13 | display | Finance |
+| 213 | owners can reveal them with "Show closed companies". | 13 | input | Finance |
+| 214 | Label revealed cards "Closed company". | 13 | display | Finance |
 | 211 | Show the current earning period and explain that it scales with the number of operating companies. | 2 | display | Company and account |
 | 210 | Only operating companies appear in the public provisional and unranked list. | 13 | display | Finance |
 | 209 | Show the dormancy exemption in the account menu for operators. | 2 | display | Company and account |

@@ -421,6 +421,11 @@ former companies retain their own reports and restart companies begin afresh.
 The public provisional and unranked list includes only operating companies.
 Closure removes a company from that list and its pagination count. Owner history
 and eligible rankings for completed periods before closure remain available.
+Owner cards exclude closed companies by default; "Show closed companies" includes
+their retained history. The owner-scoped SQL filter applies before both counting
+and paging, so hidden companies cannot leave short pages or displace operating
+companies. Revealed cards identify the company as closed. No storage is deleted
+and no schema migration is needed.
 
 Periods are anchored to active-world clock zero: quarters last seven days and
 years twenty-eight. Journal events at an exact boundary belong to the new period.

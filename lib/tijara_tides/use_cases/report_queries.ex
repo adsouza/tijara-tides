@@ -22,6 +22,7 @@ defmodule TijaraTides.UseCases.ReportQueries do
       minimum: minimum,
       page: page,
       own_page: integer(params["own_page"], 0) |> max(0) |> min(100_000),
+      show_closed: params["show_closed"] in [true, "true"],
       limit: @limit,
       duration: Reporting.duration(period)
     }

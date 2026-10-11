@@ -2585,7 +2585,6 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     {:ok, _} =
       GameServer.command(token, "loan", %{"action" => "borrow", "amount" => 1_000_000}, c.server)
 
-    game = :sys.get_state(c.server).game
     owner = GameServer.snapshot(token, c.server).private["account"]["id"]
 
     # Closed rows sort before live companies, so filtering after LIMIT would leave short pages.
@@ -2607,7 +2606,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       assert first.provisional_count == 12
       assert length(first.provisional) == 10
       assert Enum.all?(first.provisional, &String.starts_with?(&1["name"], "Operating"))
-      assert first.own_count == 14
+      assert first.own_count == 12
+      assert length(first.own) == 10
+      assert Enum.all?(first.own, &is_nil(&1["bankruptcy_ms"]))
 
       assert {:ok, second} =
                GameServer.reports(
@@ -2617,6 +2618,8 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
                )
 
       assert length(second.provisional) == 2
+      assert length(second.own) == 2
+      assert Enum.all?(second.own, &is_nil(&1["bankruptcy_ms"]))
       assert Enum.all?(second.provisional, &String.starts_with?(&1["name"], "Operating"))
 
       assert MapSet.disjoint?(
@@ -2624,16 +2627,57 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
                MapSet.new(second.provisional, & &1["company_id"])
              )
 
-      assert Enum.any?(first.own, &(&1["company_id"] == "report-12"))
-      assert Enum.any?(first.own, &(&1["company_id"] == "report-13"))
-      assert {:ok, anonymous} = GameServer.reports(nil, params, c.server)
+      assert {:ok, history} =
+               GameServer.reports(token, Map.put(params, "show_closed", true), c.server)
+
+      assert history.own_count == 14
+      assert Enum.any?(history.own, &(&1["company_id"] == "report-12"))
+      assert Enum.any?(history.own, &(&1["company_id"] == "report-13"))
+      assert history.ranked == first.ranked
+      assert history.provisional == first.provisional
+
+      assert {:ok, anonymous} =
+               GameServer.reports(nil, Map.put(params, "show_closed", true), c.server)
+
       assert anonymous.provisional == first.provisional
       assert anonymous.provisional_count == 12
       assert anonymous.own == []
+      assert anonymous.own_count == 0
     end
+
+    Application.put_env(:tijara_tides, :game_server, c.server)
+    on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
+    conn = build_conn() |> Plug.Test.init_test_session(%{"account_token" => token})
+    {:ok, view, _} = live(conn, "/play")
+    render_click(view, "report-toggle")
+    refute has_element?(view, "section[aria-label='Your company results']", "A Tygre")
+    refute has_element?(view, "#report-own-visibility input[type=checkbox][checked]")
+
+    view |> form("#report-own-visibility", %{"show_closed" => "true"}) |> render_change()
+    assert has_element?(view, "section[aria-label='Your company results']", "A Tygre")
+    assert has_element?(view, "section[aria-label='Your company results']", "Closed company")
+    render_click(view, "report-own-page", %{"page" => "1"})
+    render_click(view, "report-page", %{"page" => "1"})
+    render_click(view, "report-refresh")
+    assert has_element?(view, "#report-own-visibility input[type=checkbox][checked]")
+    assert has_element?(view, "#financial-reports", "Your companies · page 2")
+
+    view |> form("#report-own-visibility", %{"show_closed" => "false"}) |> render_change()
+    assert has_element?(view, "#financial-reports", "Your companies · page 1")
+    assert has_element?(view, "#financial-reports", "Page 2")
+    refute has_element?(view, "section[aria-label='Your company results']", "Closed company")
+    view |> form("#report-own-visibility", %{"show_closed" => "true"}) |> render_change()
+    view |> form("#report-selection", %{"period" => "year"}) |> render_change()
+    assert has_element?(view, "#report-own-visibility input[type=checkbox][checked]")
+    assert has_element?(view, "section[aria-label='Your company results']", "A Tygre")
+
+    {:ok, spectator, _} = live(build_conn(), "/play")
+    render_click(spectator, "report-toggle")
+    refute has_element?(spectator, "#report-own-visibility")
 
     # Closing after a complete quarter keeps that quarter's legitimate ranking.
     quarter = 604_800_000
+    game = :sys.get_state(c.server).game
 
     changed =
       CommitPreparation.prepare(game, %{game | clock_ms: quarter + 1, revision: game.revision + 1})
@@ -2657,7 +2701,19 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert historical.ranked_count == 12
     assert Enum.any?(historical.ranked, &(&1["company_id"] == company))
     assert historical.provisional_count == 0
-    assert historical.own_count == 14
+    assert historical.own_count == 11
+    refute Enum.any?(historical.own, &(&1["company_id"] == company))
+
+    assert {:ok, history} =
+             ReportStore.page(
+               %{repo: Repo, world_id: c.world_id},
+               ReportQueries.selection(changed.clock_ms, %{"index" => 0, "show_closed" => true}),
+               owner,
+               changed
+             )
+
+    assert history.own_count == 14
+    assert history.ranked == historical.ranked
 
     assert {:ok, current} =
              ReportStore.page(
@@ -2669,7 +2725,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert current.provisional_count == 11
     refute Enum.any?(current.provisional, &(&1["company_id"] == company))
-    assert current.own_count == 14
+    assert current.own_count == 11
   end
 
   test "historical report pages survive compaction and restart, enforce privacy and remain bounded",

@@ -253,8 +253,22 @@ defmodule TijaraTidesWeb.GameLive do
        "metric" => if(params["metric"] == "roi", do: "roi", else: "profit"),
        "index" => index,
        "page" => 0,
-       "own_page" => 0
+       "own_page" => 0,
+       "show_closed" => previous["show_closed"] == true
      })
+     |> load_reports()}
+  end
+
+  def handle_event("report-own-visibility", %{"show_closed" => show_closed}, socket) do
+    {:noreply,
+     socket
+     |> assign(
+       :report_selection,
+       Map.merge(socket.assigns.report_selection, %{
+         "show_closed" => show_closed == "true",
+         "own_page" => 0
+       })
+     )
      |> load_reports()}
   end
 
@@ -1104,7 +1118,8 @@ defmodule TijaraTidesWeb.GameLive do
             "metric" => data.metric,
             "index" => data.selected,
             "page" => data.page,
-            "own_page" => data.own_page
+            "own_page" => data.own_page,
+            "show_closed" => data.show_closed
           }
         )
 
@@ -1391,6 +1406,7 @@ defmodule TijaraTidesWeb.GameLive do
               data={@report_data}
               open={@report_open}
               error={@report_error}
+              authenticated={!is_nil(@view.private)}
             />
             <TijaraTidesWeb.GameUI.AccountPanel.panel
               invite_code={@invite_code}

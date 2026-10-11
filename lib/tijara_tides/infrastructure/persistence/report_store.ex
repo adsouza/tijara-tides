@@ -88,7 +88,10 @@ defmodule TijaraTides.Infrastructure.Persistence.ReportStore do
               repo,
               base,
               params ++ [owner],
-              "account_id=$8",
+              if(selection.show_closed,
+                do: "account_id=$8",
+                else: "account_id=$8 AND bankruptcy_ms IS NULL"
+              ),
               "name, company_id",
               %{selection | page: selection.own_page},
               expected.clock_ms

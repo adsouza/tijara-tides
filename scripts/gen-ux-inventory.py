@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TRIPWIRE = 176
+TRIPWIRE = 178
 
 SCREENS = [
     ("World map", "The shared ocean: ship positions, routes and ports, on Equal Earth."),
@@ -32,6 +32,9 @@ SCREENS = [
 
 # (id, verbatim quote from DESIGN.md, section, kind, screen)
 REQUIREMENTS = [
+    (212, 'Hide closed-company result cards by default;', 13, "display", "Finance"),
+    (213, 'owners can reveal them with "Show closed companies".', 13, "input", "Finance"),
+    (214, 'Label revealed cards "Closed company".', 13, "display", "Finance"),
     (211, "Show the current earning period and explain that it scales with the number of operating companies.", 2, "display", "Company and account"),
     (210, 'Only operating companies appear in the public provisional and unranked list.', 13, "display", "Finance"),
     (209, 'Show the dormancy exemption in the account menu for operators.', 2, "display", "Company and account"),

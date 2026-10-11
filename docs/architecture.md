@@ -362,12 +362,14 @@ Only a successful commit clears events and compacts closed report periods.
 policy. Its `ReportStore` port is implemented by the PostgreSQL adapter. Queries
 read one selected period in pages of at most 10 rows per list, apply owner scoping
 in SQL, and verify world epoch/revision/clock in a read-only repeatable-read
-transaction. Revision races re-plan and retry at most twice. SQL runs in the requesting
-process after the world owner authenticates and prepares the query, leaving the
-world mailbox free. Owner history has independent pagination.
-Archived summaries stay in relational storage; only current quarter
-and year accumulators are restored into world memory. Compaction never deletes
-archived database rows.
+transaction. Revision races re-plan and retry at most twice. SQL runs in the
+requesting process after the world owner authenticates and prepares the query,
+leaving the world mailbox free. Owner history has independent pagination and
+excludes closed companies by default. An explicit owner-list selection includes
+closed companies; the adapter applies it before both counting and paging.
+Archived summaries stay in relational storage; only current quarter and year
+accumulators are restored into world memory. Compaction never deletes archived
+database rows.
 
 The financial panel renders a prepared page. It requests data on opening, changing
 selection, paging or explicit refresh; ordinary world ticks do not reload history.

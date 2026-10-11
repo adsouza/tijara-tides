@@ -537,6 +537,11 @@ former companies retain their own reports and restart companies begin afresh.
 The public provisional and unranked list includes only operating companies.
 Closure removes a company from that list and its pagination count. Owner history
 and eligible rankings for completed periods before closure remain available.
+Owner result cards exclude closed companies by default. The "Show closed
+companies" checkbox includes them in the owner list and labels their cards
+"Closed company". This filter applies before pagination and its count; changing
+it resets only the owner page. Period and ranking changes retain the choice
+until the play view is remounted.
 
 Periods are anchored to active-world clock zero: quarters last seven days and
 years twenty-eight. Journal events at an exact boundary belong to the new period.

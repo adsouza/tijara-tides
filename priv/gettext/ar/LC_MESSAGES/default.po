@@ -3169,3 +3169,11 @@ msgstr "حسابات المشغّلين معفاة من إغلاق الشركة 
 #, elixir-autogen, elixir-format
 msgid "Current earning period in active-world days: %{days}. This scales with the number of operating companies."
 msgstr "فترة الاكتساب الحالية بأيام العالم النشطة: %{days}. تتغير هذه الفترة بحسب عدد الشركات العاملة."
+
+#, elixir-format
+msgid "Show closed companies"
+msgstr "إظهار الشركات المغلقة"
+
+#, elixir-format
+msgid "Closed company"
+msgstr "شركة مغلقة"

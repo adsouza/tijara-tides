@@ -23,6 +23,16 @@ defmodule TijaraTides.UseCases.ReportQueriesTest do
     assert %{selected: 0, page: 0} = ReportQueries.selection(0, %{"index" => "bad", "page" => -1})
   end
 
+  test "closed company history requires an explicit selection" do
+    for value <- [nil, false, "false", "1", "yes"] do
+      refute ReportQueries.selection(0, %{"show_closed" => value}).show_closed
+    end
+
+    for value <- [true, "true"] do
+      assert ReportQueries.selection(0, %{"show_closed" => value}).show_closed
+    end
+  end
+
   test "owner identity is authenticated and public results exclude accounting details" do
     game = %{
       clock_ms: 0,
