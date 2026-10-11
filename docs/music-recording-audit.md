@@ -1,5 +1,8 @@
 # Music recording audit
 
+Local-file index updated on 11 October 2026 after the authorized generated-audio
+cleanup; see [local evidence and previews](#local-evidence-and-previews).
+
 Checked on 10 October 2026. The initial audit covers 32 recordings from the
 accepted port and voyage leads and retained alternatives in the
 [shortlist](music-shortlist.md). It does not choose the final 24-track roster.
@@ -1995,11 +1998,324 @@ Preview SHA-256:
 
 ## Local evidence and previews
 
-Downloaded source pages, ZIPs, original recordings, analysis scripts, measured
-results and preview audio are kept in the ignored directory
-`tmp/music-audit-2026-10-10/`. No recording was added to the shipped game assets.
-The local `previews/listen.html` index links exact recordings, voice-review
-clips, raw/smoothed loop seams and both crossfade curves.
+The retained evidence is in the Git-ignored directory
+`tmp/music-audit-2026-10-10/`, relative to the repository root. In this
+checkout its absolute location is
+`/Users/adsouza/Code/tijara-tides/tmp/music-audit-2026-10-10/`. Every local
+file in the following index was checked on 11 October 2026. No recording was
+added to the shipped game assets; cloning the repository does not restore this
+local evidence. All filenames in the index tables below are relative to that
+audit directory.
+
+### Cleanup and historical audio references
+
+On 10 October 2026, at the player's request, exactly 60 generated loop/intro
+WAVs in the audit directory's root and 109 audition/transition audio files
+under `previews/` were deleted. This removed 2,107.25 MiB (about 2.06 GiB) of
+generated audio. Original recordings, supplied loops, ZIPs, license documents,
+scripts and metadata were retained. Both publisher-supplied source WAVs were
+preserved and appear in the source-file tables below.
+
+Preview and prepared-WAV paths and hashes elsewhere in this audit describe the
+files used for the earlier listening decisions; those generated audio files are
+no longer present. The retained `previews/manifest.json` and
+`previews/listen.html` are historical catalogs. Their preview links will fail
+until the corresponding audio is regenerated. They do not indicate a missing
+original recording or revoke an approved listening decision.
+
+Retain the source recordings, edit JSON and rendering scripts together to
+recreate needed audio on demand. Check regenerated files against the recorded
+hashes before treating them as the previously approved render. Several old
+scripts overwrite approval statuses or replace the preview manifest; do not
+blindly rerun them against the retained evidence. Read or adapt the recipe to
+write separate outputs and preserve the existing decisions and manifests. This
+documentation update does not regenerate audio or duplicate the archive.
+
+### Original recording index
+
+The table lists the 32 initial audit recordings and four later replacement
+candidates. `track-manifest.json` identifies the initial 32 sources; the
+supplemental analysis records contain the other four sources and hashes. All 36
+files were checked against those recorded SHA-256 values. A retained source is
+not necessarily selected for the initial roster: rejected and reserve
+recordings remain as historical evidence.
+
+| Recording | Credited creator | Retained source file | Grant / identity record |
+|---|---|---|---|
+| Shenyang | Kevin MacLeod | `shenyang-mp3.mp3` | CC4 |
+| Imperial China Cinematic | Shane Ivers | `imperial-china-mp3.mp3` | CC4 |
+| Sakuya3 | PeriTune / Sei Mutsuki | `sakuya3-mp3.mp3` | CC4 |
+| Ametsuchi | PeriTune / Sei Mutsuki | `ametsuchi-mp3.mp3` | CC4 |
+| 국악 배경음악 #72 (Gugak Background Music #72) | 공유마당 (GongU Madang) | `gugak72-mp3.mp3` | CC4 |
+| Beautiful Korea(뷰티플 코리아) | 윤영현 | `beautiful-korea-original.wav` | CC4 |
+| Korean traditional-cinematic piece with gayageum | RibhavAgrawal | `korean-gayageum-mp3.mp3` | PB |
+| Hoi An Ancient Charm | VPRODMUSIC_Asia_BGM | `hoi-an-mp3.mp3` | PB |
+| Epic Nusantara - Free Gamelan Music from Indonesian | fiikuri | `epic-nusantara-mp3.mp3` | PB |
+| Indian | Sub_Clair | `sub-clair-indian-mp3.mp3` | PB |
+| Epic Indian Orchestral Fusion | Alejandro Piñero Amerio (vjgalaxy) | `epic-indian-fusion-mp3.mp3` | PB |
+| Middle East Ballad | Abydos_Music | `middle-east-ballad-mp3.mp3` | PB |
+| Conquer The Great Sands | Darren Curtis | `conquer-sands-files/Conquer the Great Sands OGG.ogg` | DC |
+| Arabic Music | kiravale | `kiravale-arabic-mp3.mp3` | PB |
+| Desert2 | PeriTune / Sei Mutsuki | `peritune-desert2-mp3.mp3` | CC4 |
+| Folk_Arabian | PeriTune / Sei Mutsuki | `folk-arabian-mp3.mp3` | CC4 |
+| Dellasera | Shane Ivers | `dellasera-mp3.mp3` | CC4 |
+| Atlas • Greece | Vadim_Makes_Sound | `atlas-greece-mp3.mp3` | PB |
+| Cinematic Latin Music | Sonican | `cinematic-latin-mp3.mp3` | PB |
+| Lord of the Land | Kevin MacLeod | `lord-mp3.mp3` | CC4 |
+| Townsong | Alexander Nakarada | `townsong-mp3.mp3` | CC4 |
+| Home Was You | Scott Buckley | `home-mp3.mp3` | CC4 |
+| Pathfinder | Scott Buckley | `pathfinder-mp3.mp3` | CC4 |
+| Swing Train - Big Band Miller Style | JuliusH | `swing-train-mp3.mp3` | PB |
+| Market on the Sea | Jonathan Shaw (InspectorJ) | `market-sea-legacy/Market on the Sea - MP3.mp3` | CC3 |
+| The World At Your Door | Jonathan Shaw (InspectorJ) | `jshaw-world-legacy/The World At Your Door MP3.mp3` | CC3 |
+| Dark Red Wine | Jason Shaw | `shaw-reggae-mp3.mp3` | CC4 |
+| Setting Sail | Alexander Nakarada | `setting-sail-mp3.mp3` | CC4 |
+| Atlas • Panama | Vadim_Makes_Sound | `atlas-panama-mp3.mp3` | PB |
+| Epic Cinematic Salsa | Sonican | `epic-salsa-mp3.mp3` | PB |
+| Tropical Contact | Jason Shaw | `shaw-lofi-mp3.mp3` | CC4 |
+| Up In The Air | DonnySombrero | `brazil-up-in-air-mp3.mp3` | PB |
+| 우리네 소리를 듣다 | 임다솔 (Im Dasol) | `im-dasol-our-sounds-mp3.mp3` | CC4; `im-dasol-our-sounds-analysis.json` |
+| Dhaka | Kevin MacLeod | `dhaka-mp3.mp3` | CC4; `dhaka-analysis.json` |
+| Beachfront Celebration | Kevin MacLeod | `beachfront-celebration-mp3.mp3` | CC4; `beachfront-celebration-analysis.json` |
+| Sideways Samba | Jason Shaw | `sideways-samba-mp3.mp3` | CC4; `sideways-samba-analysis.json` |
+
+CC4, CC3, DC and PB are defined in the license conditions above. Per-track
+download links and source hashes are preserved in the recording identities
+below and the supplemental analysis records. The shortlist contains exploratory
+titles without downloaded originals, including Bombay Summer; those titles have
+no retained source file in this archive yet.
+
+### Supplied loops and alternate source formats
+
+These are retained publisher-supplied audio files, not the deleted generated
+WAVs. The PeriTune Ogg loops and Folk_Arabian Ogg intro are the approved
+playback sources. Their MP3/M4A equivalents remain as alternate formats.
+Beautiful Korea's two MP3 filenames have identical contents; its source WAV
+remains the selected edit input. Curtis's Ogg is the selected edit input, with
+its original WAV and MP3 also retained.
+
+| Retained audio file | Purpose |
+|---|---|
+| `ametsuchi-loops/PerituneMaterial_Ametsuchi_loop.m4a` | Publisher-supplied loop or intro |
+| `ametsuchi-loops/PerituneMaterial_Ametsuchi_loop.mp3` | Publisher-supplied loop or intro |
+| `ametsuchi-loops/PerituneMaterial_Ametsuchi_loop.ogg` | Publisher-supplied loop or intro |
+| `beautiful-korea-mp3.mp3` | Alternate original format / download |
+| `beautiful-korea-original.mp3` | Alternate original format / download |
+| `conquer-sands-files/Conquer the Great Sands MP3.mp3` | Alternate original format / download |
+| `conquer-sands-files/Conquer the Great Sands WAV.wav` | Alternate original format / download |
+| `folk-arabian-loops/PerituneMaterial_Folk_Arabian_loop.m4a` | Publisher-supplied loop or intro |
+| `folk-arabian-loops/PerituneMaterial_Folk_Arabian_loop.mp3` | Publisher-supplied loop or intro |
+| `folk-arabian-loops/PerituneMaterial_Folk_Arabian_loop.ogg` | Publisher-supplied loop or intro |
+| `folk-arabian-loops/PerituneMaterial_Folk_Arabian_loop_intro.m4a` | Publisher-supplied loop or intro |
+| `folk-arabian-loops/PerituneMaterial_Folk_Arabian_loop_intro.mp3` | Publisher-supplied loop or intro |
+| `folk-arabian-loops/PerituneMaterial_Folk_Arabian_loop_intro.ogg` | Publisher-supplied loop or intro |
+| `peritune-desert2-loops/PerituneMaterial_Desert2_loop.m4a` | Publisher-supplied loop or intro |
+| `peritune-desert2-loops/PerituneMaterial_Desert2_loop.mp3` | Publisher-supplied loop or intro |
+| `peritune-desert2-loops/PerituneMaterial_Desert2_loop.ogg` | Publisher-supplied loop or intro |
+| `sakuya3-loops/PerituneMaterial_Sakuya3_loop.m4a` | Publisher-supplied loop or intro |
+| `sakuya3-loops/PerituneMaterial_Sakuya3_loop.mp3` | Publisher-supplied loop or intro |
+| `sakuya3-loops/PerituneMaterial_Sakuya3_loop.ogg` | Publisher-supplied loop or intro |
+
+### License documents and source-grant evidence
+
+Four publisher-supplied PDF documents are retained below. Each current PDF hash
+agrees with the corresponding hash already recorded in this audit; the two
+Jonathan Shaw license PDFs are byte-identical. The text extractions are
+convenient reading copies, not substitutes for the supplied PDFs.
+
+| Document | Purpose | SHA-256 |
+|---|---|---|
+| `conquer-sands-files/Conquer the Great Sands Materials Release.pdf` | Curtis signed Materials Release | `6daa2978433b5461564021acb89f12df37ffc126ac15a2f108ed25f7fc117c7a` |
+| `jshaw-world-legacy/LICENSE - RPG Orchestral Essentials.pdf` | Jonathan Shaw legacy EULA | `10a7ac194bb5d0c63687468d366639e3540ec33b7ed7a393a9c98dcbae067d3a` |
+| `jshaw-world-legacy/README - RPG Orchestral Essentials.pdf` | Jonathan Shaw recording/loop instructions | `249099d71031e02563e841a9fdf81397897396e10544aeebb5f8d66391d6d1a7` |
+| `market-sea-legacy/LICENSE - RPG Orchestral Essentials.pdf` | Jonathan Shaw legacy EULA | `10a7ac194bb5d0c63687468d366639e3540ec33b7ed7a393a9c98dcbae067d3a` |
+
+| Evidence | Retained local files |
+|---|---|
+| PDF text extractions | `curtis-release.txt`; `market-sea-license.txt`; `jshaw-world-license.txt`; `jshaw-world-readme.txt` |
+| MacLeod general use notice | `macleod-use.html`; `macleod-use.txt` |
+| PeriTune older-release terms | `peritune-terms.html`; `peritune-terms.txt` |
+| Scott Buckley use instructions | `buckley-use.html`; `buckley-use.txt` |
+| Alexander Nakarada FAQ | `nakarada-faq.html`; `nakarada-faq.txt` |
+| Darren Curtis FAQ | `curtis-faq.html`; `curtis-faq.txt` |
+| Jason Shaw / Audionautix FAQ | `audionautix-faq.html`; `audionautix-faq.txt` |
+| shenyang source-page snapshots | `shenyang.html`; `shenyang.txt` |
+| imperial-china source-page snapshots | `imperial-china.html`; `imperial-china.txt` |
+| sakuya3 source-page snapshots | `sakuya3.html`; `sakuya3.txt` |
+| ametsuchi source-page snapshots | `ametsuchi.html`; `ametsuchi.txt` |
+| gugak72 source-page snapshots | `gugak72.html`; `gugak72.txt` |
+| beautiful-korea source-page snapshots | `beautiful-korea.html`; `beautiful-korea.txt` |
+| peritune-desert2 source-page snapshots | `peritune-desert2.html`; `peritune-desert2.txt` |
+| folk-arabian source-page snapshots | `folk-arabian.html`; `folk-arabian.txt` |
+| dellasera source-page snapshots | `dellasera.html`; `dellasera.txt` |
+| lord source-page snapshots | `lord.html`; `lord.txt` |
+| townsong source-page snapshots | `townsong.html`; `townsong.txt` |
+| home source-page snapshots | `home.html`; `home.txt` |
+| pathfinder source-page snapshots | `pathfinder.html`; `pathfinder.txt` |
+| setting-sail source-page snapshots | `setting-sail.html`; `setting-sail.txt` |
+| shaw-reggae source-page snapshots | `shaw-reggae.html`; `shaw-reggae.txt` |
+| shaw-lofi source-page snapshots | `shaw-lofi.html`; `shaw-lofi.txt` |
+| market-sea source-page snapshots | `market-sea.html`; `market-sea.txt` |
+| jshaw-world source-page snapshots | `jshaw-world.html`; `jshaw-world.txt` |
+| jshaw-rpg source-page snapshots | `jshaw-rpg.html`; `jshaw-rpg.txt` |
+| Beachfront Celebration source page | `beachfront-source.html` |
+| Sideways Samba source page | `sideways-samba-source.html` |
+| Beautiful Korea download page | `beautiful-korea-download.html` |
+
+The five offered Pixabay certificate PDFs listed in the license conditions
+remain undownloaded. Their remote links are recorded there; this index does not
+represent them as local files. Source URLs and recorded grants for other
+recordings remain in this audit, the shortlist and `track-manifest.json`; the
+local snapshot table only lists captures that actually exist. Not every source
+grant has an offline page capture.
+
+### Edit metadata and decision index
+
+The JSON files below were retained unchanged by cleanup. Their
+original-recording paths still exist; paths naming generated intro/loop WAVs or
+previews are historical outputs, now absent. The per-track edit records retain
+sample boundaries, fade curves, gains and hashes.
+`player-listening-results.json` records decisions, raw supplied-loop
+selections, the approved Folk_Arabian intro entry, Jonathan Shaw's derived loop
+points and the selected transition behavior.
+
+| Accepted repeat/edit | Metadata file |
+|---|---|
+| Shenyang | `shenyang-repeat-earlier-crossfade.json` |
+| Imperial China Cinematic | `imperial-china-loop-revision.json` |
+| Listening to Our Sounds — passable repeat | `im-dasol-our-sounds-loop.json` |
+| Beautiful Korea | `beautiful-korea-original-repeat-crossfade.json` |
+| Korean gayageum alternative | `korean-gayageum-loop-revision.json` |
+| Hoi An Ancient Charm | `hoi-an-loop.json` |
+| Epic Nusantara | `epic-nusantara-loop.json` |
+| Dhaka | `dhaka-loop-phrase-revision.json` |
+| Epic Indian Orchestral Fusion | `epic-indian-fusion-loop.json` |
+| Middle East Ballad | `middle-east-ballad-loop.json` |
+| Conquer The Great Sands | `conquer-sands-loop-revision.json` |
+| Arabic Music | `kiravale-arabic-loop.json` |
+| Dellasera | `dellasera-loop.json` |
+| Atlas • Greece | `atlas-greece-loop.json` |
+| Cinematic Latin Music | `cinematic-latin-loop.json` |
+| Lord of the Land | `lord-loop.json` |
+| Townsong alternative | `townsong-loop.json` |
+| Home Was You alternative | `home-loop.json` |
+| Pathfinder | `pathfinder-loop.json` |
+| Swing Train | `swing-train-loop.json` |
+| Beachfront Celebration | `beachfront-celebration-loop.json` |
+| Setting Sail | `setting-sail-loop.json` |
+| Epic Cinematic Salsa alternative | `epic-salsa-loop.json` |
+| Sideways Samba | `sideways-samba-loop.json` |
+| Up In The Air | `up-in-air-loop.json` |
+| Sakuya3 — accepted edited alternative; supplied Ogg preferred | `sakuya3-loop-revision.json` |
+
+| Raw loop / intro recipe | Decision file | Measurements / historical render catalog |
+|---|---|---|
+| Sakuya3, Ametsuchi, Desert2 and Folk_Arabian supplied Ogg loops | `player-listening-results.json` | `loops.json` |
+| Folk_Arabian supplied intro followed by loop | `player-listening-results.json` | `previews/manifest.json` |
+| Market on the Sea and The World At Your Door derived raw loops | `player-listening-results.json` | `loops.json` |
+
+| Approved handoff | Metadata file |
+|---|---|
+| Sideways Samba → Up In The Air | `brazil-current-transition.json` |
+| Beachfront Celebration → Setting Sail | `caribbean-current-transition.json` |
+| Shenyang → Imperial China Cinematic | `chinese-current-transition.json` |
+| Middle East Ballad → Conquer The Great Sands | `gulf-current-transition.json` |
+| Sakuya3 → Ametsuchi | `japanese-current-transition.json` |
+| Listening to Our Sounds → Beautiful Korea | `korean-current-transition.json` |
+| Dellasera → Atlas • Greece | `mediterranean-greece-current-transition.json` |
+| Dellasera → Cinematic Latin Music | `mediterranean-latin-current-transition.json` |
+| Arabic Music → Folk_Arabian | `north-african-arabic-current-transition.json` |
+| Desert2 → Folk_Arabian | `north-african-desert2-current-transition.json` |
+| Market on the Sea → The World At Your Door | `north-american-market-current-transition.json` |
+| Swing Train → The World At Your Door | `north-american-swing-current-transition.json` |
+| Lord of the Land → Pathfinder | `northern-frangistan-lord-current-transition.json` |
+| Townsong → Pathfinder | `northern-frangistan-townsong-current-transition.json` |
+| Dhaka → Epic Indian Orchestral Fusion | `south-asian-current-transition.json` |
+| Hoi An Ancient Charm → Epic Nusantara | `southeast-asian-current-transition.json` |
+
+#### Earlier edits and recordings set aside
+
+Keep these records as listening history. Their presence does not make them the
+selected edit or track; prefer the accepted recipes and decisions above.
+
+| Metadata file | Recorded disposition |
+|---|---|
+| `caribbean-current-transition-v1.json` | superseded; player reported apparent silence and revised fade timing |
+| `conquer-sands-loop.json` | not approved; player reports transition needs work |
+| `dark-red-wine-loop.json` | track reconsideration requested; loop not approved; Caribbean port selection reopened |
+| `dhaka-loop-revision.json` | not approved; player reports melodic transition still needs work |
+| `dhaka-loop.json` | not approved; player finds beginning and blend too drone-heavy; melodic revision needed |
+| `gugak72-mp3-repeat-crossfade.json` | not approved; player reports silence before blend and repeat fatigue |
+| `imperial-china-mp3-repeat-crossfade.json` | not selected; player reports silence on both sides of blend |
+| `korean-gayageum-mp3-repeat-crossfade.json` | not approved; player accepts blend around four seconds but reports fade to silence near eight seconds |
+| `shenyang-mp3-repeat-crossfade.json` | blend approved, but pre-blend interlude felt slightly jarring; revision requested |
+| `sub-clair-indian-full-audition.json` | seam approved; song choice reconsidered after full-loop audition; variation not approved |
+| `sub-clair-indian-loop-revision.json` | seam approved; song choice reconsidered after full-loop audition; variation not approved |
+| `sub-clair-indian-loop.json` | not approved; player reports transition needs work |
+| `tropical-contact-loop.json` | track reconsideration requested; loop not approved; Brazilian port selection reopened |
+
+#### Analysis, manifests and search records
+
+| Retained record | Purpose |
+|---|---|
+| `track-manifest.json` | Initial 32 source identities and grants |
+| `analysis.json` | Initial 38-file screening and loudness results |
+| `player-listening-results.json` | Player decisions and selected recipes |
+| `previews/manifest.json` | Historical render metadata, hashes and approvals; audio deleted |
+| `previews/listen.html` | Historical listening page; preview audio links are now missing |
+
+| Other source / analysis metadata | Purpose |
+|---|---|
+| `beachfront-celebration-analysis.json` | Source/analysis/download record |
+| `dhaka-analysis.json` | Source/analysis/download record |
+| `downloads.json` | Source/analysis/download record |
+| `extra-downloads.json` | Source/analysis/download record |
+| `im-dasol-our-sounds-analysis.json` | Source/analysis/download record |
+| `imperial-china-mp3-repeat-analysis.json` | Source/analysis/download record |
+| `macleod-pieces-caribbean-refresh.json` | Downloaded catalogue lookup; not a roster selection |
+| `macleod-pieces.json` | Downloaded catalogue lookup; not a roster selection |
+| `pages.json` | Source/analysis/download record |
+| `pixabay-downloads.json` | Source/analysis/download record |
+| `sakuya3-repeat-analysis.json` | Source/analysis/download record |
+| `shenyang-mp3-repeat-analysis.json` | Source/analysis/download record |
+| `sideways-samba-analysis.json` | Source/analysis/download record |
+| `voice-control-result.json` | Source/analysis/download record |
+
+| Phrase / repeat search metadata | Purpose |
+|---|---|
+| `atlas-greece-phrase-search.json` | Search measurements; not a listening approval |
+| `beachfront-celebration-phrase-search.json` | Search measurements; not a listening approval |
+| `cinematic-latin-phrase-search.json` | Search measurements; not a listening approval |
+| `conquer-sands-repeat-search.json` | Search measurements; not a listening approval |
+| `dark-red-wine-phrase-search.json` | Search measurements; not a listening approval |
+| `dellasera-repeat-search.json` | Search measurements; not a listening approval |
+| `dhaka-phrase-search.json` | Search measurements; not a listening approval |
+| `epic-indian-fusion-phrase-search.json` | Search measurements; not a listening approval |
+| `epic-salsa-phrase-search.json` | Search measurements; not a listening approval |
+| `home-phrase-search.json` | Search measurements; not a listening approval |
+| `kiravale-arabic-phrase-search.json` | Search measurements; not a listening approval |
+| `lord-phrase-search.json` | Search measurements; not a listening approval |
+| `middle-east-ballad-repeat-search.json` | Search measurements; not a listening approval |
+| `pathfinder-phrase-search.json` | Search measurements; not a listening approval |
+| `setting-sail-phrase-search.json` | Search measurements; not a listening approval |
+| `sideways-samba-phrase-search.json` | Search measurements; not a listening approval |
+| `swing-train-phrase-search.json` | Search measurements; not a listening approval |
+| `townsong-phrase-search.json` | Search measurements; not a listening approval |
+| `tropical-contact-phrase-search.json` | Search measurements; not a listening approval |
+| `up-in-air-phrase-search.json` | Search measurements; not a listening approval |
+
+Rendering and inspection scripts remain in the same directory.
+`verify_current_transition.py` checks a regenerated handoff against its
+recorded inputs; the corresponding `prepare_*_transition.py` scripts contain
+the handoff recipes, with `prepare_caribbean_transition_v2.py` providing the
+accepted Caribbean version. Loop recipes are in the per-track
+`prepare_*_loop.py` scripts and accepted revisions such as
+`revise_dhaka_phrases.py`, `revise_conquer_sands_loop.py`,
+`revise_imperial_repeat.py`, `revise_korean_gayageum_loop.py` and
+`revise_shenyang_repeat.py`. Preserve these scripts when moving the evidence
+directory.
+
+## Recording identities and download sources
 
 The following manifest fixes source recording identity. SHA-256 is for the
 inspected audio member, not a ZIP or player page. Source page links above attach
