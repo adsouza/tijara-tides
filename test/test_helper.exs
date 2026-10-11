@@ -6,7 +6,8 @@ excluded =
 excluded =
   if System.get_env("TIJARA_FUZZ_EXTENDED"), do: excluded, else: [:extended_fuzzer | excluded]
 
-# The rendered control sweep builds one world per command control; CI opts in.
+# The rendered control sweep builds one world per command control.
+# Full validation opts in.
 excluded =
   if System.get_env("TIJARA_CONTROL_SWEEP"), do: excluded, else: [:control_sweep | excluded]
 

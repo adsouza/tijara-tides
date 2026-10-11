@@ -5237,6 +5237,50 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     refute render(reconnected) =~ token
   end
 
+  test "fleet delivery follows revised arrival times after an eight-minute piracy hold", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+    :ok = GameServer.connect(token, c.server)
+
+    # Freighters are slow enough that a 100% base chance guarantees an attack.
+    # Disable storms so suppression cannot turn this into a probabilistic test.
+    :sys.replace_state(c.server, fn state ->
+      catalogue =
+        state.catalogue
+        |> put_in(["weather", "chance_bps"], 0)
+        |> update_in(["piracy", "zones"], fn zones ->
+          Map.new(zones, fn {id, zone} -> {id, Map.put(zone, "chance_bps", 10_000)} end)
+        end)
+
+      %{state | catalogue: catalogue}
+    end)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "delivery-company",
+        %{
+          "action" => "company",
+          "name" => "Delivery",
+          "port" => "Guangzhou",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    deliver_fleet(c.server, token, "Jakarta")
+    game = :sys.get_state(c.server).game
+
+    for ship <- Map.values(game.entities["ships"]) do
+      assert %{"code" => "ship.piracy", "arguments" => %{"minutes" => 8.0}} =
+               game.entities["notices"]["piracy:" <> ship["id"] <> ":0"]
+
+      assert ship["status"] == "docked"
+      assert ship["port"] == "Jakarta"
+    end
+
+    assert :ok = TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
+  end
+
   test "perishable disclosures follow quantity, dispatch and underway time", %{
     server: server,
     code: code
@@ -6939,17 +6983,27 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
                )
     end
 
-    # Leave ample room for forecast weather delays without carrying perishables.
+    await_fleet_delivery(server, token, port, 10)
+  end
+
+  defp await_fleet_delivery(server, token, port, remaining) do
     snapshot = GameServer.snapshot(token, server)
+    ships = Map.values(snapshot.private["ships"])
+    sailing = Enum.filter(ships, &(&1["status"] == "sailing"))
 
-    latest =
-      snapshot.private["ships"] |> Map.values() |> Enum.map(& &1["arrive_ms"]) |> Enum.max()
+    if sailing == [] do
+      for ship <- ships do
+        assert ship["status"] == "docked"
+        assert ship["port"] == port
+      end
+    else
+      assert remaining > 0,
+             "Fleet delivery did not finish after ten ticks: #{inspect(ships)}"
 
-    advance(server, latest - snapshot.public["clock_ms"] + 120_000)
-
-    for ship <- Map.values(GameServer.snapshot(token, server).private["ships"]) do
-      assert ship["status"] == "docked"
-      assert ship["port"] == port
+      latest = sailing |> Enum.map(& &1["arrive_ms"]) |> Enum.max()
+      advance(server, max(1, latest - snapshot.public["clock_ms"] + 1))
+      assert GameServer.readiness(server) == :ready
+      await_fleet_delivery(server, token, port, remaining - 1)
     end
   end
 

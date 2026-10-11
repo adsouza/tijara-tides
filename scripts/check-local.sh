@@ -17,29 +17,13 @@ if [[ "$scope" == "docs" ]]; then
   exit 0
 fi
 
-python3 scripts/test-validation-scope.py
-python3 scripts/test-mutation-audit.py
-python3 scripts/test-format-staged.py
+scripts/check-server.sh
 python3 scripts/test-bump-desktop-version.py
 python3 scripts/test-publish-desktop-release.py
 python3 scripts/test-release-desktop.py
-python3 -m venv tmp/check-catalogue-venv
-tmp/check-catalogue-venv/bin/python -m pip install -q -r scripts/game-data-requirements.txt
-tmp/check-catalogue-venv/bin/python scripts/check-generated.py
-mix deps.get --check-locked
-mix precommit
-# After precommit, whose gettext.extract --check-up-to-date proves the .pot current.
-python3 scripts/check-gettext-catalogues.py
-mkdir -p cover
-python3 scripts/test-game-db.py --cover | tee cover/elixir-summary.txt
-npm ci
-npx playwright install chromium
-mix assets.setup
-python3 scripts/test-browser.py
 npm run desktop:coverage | tee cover/desktop-summary.txt
 python3 scripts/check-desktop-versions.py
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml --locked
-MIX_ENV=prod mix release --overwrite
 echo "Local pre-push checks passed. Docker, platform packaging, and the runtime matrix remain in CI."

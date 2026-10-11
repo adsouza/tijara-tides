@@ -8,7 +8,7 @@ import disposable_postgres
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--cover', action='store_true', help='Report Elixir line coverage and write HTML to cover/.')
-parser.add_argument('--control-sweep', action='store_true', help='Run only the CI rendered command control sweep.')
+parser.add_argument('--control-sweep', action='store_true', help='Run only the rendered command control sweep.')
 parser.add_argument('mix_args', nargs=argparse.REMAINDER, help='Extra mix test arguments after --, such as -- --slowest 20.')
 args=parser.parse_args()
 root=Path(__file__).resolve().parent.parent

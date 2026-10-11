@@ -18,10 +18,24 @@ require full validation. The pre-push hook checks each remote ref's actual prior
 commit and retains its clean-checkout requirement. Use `--full` to run all gates
 regardless of scope; do not bypass hooks with `--no-verify`.
 
-Full validation uses disposable PostgreSQL for all Elixir tests and line coverage
-and reports desktop JavaScript helper line, branch and function coverage. CI
-continues full validation on every push and pull request, uploading reports for
-each runtime or platform even when a test or coverage threshold fails.
+Full validation and each CI runtime call `scripts/check-server.sh` for the same
+server gates: validation-tool contracts, catalogue route tests and generated
+artifacts, locked dependencies, `mix precommit`, Arabic catalogues, disposable
+PostgreSQL line coverage and the rendered command control sweep, Chromium
+contracts and the production release. Browser contracts build test assets before
+starting their disposable server. Linux also installs Chromium's system
+dependencies. Child validation clears storage, listener and opt-in suite
+variables; Elixir uses UTF-8 filename encoding while PostgreSQL retains its
+portable `C` locale. The shared runner propagates failures through coverage
+report pipelines and stops before subsequent gates.
+
+Local full validation additionally reports desktop JavaScript helper line,
+branch and function coverage and checks desktop versions, release tooling and
+Rust. CI continues full validation on every push and pull request, uploading
+reports for each runtime or platform even when a gate fails. The local runner
+uses the installed runtime; CI additionally checks both supported Elixir/OTP
+versions, the Linux container and native platform packages. These environment
+checks remain CI responsibilities, not guarantees of a local pass.
 
 The [mutation-testing pilot](mutation-testing-pilot.md) records the bounded Muex
 experiment and its expansion across finance, trading instructions, commit/replay,
@@ -344,6 +358,13 @@ rejection of invalid freshness terms.
 including multi-line failures, while excluding concurrent processes. Its
 regression test forces the default formatter's colours on so terminal ANSI
 settings cannot change assertions or break the pre-push checks.
+
+The trading UI delivery fixture advances to each revised arrival time until all
+ships dock, with a ten-tick bound and readiness checks. It does not assume that
+the departure forecast includes later attacks or storms. Its SQL regression
+forces an eight-minute piracy hold on the Guangzhou–Jakarta delivery route,
+disables storm suppression, and checks docking and ledger reconciliation. This
+case must fail when delivery uses the old two-minute allowance.
 
 The destination planner's piracy regression counts geometry calculations,
 requiring one per catalogue route for the entire public planning run and
