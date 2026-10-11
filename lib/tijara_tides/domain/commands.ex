@@ -108,7 +108,8 @@ defmodule TijaraTides.Domain.Commands do
           id,
           destination,
           limit,
-          catalogue
+          catalogue,
+          command["protection_limit"]
         )
 
       %{"action" => "warehouse_reserve"} ->
@@ -260,7 +261,9 @@ defmodule TijaraTides.Domain.Commands do
           id,
           destination,
           limit,
-          catalogue
+          catalogue,
+          Map.get(command, "protection", "none"),
+          command["protection_limit"]
         )
 
       _ ->

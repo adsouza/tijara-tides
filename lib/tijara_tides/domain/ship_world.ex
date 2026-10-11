@@ -177,7 +177,9 @@ defmodule TijaraTides.Domain.ShipWorld do
 
   def depart(state, id, destination, estimate, speedup, catalogue \\ %{}) do
     ship = Ship.begin_voyage(hull(state, id), destination, estimate, state.clock_ms, speedup)
-    store(state, Ship.snapshot_piracy(ship, TijaraTides.Domain.Piracy.model(catalogue)))
+    model = TijaraTides.Domain.Piracy.model(catalogue)
+    previous = %{"protection" => get_in(estimate, ["protection_quote", "protection"]) || "none"}
+    store(state, Ship.snapshot_piracy(ship, model, previous))
   end
 
   def reroute(state, id, destination, quote, paid, catalogue \\ %{}) do

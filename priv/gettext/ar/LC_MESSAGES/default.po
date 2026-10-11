@@ -929,10 +929,6 @@ msgstr "· المناولة %{value1} / دفعة"
 msgid "— insufficient available funds"
 msgstr "— الأموال المتاحة غير كافية"
 
-
-msgid "%{value1} in canal fees. You have %{value2} available "
-msgstr "%{value1} لرسوم القنوات. يتوفر لديك %{value2} "
-
 msgid "A repeating route can have up to eight stops."
 msgstr "يمكن أن يتضمن المسار المتكرر ثماني محطات كحد أقصى."
 
@@ -2068,9 +2064,6 @@ msgstr "انتهى عقد مستودعك في %{port}. اسحب بضائعه خ�
 msgid "Warehouse cargo at %{port} was cleared. Net proceeds: %{refund}."
 msgstr "تمت تصفية بضائع المستودع في %{port}. صافي العائدات: %{refund}."
 
-msgid "Additional fuel or canal fees cannot be funded. The existing voyage is unchanged."
-msgstr "لا يمكن تمويل الوقود الإضافي أو رسوم القنوات. لم تتغير الرحلة الحالية."
-
 msgid "Additional fuel: %{extra} · released fuel: %{released}. Dashed teal shows the revised course. Port instructions stay at their original ports; repeating routes pause."
 msgstr "الوقود الإضافي: %{extra} · الوقود المحرر: %{released}. يوضح الخط الفيروزي المتقطع المسار المعدل. تبقى التعليمات مرتبطة بموانئها الأصلية وتتوقف المسارات المتكررة مؤقتًا."
 
@@ -2383,9 +2376,6 @@ msgstr "الدفعات المحجوزة"
 
 msgid "Leave blank to keep the existing reserve."
 msgstr "اترك الحقل فارغًا للإبقاء على السعر الاحتياطي الحالي."
-
-msgid "Departure reserves fuel and canal fees only. Crew and maintenance accrue as the voyage runs and become unpaid bills if available cash falls short."
-msgstr "لا يحجز الإبحار سوى الوقود ورسوم القنوات. تتراكم تكاليف الطاقم والصيانة أثناء الرحلة وتتحول إلى فواتير غير مدفوعة إذا نقص النقد المتاح."
 
 msgid "Maintenance: next day %{day}; next 7 days %{week}. New hull: %{replacement} per day."
 msgstr "الصيانة: اليوم القادم %{day}؛ الأيام السبعة القادمة %{week}. سفينة جديدة: %{replacement} يوميًا."
@@ -3222,3 +3212,70 @@ msgstr "نتائج هجمات الرحلة"
 
 msgid "Wait for the attack hold to end before diverting this ship."
 msgstr "انتظر انتهاء احتجاز الهجوم قبل تغيير مسار هذه السفينة."
+
+
+msgid "Voyage protection: %{protection}"
+msgstr "حماية الرحلة: %{protection}"
+
+
+msgid "Protection: %{cost}"
+msgstr "الحماية: %{cost}"
+
+
+msgid "Chance %{chance}%; charge at stake %{charge}."
+msgstr "احتمال الهجوم %{chance}٪؛ الخسارة المحتملة %{charge}."
+
+
+msgid "Armed guards · %{cost}"
+msgstr "حراس مسلحون · %{cost}"
+
+
+msgid "Voyage insurance · %{cost}"
+msgstr "تأمين الرحلة · %{cost}"
+
+
+msgid "Protection retained: %{protection}. Prices cover new crossings only."
+msgstr "الحماية مستمرة: %{protection}. تغطي الأسعار مناطق العبور الجديدة فقط."
+
+
+msgid "Insurance covers %{percent}% of attack charges. Holds still delay the voyage."
+msgstr "يغطي التأمين %{percent}٪ من تكاليف الهجوم. يظل الاحتجاز مؤخرًا للرحلة."
+
+
+msgid "Required now: %{cost}"
+msgstr "المطلوب الآن: %{cost}"
+
+
+msgid "Armed guards"
+msgstr "حراس مسلحون"
+
+
+msgid "Voyage insurance"
+msgstr "تأمين الرحلة"
+
+
+msgid "Armed guards and voyage insurance"
+msgstr "حراس مسلحون وتأمين الرحلة"
+
+
+msgid "Choose valid voyage protection."
+msgstr "اختر حماية صالحة للرحلة."
+
+
+msgid "Protection prices changed or insurance is unavailable. Review the voyage and confirm again."
+msgstr "تغيرت أسعار الحماية أو لا يتوفر التأمين. راجع الرحلة وأكد مجددًا."
+
+
+msgid "%{value1} in canal fees and protection. You have %{value2} available "
+msgstr "%{value1} لرسوم القنوات والحماية. لديك %{value2} متاحة "
+
+
+msgid "Additional fuel, canal fees or protection cannot be funded. The existing voyage is unchanged."
+msgstr "لا يمكن تمويل الوقود الإضافي أو رسوم القنوات أو الحماية. تبقى الرحلة الحالية كما هي."
+
+
+msgid "Departure reserves fuel and pays canal fees and selected protection. Crew and maintenance accrue as the voyage runs and become unpaid bills if available cash falls short."
+msgstr "يُحجز الوقود عند المغادرة وتُدفع رسوم القنوات والحماية المختارة. تتراكم تكاليف الطاقم والصيانة خلال الرحلة وتصبح فواتير غير مدفوعة إذا لم يكفِ النقد المتاح."
+
+msgid "None"
+msgstr "بدون حماية"

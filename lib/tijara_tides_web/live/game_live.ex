@@ -73,6 +73,7 @@ defmodule TijaraTidesWeb.GameLive do
         destination: nil,
         invite_code: nil,
         request_id: Game.request_id(),
+        protection: "none",
         preview: nil
       )
 
@@ -554,6 +555,7 @@ defmodule TijaraTidesWeb.GameLive do
          selected_ship: id,
          selected_port: port,
          inspected_ship: id,
+         protection: "none",
          preview: nil,
          destination_picker_open: false
        )
@@ -946,14 +948,47 @@ defmodule TijaraTidesWeb.GameLive do
     {:noreply, refresh(socket)}
   end
 
+  def handle_event("voyage-protection", %{"kind" => kind}, socket)
+      when kind in ["guards", "insurance"] do
+    if socket.assigns.ship && socket.assigns.ship["status"] == "docked" && socket.assigns.preview do
+      old = socket.assigns.protection
+      guards = old in ["guards", "both"] != (kind == "guards")
+      insured = old in ["insurance", "both"] != (kind == "insurance")
+
+      choice =
+        cond do
+          guards && insured -> "both"
+          guards -> "guards"
+          insured -> "insurance"
+          true -> "none"
+        end
+
+      {:noreply, socket |> assign(protection: choice) |> refresh()}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_event("sail", params, %{assigns: %{preview: %{"fuel" => fuel}}} = socket) do
-    run(socket, %{
-      "action" => if(socket.assigns.ship["status"] == "sailing", do: "reroute", else: "sail"),
-      "ship" => socket.assigns.selected_ship,
-      "destination" => socket.assigns.destination,
-      "request_id" => params["request_id"] || socket.assigns.request_id,
-      "fuel_limit" => fuel
-    })
+    run(
+      socket,
+      %{
+        "action" => if(socket.assigns.ship["status"] == "sailing", do: "reroute", else: "sail"),
+        "ship" => socket.assigns.selected_ship,
+        "destination" => socket.assigns.destination,
+        "request_id" => params["request_id"] || socket.assigns.request_id,
+        "fuel_limit" => fuel
+      }
+      |> then(fn command ->
+        cost = socket.assigns.preview["protection_quote"]["cost"]
+        if cost > 0, do: Map.put(command, "protection_limit", cost), else: command
+      end)
+      |> then(fn command ->
+        if command["action"] == "sail" and socket.assigns.protection != "none",
+          do: Map.put(command, "protection", socket.assigns.protection),
+          else: command
+      end)
+    )
   end
 
   def handle_event("port-destination", _params, socket) do
@@ -1323,7 +1358,24 @@ defmodule TijaraTidesWeb.GameLive do
         end
       )
 
+    choice =
+      cond do
+        ship && ship["status"] == "sailing" -> get_in(ship, ["piracy", "protection"]) || "none"
+        get_in(socket.assigns, [:ship, "status"]) == "sailing" -> "none"
+        true -> socket.assigns.protection
+      end
+
+    choice =
+      if preview && ship["status"] != "sailing" && choice in ["insurance", "both"] &&
+           not preview["protection_options"][choice]["insurance_available"],
+         do: if(choice == "both", do: "guards", else: "none"),
+         else: choice
+
+    preview =
+      if preview, do: Map.put(preview, "protection_quote", preview["protection_options"][choice])
+
     assign(socket,
+      protection: choice,
       view: view,
       selected_ship: ship && ship["id"],
       ship: ship,

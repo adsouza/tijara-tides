@@ -31,6 +31,111 @@ defmodule TijaraTides.Infrastructure.VoyagePiracyTest do
     :ok
   end
 
+  test "protection toggles quote and pay once, survive restart, and reimburse insured attacks" do
+    model = GameCatalogue.all()["piracy"]
+    # Force an insured incident without making the guard fee free.
+    zones = Map.new(model["zones"], fn {id, z} -> {id, %{z | "guard_pct" => 0}} end)
+    Application.put_env(:tijara_tides, :piracy, Map.put(model, "zones", zones))
+
+    Sql.with_world(fn c ->
+      {conn, token} = TijaraTides.WebFormFixture.session(c)
+
+      {:ok, %{"company_id" => company}} =
+        TijaraTides.CompanyFixture.command(
+          token,
+          "formation",
+          %{
+            "action" => "company",
+            "name" => "Protected",
+            "port" => "Tangier",
+            "package" => "general"
+          },
+          c.server
+        )
+
+      id = company <> ":1"
+      {:ok, view, _} = conn |> recycle() |> live("/play")
+      render_click(view, "ship", %{"id" => id})
+      render_click(view, "preview", %{"destination" => "Valencia"})
+      refute has_element?(view, "#voyage-insurance")
+      render_click(view, "preview", %{"destination" => "Athens"})
+      assert has_element?(view, "#voyage-protection", "Barbary Coast")
+      assert has_element?(view, "#voyage-guards[aria-checked=false]")
+      render_click(view, "voyage-protection", %{"kind" => "guards"})
+      render_click(view, "voyage-protection", %{"kind" => "insurance"})
+      assert has_element?(view, "#voyage-guards[aria-checked=true]")
+      assert has_element?(view, "#voyage-insurance[aria-checked=true]")
+      offered = GameServer.preview(token, id, "Athens", c.server)
+      terms = offered["protection_options"]["both"]
+      before = :sys.get_state(c.server).game
+      render_click(view, "sail", %{"request_id" => "protected-dispatch"})
+      next = :sys.get_state(c.server).game
+      assert next.revision == before.revision + 1
+      ship = next.entities["ships"][id]
+      assert ship["piracy"]["protection"] == "both"
+
+      delta =
+        before.entities["companies"][company]["cash"] -
+          next.entities["companies"][company]["cash"]
+
+      assert delta == offered["canal_fees"] + terms["cost"]
+      assert has_element?(view, ".voyage-protection", "Armed guards and voyage insurance")
+
+      entries =
+        TijaraTides.Infrastructure.Persistence.Repo.query!(
+          "SELECT e.account_code,e.amount_cents FROM game_journal_entries e JOIN game_journal_transactions t ON t.id=e.transaction_id WHERE t.world_id=$1 AND t.kind='departure' AND t.sealed",
+          [c.world]
+        ).rows
+        |> Enum.map(fn [code, amount] -> {code, amount} end)
+
+      assert Enum.sum(for {"piracy_guard_expense", n} <- entries, do: n) == terms["guard_fee"]
+      assert Enum.sum(for {"piracy_premium_expense", n} <- entries, do: n) == terms["premium"]
+      Sql.assert_rows(c, next)
+      GenServer.stop(view.pid, :normal)
+      c = Sql.restart(c)
+
+      payload = %{
+        "action" => "sail",
+        "ship" => id,
+        "destination" => "Athens",
+        "fuel_limit" => offered["fuel"],
+        "protection" => "both",
+        "protection_limit" => terms["cost"]
+      }
+
+      assert {:ok, _} = GameServer.command(token, "protected-dispatch", payload, c.server)
+      assert :sys.get_state(c.server).game.revision == next.revision
+      game = :sys.get_state(c.server).game
+      crossing = hd(game.entities["ships"][id]["piracy"]["pending"])
+
+      at =
+        TijaraTides.Domain.Weather.time_at(
+          ship["weather"],
+          ship["depart_ms"],
+          crossing["attack_fraction"]
+        ) + 1
+
+      cat = :sys.get_state(c.server).catalogue
+      hit = VoyageHazards.advance(%{game | clock_ms: at}, at - game.clock_ms, cat, 600)
+      incident = hd(hit.entities["ships"][id]["piracy"]["incidents"])
+      assert incident["recovery"] == div(incident["charge"] * 80, 100)
+      assert incident["recovery"] > 0
+
+      assert hit.entities["companies"][company]["reserved"] ==
+               game.entities["companies"][company]["reserved"]
+
+      Sql.persist(c, hit)
+      c = Sql.restart(c)
+      persisted = :sys.get_state(c.server).game
+
+      assert hd(persisted.entities["ships"][id]["piracy"]["incidents"])["recovery"] ==
+               incident["recovery"]
+
+      assert Map.get(VoyageHazards.advance(persisted, 0, cat, 600), :journal, []) == []
+      Sql.assert_rows(c, persisted)
+    end)
+  end
+
   test "dispatch, incident and ledger persist atomically; restart and replay do not charge again; held UI is localized" do
     Sql.with_world(fn c ->
       {conn, token} = TijaraTides.WebFormFixture.session(c)

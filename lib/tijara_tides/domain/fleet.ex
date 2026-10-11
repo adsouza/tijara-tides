@@ -198,22 +198,37 @@ defmodule TijaraTides.Domain.Fleet do
     TijaraTides.Domain.Ship.capacity(%TijaraTides.Domain.Ship{cargo: cargo}, catalogue)
   end
 
-  def voyage_quote(ship, destination, catalogue, clock \\ nil, weather_cutoff \\ nil)
+  def voyage_quote(
+        ship,
+        destination,
+        catalogue,
+        clock \\ nil,
+        weather_cutoff \\ nil,
+        protection \\ "none"
+      )
 
-  def voyage_quote(ship, destination, catalogue, clock, weather_cutoff)
+  def voyage_quote(ship, destination, catalogue, clock, weather_cutoff, protection)
       when is_binary(destination) do
     case catalogue["routes"][ship["port"] <> "|" <> destination] do
       nil ->
         nil
 
       route ->
-        route_quote(ship, route, catalogue, clock, weather_cutoff)
+        route_quote(ship, route, catalogue, clock, weather_cutoff, protection, nil)
     end
   end
 
-  def voyage_quote(_ship, _destination, _catalogue, _clock, _weather_cutoff), do: nil
+  def voyage_quote(_ship, _destination, _catalogue, _clock, _weather_cutoff, _protection), do: nil
 
-  defp route_quote(ship, route, catalogue, clock, weather_cutoff \\ nil) do
+  defp route_quote(
+         ship,
+         route,
+         catalogue,
+         clock,
+         weather_cutoff,
+         protection,
+         previous
+       ) do
     aged = clock || ship["last_cost_ms"] || 0
 
     class = classes()[ship["class"]]
@@ -235,9 +250,22 @@ defmodule TijaraTides.Domain.Fleet do
         TijaraTides.Domain.Weather.model(catalogue)
       )
 
+    options =
+      TijaraTides.Domain.Piracy.protection_quotes(
+        route,
+        ship,
+        aged,
+        weather,
+        TijaraTides.Domain.Piracy.voyage_model(ship, catalogue),
+        previous
+      )
+
+    terms = options[protection] || options["none"]
     total = duration + weather["delay_ms"]
 
     %{
+      "protection_quote" => terms,
+      "protection_options" => options,
       "weather" => weather,
       "weather_delay_ms" => weather["delay_ms"],
       "sailing_ms" => duration,
@@ -259,7 +287,17 @@ defmodule TijaraTides.Domain.Fleet do
         nil
 
       route ->
-        quote = route_quote(ship, route, catalogue, clock)
+        quote =
+          route_quote(
+            ship,
+            route,
+            catalogue,
+            clock,
+            nil,
+            get_in(ship, ["piracy", "protection"]) || "none",
+            ship["piracy"]
+          )
+
         paid = paid_canals(ship, catalogue)
 
         fees =
@@ -287,7 +325,7 @@ defmodule TijaraTides.Domain.Fleet do
       )
   end
 
-  def reroute(state, account, id, destination, limit, catalogue) do
+  def reroute(state, account, id, destination, limit, catalogue, protection_limit \\ nil) do
     ship = get(state, "ships", id)
     company = get(state, "companies", account["company_id"])
 
@@ -297,22 +335,25 @@ defmodule TijaraTides.Domain.Fleet do
          hold["source"] == "piracy" do
       {:error, :held_by_pirates}
     else
-      reroute_allowed(state, ship, company, id, destination, limit, catalogue)
+      reroute_allowed(state, ship, company, id, destination, limit, catalogue, protection_limit)
     end
   end
 
-  defp reroute_allowed(state, ship, company, id, destination, limit, catalogue) do
+  defp reroute_allowed(state, ship, company, id, destination, limit, catalogue, protection_limit) do
     with true <-
            ship != nil and company != nil and ship["company_id"] == company["id"] and
              is_nil(company["bankruptcy_ms"]),
          true <- ship["status"] == "sailing",
          %{} = quote <- reroute_quote(ship, destination, state.clock_ms, catalogue),
          true <- is_integer(limit) and limit >= quote["fuel"],
+         true <- protection_accepted?(quote, protection_limit),
          true <- quote["duration_ms"] <= @max_voyage_ms do
       delta = quote["fuel"] - (ship["fuel_total"] - ship["fuel_burned"])
 
-      if company["cash"] - company["reserved"] < delta + quote["canal_fees"] or
-           (company["unpaid"] > 0 and delta + quote["canal_fees"] > 0) do
+      if company["cash"] - company["reserved"] <
+           delta + quote["canal_fees"] + quote["protection_quote"]["cost"] or
+           (company["unpaid"] > 0 and
+              delta + quote["canal_fees"] + quote["protection_quote"]["cost"] > 0) do
         {:error, :reroute_funds}
       else
         paid =
@@ -330,7 +371,10 @@ defmodule TijaraTides.Domain.Fleet do
             "reroute",
             [
               {"cash_reserved", delta},
-              {"cash_available", -delta - quote["canal_fees"]},
+              {"cash_available",
+               -delta - quote["canal_fees"] - quote["protection_quote"]["cost"]},
+              {"piracy_guard_expense", quote["protection_quote"]["guard_fee"]},
+              {"piracy_premium_expense", quote["protection_quote"]["premium"]},
               {"canal_expense", quote["canal_fees"]}
             ],
             %{ship: id}
@@ -345,11 +389,29 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  def sail(state, account, id, destination, limit, catalogue) do
+  def sail(
+        state,
+        account,
+        id,
+        destination,
+        limit,
+        catalogue,
+        protection \\ "none",
+        protection_limit \\ nil
+      ) do
     state = TijaraTides.Domain.Services.FinancialSettlement.settle(state, [account["company_id"]])
 
     with {:ok, _ship, company, estimate} <-
-           departure_check(state, account, id, destination, limit, catalogue) do
+           departure_check(
+             state,
+             account,
+             id,
+             destination,
+             limit,
+             catalogue,
+             protection,
+             protection_limit
+           ) do
       owner = company["id"]
       state = TijaraTides.Domain.AutomationWorld.release_departing_visit(state, id)
 
@@ -372,7 +434,10 @@ defmodule TijaraTides.Domain.Fleet do
           "departure",
           [
             {"cash_reserved", estimate["fuel"]},
-            {"cash_available", -estimate["fuel"] - estimate["canal_fees"]},
+            {"cash_available",
+             -estimate["fuel"] - estimate["canal_fees"] - estimate["protection_quote"]["cost"]},
+            {"piracy_guard_expense", estimate["protection_quote"]["guard_fee"]},
+            {"piracy_premium_expense", estimate["protection_quote"]["premium"]},
             {"canal_expense", estimate["canal_fees"]}
           ],
           %{ship: id}
@@ -383,7 +448,16 @@ defmodule TijaraTides.Domain.Fleet do
     end
   end
 
-  defp departure_check(state, account, id, destination, limit, catalogue) do
+  defp departure_check(
+         state,
+         account,
+         id,
+         destination,
+         limit,
+         catalogue,
+         protection,
+         protection_limit
+       ) do
     ship = get(state, "ships", id)
     company = get(state, "companies", account["company_id"])
 
@@ -406,17 +480,32 @@ defmodule TijaraTides.Domain.Fleet do
       destination == ship["port"] ->
         {:error, {:departure_already_here, destination}}
 
+      protection not in ~w(none guards insurance both) ->
+        {:error, :departure_protection_invalid}
+
       true ->
-        case voyage_quote(ship, destination, catalogue, state.clock_ms) do
-          nil -> {:error, {:departure_no_route, ship["port"], destination}}
-          estimate -> departure_funding(ship, company, estimate, limit)
+        case voyage_quote(ship, destination, catalogue, state.clock_ms, nil, protection) do
+          nil ->
+            {:error, {:departure_no_route, ship["port"], destination}}
+
+          estimate ->
+            if protection_accepted?(estimate, protection_limit) and
+                 (protection not in ["insurance", "both"] or
+                    estimate["protection_quote"]["insurance_available"]),
+               do: departure_funding(ship, company, estimate, limit),
+               else: {:error, :departure_protection_changed}
         end
     end
   end
 
+  defp protection_accepted?(quote, limit) do
+    cost = quote["protection_quote"]["cost"]
+    (is_nil(limit) and cost == 0) or (is_integer(limit) and limit >= cost and limit >= 0)
+  end
+
   defp departure_funding(ship, company, estimate, limit) do
     available = company["cash"] - company["reserved"]
-    required = estimate["fuel"] + estimate["canal_fees"]
+    required = estimate["fuel"] + estimate["canal_fees"] + estimate["protection_quote"]["cost"]
 
     cond do
       not is_integer(limit) or limit < 0 ->
@@ -432,7 +521,9 @@ defmodule TijaraTides.Domain.Fleet do
         {:error, {:departure_unpaid, company["unpaid"]}}
 
       available < required ->
-        {:error, {:departure_funds, estimate["fuel"], estimate["canal_fees"], available}}
+        {:error,
+         {:departure_funds, estimate["fuel"],
+          estimate["canal_fees"] + estimate["protection_quote"]["cost"], available}}
 
       true ->
         {:ok, ship, company, estimate}

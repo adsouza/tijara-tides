@@ -13,15 +13,42 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
       )
 
   @doc "Manual departures still honor an explicitly configured advance budget."
-  def manual_sail(state, account, ship_id, destination, limit, catalogue),
-    do:
-      settled(
+  def manual_sail(
         state,
+        account,
+        ship_id,
+        destination,
+        limit,
         catalogue,
-        &fund_manual_sail(&1, account, ship_id, destination, limit, catalogue)
-      )
+        protection \\ "none",
+        protection_limit \\ nil
+      ),
+      do:
+        settled(
+          state,
+          catalogue,
+          &fund_manual_sail(
+            &1,
+            account,
+            ship_id,
+            destination,
+            limit,
+            catalogue,
+            protection,
+            protection_limit
+          )
+        )
 
-  defp fund_manual_sail(state, account, ship_id, destination, limit, catalogue) do
+  defp fund_manual_sail(
+         state,
+         account,
+         ship_id,
+         destination,
+         limit,
+         catalogue,
+         protection,
+         protection_limit
+       ) do
     state = FinancialSettlement.settle(state, [account["company_id"]])
 
     ship = State.get(state, "ships", ship_id)
@@ -33,17 +60,45 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
 
       cond do
         amount == nil or spec.pre_reserved ->
-          Fleet.sail(state, account, ship_id, destination, limit, catalogue)
+          Fleet.sail(
+            state,
+            account,
+            ship_id,
+            destination,
+            limit,
+            catalogue,
+            protection,
+            protection_limit
+          )
 
         company["cash"] - company["reserved"] < amount or company["unpaid"] > 0 ->
           {:error, :insufficient_cash}
 
         true ->
           candidate = AutomationWorld.reserve_visit(state, spec, amount, false)
-          Fleet.sail(candidate, account, ship_id, destination, limit, catalogue)
+
+          Fleet.sail(
+            candidate,
+            account,
+            ship_id,
+            destination,
+            limit,
+            catalogue,
+            protection,
+            protection_limit
+          )
       end
     else
-      Fleet.sail(state, account, ship_id, destination, limit, catalogue)
+      Fleet.sail(
+        state,
+        account,
+        ship_id,
+        destination,
+        limit,
+        catalogue,
+        protection,
+        protection_limit
+      )
     end
   end
 
@@ -325,9 +380,13 @@ defmodule TijaraTides.Domain.Services.DepartureFunding do
   end
 
   @doc "Ship transitions whose funding consequences this coordinator owns."
-  def reroute(state, account, ship, destination, limit, catalogue),
+  def reroute(state, account, ship, destination, limit, catalogue, protection_limit \\ nil),
     do:
-      settled(state, catalogue, &Fleet.reroute(&1, account, ship, destination, limit, catalogue))
+      settled(
+        state,
+        catalogue,
+        &Fleet.reroute(&1, account, ship, destination, limit, catalogue, protection_limit)
+      )
 
   def change_onward(state, account, ship, port, onward, catalogue, auto_depart),
     do:

@@ -30,7 +30,7 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
   # reachable once probed, and one hid a duplicate DOM id.
   @excluded %{}
 
-  @scenarios ~w(base destination port_destination preview instruction instruction_buy queued sailing loading arrived exchange loan insolvent
+  @scenarios ~w(base destination port_destination preview protected_preview instruction instruction_buy queued sailing loading arrived exchange loan insolvent
                 route route_edit route_running route_waiting route_paused reservation renewal
                 luxury_open luxury_bid luxury_won luxury_award luxury_consigned no_company email
                 queued_trade guarantee_candidate)a
@@ -338,6 +338,16 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
   defp scenario(:port_destination, c), do: c |> base() |> Map.put(:port, "Singapore")
 
   defp scenario(:preview, c), do: c |> base() |> Map.put(:clicks, [preview("Singapore")])
+
+  defp scenario(:protected_preview, c),
+    do:
+      c
+      |> base()
+      |> Map.put(:clicks, [
+        preview("Busan"),
+        {"voyage-protection", %{"kind" => "guards"}},
+        {"voyage-protection", %{"kind" => "insurance"}}
+      ])
 
   defp scenario(:instruction, c) do
     ctx = base(c)

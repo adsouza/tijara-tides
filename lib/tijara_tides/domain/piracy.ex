@@ -147,6 +147,110 @@ defmodule TijaraTides.Domain.Piracy do
     }
   end
 
+  @doc "The departure model; diversions retain the purchased voyage's public rules."
+  def voyage_model(ship, catalogue) do
+    if get_in(ship, ["piracy", "model"]),
+      do: Map.put(ship["piracy"]["model"], "salt", get_in(catalogue, ["piracy", "salt"])),
+      else: model(catalogue)
+  end
+
+  def protection_settings(model),
+    do:
+      Map.merge(
+        %{
+          "guard_fee_bps" => 15,
+          "loading_pct" => 140,
+          "recovery_pct" => 80,
+          "minimum_premium" => 2500
+        },
+        (model || %{})["protection"] || %{}
+      )
+
+  @doc "Safe public prices from private attack timing, with only currently announced campaigns."
+  def protection_quotes(route, ship, departure, weather, model, previous \\ nil) do
+    snapshot = snapshot(route, model, ship["id"], departure, previous)
+    pending = (snapshot && snapshot["pending"]) || []
+    crossing_quotes(pending, ship, departure, weather, model)
+  end
+
+  @doc "Price an already snapshotted set of crossings without deriving new private timings."
+  def crossing_quotes(pending, ship, departure, weather, model) do
+    class = TijaraTides.Domain.ShipClass.all()[ship["class"]]
+    settings = protection_settings(model)
+
+    Map.new(~w(none guards insurance both), fn choice ->
+      guards = choice in ["guards", "both"]
+      insured = choice in ["insurance", "both"]
+
+      crossings =
+        Enum.map(pending, fn crossing ->
+          zone = model["zones"][crossing["zone"]]
+          kind = model["kinds"][zone["kind"]]
+          at = TijaraTides.Domain.Weather.time_at(weather, departure, crossing["attack_fraction"])
+
+          campaign =
+            campaign(crossing["zone"], div(max(0, at), model["campaign"]["period_ms"]), model)
+
+          public_campaign = campaign && campaign["announced_ms"] <= departure
+
+          quoted_model =
+            if public_campaign, do: model, else: put_in(model, ["campaign", "multiplier"], 1)
+
+          bps =
+            if suppressed?(crossing, departure, weather, model),
+              do: 0,
+              else: attack_bps(crossing["zone"], at, quoted_model, class["speed"], guards)
+
+          %{
+            "zone" => crossing["zone"],
+            "zone_name" => zone["name"],
+            "kind" => zone["kind"],
+            "label" => kind_label(zone["kind"]),
+            "mark" => kind["mark"],
+            "chance_bps" => bps,
+            "charge" => div(class["price"] * kind["charge_bps"], 10_000)
+          }
+        end)
+
+      expected =
+        Enum.sum(
+          for c <- crossings,
+              do: div(c["chance_bps"] * c["charge"] * settings["recovery_pct"], 1_000_000)
+        )
+
+      fee =
+        if guards,
+          do:
+            Enum.sum(
+              for c <- pending,
+                  do:
+                    div(
+                      class["price"] *
+                        (model["zones"][c["zone"]]["guard_fee_ppm"] ||
+                           settings["guard_fee_bps"] * 100),
+                      1_000_000
+                    )
+            ),
+          else: 0
+
+      premium =
+        if insured and pending != [],
+          do: max(settings["minimum_premium"], div(expected * settings["loading_pct"], 100)),
+          else: 0
+
+      {choice,
+       %{
+         "protection" => choice,
+         "crossings" => crossings,
+         "guard_fee" => fee,
+         "premium" => premium,
+         "cost" => fee + premium,
+         "recovery_pct" => settings["recovery_pct"],
+         "insurance_available" => pending != []
+       }}
+    end)
+  end
+
   @doc "Integer attack odds, with the campaign, guards and hull factors applied before the cap."
   def attack_bps(zone_id, at, model, speed, guards \\ false) do
     zone = model["zones"][zone_id]
@@ -217,12 +321,21 @@ defmodule TijaraTides.Domain.Piracy do
         is_integer(campaign["multiplier"]) and campaign["multiplier"] >= 1 and is_map(kinds) and
         Enum.sort(Map.keys(kinds)) == @kinds and Enum.all?(kinds, fn {_, k} -> kind?(k) end) and
         is_map(model["zones"]) and map_size(model["zones"]) > 0 and
-        Enum.all?(model["zones"], fn {_, z} -> zone?(z, kinds) end)
+        Enum.all?(model["zones"], fn {_, z} -> zone?(z, kinds) end) and protection_valid?(model)
 
     unless valid,
       do: raise(ArgumentError, "Piracy must have bounded campaigns and well-formed zones")
 
     model
+  end
+
+  defp protection_valid?(model) do
+    p = protection_settings(model)
+
+    p["guard_fee_bps"] in 0..10_000 and p["recovery_pct"] in 0..100 and
+      is_integer(p["loading_pct"]) and p["loading_pct"] >= 100 and p["loading_pct"] <= 1000 and
+      is_integer(p["minimum_premium"]) and p["minimum_premium"] >= 0 and
+      p["minimum_premium"] <= 1_000_000_000
   end
 
   defp kind?(k),
@@ -235,7 +348,9 @@ defmodule TijaraTides.Domain.Piracy do
     do:
       is_map(z) and is_binary(z["name"]) and Map.has_key?(kinds, z["kind"]) and
         z["chance_bps"] in 0..10_000 and z["campaign_bps"] in 0..10_000 and
-        z["guard_pct"] in 0..100 and is_list(z["campaign_names"]) and z["campaign_names"] != [] and
+        z["guard_pct"] in 0..100 and
+        (is_nil(z["guard_fee_ppm"]) or z["guard_fee_ppm"] in 0..1_000_000) and
+        is_list(z["campaign_names"]) and z["campaign_names"] != [] and
         Enum.all?(z["campaign_names"], &is_binary/1) and polygon?(z["polygon"]) and
         point?(z["label"])
 

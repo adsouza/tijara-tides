@@ -3,6 +3,35 @@ defmodule TijaraTidesWeb.PiracyPresentationTest do
   import Phoenix.LiveViewTest
   alias TijaraTidesWeb.GameUI.Presentation
 
+  test "protection controls and retained cover render in English and Arabic" do
+    {state, cat} = TijaraTides.CommandFuzzer.fixture()
+    ship = state.entities["ships"]["company:1"] |> Map.put("port", "Tangier")
+    quote = TijaraTides.Domain.Fleet.voyage_quote(ship, "Athens", cat, 0, nil, "both")
+
+    for {locale, guards, insurance} <- [
+          {"en", "Armed guards", "Voyage insurance"},
+          {"ar", "حراس مسلحون", "تأمين الرحلة"}
+        ] do
+      html =
+        TijaraTides.Localization.with_locale(locale, fn ->
+          render_component(&Presentation.protection_quote/1, quote: quote)
+        end)
+
+      assert html =~ guards
+      assert html =~ insurance
+      assert html =~ ~s(aria-checked="true")
+      assert html =~ "🏴‍☠️"
+
+      sailing =
+        TijaraTides.Localization.with_locale(locale, fn ->
+          render_component(&Presentation.protection_quote/1, quote: quote, sailing: true)
+        end)
+
+      refute sailing =~ ~s(phx-click="voyage-protection")
+      assert sailing =~ guards
+    end
+  end
+
   test "both marks accompany a readable localized held label, with no charge on the public status" do
     for {kind, mark, label, arabic} <- [
           {"piracy", "🏴‍☠️", "Held by pirates", "محتجز لدى القراصنة"},

@@ -708,6 +708,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
                 released: money(@preview["released_fuel"])
               )}
             </p>
+            <.protection_quote :if={@preview} quote={@preview} sailing={@ship["status"] == "sailing"} />
             <div :if={@preview} id="voyage-preview" class="mt-3 flex flex-wrap items-center gap-3">
               <span>
                 {gettext(
@@ -740,7 +741,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
             </div>
             <p :if={@preview} class="text-xs text-slate-400">
               {gettext(
-                "Departure reserves fuel and canal fees only. Crew and maintenance accrue as the voyage runs and become unpaid bills if available cash falls short."
+                "Departure reserves fuel and pays canal fees and selected protection. Crew and maintenance accrue as the voyage runs and become unpaid bills if available cash falls short."
               )}
             </p>
             <.voyage_freshness

@@ -284,10 +284,34 @@ price and never from the manifest. New ledger codes join `@expenses` in both
 
 All three report as operating costs.
 
-**Armed guards** are chosen at dispatch. The fee is 15 bps of class price per
-zone crossed (provisional; $60 per zone for a balanced freighter). It is
-expensed at departure like canal fees (`{"cash_available", -fee}`,
-`{"piracy_guard_expense", fee}`), after the same affordability check.
+**Armed guards** are chosen at dispatch. The calibrated fee varies by zone and
+scales with class price. Each zone stores integer `guard_fee_ppm`; the fee per
+crossing is `div(class_price * guard_fee_ppm, 1_000_000)`. It is expensed at
+departure like canal fees (`{"cash_available", -fee}`, `{"piracy_guard_expense",
+fee}`), after the same affordability check.
+
+| Zone | Fee in millionths of class price | Balanced freighter |
+|---|---:|---:|
+| Red Sea | 150 | $6.00 |
+| Gulf of Aden | 1440 | $57.60 |
+| Malacca Strait | 45 | $1.80 |
+| South China Sea | 360 | $14.40 |
+| Singapore Strait | 180 | $7.20 |
+| English Channel | 240 | $9.60 |
+| Barbary Coast | 360 | $14.40 |
+| Caribbean Sea | 480 | $19.20 |
+
+The original flat 15 bps fee overcharged low-risk zones. The calibration script
+checks all 40 class/zone pairs: base prevented charges plus idle crew cost stay
+within 0.75–1.3 times the fee, campaign prevented costs exceed 2.5 times the
+fee, and insurance loading covers a conservative unannounced campaign duty
+cycle. Insurance transfers monetary risk at a loaded price; its expected payout
+alone does not exceed its premium. The script reads the generated catalogue
+without starting the application or touching storage.
+
+```sh
+mix run --no-start scripts/calibrate-piracy.exs
+```
 
 **Insurance** is chosen at dispatch and covers the voyage. Its premium is:
 
@@ -300,7 +324,10 @@ The premium is expensed at departure to `piracy_premium_expense`. Insurance is
 not offered on a route that crosses no zone. The quoted chance applies the roll
 formula to each crossing's forecast attack time. The campaign term there counts
 only campaigns active or announced at dispatch whose window covers that attack
-time. The premium deliberately uses public information only: a campaign
+time. Known storm suppression sets a quoted chance to zero. The server computes
+the private attack timing and returns only zone, chance, charge and price;
+preview responses never expose fractions, rolls, salt or the voyage model.
+The premium deliberately uses public campaign information only: a campaign
 announced after dispatch is the insurer's risk, and the calibration script
 accounts for it. Insurance covers money, not time.
 

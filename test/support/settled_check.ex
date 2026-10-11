@@ -104,7 +104,49 @@ defmodule TijaraTides.SettledCheck do
           do: [{:piracy, :held_diversion, ship["id"]}],
           else: []
 
-      money ++ motion
+      protection = ship["piracy"]
+      new_voyage = changed && protection && ship["status"] == "sailing"
+
+      protected =
+        if new_voyage do
+          terms =
+            TijaraTides.Domain.Piracy.crossing_quotes(
+              protection["pending"],
+              ship,
+              ship["depart_ms"],
+              ship["weather"],
+              protection["model"]
+            )[protection["protection"]]
+
+          entries =
+            for e <- events,
+                e.ship == ship["id"] and e.kind in ["departure", "reroute"],
+                entry <- e.entries,
+                elem(entry, 0) in ["piracy_guard_expense", "piracy_premium_expense"],
+                do: entry
+
+          expected =
+            Enum.reject(
+              [
+                {"piracy_guard_expense", terms["guard_fee"]},
+                {"piracy_premium_expense", terms["premium"]}
+              ],
+              &(elem(&1, 1) == 0)
+            )
+
+          # Legacy voyages have no purchased protection. Otherwise diversion cannot change it.
+          retained =
+            old["status"] != "sailing" || is_nil(old["piracy"]) ||
+              old["piracy"]["protection"] == protection["protection"]
+
+          if Enum.sort(entries) == Enum.sort(expected) && retained,
+            do: [],
+            else: [{:piracy, :protection_posting, ship["id"]}]
+        else
+          []
+        end
+
+      money ++ motion ++ protected
     end)
   end
 

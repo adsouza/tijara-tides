@@ -115,7 +115,12 @@ defmodule TijaraTides.Domain.Services.VoyageHazards do
 
       charge = if outcome == "hit", do: div(class["price"] * kind["charge_bps"], 10_000), else: 0
       insured = ship["piracy"]["protection"] in ["insurance", "both"]
-      recovery = if insured, do: div(charge * 80, 100), else: 0
+
+      recovery =
+        if insured,
+          do: div(charge * Piracy.protection_settings(model)["recovery_pct"], 100),
+          else: 0
+
       starts = max(at, ship["last_cost_ms"])
       key = "piracy:" <> id <> ":" <> to_string(crossing["index"])
 

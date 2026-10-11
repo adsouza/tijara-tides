@@ -89,6 +89,11 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     assigns = assign(assigns, :records, GameQueries.piracy_records(assigns.ship))
 
     ~H"""
+    <p :if={@ship["piracy"]} class="voyage-protection my-2 text-xs text-amber-200">
+      {gettext("Voyage protection: %{protection}",
+        protection: protection_name(@ship["piracy"]["protection"])
+      )}
+    </p>
     <ul
       :if={@records != []}
       class="piracy-history my-2 text-xs text-amber-200"
@@ -108,6 +113,89 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
     </ul>
     """
   end
+
+  attr :quote, :map, required: true
+  attr :sailing, :boolean, default: false
+
+  def protection_quote(assigns) do
+    assigns = assign(assigns, :terms, assigns.quote["protection_quote"])
+
+    ~H"""
+    <div id="voyage-protection" class="mt-3 rounded border border-amber-700 p-3 text-sm">
+      <p>{gettext("Protection: %{cost}", cost: TijaraTides.Localization.money(@terms["cost"], 2))}</p>
+      <ul>
+        <li :for={crossing <- @terms["crossings"]}>
+          <.emoji symbol={crossing["mark"]} />{l10n(crossing["label"])} · {l10n(crossing["zone_name"])}
+          {gettext("Chance %{chance}%; charge at stake %{charge}.",
+            chance: TijaraTides.Localization.number(crossing["chance_bps"] / 100),
+            charge: TijaraTides.Localization.money(crossing["charge"])
+          )}
+        </li>
+      </ul>
+      <div :if={!@sailing && @terms["crossings"] != []} class="mt-2 flex gap-3">
+        <button
+          id="voyage-guards"
+          type="button"
+          role="checkbox"
+          aria-checked={to_string(@terms["protection"] in ["guards", "both"])}
+          phx-click="voyage-protection"
+          phx-value-kind="guards"
+          class="rounded border p-2"
+        >
+          {gettext("Armed guards · %{cost}",
+            cost:
+              TijaraTides.Localization.money(@quote["protection_options"]["guards"]["guard_fee"], 2)
+          )}
+        </button>
+        <button
+          :if={@terms["insurance_available"]}
+          id="voyage-insurance"
+          type="button"
+          role="checkbox"
+          aria-checked={to_string(@terms["protection"] in ["insurance", "both"])}
+          phx-click="voyage-protection"
+          phx-value-kind="insurance"
+          class="rounded border p-2"
+        >
+          {gettext("Voyage insurance · %{cost}",
+            cost:
+              TijaraTides.Localization.money(
+                @quote["protection_options"][
+                  if(@terms["protection"] in ["guards", "both"], do: "both", else: "insurance")
+                ]["premium"],
+                2
+              )
+          )}
+        </button>
+      </div>
+      <p :if={@sailing}>
+        {gettext("Protection retained: %{protection}. Prices cover new crossings only.",
+          protection: protection_name(@terms["protection"])
+        )}
+      </p>
+      <p :if={@terms["insurance_available"]} class="mt-2 text-xs">
+        {gettext("Insurance covers %{percent}% of attack charges. Holds still delay the voyage.",
+          percent: TijaraTides.Localization.number(@terms["recovery_pct"])
+        )}
+      </p>
+      <p class="mt-2">
+        {gettext("Required now: %{cost}",
+          cost:
+            TijaraTides.Localization.money(
+              (@quote["additional_fuel"] || @quote["fuel"]) - (@quote["released_fuel"] || 0) +
+                @quote["canal_fees"] + @terms["cost"],
+              2
+            )
+        )}
+      </p>
+    </div>
+    """
+  end
+
+  defp protection_name("guards"), do: gettext("Armed guards")
+  defp protection_name("insurance"), do: gettext("Voyage insurance")
+  defp protection_name("both"), do: gettext("Armed guards and voyage insurance")
+  defp protection_name(_), do: gettext("None")
 
   defp piracy_outcome("hit"), do: gettext("Attacked")
   defp piracy_outcome("missed"), do: gettext("Passed safely")
@@ -347,6 +435,14 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         value3: money(required)
       )
 
+  def error_message(:departure_protection_invalid), do: gettext("Choose valid voyage protection.")
+
+  def error_message(:departure_protection_changed),
+    do:
+      gettext(
+        "Protection prices changed or insurance is unavailable. Review the voyage and confirm again."
+      )
+
   def error_message({:departure_no_route, from, destination}),
     do:
       gettext(
@@ -392,7 +488,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
       value1: dollars(needed),
       value2: dollars(fuel_dollars)
     ) <>
-      gettext("%{value1} in canal fees. You have %{value2} available ",
+      gettext("%{value1} in canal fees and protection. You have %{value2} available ",
         value1: dollars(canal_dollars),
         value2: dollars(held)
       ) <>
@@ -466,7 +562,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         gettext("No berth is available for this transfer. Try again when a berth is free."),
       reroute_funds:
         gettext(
-          "Additional fuel or canal fees cannot be funded. The existing voyage is unchanged."
+          "Additional fuel, canal fees or protection cannot be funded. The existing voyage is unchanged."
         ),
       held_by_pirates: gettext("Wait for the attack hold to end before diverting this ship."),
       reroute_invalid:

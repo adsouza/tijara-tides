@@ -2212,7 +2212,12 @@ Some sea lanes carry a published risk of attack. An attacked ship is held for
 a period and its owner pays a ransom or repair bill; cargo stays aboard and
 continues to age. Armed guards lower the chance of attack and voyage insurance
 reimburses most of the charge. Zone threat, campaigns and protection prices
-are public before dispatch.
+are public before dispatch. Protection is optional and defaults to none for
+manual dispatch. Insurance reimburses 80% of attack charges and covers money,
+while holds still delay the voyage. Guards and premiums are paid at departure,
+and their prices join fuel and canals in the funding check. Diversions retain
+purchased protection, charge only newly crossed zones and refund nothing for
+zones dropped from the route.
 
 Fuel is an automatically calculated voyage expense based on ship efficiency,
 distance, and cargo load. Show the estimate and reserve the necessary cash before

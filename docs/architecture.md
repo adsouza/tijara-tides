@@ -1281,7 +1281,17 @@ militia ignores storms. Charges preserve fuel reservations and create operating
 bills for unpaid balances. Incidents, notices, journal and movement commit in the
 same world transaction. Public pause records expose kind, zone and countdown,
 while charge and recovery remain private. The test-only settled oracle checks
-incident postings, unique crossing indices and held-voyage command immutability.
+incident postings, protection payments and retained diversion coverage, unique
+crossing indices and held-voyage command immutability.
+
+`Piracy.protection_quotes/6` prices private snapshotted attack timings against
+the public campaigns announced at departure. `Fleet` exposes safe quote options
+to authenticated preview queries and calls the same function for departure and
+diversion admission. Commands validate protection choices and price ceilings
+before posting guard and premium expenses through `CompanyFinanceWorld`. The
+purchased choice and recovery parameters live in the voyage snapshot; diversions
+reuse them, and skip continued crossings. No quote returns attack fractions or
+private rolls.
 
 Route editor warehouse options are prepared per stop and cargo by
 `ShipPlanningQueries`, using `Warehouse.receiving_allowed?` with the committed

@@ -16,7 +16,7 @@ defmodule TijaraTides.UseCases.CommandPayload do
       ~w(order quantity price expires_ms min_grade min_remaining_ms markdowns price_floor preset rebase),
     "exchange_cancel" => ~w(order),
     "plan_destination" => ~w(ship destination),
-    "reroute" => ~w(ship destination fuel_limit),
+    "reroute" => ~w(ship destination fuel_limit protection_limit),
     "warehouse_reserve" => ~w(warehouse ship good quantity kind stop_id),
     "warehouse_cancel_reservation" => ~w(reservation),
     "warehouse_replace" => ~w(warehouse days price),
@@ -45,7 +45,7 @@ defmodule TijaraTides.UseCases.CommandPayload do
     "invite" => [],
     "buy" => ~w(ship good quantity limit destination),
     "sell" => ~w(ship good quantity limit destination),
-    "sail" => ~w(ship destination fuel_limit)
+    "sail" => ~w(ship destination fuel_limit protection protection_limit)
   }
   @route_fields %{
     "add_stop" => ~w(port),

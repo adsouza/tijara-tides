@@ -1231,8 +1231,25 @@ consistent. Later attacks are timed again after each hold. Unpaid charges become
 operating bills without spending reserved fuel; receivership ships are exempt.
 Legacy voyages are exempt until diversion, resolved crossings survive diversion,
 and a held ship cannot divert. English and Arabic held status is public; crossing
-outcomes, charges and structured notices are private to the owner. Guards,
-insurance purchases and route-plan protection remain phases 3 and 4.
+outcomes, charges and structured notices are private to the owner.
+
+Phase 3 adds optional guards and insurance at manual dispatch. The authenticated
+server preview offers all four protection choices from the same pure quote the
+command accepts, using private attack timing and public campaign announcements.
+Prices include known storm suppression and the class factor. Guards lower attack
+odds; insurance reimburses 80% of monetary charges, with a $25 minimum premium
+and 1.4 loading. Immediate affordability includes protection, fuel and canals,
+and a protection price ceiling prevents silently accepting a larger bill. Owner
+controls and retained coverage render in English and Arabic. Diversions keep
+protection and charge only new pending crossings, with no refunds for dropped
+zones or fees for continued zones.
+
+Guard fees vary by zone and scale with hull price. The calibration script checks
+all 40 hull/zone pairs and the conservative unannounced campaign exposure. Pure
+contract tests cover exact funding and one-cent shortfalls; SQL/LiveView tests
+cover toggles, journal postings, receipt replay, restart and insured recovery.
+The settled oracle checks protection postings and retained diversion coverage.
+Route-plan protection and automated funding remain phase 4.
 
 Migration `20261011000000_add_voyage_piracy.exs` adds nullable `game_ships.piracy`
 and the three piracy expense accounts. Production derives a private salt from

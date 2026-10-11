@@ -3674,6 +3674,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
   test "instruction expiry UI preserves drafts, receipts and deadlines across offline restart",
        c do
+    # Exact countdown assertions use the server's clock seam; UI and SQL work
+    # must not become extra elapsed voyage time when the helper sends a tick.
+    :sys.replace_state(c.server, fn state ->
+      %{state | monotonic_clock: fn -> 0 end, last_mono: 0}
+    end)
+
     Application.put_env(:tijara_tides, :game_server, c.server)
     on_exit(fn -> Application.delete_env(:tijara_tides, :game_server) end)
 
@@ -3775,7 +3781,12 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     replacement =
       start_supervised!(
-        {GameServer, name: nil, enabled: true, world_id: c.world_id, tick_ms: 86_400_000},
+        {GameServer,
+         name: nil,
+         enabled: true,
+         world_id: c.world_id,
+         tick_ms: 86_400_000,
+         monotonic_clock: fn -> 0 end},
         id: :expiry_replacement
       )
 
