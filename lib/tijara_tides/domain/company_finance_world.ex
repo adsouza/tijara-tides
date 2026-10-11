@@ -127,6 +127,27 @@ defmodule TijaraTides.Domain.CompanyFinanceWorld do
     |> operating_bill(company_id, upkeep - paid, state.clock_ms)
   end
 
+  @doc "Charge an incident's net cost; fuel reservations remain backed even with no free cash."
+  def piracy_charge(state, company_id, ship_id, charge, recovery) do
+    company = get(state, "companies", company_id) |> Rows.decode()
+    net = charge - recovery
+    paid = min(net, available(company))
+
+    state
+    |> post(
+      company_id,
+      "piracy",
+      [
+        {"piracy_charge_expense", charge},
+        {"piracy_charge_expense", -recovery},
+        {"cash_available", -paid},
+        {"payables", -(net - paid)}
+      ],
+      %{ship: ship_id}
+    )
+    |> operating_bill(company_id, net - paid, state.clock_ms)
+  end
+
   @terms CompanyFinance.terms()
   def rate(state, account), do: CompanyFinance.rate(counted(state, account))
   def credit_limit(state, account), do: CompanyFinance.credit_limit(counted(state, account))

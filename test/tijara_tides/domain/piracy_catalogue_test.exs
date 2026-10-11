@@ -49,7 +49,9 @@ defmodule TijaraTides.Domain.PiracyCatalogueTest do
     assert model["zones"]["red_sea"]["kind"] == "militia"
     assert model["kinds"]["militia"]["mark"] == "💥"
     assert model["kinds"]["piracy"]["mark"] == "🏴‍☠️"
-    refute Map.has_key?(model, "salt")
+    generated = File.read!("priv/game/catalogue.json") |> Jason.decode!()
+    refute Map.has_key?(generated["piracy"], "salt")
+    refute Map.has_key?(GameCatalogue.public()["piracy"], "salt")
 
     for {id, zone} <- model["zones"] do
       for {port, %{"coordinates" => point}} <- catalogue["ports"],

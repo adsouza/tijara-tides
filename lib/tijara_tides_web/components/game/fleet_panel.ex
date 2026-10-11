@@ -434,6 +434,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               public={@view.public}
               reason={get_in(@view.private, ["queued_trade_status", @ship["id"]])}
             />
+            <.piracy_history ship={@ship} />
             <% ship_value =
               GameQueries.ship_sale_value(
                 @ship,

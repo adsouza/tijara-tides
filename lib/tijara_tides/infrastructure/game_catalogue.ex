@@ -14,6 +14,7 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
   def all do
     piracy = Map.merge(@catalogue["piracy"], Application.get_env(:tijara_tides, :piracy, %{}))
     TijaraTides.Domain.Piracy.validate!(piracy)
+    TijaraTides.Domain.Piracy.validate_salt!(piracy)
 
     @catalogue
     |> Map.update!("weather", &Map.merge(&1, Application.get_env(:tijara_tides, :weather, %{})))
@@ -31,5 +32,10 @@ defmodule TijaraTides.Infrastructure.GameCatalogue do
         "dormancy" => Application.get_env(:tijara_tides, :dormancy, %{})
       })
     )
+  end
+
+  def public do
+    catalogue = all()
+    Map.update!(catalogue, "piracy", &Map.delete(&1, "salt"))
   end
 end

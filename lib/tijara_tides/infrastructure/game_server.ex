@@ -114,7 +114,7 @@ defmodule TijaraTides.Infrastructure.GameServer do
 
   def definitions,
     do: %{
-      catalogue: GameCatalogue.all(),
+      catalogue: GameCatalogue.public(),
       land: GameCatalogue.land(),
       regional_land: GameCatalogue.regional_land(),
       classes: Game.classes()

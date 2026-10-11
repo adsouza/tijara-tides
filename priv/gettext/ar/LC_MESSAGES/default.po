@@ -3177,3 +3177,48 @@ msgstr "إظهار الشركات المغلقة"
 #, elixir-format
 msgid "Closed company"
 msgstr "شركة مغلقة"
+
+msgid "%{kind} in %{zone}: %{minutes} min remaining. Fuel use is paused; cargo continues aging."
+msgstr "%{kind} في %{zone}: %{minutes} دقيقة متبقية. استهلاك الوقود متوقف؛ وتستمر البضائع في التقادم."
+
+msgid "%{mark} %{ship}: %{kind} in %{zone} for %{minutes} min. Charge %{charge}; recovery %{recovery}. Cargo stays aboard and continues aging."
+msgstr "%{mark} %{ship}: %{kind} في %{zone} لمدة %{minutes} دقيقة. الرسوم %{charge}؛ والتعويض %{recovery}. تبقى البضائع على متن السفينة وتستمر في التقادم."
+
+msgid "%{ship} will cross %{zone}, where %{campaign} has been announced. Attack risk is elevated during the campaign."
+msgstr "ستعبر %{ship} منطقة %{zone}، حيث أُعلن عن %{campaign}. يرتفع خطر الهجوم أثناء الحملة."
+
+msgid "Attacked"
+msgstr "تعرّضت لهجوم"
+
+msgid "Boarded and robbed"
+msgstr "تم الصعود إليها وسرقتها"
+
+msgid "Charge %{charge}; recovery %{recovery}."
+msgstr "الرسوم %{charge}؛ والتعويض %{recovery}."
+
+msgid "Continuing an already resolved crossing"
+msgstr "استمرار عبور حُسمت نتيجته بالفعل"
+
+msgid "Held by pirates"
+msgstr "محتجز لدى القراصنة"
+
+msgid "Passed safely"
+msgstr "عبرت بسلام"
+
+msgid "Receivership exemption"
+msgstr "إعفاء أثناء التصفية"
+
+msgid "Repairing strike damage"
+msgstr "إصلاح أضرار الضربة"
+
+msgid "Rough seas kept the raiders away"
+msgstr "أبعد البحر الهائج المغيرين"
+
+msgid "Seized by a pirate fleet"
+msgstr "استولى عليها أسطول قراصنة"
+
+msgid "Voyage attack outcomes"
+msgstr "نتائج هجمات الرحلة"
+
+msgid "Wait for the attack hold to end before diverting this ship."
+msgstr "انتظر انتهاء احتجاز الهجوم قبل تغيير مسار هذه السفينة."

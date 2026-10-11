@@ -145,7 +145,8 @@ Algiers corsairs and Barbarossa's fleet for the Barbary Coast. The model is
 validated when the catalogue is loaded: a warning plus duration that does not
 fit within the period, a chance outside 0..10,000 basis points, a polygon with
 fewer than three vertices, or a missing salt in production fails startup and
-never reaches a tick.
+never reaches a tick. Each kind's hold must be positive and at most one day,
+preventing an unbounded runtime override from overflowing stored arrival times.
 
 ### Visibility
 
@@ -163,8 +164,11 @@ At departure the ship's path is partitioned at zone boundaries in the manner of
 `{index, zone, from_fraction, attack_fraction, into_fraction}`. The attack
 fraction is seeded between `from_fraction` and `into_fraction` from the salt,
 ship id, `depart_ms` and index. The list is snapshotted in `ships.piracy`
-together with the protection bought. Catalogue changes never alter a voyage
-underway.
+together with the protection bought, a copy of the model without the salt, and
+each crossing's precomputed private roll. This keeps the salt out of durable and
+player-visible state and preserves underway outcomes across secret rotation.
+Owner projections omit the model, pending rolls and attack fractions. Catalogue
+changes never alter a voyage underway.
 
 **Legacy voyages.** Ships already sailing when phase 2 deploys have no snapshot.
 They are never attacked and carry no protection. A diversion of a legacy voyage
@@ -414,10 +418,12 @@ the other. Roots never call `Services.*`.
 
 ### Persistence
 
-One migration adds `ships.piracy` (JSON: protection, pending crossings, resolved
-records, incidents) and the `piracy_campaigns` table. Row codecs write complete
-rows. `PiracyWorld` joins the table-ownership boundary tests in `test/docs/`. On
-arrival the ship's `piracy` snapshot is cleared with its weather snapshot.
+Phase 1 already added the `piracy_campaigns` table. Phase 2 adds nullable
+`ships.piracy` (JSON: model without salt, protection, pending crossings and
+private rolls, resolved records, incidents) and the three piracy expense
+accounts in one migration. Row codecs write complete rows. `PiracyWorld` joins
+the table-ownership boundary tests in `test/docs/`. On arrival the ship's
+`piracy` snapshot is cleared with its weather snapshot.
 
 ### Tick safety
 

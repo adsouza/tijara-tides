@@ -1243,7 +1243,7 @@ check cannot halt a world.
 
 `WeatherWorld` owns at most one durable current storm row per geographic sector.
 The pure `Weather` model derives deterministic windows and partitions supplied
-sea geometry. `Services.WeatherDelays` reconciles warnings and calls the named
+sea geometry. `Services.VoyageHazards` reconciles warnings and calls the named
 `ShipWorld.apply_weather` transition before fleet cost settlement. Only the
 Ship root changes accepted path, forecast and arrival terms. Its pause timeline
 is the shared authority for navigation, fuel and crew settlement; read-side
@@ -1258,10 +1258,30 @@ the world clock in the existing atomic tick transaction.
 campaign row per zone. The pure `Piracy` model derives campaign windows from
 the catalogue seed; every rule that depends on a campaign calls
 `Piracy.campaign_active?/3` at the time in question, and the rows are a public
-projection read only by queries. `Simulation` refreshes the projection after
-weather on every tick and at initialization. `GameCatalogue.all/0` merges the
-`:piracy` runtime configuration and validates the model before the server
-starts.
+projection read only by queries. `VoyageHazards` refreshes weather and the
+projection before movement on every tick; `Simulation.initialize` refreshes
+both at startup. `GameCatalogue.all/0` merges the `:piracy` runtime
+configuration and validates the model before the server starts.
+
+`ShipWorld` owns the nullable voyage `piracy` snapshot: model, protection,
+pending crossings, private rolls, resolved records and absolute-time incidents.
+The salt remains in server configuration; departure precomputes each roll and
+attack fraction, and neither the durable model nor public definitions contain
+the salt. Owner projections omit the model and pending roll/fraction data.
+Legacy voyages remain exempt until diverted. Diversions retain resolved records
+and incidents, discard obsolete pending fractions, continue indices and skip a
+new roll when still inside a resolved zone. A current incident forbids diversion.
+
+`Ship.timeline/7` builds one forecast for storms and recorded incidents;
+`apply_weather` and attack resolution share it. `VoyageHazards` resolves the next
+due crossing, records its outcome through `ShipWorld`, posts any charge through
+`CompanyFinanceWorld`, then forecasts again before considering later crossings.
+Small-boat attacks are suppressed by eligible storms between entry and attack;
+militia ignores storms. Charges preserve fuel reservations and create operating
+bills for unpaid balances. Incidents, notices, journal and movement commit in the
+same world transaction. Public pause records expose kind, zone and countdown,
+while charge and recovery remain private. The test-only settled oracle checks
+incident postings, unique crossing indices and held-voyage command immutability.
 
 Route editor warehouse options are prepared per stop and cargo by
 `ShipPlanningQueries`, using `Warehouse.receiving_allowed?` with the committed

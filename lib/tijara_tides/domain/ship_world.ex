@@ -175,15 +175,29 @@ defmodule TijaraTides.Domain.ShipWorld do
 
   def cargo_available(state, id, good), do: Ship.cargo_available(hull(state, id), good)
 
-  def depart(state, id, destination, estimate, speedup),
+  def depart(state, id, destination, estimate, speedup, catalogue \\ %{}) do
+    ship = Ship.begin_voyage(hull(state, id), destination, estimate, state.clock_ms, speedup)
+    store(state, Ship.snapshot_piracy(ship, TijaraTides.Domain.Piracy.model(catalogue)))
+  end
+
+  def reroute(state, id, destination, quote, paid, catalogue \\ %{}) do
+    previous = hull(state, id)
+
+    model =
+      if previous.piracy,
+        do: Map.put(previous.piracy["model"], "salt", catalogue["piracy"]["salt"]),
+        else: TijaraTides.Domain.Piracy.model(catalogue)
+
+    ship = Ship.reroute(previous, destination, quote, paid, state.clock_ms)
+    store(state, Ship.snapshot_piracy(ship, model, previous.piracy))
+  end
+
+  def record_crossing(state, id, index, outcome, incident, charge, recovery),
     do:
       store(
         state,
-        Ship.begin_voyage(hull(state, id), destination, estimate, state.clock_ms, speedup)
+        Ship.record_crossing(hull(state, id), index, outcome, incident, charge, recovery)
       )
-
-  def reroute(state, id, destination, quote, paid),
-    do: store(state, Ship.reroute(hull(state, id), destination, quote, paid, state.clock_ms))
 
   def apply_weather(state, id, catalogue, elapsed, speedup) do
     ship = hull(state, id)

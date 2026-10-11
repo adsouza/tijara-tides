@@ -252,7 +252,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
           {"last_cost_ms", "last_cost_ms"},
           {"last_liquid", "last_liquid_good_id"},
           {"voyage_speedup", "voyage_speedup"},
-          {"weather", "weather"}
+          {"weather", "weather"},
+          {"piracy", "piracy"}
         ],
     "markets" => [
       {"feedstock", "feedstock"},
@@ -347,7 +348,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     "exchange_orders" => ~w(initial_price markdowns),
     "auctions" => ~w(ship_id liquidation_id expires_ms),
     "ships" =>
-      ~w(acquired_ms acquisition_value planned_destination weather paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination),
+      ~w(acquired_ms acquisition_value planned_destination weather piracy paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination),
     "invitations" => ["invitee"]
   }
 

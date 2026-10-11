@@ -24,6 +24,8 @@ defmodule TijaraTides.NoticeContracts do
       "ship.departed" => ~w(ship port destination),
       "ship.departure_wait" => ~w(ship destination reason),
       "ship.weather" => ~w(ship destination minutes),
+      "ship.piracy" => ~w(ship zone kind mark minutes charge recovery),
+      "ship.piracy_campaign" => ~w(ship zone campaign),
       "funding.timeout" => ~w(ship),
       "instruction.updated" => ~w(ship port side cargo filled quantity reason),
       "route.paused" => ~w(reason),
@@ -47,6 +49,12 @@ defmodule TijaraTides.NoticeContracts do
       "ship" => "Fixture vessel",
       "port" => "Fixture port",
       "destination" => "Fixture destination",
+      "zone" => "Barbary Coast",
+      "kind" => "Held by pirates",
+      "mark" => "🏴‍☠️",
+      "campaign" => "Algiers corsairs",
+      "charge" => 100_000,
+      "recovery" => 80_000,
       "reason" => "Insufficient fuel funding",
       "side" => "buy",
       "cargo" => "lumber",
@@ -83,10 +91,10 @@ defmodule TijaraTides.NoticeContracts do
 
           expected =
             cond do
-              key in ~w(price loss refund grace_rate liquidation_rate) ->
+              key in ~w(price loss refund grace_rate liquidation_rate charge recovery) ->
                 Localization.money(value)
 
-              key == "minutes" and code == "ship.weather" ->
+              key == "minutes" and code in ["ship.weather", "ship.piracy"] ->
                 Localization.number(value, format: "0.0")
 
               is_number(value) and key != "deadline" ->

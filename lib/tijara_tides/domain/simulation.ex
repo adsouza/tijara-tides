@@ -20,14 +20,13 @@ defmodule TijaraTides.Domain.Simulation do
   def advance(state, elapsed, catalogue, measure) when is_integer(elapsed) and elapsed >= 0 do
     phases = [
       finance_before: &TijaraTides.Domain.Services.FinancialSettlement.settle/1,
-      weather:
-        &TijaraTides.Domain.Services.WeatherDelays.advance(
+      voyage_hazards:
+        &TijaraTides.Domain.Services.VoyageHazards.advance(
           &1,
           elapsed,
           catalogue,
           Fleet.voyage_speedup()
         ),
-      piracy: &TijaraTides.Domain.PiracyWorld.refresh(&1, catalogue),
       fleet: &Fleet.advance(&1, elapsed),
       instruction_expiry:
         &TijaraTides.Domain.Services.DepartureFunding.expire_instructions(&1, catalogue),

@@ -49,24 +49,71 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
 
   def weather_notice(assigns) do
     assigns = assign(assigns, :wait, GameQueries.weather_wait(assigns.ship, assigns.clock))
+    assigns = assign(assigns, :storm_delay, GameQueries.storm_delay(assigns.ship))
 
     ~H"""
-    <p :if={@ship["status"] == "sailing" and @wait} class="weather-wait text-xs text-amber-300">
+    <p
+      :if={@ship["status"] == "sailing" and is_map(@wait) and @wait.source == "weather"}
+      class="weather-wait text-xs text-amber-300"
+    >
       <.emoji symbol="🌧️" />{gettext(
         "Waiting for regional weather: %{minutes} min. Fuel use is paused; cargo continues aging.",
-        minutes: minutes(@wait)
+        minutes: minutes(@wait.remaining_ms)
       )}
     </p>
     <p
-      :if={@ship["status"] == "sailing" and (get_in(@ship, ["weather", "delay_ms"]) || 0) > 0}
+      :if={@ship["status"] == "sailing" and is_map(@wait) and @wait.source == "piracy"}
+      class="piracy-wait text-xs text-amber-300"
+    >
+      <.emoji symbol={@wait.mark} />{gettext(
+        "%{kind} in %{zone}: %{minutes} min remaining. Fuel use is paused; cargo continues aging.",
+        kind: l10n(@wait.label),
+        zone: l10n(@wait.zone),
+        minutes: minutes(@wait.remaining_ms)
+      )}
+    </p>
+    <p
+      :if={@ship["status"] == "sailing" and @storm_delay > 0}
       class="weather-delay text-xs text-amber-300"
     >
       {gettext("Weather added %{minutes} min to this voyage's arrival estimate.",
-        minutes: minutes(@ship["weather"]["delay_ms"])
+        minutes: minutes(@storm_delay)
       )}
     </p>
     """
   end
+
+  attr :ship, :map, required: true
+
+  def piracy_history(assigns) do
+    assigns = assign(assigns, :records, GameQueries.piracy_records(assigns.ship))
+
+    ~H"""
+    <ul
+      :if={@records != []}
+      class="piracy-history my-2 text-xs text-amber-200"
+      aria-label={gettext("Voyage attack outcomes")}
+    >
+      <li :for={record <- @records}>
+        <.emoji symbol={record["mark"] || "🏴‍☠️"} />{l10n(record["zone_name"] || record["zone"])}: {piracy_outcome(
+          record["outcome"]
+        )}
+        <span :if={record["outcome"] == "hit"}>
+          {gettext("Charge %{charge}; recovery %{recovery}.",
+            charge: money(record["charge"]),
+            recovery: money(record["recovery"])
+          )}
+        </span>
+      </li>
+    </ul>
+    """
+  end
+
+  defp piracy_outcome("hit"), do: gettext("Attacked")
+  defp piracy_outcome("missed"), do: gettext("Passed safely")
+  defp piracy_outcome("suppressed"), do: gettext("Rough seas kept the raiders away")
+  defp piracy_outcome("exempt"), do: gettext("Receivership exemption")
+  defp piracy_outcome("continued"), do: gettext("Continuing an already resolved crossing")
 
   def bounded_quantity(_quantity, maximum) when maximum < 1, do: 0
   def bounded_quantity(quantity, maximum), do: max(1, min(quantity, maximum))
@@ -421,6 +468,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         gettext(
           "Additional fuel or canal fees cannot be funded. The existing voyage is unchanged."
         ),
+      held_by_pirates: gettext("Wait for the attack hold to end before diverting this ship."),
       reroute_invalid:
         gettext(
           "The diversion estimate changed or the ship cannot reroute. Review the estimate and try again."

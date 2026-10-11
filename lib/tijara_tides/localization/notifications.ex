@@ -14,7 +14,16 @@ defmodule TijaraTides.Localization.Notifications do
         {"cargo", good} ->
           {"cargo", Localization.text(get_in(goods, [good, "name"]) || good)}
 
-        {key, amount} when key in ["loss", "refund", "price", "grace_rate", "liquidation_rate"] ->
+        {key, amount}
+        when key in [
+               "loss",
+               "refund",
+               "price",
+               "grace_rate",
+               "liquidation_rate",
+               "charge",
+               "recovery"
+             ] ->
           {key, Localization.money(amount)}
 
         {"storage", class} ->
@@ -23,10 +32,11 @@ defmodule TijaraTides.Localization.Notifications do
         {"deadline", wall_ms} ->
           {"deadline", DateTime.from_unix!(wall_ms, :millisecond) |> DateTime.to_iso8601()}
 
-        {key, value} when key in ["reason", "side", "port", "destination"] ->
+        {key, value}
+        when key in ["reason", "side", "port", "destination", "zone", "kind", "campaign"] ->
           {key, Localization.text(value || "")}
 
-        {"minutes", value} when code == "ship.weather" and is_number(value) ->
+        {"minutes", value} when code in ["ship.weather", "ship.piracy"] and is_number(value) ->
           {"minutes", Localization.number(value, format: "0.0")}
 
         {key, value} when is_number(value) ->
@@ -38,7 +48,7 @@ defmodule TijaraTides.Localization.Notifications do
 
     bindings =
       for key <-
-            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse deadline grace_rate liquidation_rate)a,
+            ~w(cargo loss refund reason side minutes company ship port destination filled quantity price storage warehouse deadline grace_rate liquidation_rate charge recovery zone kind campaign mark)a,
           Map.has_key?(args, Atom.to_string(key)),
           into: %{},
           do: {key, args[Atom.to_string(key)]}
@@ -103,6 +113,20 @@ defmodule TijaraTides.Localization.Notifications do
 
   defp message("warehouse.cleared", args),
     do: gettext("Warehouse cargo at %{port} was cleared. Net proceeds: %{refund}.", args)
+
+  defp message("ship.piracy", args),
+    do:
+      gettext(
+        "%{mark} %{ship}: %{kind} in %{zone} for %{minutes} min. Charge %{charge}; recovery %{recovery}. Cargo stays aboard and continues aging.",
+        args
+      )
+
+  defp message("ship.piracy_campaign", args),
+    do:
+      gettext(
+        "%{ship} will cross %{zone}, where %{campaign} has been announced. Attack risk is elevated during the campaign.",
+        args
+      )
 
   defp message("ship.weather", args),
     do:

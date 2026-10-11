@@ -156,7 +156,7 @@ defmodule TijaraTides.Domain.CodecCases do
              )
            ),
            Map.new(
-             ~w(acquired_ms acquisition_value planned_destination weather voyage_path paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination),
+             ~w(acquired_ms acquisition_value planned_destination weather piracy voyage_path paid_canals voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination),
              &{&1, nil}
            )
            |> Map.put("cargo", [])}

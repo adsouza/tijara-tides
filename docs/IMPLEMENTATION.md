@@ -1206,11 +1206,11 @@ Malacca Strait carries 150. The generator rejects a zone that contains a roster
 harbour, lies within 12 nautical miles of one, or overlaps another zone, and the
 catalogue test repeats the harbour measure. The model is validated when the
 catalogue loads, after any `:piracy` runtime override is merged, so a malformed
-model fails startup rather than a tick. Of the 600 directed routes, 202 cross
-the Red Sea, 206 the Gulf of Aden, 194 the Singapore Strait, 194 the Malacca
-Strait, 220 the South China Sea, 76 the Caribbean Sea, 128 the English Channel
-and 192 the Barbary Coast; 42 routes between North European and East Asian ports
-cross seven zones.
+model fails startup rather than a tick. Holds are bounded to one day per
+incident. Of the 600 directed routes, 202 cross the Red Sea, 206 the Gulf of
+Aden, 194 the Singapore Strait, 194 the Malacca Strait, 220 the South China Sea,
+76 the Caribbean Sea, 128 the English Channel and 192 the Barbary Coast; 42
+routes between North European and East Asian ports cross seven zones.
 
 Each zone rolls a campaign once per 12-hour period from the public catalogue
 seed: 25% (Red Sea 40%) for a 3-hour campaign announced 30 minutes ahead,
@@ -1220,6 +1220,24 @@ campaigns in migration `20261008000000_add_piracy_campaigns.exs`, refreshed
 each tick after weather and at initialization. The map shades zones normal,
 elevated (announced) or campaign, marks each with its kind's emoji, gives the
 current chance on hover, and lists announced and running campaigns with
-countdowns in English and Arabic. No attacks happen yet; phase 2 of
-`docs/superpowers/specs/2026-10-08-pirate-zones-design.md` adds them.
+countdowns in English and Arabic.
+
+Phase 2 adds deterministic attacks on each zone crossing, with voyage-snapshotted
+parameters and private rolls. Small-boat attacks are suppressed by storms between
+zone entry and the attack point; militia strikes ignore weather. Hits hold the
+ship and charge a class-price ransom, robbery loss or repair bill. One timeline
+keeps storms, incidents, fuel, crew, navigation, freshness and arrival estimates
+consistent. Later attacks are timed again after each hold. Unpaid charges become
+operating bills without spending reserved fuel; receivership ships are exempt.
+Legacy voyages are exempt until diversion, resolved crossings survive diversion,
+and a held ship cannot divert. English and Arabic held status is public; crossing
+outcomes, charges and structured notices are private to the owner. Guards,
+insurance purchases and route-plan protection remain phases 3 and 4.
+
+Migration `20261011000000_add_voyage_piracy.exs` adds nullable `game_ships.piracy`
+and the three piracy expense accounts. Production derives a private salt from
+`SECRET_KEY_BASE` using a dedicated HMAC context, or uses `PIRACY_SALT` when set
+(at least 32 bytes). The salt is validated before startup and never enters the
+generated catalogue, durable snapshot or player projections; pending rolls are
+persisted so secret rotation cannot change a voyage already underway.
 

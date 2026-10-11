@@ -15,7 +15,11 @@ defmodule TijaraTides.SettledCheck do
   alias TijaraTides.Domain.ReadState
 
   def assert_settled!(before, state, catalogue, where) do
-    case violations(state, catalogue) -- violations(before, catalogue) do
+    introduced =
+      (violations(state, catalogue) -- violations(before, catalogue)) ++
+        piracy_transition(before, state, where)
+
+    case introduced do
       [] ->
         state
 
@@ -33,11 +37,76 @@ defmodule TijaraTides.SettledCheck do
         links(state) ++
         budgets(state, catalogue) ++
         handling(state) ++
-        operator_dormancy(state)
+        operator_dormancy(state) ++ piracy_indices(state)
     )
   end
 
   defp rows(state, kind), do: Map.values(ReadState.entities(state, kind))
+
+  defp piracy_indices(state) do
+    for ship <- rows(state, "ships"),
+        records = get_in(ship, ["piracy", "resolved"]) || [],
+        indices = Enum.map(records, & &1["index"]),
+        length(indices) != length(Enum.uniq(indices)),
+        do: {:piracy, :duplicate_crossing, ship["id"]}
+  end
+
+  defp piracy_transition(before, state, where) do
+    events = Enum.drop(Map.get(state, :journal, []), length(Map.get(before, :journal, [])))
+
+    Enum.flat_map(rows(state, "ships"), fn ship ->
+      old = get(before, "ships", ship["id"]) || %{}
+      prior = get_in(old, ["piracy", "incidents"]) || []
+      added = (get_in(ship, ["piracy", "incidents"]) || []) -- prior
+
+      postings =
+        for event <- events,
+            event.kind == "piracy" and event.ship == ship["id"],
+            do: event.entries
+
+      expected =
+        Enum.frequencies(
+          for i <- added,
+              i["charge"] > 0,
+              do:
+                Enum.reject(
+                  [
+                    {"piracy_charge_expense", i["charge"]},
+                    {"piracy_charge_expense", -i["recovery"]}
+                  ],
+                  &(elem(&1, 1) == 0)
+                )
+        )
+
+      actual =
+        Enum.frequencies(
+          Enum.map(postings, fn entries ->
+            Enum.filter(entries, &(elem(&1, 0) == "piracy_charge_expense"))
+          end)
+        )
+
+      money =
+        if added != [] and expected != actual,
+          do: [{:piracy, :incident_posting, ship["id"]}],
+          else: []
+
+      hold =
+        Enum.find(
+          get_in(old, ["weather", "holds"]) || [],
+          &(&1["source"] == "piracy" and &1["starts_ms"] <= before.clock_ms and
+              before.clock_ms < &1["until_ms"])
+        )
+
+      changed = Enum.any?(~w(destination voyage_path depart_ms), &(old[&1] != ship[&1]))
+
+      motion =
+        if (where != "tick" and hold) && changed,
+          do: [{:piracy, :held_diversion, ship["id"]}],
+          else: []
+
+      money ++ motion
+    end)
+  end
 
   defp operator_dormancy(state) do
     warnings =

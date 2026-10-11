@@ -91,6 +91,8 @@ defmodule TijaraTides.Domain.Fleet do
   defdelegate weather_region(coordinates), to: TijaraTides.Domain.Weather, as: :region
   def voyage_speedup, do: @voyage_speedup
 
+  def voyage_hold(ship, clock), do: TijaraTides.Domain.Weather.current(ship["weather"], clock)
+
   def moving_time(ship, from, into) do
     if ship["status"] == "sailing" do
       weather = ship["weather"]
@@ -289,6 +291,17 @@ defmodule TijaraTides.Domain.Fleet do
     ship = get(state, "ships", id)
     company = get(state, "companies", account["company_id"])
 
+    hold = ship && voyage_hold(ship, state.clock_ms)
+
+    if ship && company && ship["company_id"] == company["id"] && hold &&
+         hold["source"] == "piracy" do
+      {:error, :held_by_pirates}
+    else
+      reroute_allowed(state, ship, company, id, destination, limit, catalogue)
+    end
+  end
+
+  defp reroute_allowed(state, ship, company, id, destination, limit, catalogue) do
     with true <-
            ship != nil and company != nil and ship["company_id"] == company["id"] and
              is_nil(company["bankruptcy_ms"]),
@@ -307,7 +320,8 @@ defmodule TijaraTides.Domain.Fleet do
             Bitwise.bor(n, canal_bit(p))
           end)
 
-        state = TijaraTides.Domain.ShipWorld.reroute(state, id, destination, quote, paid)
+        state =
+          TijaraTides.Domain.ShipWorld.reroute(state, id, destination, quote, paid, catalogue)
 
         state =
           CompanyFinanceWorld.post(
@@ -340,7 +354,14 @@ defmodule TijaraTides.Domain.Fleet do
       state = TijaraTides.Domain.AutomationWorld.release_departing_visit(state, id)
 
       state =
-        TijaraTides.Domain.ShipWorld.depart(state, id, destination, estimate, @voyage_speedup)
+        TijaraTides.Domain.ShipWorld.depart(
+          state,
+          id,
+          destination,
+          estimate,
+          @voyage_speedup,
+          catalogue
+        )
 
       ship = get(state, "ships", id)
 

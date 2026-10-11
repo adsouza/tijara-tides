@@ -8,14 +8,27 @@ defmodule TijaraTides.UseCases.GameQueries do
   end
 
   def weather_wait(ship, clock) do
-    weather = ship["weather"]
+    hold = TijaraTides.Domain.Fleet.voyage_hold(ship, clock)
 
-    hold =
-      weather &&
-        Enum.find(weather["holds"], &(&1["starts_ms"] <= clock and clock < &1["until_ms"]))
-
-    if hold, do: hold["until_ms"] - clock
+    if hold,
+      do: %{
+        remaining_ms: hold["until_ms"] - clock,
+        source: hold["source"] || "weather",
+        mark: hold["mark"] || "🌧️",
+        label: hold["label"],
+        zone: hold["zone_name"]
+      }
   end
+
+  def storm_delay(ship) do
+    Enum.sum(
+      for hold <- get_in(ship, ["weather", "holds"]) || [],
+          hold["source"] != "piracy",
+          do: hold["until_ms"] - hold["starts_ms"]
+    )
+  end
+
+  def piracy_records(ship), do: get_in(ship, ["piracy", "resolved"]) || []
 
   def port_weather(public, catalogue, port) do
     sector = TijaraTides.Domain.Fleet.weather_region(catalogue["ports"][port]["coordinates"])

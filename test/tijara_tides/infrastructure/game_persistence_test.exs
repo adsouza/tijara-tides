@@ -6189,7 +6189,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     cat = Map.put(cat, "piracy", model)
     previous = Application.get_env(:tijara_tides, :piracy)
-    Application.put_env(:tijara_tides, :piracy, Map.take(model, ["campaign", "zones"]))
+    Application.put_env(:tijara_tides, :piracy, Map.take(model, ["campaign", "zones", "salt"]))
 
     on_exit(fn ->
       if previous,
@@ -6310,7 +6310,7 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
       )
 
     :sys.replace_state(replacement, &%{&1 | catalogue: cat})
-    assert GameServer.snapshot(token, replacement).private["ships"][id] == delayed
+    assert :sys.get_state(replacement).game.entities["ships"][id] == delayed
     :ok = GameServer.connect(token, replacement)
     before = GameServer.snapshot(token, replacement)
     advance(replacement, 0)

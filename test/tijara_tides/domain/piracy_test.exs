@@ -68,6 +68,7 @@ defmodule TijaraTides.Domain.PiracyTest do
       put_in(model(), ["zones", "gulf_of_aden", "chance_bps"], 10_001),
       put_in(model(), ["zones", "gulf_of_aden", "campaign_names"], []),
       put_in(model(), ["kinds", "militia", "hold_ms"], 0),
+      put_in(model(), ["kinds", "militia", "hold_ms"], 86_400_001),
       Map.update!(model(), "kinds", &Map.delete(&1, "boarding")),
       # The seeded start offset hashes into span + 1, which phash2 caps at 2^32.
       put_in(model(), ["campaign", "period_ms"], 60 * 86_400_000)

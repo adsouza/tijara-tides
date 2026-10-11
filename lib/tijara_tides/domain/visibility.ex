@@ -129,7 +129,10 @@ defmodule TijaraTides.Domain.Visibility do
       "guarantees" => TijaraTides.Domain.Guarantees.view(state, account),
       "company" => get(state, "companies", account["company_id"]),
       "ships" =>
-        Map.new(owned(state, "ships", "company_id", account["company_id"]), &{&1["id"], &1}),
+        Map.new(
+          owned(state, "ships", "company_id", account["company_id"]),
+          &{&1["id"], private_ship(&1)}
+        ),
       "ship_routes" =>
         Map.new(owned(state, "ship_routes", "company_id", account["company_id"]), &{&1["id"], &1}),
       "route_stops" =>
@@ -145,5 +148,19 @@ defmodule TijaraTides.Domain.Visibility do
         ),
       "notices" => Map.get(Map.get(state, :notices_by_account, %{}), account["id"], [])
     }
+  end
+
+  defp private_ship(ship) do
+    if ship["piracy"] do
+      Map.update!(ship, "piracy", fn piracy ->
+        piracy
+        |> Map.delete("model")
+        |> Map.update!("pending", fn pending ->
+          Enum.map(pending, &Map.take(&1, ~w(index zone)))
+        end)
+      end)
+    else
+      ship
+    end
   end
 end

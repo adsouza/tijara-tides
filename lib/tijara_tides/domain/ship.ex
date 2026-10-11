@@ -10,7 +10,7 @@ defmodule TijaraTides.Domain.Ship do
   alias TijaraTides.Domain.CargoLots.Scope, as: Lots
 
   @wage_period_ms 120_000
-  @fields ~w(acquired_ms acquisition_value planned_destination weather voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination)a
+  @fields ~w(acquired_ms acquisition_value planned_destination weather piracy voyage_path paid_canals id company_id name class book_value build_value built_ms port cargo status arrive_ms destination depart_ms fuel_total fuel_burned crew_remainder last_cost_ms last_liquid voyage_speedup berth_queued_ms berth_granted_ms berth_retry_ms handling_started_ms handling_volume_l pending_side pending_good pending_quantity pending_limit pending_destination)a
   defstruct @fields ++ [route_plan: nil, visit_orders: [], visit_plans: []]
   @type t :: %__MODULE__{}
 
@@ -140,6 +140,46 @@ defmodule TijaraTides.Domain.Ship do
     }
   end
 
+  def snapshot_piracy(ship, model, previous \\ nil) do
+    snapshot =
+      TijaraTides.Domain.Piracy.snapshot(
+        %{"coordinates" => ship.voyage_path},
+        model,
+        ship.id,
+        ship.depart_ms,
+        previous
+      )
+
+    %{ship | piracy: snapshot}
+  end
+
+  def record_crossing(ship, index, outcome, incident, charge, recovery) do
+    piracy = ship.piracy
+    crossing = Enum.find(piracy["pending"], &(&1["index"] == index))
+
+    zone = piracy["model"]["zones"][crossing["zone"]]
+    kind = piracy["model"]["kinds"][zone["kind"]]
+
+    record = %{
+      "zone_name" => zone["name"],
+      "mark" => kind["mark"],
+      "label" => TijaraTides.Domain.Piracy.kind_label(zone["kind"]),
+      "index" => index,
+      "zone" => crossing["zone"],
+      "outcome" => outcome,
+      "charge" => charge,
+      "recovery" => recovery
+    }
+
+    piracy =
+      piracy
+      |> Map.update!("pending", &Enum.reject(&1, fn c -> c["index"] == index end))
+      |> Map.update!("resolved", &(&1 ++ [record]))
+
+    piracy = if incident, do: Map.update!(piracy, "incidents", &(&1 ++ [incident])), else: piracy
+    %{ship | piracy: piracy}
+  end
+
   def canal_bit("panama"), do: 1
   def canal_bit("suez"), do: 2
   def canal_bit(_), do: 0
@@ -176,7 +216,8 @@ defmodule TijaraTides.Domain.Ship do
         berth_granted_ms: nil,
         arrive_ms: nil,
         depart_ms: nil,
-        weather: nil
+        weather: nil,
+        piracy: nil
     }
   end
 
@@ -327,24 +368,20 @@ defmodule TijaraTides.Domain.Ship do
         catalogue
       ) do
     ship = retime_voyage(ship, now - elapsed, speedup)
-    path = ship.voyage_path || route["coordinates"]
-    route = Map.put(route, "coordinates", path)
-    model = (ship.weather && ship.weather["model"]) || TijaraTides.Domain.Weather.model(catalogue)
-    duration = TijaraTides.Domain.Weather.duration(ship.depart_ms, ship.arrive_ms, ship.weather)
-    since = (ship.weather && ship.weather["since_ms"]) || now - elapsed
 
-    weather =
-      TijaraTides.Domain.Weather.forecast(
+    next =
+      timeline(
+        ship,
         route,
-        duration,
-        ship.depart_ms,
         now,
-        model,
-        since,
-        ship.weather && ship.weather["segments"]
+        elapsed,
+        speedup,
+        catalogue,
+        (ship.piracy && ship.piracy["incidents"]) || []
       )
 
-    arrival = ship.depart_ms + duration + weather["delay_ms"]
+    arrival = next.arrive_ms
+    weather = next.weather
 
     previous_motion =
       TijaraTides.Domain.Weather.motion(
@@ -359,6 +396,32 @@ defmodule TijaraTides.Domain.Ship do
 
     unless previous_motion == next_motion,
       do: raise(ArgumentError, "Weather cannot rewrite settled voyage movement")
+
+    next
+  end
+
+  @doc "The shared storm and incident timeline for both resolution and movement settlement."
+  def timeline(ship, route, now, elapsed, speedup, catalogue, incidents) do
+    ship = retime_voyage(ship, now - elapsed, speedup)
+    path = ship.voyage_path || route["coordinates"]
+    route = Map.put(route, "coordinates", path)
+    model = (ship.weather && ship.weather["model"]) || TijaraTides.Domain.Weather.model(catalogue)
+    duration = TijaraTides.Domain.Weather.duration(ship.depart_ms, ship.arrive_ms, ship.weather)
+    since = (ship.weather && ship.weather["since_ms"]) || now - elapsed
+
+    weather =
+      TijaraTides.Domain.Weather.forecast(
+        route,
+        duration,
+        ship.depart_ms,
+        now,
+        model,
+        since,
+        ship.weather && ship.weather["segments"],
+        %{incidents: incidents}
+      )
+
+    arrival = ship.depart_ms + duration + weather["delay_ms"]
 
     %{ship | weather: weather, arrive_ms: arrival, voyage_path: path}
   end

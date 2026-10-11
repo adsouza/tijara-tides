@@ -272,6 +272,7 @@ soundtrack and its response to the player's selections.
 | 204 | Guangzhou is the default selected port for players without ships because it is the only launch port offering every ship class. | 9 | input | Port panel |
 | 205 | When a company has no ships, show an open subsection at the top of Your fleet, without a disclosure triangle, labelled "Buy your 1st ship at". | 9 | display | Fleet and ship detail |
 | 206 | Show brief available class names in parentheses after each port name. | 9 | disclosure | Fleet and ship detail |
+| 215 | Zone threat, campaigns and protection prices are public before dispatch. | 10 | disclosure | Fleet and ship detail |
 
 ## Defaults that keep the depth optional
 

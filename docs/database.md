@@ -582,3 +582,15 @@ FROM game_companies WHERE length(name) > 120
 UNION ALL
 SELECT 'ship', world_id, id, name FROM game_ships WHERE length(name) > 140;
 ```
+
+### Voyage attack snapshots
+
+Migration `20261011000000_add_voyage_piracy.exs` adds nullable JSONB
+`game_ships.piracy` and piracy guard, premium and charge expense accounts.
+Existing voyages retain null snapshots and remain exempt until diverted.
+Crossings, precomputed private rolls, resolved outcomes and incidents commit
+atomically with operating bills, notices and the ledger. Restart restores them
+without resolving or charging a crossing twice. Arrival clears the snapshot.
+Only the server configuration contains the attack salt; persisted rolls preserve
+existing voyages across secret rotation. Production may set `PIRACY_SALT` (at
+least 32 bytes) or use the dedicated derivation from `SECRET_KEY_BASE`.

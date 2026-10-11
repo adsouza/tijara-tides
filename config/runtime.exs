@@ -1,5 +1,9 @@
 import Config
 
+if config_env() != :prod do
+  config :tijara_tides, :piracy, %{"salt" => "local-only-piracy-salt-do-not-use-in-production"}
+end
+
 if config_env() != :test do
   absence_days = String.to_integer(System.get_env("TIJARA_DORMANCY_ABSENCE_DAYS", "30"))
   warning_days = String.to_integer(System.get_env("TIJARA_DORMANCY_WARNING_DAYS", "7"))
@@ -92,6 +96,12 @@ if config_env() == :prod do
       environment variable SECRET_KEY_BASE is missing.
       You can generate one by calling: mix phx.gen.secret
       """
+
+  config :tijara_tides, :piracy, %{
+    "salt" =>
+      System.get_env("PIRACY_SALT") ||
+        Base.encode64(:crypto.mac(:hmac, :sha256, secret_key_base, "tijara-piracy"))
+  }
 
   config :tijara_tides, :game_secret, secret_key_base
 

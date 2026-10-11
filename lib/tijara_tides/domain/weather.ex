@@ -67,7 +67,16 @@ defmodule TijaraTides.Domain.Weather do
   end
 
   @doc "Only storms already announced by cutoff can revise the current forecast."
-  def forecast(route, sailing_ms, departure, cutoff, model, since \\ nil, cached_segments \\ nil) do
+  def forecast(
+        route,
+        sailing_ms,
+        departure,
+        cutoff,
+        model,
+        since \\ nil,
+        cached_segments \\ nil,
+        options \\ %{}
+      ) do
     since = since || departure
 
     skip =
@@ -80,13 +89,39 @@ defmodule TijaraTides.Domain.Weather do
           do: Enum.map(segments(route), &Tuple.to_list/1),
           else: []
 
+    incidents = Enum.filter(options[:incidents] || [], &(&1["until_ms"] > departure))
+    walk = if skip and incidents == [], do: [], else: split_incidents(parts, incidents)
+
     {holds, _finish} =
       Enum.reduce(
-        if(skip, do: [], else: parts),
+        walk,
         {[], departure},
         fn [sector, from, into], {holds, cursor} ->
           move = max(0, round(into * sailing_ms) - round(from * sailing_ms))
-          cross(sector, move, cursor, cutoff, model, since, holds)
+
+          {holds, cursor} =
+            if skip,
+              do: {holds, cursor + move},
+              else: cross(sector, move, cursor, cutoff, model, since, holds)
+
+          Enum.reduce(
+            Enum.filter(incidents, &(abs(&1["fraction"] - into) < 1.0e-12)),
+            {holds, cursor},
+            fn incident, {holds, cursor} ->
+              start = max(cursor, incident["starts_ms"])
+              finish = max(start, incident["until_ms"])
+
+              hold =
+                incident
+                |> Map.take(
+                  ~w(id source kind mark zone zone_name label fraction starts_ms until_ms)
+                )
+                |> Map.put("starts_ms", start)
+                |> Map.put("until_ms", finish)
+
+              {holds ++ [hold], finish}
+            end
+          )
         end
       )
 
@@ -98,6 +133,35 @@ defmodule TijaraTides.Domain.Weather do
       "holds" => holds,
       "delay_ms" => Enum.sum(for h <- holds, do: h["until_ms"] - h["starts_ms"])
     }
+  end
+
+  defp split_incidents(parts, incidents) do
+    Enum.flat_map(parts, fn [sector, from, into] ->
+      cuts = for i <- incidents, i["fraction"] > from and i["fraction"] < into, do: i["fraction"]
+
+      [from, into | cuts]
+      |> Enum.uniq()
+      |> Enum.sort()
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.map(fn [a, b] -> [sector, a, b] end)
+    end)
+  end
+
+  @doc "Earliest world time the forecast reaches a path fraction, before any hold at that point."
+  def time_at(weather, departure, fraction) do
+    target = round(fraction * weather["sailing_ms"])
+
+    pause =
+      Enum.reduce_while(weather["holds"], 0, fn hold, pause ->
+        before_hold = hold["starts_ms"] - departure - pause
+        incident_after = hold["source"] == "piracy" and fraction > hold["fraction"]
+
+        if target < before_hold or (target == before_hold and not incident_after),
+          do: {:halt, pause},
+          else: {:cont, pause + hold["until_ms"] - hold["starts_ms"]}
+      end)
+
+    departure + target + pause
   end
 
   defp cross(_sector, 0, cursor, _cutoff, _model, _since, holds), do: {holds, cursor}
@@ -120,7 +184,7 @@ defmodule TijaraTides.Domain.Weather do
 
     if storm do
       start = max(since, max(cursor, storm["starts_ms"]))
-      hold = Map.put(storm, "starts_ms", start)
+      hold = Map.merge(storm, %{"starts_ms" => start, "source" => "weather"})
 
       cross(
         sector,
