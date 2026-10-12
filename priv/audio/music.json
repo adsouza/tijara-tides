@@ -1,0 +1,824 @@
+{
+  "version": 1,
+  "recipe": {
+    "strategy": "whole-recording",
+    "settle_s": 3,
+    "fade_out_s": 5,
+    "fade_in_s": 2,
+    "silence_s": 1,
+    "crossfade_s": 2,
+    "silence_floor_db": -60,
+    "loudness_lufs": -20,
+    "true_peak_dbtp": -1,
+    "codec": "opus",
+    "bitrate_kbps": 64
+  },
+  "palettes": [
+    {
+      "id": "chinese-coast",
+      "name": "Chinese coast",
+      "ports": [
+        "Shanghai",
+        "Shenzhen",
+        "Guangzhou",
+        "Hong Kong"
+      ],
+      "port": [
+        "shenyang"
+      ],
+      "voyage": [
+        "imperial-china-cinematic"
+      ]
+    },
+    {
+      "id": "japanese",
+      "name": "Japanese",
+      "ports": [
+        "Tokyo"
+      ],
+      "port": [
+        "sakuya3"
+      ],
+      "voyage": [
+        "ametsuchi"
+      ]
+    },
+    {
+      "id": "korean",
+      "name": "Korean",
+      "ports": [
+        "Busan"
+      ],
+      "port": [
+        "listening-to-our-sounds"
+      ],
+      "voyage": [
+        "beautiful-korea",
+        "korean-gayageum"
+      ]
+    },
+    {
+      "id": "southeast-asian",
+      "name": "Southeast Asian",
+      "ports": [
+        "Singapore",
+        "Ho Chi Minh City",
+        "Jakarta",
+        "Manila"
+      ],
+      "port": [
+        "hoi-an-ancient-charm"
+      ],
+      "voyage": [
+        "epic-nusantara"
+      ]
+    },
+    {
+      "id": "south-asian",
+      "name": "South Asian",
+      "ports": [
+        "Mumbai",
+        "Colombo"
+      ],
+      "port": [
+        "dhaka"
+      ],
+      "voyage": [
+        "epic-indian-orchestral-fusion"
+      ]
+    },
+    {
+      "id": "arabian-gulf",
+      "name": "Arabian Gulf",
+      "ports": [
+        "Dubai",
+        "Abu Dhabi"
+      ],
+      "port": [
+        "middle-east-ballad"
+      ],
+      "voyage": [
+        "conquer-the-great-sands"
+      ]
+    },
+    {
+      "id": "north-african",
+      "name": "North African",
+      "ports": [
+        "Tangier"
+      ],
+      "port": [
+        "arabic-music",
+        "desert2"
+      ],
+      "voyage": [
+        "folk-arabian"
+      ]
+    },
+    {
+      "id": "mediterranean",
+      "name": "Mediterranean",
+      "ports": [
+        "Valencia",
+        "Athens"
+      ],
+      "port": [
+        "dellasera"
+      ],
+      "voyage": [
+        "atlas-greece",
+        "cinematic-latin-music"
+      ]
+    },
+    {
+      "id": "northern-frangistan",
+      "name": "Northern Frangistan",
+      "ports": [
+        "Rotterdam",
+        "Antwerp",
+        "Hamburg"
+      ],
+      "port": [
+        "lord-of-the-land"
+      ],
+      "voyage": [
+        "pathfinder"
+      ]
+    },
+    {
+      "id": "north-american",
+      "name": "North American",
+      "ports": [
+        "Los Angeles",
+        "New York City",
+        "Houston"
+      ],
+      "port": [
+        "swing-train",
+        "market-on-the-sea"
+      ],
+      "voyage": [
+        "the-world-at-your-door"
+      ]
+    },
+    {
+      "id": "caribbean",
+      "name": "Caribbean",
+      "ports": [
+        "Colón"
+      ],
+      "port": [
+        "beachfront-celebration"
+      ],
+      "voyage": [
+        "setting-sail"
+      ]
+    },
+    {
+      "id": "brazilian",
+      "name": "Brazilian",
+      "ports": [
+        "São Paulo"
+      ],
+      "port": [
+        "sideways-samba"
+      ],
+      "voyage": [
+        "up-in-the-air"
+      ]
+    }
+  ],
+  "tracks": {
+    "shenyang": {
+      "file": "shenyang.ogg",
+      "title": "Shenyang",
+      "artists": [
+        "Kevin MacLeod"
+      ],
+      "credit": "Kevin MacLeod (incompetech.com)",
+      "source_url": "https://www.incompetech.com/music/royalty-free/index.html?isrc=USUAN1600066",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "1cf2e0f57f820d82e9066ba4dca076735aedd512bc1909fdaa2e0065bd866786",
+      "output_sha256": "d37aaf6c7db176c2a88aa681d4d5566c9d88f804f995a9af6e4f5665bf23c2b6",
+      "duration_s": 150.503,
+      "trim_start_s": 0.0,
+      "trim_end_s": 0.955,
+      "gain_db": -6.8,
+      "true_peak_dbtp": -6.4,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.95 s of trailing silence; gain -6.80 dB; encoded as Opus 64 kbps."
+    },
+    "imperial-china-cinematic": {
+      "file": "imperial-china-cinematic.ogg",
+      "title": "Imperial China Cinematic",
+      "artists": [
+        "Shane Ivers"
+      ],
+      "credit": "Shane Ivers / silvermansound.com",
+      "source_url": "https://www.silvermansound.com/free-music/imperial-china-cinematic",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "4a8bf29f72af49ad3e031f2c4f6c4bc05af2b2fadc2013dccb4dbaa4e800bc54",
+      "output_sha256": "1c779cd75f4cbde2fbb4efbf1355e6d013672c4fe4d92456a08bdb115b5114a4",
+      "duration_s": 198.532,
+      "trim_start_s": 0.0,
+      "trim_end_s": 3.133,
+      "gain_db": -9.9,
+      "true_peak_dbtp": -8.2,
+      "entry_source_s": 16,
+      "entry_s": 16.0,
+      "notices": [],
+      "edits": "Trimmed 3.13 s of trailing silence; gain -9.90 dB; encoded as Opus 64 kbps."
+    },
+    "sakuya3": {
+      "file": "sakuya3.ogg",
+      "title": "Sakuya3",
+      "artists": [
+        "PeriTune"
+      ],
+      "credit": "PeriTune / Sei Mutsuki (むつき醒)",
+      "source_url": "https://peritune.com/blog/2016/10/18/sakuya3/",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "21ff78d194af9557d299fee64730b8726d3a440e583a70b979bc7f6a6df254cf",
+      "output_sha256": "802de8b9abf0cf34bee7229223f44ea23605903ec66af7c647eaad17770579b5",
+      "duration_s": 198.929,
+      "trim_start_s": 0.263,
+      "trim_end_s": 1.718,
+      "gain_db": -10.9,
+      "true_peak_dbtp": -9.4,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.26 s of leading silence and 1.72 s of trailing silence; gain -10.90 dB; encoded as Opus 64 kbps."
+    },
+    "ametsuchi": {
+      "file": "ametsuchi.ogg",
+      "title": "Ametsuchi",
+      "artists": [
+        "PeriTune"
+      ],
+      "credit": "PeriTune / Sei Mutsuki (むつき醒)",
+      "source_url": "https://peritune.com/blog/2018/10/01/ametsuchi/",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "c17eb0bf7dc6b23417d05628b26221ec51f66d1b35b25cb41d88363cfded3c3e",
+      "output_sha256": "d64f9442ae5fc09fbf16aa6d3b07a82b3dd844282f53326047a8da82a8dc30ae",
+      "duration_s": 149.0,
+      "trim_start_s": 0.173,
+      "trim_end_s": 0.897,
+      "gain_db": -11.1,
+      "true_peak_dbtp": -9.2,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.17 s of leading silence and 0.90 s of trailing silence; gain -11.10 dB; encoded as Opus 64 kbps."
+    },
+    "listening-to-our-sounds": {
+      "file": "listening-to-our-sounds.ogg",
+      "title": "우리네 소리를 듣다 (Listening to Our Sounds)",
+      "artists": [
+        "임다솔 (Im Dasol)"
+      ],
+      "credit": "임다솔 (Im Dasol) / GongU Madang",
+      "source_url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?menuNo=200020&wrtSn=13048780",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "b911952759ef2e1257e622d165a2efe2993c64a5e17a33e506469f2d5ade07ff",
+      "output_sha256": "02aa9e1b82812e0c5c7e2842e92f4b453551c40b027998d25709b01fd559131c",
+      "duration_s": 108.145,
+      "trim_start_s": 1.051,
+      "trim_end_s": 4.384,
+      "gain_db": -3.1,
+      "true_peak_dbtp": -2.6,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 1.05 s of leading silence and 4.38 s of trailing silence; gain -3.10 dB; encoded as Opus 64 kbps."
+    },
+    "beautiful-korea": {
+      "file": "beautiful-korea.ogg",
+      "title": "Beautiful Korea (뷰티플 코리아)",
+      "artists": [
+        "윤영현"
+      ],
+      "credit": "윤영현 / GongU Madang",
+      "source_url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?menuNo=200020&wrtSn=13048827",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "9cf1764e974607463713c024151e6372759bbf6f05a928d737cdb9321474e215",
+      "output_sha256": "eeb1f6cbeb5276dde69fce42454415cf03f3bb8bf0156a49b69cbe06f056997f",
+      "duration_s": 98.929,
+      "trim_start_s": 0.0,
+      "trim_end_s": 6.809,
+      "gain_db": -13.6,
+      "true_peak_dbtp": -11.5,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 6.81 s of trailing silence; gain -13.60 dB; encoded as Opus 64 kbps."
+    },
+    "korean-gayageum": {
+      "file": "korean-gayageum.ogg",
+      "title": "Korean traditional-cinematic piece with gayageum",
+      "artists": [
+        "RibhavAgrawal"
+      ],
+      "credit": "RibhavAgrawal (Pixabay)",
+      "source_url": "https://pixabay.com/music/orchestral-korean-traditional-cinematic-piece-with-gayageum-589500/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "07eabbeefd563b41613a2ef7f8a932f2c8e8ced7553a34c660112178e92e7de0",
+      "output_sha256": "6476b9188b71962afdf9fec24c247121668990e24c2be8284982d767e13381b7",
+      "duration_s": 124.752,
+      "trim_start_s": 0.0,
+      "trim_end_s": 0.0,
+      "gain_db": -5.0,
+      "true_peak_dbtp": -7.6,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "gain -5.00 dB; encoded as Opus 64 kbps."
+    },
+    "hoi-an-ancient-charm": {
+      "file": "hoi-an-ancient-charm.ogg",
+      "title": "Hoi An Ancient Charm",
+      "artists": [
+        "VPRODMUSIC_Asia_BGM"
+      ],
+      "credit": "VPRODMUSIC_Asia_BGM (Pixabay)",
+      "source_url": "https://pixabay.com/music/world-hoi-an-ancient-charm-147064/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "4ccc84353258f828ba25fdabb1c94f37e9279754d02f0470c128f56a7e5632c8",
+      "output_sha256": "53dc5cba59b105abf6a15ed5050f99c32d009f735ac2f73f61a83289a0a50f00",
+      "duration_s": 145.954,
+      "trim_start_s": 2.426,
+      "trim_end_s": 0.466,
+      "gain_db": -6.0,
+      "true_peak_dbtp": -6.0,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 2.43 s of leading silence and 0.47 s of trailing silence; gain -6.00 dB; encoded as Opus 64 kbps."
+    },
+    "epic-nusantara": {
+      "file": "epic-nusantara.ogg",
+      "title": "Epic Nusantara - Free Gamelan Music from Indonesian",
+      "artists": [
+        "fiikuri"
+      ],
+      "credit": "fiikuri (Pixabay)",
+      "source_url": "https://pixabay.com/music/world-epic-nusantara-free-gamelan-music-from-indonesian-328513/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "84b32f1ecc6cdfafe9bed28e67260d93fd67f65a5c4c293caf35c84940130943",
+      "output_sha256": "9535f5dccbdc6c36f3cd69cfb6b80794415045aeeabdcfc9586a8ee1debd714a",
+      "duration_s": 156.905,
+      "trim_start_s": 0.0,
+      "trim_end_s": 0.871,
+      "gain_db": -9.1,
+      "true_peak_dbtp": -9.1,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.87 s of trailing silence; gain -9.10 dB; encoded as Opus 64 kbps."
+    },
+    "dhaka": {
+      "file": "dhaka.ogg",
+      "title": "Dhaka",
+      "artists": [
+        "Kevin MacLeod"
+      ],
+      "credit": "Kevin MacLeod (incompetech.com)",
+      "source_url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400003",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "2196a22f4a96de9c03e3d6c1589ac5b3234641caa7f1afd2299b0e418ab53ab0",
+      "output_sha256": "59fef1da911a86dae6c494bf44c1b3840a529afe9f0c457ce6260c0663502746",
+      "duration_s": 246.805,
+      "trim_start_s": 0.0,
+      "trim_end_s": 1.437,
+      "gain_db": -1.0,
+      "true_peak_dbtp": -5.2,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 1.44 s of trailing silence; gain -1.00 dB; encoded as Opus 64 kbps."
+    },
+    "epic-indian-orchestral-fusion": {
+      "file": "epic-indian-orchestral-fusion.ogg",
+      "title": "Epic Indian Orchestral Fusion",
+      "artists": [
+        "Alejandro Piñero Amerio (vjgalaxy)"
+      ],
+      "credit": "Alejandro Piñero Amerio (vjgalaxy) (Pixabay)",
+      "source_url": "https://pixabay.com/music/india-epic-indian-orchestral-fusion-570933/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "1d5f8d754964439415180f39cbcbee52963168063e922bd6af23bd78c6bffc18",
+      "output_sha256": "37d6b5a6afeadbc6b85024243cc626692f7dea70506526cc5b4385c0f2439153",
+      "duration_s": 217.8,
+      "trim_start_s": 0.0,
+      "trim_end_s": 0.0,
+      "gain_db": -8.3,
+      "true_peak_dbtp": -9.9,
+      "entry_source_s": 8,
+      "entry_s": 8.0,
+      "notices": [],
+      "edits": "gain -8.30 dB; encoded as Opus 64 kbps."
+    },
+    "middle-east-ballad": {
+      "file": "middle-east-ballad.ogg",
+      "title": "Middle East Ballad",
+      "artists": [
+        "Abydos_Music"
+      ],
+      "credit": "Abydos_Music (Pixabay)",
+      "source_url": "https://pixabay.com/music/world-middle-east-ballad-188926/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "d59dd1ae0e41bb069683e644bbe34b09d9c8a4e74a35536f336a46496645e5c1",
+      "output_sha256": "b81fa67bbc45e89db236df5ac70fc635b1b6ff6b5a0b78a898b43696d08db0f2",
+      "duration_s": 157.839,
+      "trim_start_s": 0.0,
+      "trim_end_s": 1.038,
+      "gain_db": -9.6,
+      "true_peak_dbtp": -8.1,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 1.04 s of trailing silence; gain -9.60 dB; encoded as Opus 64 kbps."
+    },
+    "conquer-the-great-sands": {
+      "file": "conquer-the-great-sands.ogg",
+      "title": "Conquer The Great Sands",
+      "artists": [
+        "Darren Curtis"
+      ],
+      "credit": "Darren Curtis / darrencurtismusic.com",
+      "source_url": "https://www.darrencurtismusic.com/world-music",
+      "licence": "Darren Curtis Materials Release",
+      "licence_url": "https://www.darrencurtismusic.com/world-music",
+      "source_sha256": "f3ac8a49aa79aeb5e7f801194a023b498c3dcbe950c52947d48638942fe2c59b",
+      "output_sha256": "5a2fe8ddd2ca2668deb0d8d1d081c531785efd9e3fcae850d312cdbc9f96bb14",
+      "duration_s": 146.81,
+      "trim_start_s": 0.335,
+      "trim_end_s": 3.858,
+      "gain_db": -6.8,
+      "true_peak_dbtp": -6.4,
+      "entry_source_s": 30,
+      "entry_s": 29.665,
+      "notices": [
+        {
+          "name": "Conquer the Great Sands Materials Release",
+          "file": "notices/conquer-the-great-sands-materials-release.pdf"
+        }
+      ],
+      "edits": "Trimmed 0.34 s of leading silence and 3.86 s of trailing silence; gain -6.80 dB; encoded as Opus 64 kbps."
+    },
+    "arabic-music": {
+      "file": "arabic-music.ogg",
+      "title": "Arabic Music",
+      "artists": [
+        "kiravale"
+      ],
+      "credit": "kiravale (Pixabay)",
+      "source_url": "https://pixabay.com/music/arabic-arabic-music-593673/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "d6f50a99dcae46e2d9b6df15052effdca4bc8eb123b9da965223dbae40a856f1",
+      "output_sha256": "801fe8b703414e6163126245173146afc1d2fac947fe919c445e1b22403f1c20",
+      "duration_s": 124.228,
+      "trim_start_s": 0.0,
+      "trim_end_s": 0.596,
+      "gain_db": -9.8,
+      "true_peak_dbtp": -6.5,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.60 s of trailing silence; gain -9.80 dB; encoded as Opus 64 kbps."
+    },
+    "desert2": {
+      "file": "desert2.ogg",
+      "title": "Desert2",
+      "artists": [
+        "PeriTune"
+      ],
+      "credit": "PeriTune / Sei Mutsuki (むつき醒)",
+      "source_url": "https://peritune.com/blog/2018/05/01/desert2/",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "591d1e5bc6de1f4c2b9b48299f6048d2d3baba87cf6ff5d42530f707e563465f",
+      "output_sha256": "9ff638a42d6d161512795e542fdd7ac487ccf84973633b1b5c0fa42dde7d1dab",
+      "duration_s": 243.72,
+      "trim_start_s": 0.167,
+      "trim_end_s": 0.273,
+      "gain_db": -11.7,
+      "true_peak_dbtp": -9.9,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.17 s of leading silence and 0.27 s of trailing silence; gain -11.70 dB; encoded as Opus 64 kbps."
+    },
+    "folk-arabian": {
+      "file": "folk-arabian.ogg",
+      "title": "Folk_Arabian",
+      "artists": [
+        "PeriTune"
+      ],
+      "credit": "PeriTune / Sei Mutsuki (むつき醒)",
+      "source_url": "https://peritune.com/blog/2016/11/28/folk_arabian/",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "958c97661057ac0bed77df638f94d1c2e6fdd95be84695b028eba860c61e0d83",
+      "output_sha256": "d499e33334da3488fb91ea089c79302cca6f3ac3a83e617055827810685731c9",
+      "duration_s": 111.534,
+      "trim_start_s": 0.0,
+      "trim_end_s": 0.0,
+      "gain_db": -10.8,
+      "true_peak_dbtp": -9.6,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "gain -10.80 dB; encoded as Opus 64 kbps."
+    },
+    "dellasera": {
+      "file": "dellasera.ogg",
+      "title": "Dellasera",
+      "artists": [
+        "Shane Ivers"
+      ],
+      "credit": "Shane Ivers / silvermansound.com",
+      "source_url": "https://www.silvermansound.com/free-music/dellasera",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "ad7fd4e2801e4639e036c6c8e853590a343c843ab4999c2cb84157f2b4a32bd3",
+      "output_sha256": "577d1b55f5e17d031f249ad5337624ca584e6c61824359cb47fbf0bf37894a37",
+      "duration_s": 242.958,
+      "trim_start_s": 0.0,
+      "trim_end_s": 1.626,
+      "gain_db": -6.2,
+      "true_peak_dbtp": -3.6,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 1.63 s of trailing silence; gain -6.20 dB; encoded as Opus 64 kbps."
+    },
+    "atlas-greece": {
+      "file": "atlas-greece.ogg",
+      "title": "Atlas • Greece",
+      "artists": [
+        "Vadim_Makes_Sound"
+      ],
+      "credit": "Vadim_Makes_Sound (Pixabay)",
+      "source_url": "https://pixabay.com/music/orchestral-atlas-greece-555434/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "3ea6cf484d3a50da687356147ae17c3dc6baee038ec26e808df86595052987fb",
+      "output_sha256": "5cebca348aaf2b63c910e81aac4da2b65c05f587e8e8cf05318c2d6b47271f8b",
+      "duration_s": 109.92,
+      "trim_start_s": 0.0,
+      "trim_end_s": 0.0,
+      "gain_db": -5.5,
+      "true_peak_dbtp": -6.4,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "gain -5.50 dB; encoded as Opus 64 kbps."
+    },
+    "cinematic-latin-music": {
+      "file": "cinematic-latin-music.ogg",
+      "title": "Cinematic Latin Music",
+      "artists": [
+        "Sonican"
+      ],
+      "credit": "Sonican (Pixabay)",
+      "source_url": "https://pixabay.com/music/latin-cinematic-latin-music-523433/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "f247da8604b430656d6a5b6195601b90146ed40dac4f03a8ea97556139c580e7",
+      "output_sha256": "6b2a2fe7ee7be854c9f1425342e9b279d714f70dbc67810d005f13d5244c51ef",
+      "duration_s": 126.801,
+      "trim_start_s": 0.18,
+      "trim_end_s": 3.266,
+      "gain_db": -11.7,
+      "true_peak_dbtp": -9.2,
+      "entry_source_s": 2,
+      "entry_s": 1.82,
+      "notices": [],
+      "edits": "Trimmed 0.18 s of leading silence and 3.27 s of trailing silence; gain -11.70 dB; encoded as Opus 64 kbps."
+    },
+    "lord-of-the-land": {
+      "file": "lord-of-the-land.ogg",
+      "title": "Lord of the Land",
+      "artists": [
+        "Kevin MacLeod"
+      ],
+      "credit": "Kevin MacLeod (incompetech.com)",
+      "source_url": "https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1400022",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "47ce185fdc1f2e5514566307d652d6cb62a06bed47ea730e28214d3cedc2f948",
+      "output_sha256": "587a898fd2c4755628ad170e516eb0c3865c3862bf3faf671048ebd84ff9d1ea",
+      "duration_s": 185.992,
+      "trim_start_s": 0.0,
+      "trim_end_s": 0.496,
+      "gain_db": 0.5,
+      "true_peak_dbtp": -1.3,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.50 s of trailing silence; gain +0.50 dB; encoded as Opus 64 kbps."
+    },
+    "pathfinder": {
+      "file": "pathfinder.ogg",
+      "title": "Pathfinder",
+      "artists": [
+        "Scott Buckley"
+      ],
+      "credit": "Scott Buckley / scottbuckley.com.au",
+      "source_url": "https://www.scottbuckley.com.au/library/pathfinder/",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "f20e3e9aaac2d947510ec971d7ea477320370091c3ea7b1541792c3fe5683e78",
+      "output_sha256": "e2740b22af9b146adbc3b935d1202b69fdb2cb189c1a51ad3eadbf55bf8b7986",
+      "duration_s": 203.916,
+      "trim_start_s": 0.208,
+      "trim_end_s": 0.198,
+      "gain_db": -6.0,
+      "true_peak_dbtp": -6.8,
+      "entry_source_s": 1,
+      "entry_s": 0.792,
+      "notices": [],
+      "edits": "Trimmed 0.21 s of leading silence and 0.20 s of trailing silence; gain -6.00 dB; encoded as Opus 64 kbps."
+    },
+    "swing-train": {
+      "file": "swing-train.ogg",
+      "title": "Swing Train - Big Band Miller Style",
+      "artists": [
+        "JuliusH"
+      ],
+      "credit": "JuliusH (Pixabay)",
+      "source_url": "https://pixabay.com/music/big-band-swing-train-big-band-miller-style-2667/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "b66669c82cd86ca93f0ceb2556c7c4fa5713dd592b81a6ac2f97870e2877048b",
+      "output_sha256": "c8225bacc67e237514bc26ae318f749ffb68ce84313595dc97905a02ca36d893",
+      "duration_s": 116.687,
+      "trim_start_s": 0.524,
+      "trim_end_s": 0.0,
+      "gain_db": -3.2,
+      "true_peak_dbtp": -4.6,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.52 s of leading silence and 0.00 s of trailing silence; gain -3.20 dB; encoded as Opus 64 kbps."
+    },
+    "market-on-the-sea": {
+      "file": "market-on-the-sea.ogg",
+      "title": "Market on the Sea",
+      "artists": [
+        "Jonathan Shaw"
+      ],
+      "credit": "Jonathan Shaw / jshaw.co.uk",
+      "source_url": "https://opengameart.org/content/market-on-the-sea-rpg-orchestral-essentials-village-music",
+      "licence": "CC BY 3.0",
+      "licence_url": "https://creativecommons.org/licenses/by/3.0/",
+      "source_sha256": "8c7b6db9dd571cb1ec6eea6c7b035f2c0541c37d95d10f868bc38fe87eff6d8d",
+      "output_sha256": "0aaae7586129bd7efa105ba9dbd3ea9fef391d5b2254664c197342d8497770cb",
+      "duration_s": 144.775,
+      "trim_start_s": 0.0,
+      "trim_end_s": 1.38,
+      "gain_db": -4.1,
+      "true_peak_dbtp": -4.1,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [
+        {
+          "name": "RPG Orchestral Essentials licence",
+          "file": "notices/rpg-orchestral-essentials-licence.pdf"
+        }
+      ],
+      "edits": "Trimmed 1.38 s of trailing silence; gain -4.10 dB; encoded as Opus 64 kbps."
+    },
+    "the-world-at-your-door": {
+      "file": "the-world-at-your-door.ogg",
+      "title": "The World At Your Door",
+      "artists": [
+        "Jonathan Shaw"
+      ],
+      "credit": "Jonathan Shaw / jshaw.co.uk",
+      "source_url": "https://opengameart.org/content/the-world-at-your-door-rpg-orchestral-essentials-overworld-music",
+      "licence": "CC BY 3.0",
+      "licence_url": "https://creativecommons.org/licenses/by/3.0/",
+      "source_sha256": "e9de1adfaf385d003ae3e281bd1d7158e0d8c127964177daf8eea75a072eaa64",
+      "output_sha256": "d1090b5bc14a80df380f5e60b7221ee4e40914fb2b8d6e279dc87f2f91ac6707",
+      "duration_s": 155.16,
+      "trim_start_s": 0.0,
+      "trim_end_s": 6.538,
+      "gain_db": -7.4,
+      "true_peak_dbtp": -6.9,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [
+        {
+          "name": "RPG Orchestral Essentials licence",
+          "file": "notices/rpg-orchestral-essentials-licence.pdf"
+        }
+      ],
+      "edits": "Trimmed 6.54 s of trailing silence; gain -7.40 dB; encoded as Opus 64 kbps."
+    },
+    "beachfront-celebration": {
+      "file": "beachfront-celebration.ogg",
+      "title": "Beachfront Celebration",
+      "artists": [
+        "Kevin MacLeod"
+      ],
+      "credit": "Kevin MacLeod (incompetech.com)",
+      "source_url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1200022",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "73ffcea8277780253b4e42dcbc3c5b3c50ba8ad343023372726a8678f43cc68e",
+      "output_sha256": "de7a6349f8f94df5f4de0b2ca084fab122a3467d5f4cc24fcba4ac7f80a204b0",
+      "duration_s": 185.3,
+      "trim_start_s": 0.0,
+      "trim_end_s": 1.998,
+      "gain_db": -10.8,
+      "true_peak_dbtp": -9.0,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 2.00 s of trailing silence; gain -10.80 dB; encoded as Opus 64 kbps."
+    },
+    "setting-sail": {
+      "file": "setting-sail.ogg",
+      "title": "Setting Sail",
+      "artists": [
+        "Alexander Nakarada"
+      ],
+      "credit": "Alexander Nakarada / creatorchords.com",
+      "source_url": "https://creatorchords.com/music/setting-sail/",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "e496000eaa81a0a8eaeb8ae7fe5c441cf6b3a8610678600069f8e50bf9231e9c",
+      "output_sha256": "f4e797dd17406a733c94f33d6396407c154bcf7b93b0a638578406518c083c99",
+      "duration_s": 125.867,
+      "trim_start_s": 0.294,
+      "trim_end_s": 1.607,
+      "gain_db": -9.2,
+      "true_peak_dbtp": -9.1,
+      "entry_source_s": 8,
+      "entry_s": 7.706,
+      "notices": [],
+      "edits": "Trimmed 0.29 s of leading silence and 1.61 s of trailing silence; gain -9.20 dB; encoded as Opus 64 kbps."
+    },
+    "sideways-samba": {
+      "file": "sideways-samba.ogg",
+      "title": "Sideways Samba",
+      "artists": [
+        "Jason Shaw"
+      ],
+      "credit": "Jason Shaw / audionautix.com",
+      "source_url": "https://audionautix.com/free-music/jazz",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_sha256": "2ee432954197d30320b95a915d3c029e446130f5eb0490347c87bb535dc7e159",
+      "output_sha256": "f0b1f36d514a6f406e7b5eee0dff214a021d8a928a854114e527e02da7e69aea",
+      "duration_s": 190.463,
+      "trim_start_s": 0.492,
+      "trim_end_s": 0.0,
+      "gain_db": -7.1,
+      "true_peak_dbtp": -6.2,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.49 s of leading silence and 0.00 s of trailing silence; gain -7.10 dB; encoded as Opus 64 kbps."
+    },
+    "up-in-the-air": {
+      "file": "up-in-the-air.ogg",
+      "title": "Up In The Air",
+      "artists": [
+        "DonnySombrero"
+      ],
+      "credit": "DonnySombrero (Pixabay)",
+      "source_url": "https://pixabay.com/music/samba-latin-up-in-the-air-499093/",
+      "licence": "Pixabay Content License",
+      "licence_url": "https://pixabay.com/service/license-summary/",
+      "source_sha256": "ba9ad15d406ddba4f9aa7df0ef8e51631a82605a1992e947c7698611fddc951e",
+      "output_sha256": "b6674d59736428bdceb3ed27bb7a0be65d2cb2fc44f7636814751f351c12c69d",
+      "duration_s": 192.914,
+      "trim_start_s": 0.0,
+      "trim_end_s": 0.0,
+      "gain_db": -8.1,
+      "true_peak_dbtp": -7.0,
+      "entry_source_s": 0,
+      "entry_s": 0.0,
+      "notices": [],
+      "edits": "Trimmed 0.00 s of trailing silence; gain -8.10 dB; encoded as Opus 64 kbps."
+    }
+  }
+}

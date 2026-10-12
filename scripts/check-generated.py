@@ -16,6 +16,7 @@ generators = {
     "gen-ports-roster.py": "docs/ports.md",
     "gen-ship-instructions.py": "docs/ship-instructions.md",
     "gen-ux-inventory.py": "docs/ux-inventory.md",
+    "gen-music-credits.py": "docs/music-credits.md",
 }
 if not args.docs_only:
     generators["gen-game-data.py"] = "priv/game/catalogue.json"
@@ -24,6 +25,8 @@ with tempfile.TemporaryDirectory(prefix="tijara-generated-") as directory:
     shutil.copytree(root / "scripts", target / "scripts")
     shutil.copytree(root / "docs", target / "docs")
     (target / "priv/game").mkdir(parents=True)
+    (target / "priv/audio").mkdir(parents=True)
+    shutil.copyfile(root / "priv/audio/music.json", target / "priv/audio/music.json")
     stale = []
     for generator, artifact in generators.items():
         subprocess.run([sys.executable, str(target / "scripts" / generator)], check=True, cwd=target)
