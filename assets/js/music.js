@@ -45,6 +45,35 @@ export const Music = {
     this.settings = readSettings(storage())
     this.started = []
     this.render()
+    // Listeners are registered before the manifest await so a click, key press,
+    // toggle or slider change made while it loads is neither lost nor deferred.
+    // Every handler tolerates the engine and director not existing yet; both are
+    // built from the current settings once the manifest arrives.
+    this.onToggle = () => {
+      this.settings.enabled = !this.settings.enabled
+      saveSettings(storage(), this.settings)
+      this.render()
+      this.director?.setEnabled(this.settings.enabled)
+    }
+    this.onVolume = () => {
+      this.settings.volume = Number(this.volume.value)
+      saveSettings(storage(), this.settings)
+      this.engine?.setVolume(this.settings.volume)
+    }
+    this.onFocus = () => this.director?.setForeground(isForeground())
+    this.onGesture = () => {
+      document.removeEventListener('pointerdown', this.onGesture, true)
+      document.removeEventListener('keydown', this.onGesture, true)
+      this.gestured = true
+      this.unlockAudio()
+    }
+    this.toggle.addEventListener('click', this.onToggle)
+    this.volume.addEventListener('input', this.onVolume)
+    document.addEventListener('visibilitychange', this.onFocus)
+    window.addEventListener('focus', this.onFocus)
+    window.addEventListener('blur', this.onFocus)
+    document.addEventListener('pointerdown', this.onGesture, true)
+    document.addEventListener('keydown', this.onGesture, true)
     let manifest
     try {
       const response = await fetch(this.el.dataset.manifest)
@@ -67,30 +96,12 @@ export const Music = {
     this.director.setEnabled(this.settings.enabled)
     this.director.setForeground(isForeground())
     this.director.setContext(readContext(this.el.dataset))
-    this.onToggle = () => {
-      this.settings.enabled = !this.settings.enabled
-      saveSettings(storage(), this.settings)
-      this.render()
-      this.director.setEnabled(this.settings.enabled)
-    }
-    this.onVolume = () => {
-      this.settings.volume = Number(this.volume.value)
-      saveSettings(storage(), this.settings)
-      this.engine.setVolume(this.settings.volume)
-    }
-    this.onFocus = () => this.director.setForeground(isForeground())
-    this.onGesture = () => {
-      document.removeEventListener('pointerdown', this.onGesture, true)
-      document.removeEventListener('keydown', this.onGesture, true)
-      this.engine.unlock().then(() => this.director?.unlock(), error => console.warn('Audio unlock failed:', error))
-    }
-    this.toggle.addEventListener('click', this.onToggle)
-    this.volume.addEventListener('input', this.onVolume)
-    document.addEventListener('visibilitychange', this.onFocus)
-    window.addEventListener('focus', this.onFocus)
-    window.addEventListener('blur', this.onFocus)
-    document.addEventListener('pointerdown', this.onGesture, true)
-    document.addEventListener('keydown', this.onGesture, true)
+    if (this.gestured) this.unlockAudio()
+  },
+  unlockAudio() {
+    if (this.gone || !this.engine) return
+    this.engine.unlock().then(() => { if (!this.gone) this.director?.unlock() },
+      error => console.warn('Audio unlock failed:', error))
   },
   updated() { this.director?.setContext(readContext(this.el.dataset)) },
   destroyed() {

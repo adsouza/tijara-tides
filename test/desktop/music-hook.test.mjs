@@ -45,13 +45,28 @@ function element(id) {
     fire(type) { listeners[type]?.({}) }}
 }
 
-function mountHook({music = 'available', fetchResult} = {}) {
+// A target whose listeners can be inspected and fired, keyed by type and capture flag.
+function eventTarget(extra = {}) {
+  const listeners = []
+  return {...extra, listeners,
+    addEventListener(type, fn, capture = false) { listeners.push({type, fn, capture: capture === true}) },
+    removeEventListener(type, fn, capture = false) {
+      const at = listeners.findIndex(l => l.type === type && l.fn === fn && l.capture === (capture === true))
+      if (at >= 0) listeners.splice(at, 1)
+    },
+    fire(type) { for (const l of [...listeners]) if (l.type === type) l.fn({}) }}
+}
+
+function mountHook({music = 'available', fetchResult, deferFetch = false} = {}) {
   const nodes = Object.fromEntries(['music-controls', 'music-toggle', 'music-volume', 'music-credit'].map(id => [id, element(id)]))
   const el = {dataset: {music, manifest: '/audio/fixtures/music.json', context: 'port', port: 'Tangier',
     nowPlaying: 'Now playing: %{title} by %{artists}', labelOn: 'Turn music on', labelOff: 'Turn music off'},
     querySelector: selector => nodes[selector.slice(1)]}
   const local = storage()
   const timeouts = []
+  const contexts = []
+  let resolveFetch
+  const deferred = deferFetch ? new Promise(resolve => { resolveFetch = resolve }) : null
   const saved = {setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout}
   restores.push(() => Object.assign(globalThis, saved))
   Object.assign(globalThis, {
@@ -60,20 +75,21 @@ function mountHook({music = 'available', fetchResult} = {}) {
     performance: {now: () => 0},
     setTimeout: (fn, ms) => { timeouts.push({fn, ms}); return timeouts.length },
     clearTimeout: () => {},
-    document: {hidden: false, hasFocus: () => true, addEventListener() {}, removeEventListener() {}},
-    window: {addEventListener() {}, removeEventListener() {}},
+    document: eventTarget({hidden: false, hasFocus: () => true}),
+    window: eventTarget(),
     Audio: class { canPlayType() { return 'probably' } },
     AudioContext: class {
-      constructor() { this.currentTime = 0; this.destination = {} }
+      constructor() { this.currentTime = 0; this.destination = {}; this.resumes = 0; contexts.push(this) }
       createGain() { return {gain: {value: 0, cancelScheduledValues() {}, setValueAtTime() {}, linearRampToValueAtTime() {}, setValueCurveAtTime() {}}, connect() {}, disconnect() {}} }
       createMediaElementSource() { return {connect() {}, disconnect() {}} }
-      resume() { return Promise.resolve() }
+      resume() { this.resumes += 1; return Promise.resolve() }
       close() { return Promise.resolve() }
     },
-    fetch: async () => fetchResult ?? {ok: true, json: async () => ({palettes: [], tracks: {}})},
+    fetch: async () => deferred ? deferred : fetchResult ?? {ok: true, json: async () => ({palettes: [], tracks: {}})},
   })
   const hook = {...Music, el}
-  return {hook, nodes, local, timeouts}
+  const ok = {ok: true, json: async () => ({palettes: [], tracks: {}})}
+  return {hook, nodes, local, timeouts, contexts, resolveManifest: () => resolveFetch(ok)}
 }
 
 test('toggle and volume persist and update the control', async () => {
@@ -124,4 +140,67 @@ test('hides controls when the manifest cannot load', async () => {
   await Music.mounted.call(missing.hook)
   assert.equal(missing.nodes['music-controls'].hidden, true)
   await flush()
+})
+
+test('a gesture, toggle and volume change made while the manifest loads are not lost', async () => {
+  const {hook, nodes, local, contexts, resolveManifest} = mountHook({deferFetch: true})
+  const mounting = Music.mounted.call(hook)
+  document.fire('pointerdown')
+  nodes['music-toggle'].fire('click')
+  nodes['music-volume'].value = '12'
+  nodes['music-volume'].fire('input')
+  assert.equal(contexts.length, 0, 'no AudioContext before the manifest arrives')
+  resolveManifest()
+  await mounting
+  await flush()
+  assert.equal(contexts.length, 1)
+  assert.equal(contexts[0].resumes, 1, 'the early gesture unlocked audio once the engine existed')
+  assert.deepEqual(hook.settings, {enabled: false, volume: 12})
+  assert.deepEqual(local.values, {'tijara.music.enabled': 'false', 'tijara.music.volume': '12'})
+  assert.equal(document.listeners.some(l => l.type === 'pointerdown' || l.type === 'keydown'), false)
+  Music.destroyed.call(hook)
+})
+
+test('a gesture after the engine exists unlocks it once and stops listening', async () => {
+  const {hook, contexts} = mountHook()
+  await Music.mounted.call(hook)
+  assert.equal(contexts[0].resumes, 0)
+  document.fire('keydown')
+  document.fire('pointerdown')
+  await flush()
+  assert.equal(contexts[0].resumes, 1)
+  Music.destroyed.call(hook)
+})
+
+test('switching away and back reaches the director through each foreground signal', async () => {
+  const {hook} = mountHook()
+  await Music.mounted.call(hook)
+  const seen = []
+  hook.director.setForeground = visible => seen.push(visible)
+  document.hidden = true
+  document.fire('visibilitychange')
+  document.hidden = false
+  document.fire('visibilitychange')
+  document.hasFocus = () => false
+  window.fire('blur')
+  document.hasFocus = () => true
+  window.fire('focus')
+  assert.deepEqual(seen, [false, true, false, true])
+  Music.destroyed.call(hook)
+  assert.equal(document.listeners.length + window.listeners.length, 0)
+})
+
+test('destroying before the manifest resolves builds nothing and leaves no listeners', async () => {
+  const {hook, nodes, contexts, resolveManifest} = mountHook({deferFetch: true})
+  const mounting = Music.mounted.call(hook)
+  assert.ok(document.listeners.length > 0 && window.listeners.length > 0)
+  Music.destroyed.call(hook)
+  assert.equal(document.listeners.length + window.listeners.length, 0)
+  document.fire('pointerdown')
+  resolveManifest()
+  await mounting
+  await flush()
+  assert.equal(contexts.length, 0)
+  assert.equal(hook.engine, undefined)
+  assert.equal(nodes['music-controls'].hidden, false)
 })
