@@ -1244,7 +1244,11 @@ per-voyage pause timeline and current regional warnings persist in migration
 the same timeline. Legacy voyages acquire weather only from their first observed
 weather tick, preserving previously travelled distance and fuel consumption.
 That first tick persists the reconstructed sea path; later catalogue geometry
-changes cannot rewrite the voyage's accepted movement.
+changes cannot rewrite the voyage's accepted movement. Stored paths keep the
+catalogue's continuous longitudes, which pass 180 on Pacific crossings (weather
+zones read the raw values), so migration
+`20261012000000_allow_continuous_voyage_longitudes.exs` bounds stored longitude
+at -540..540 and a catalogue test keeps every route inside that range.
 
 Actual movement, map markers, diversion starting points, fuel settlement, crew
 estimates and cargo arrival/unloading freshness all use the same pause timeline.

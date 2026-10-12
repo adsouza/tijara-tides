@@ -6449,6 +6449,48 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert :ok = TijaraTides.Infrastructure.Persistence.FinancialLedger.audit(Repo, c.world_id)
   end
 
+  test "voyages across the antimeridian save and reload their continuous path", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, %{"company_id" => co}} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "pacific-company",
+        %{
+          "action" => "company",
+          "name" => "Pacific voyage",
+          "port" => "Busan",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    :ok = GameServer.connect(token, c.server)
+    id = co <> ":1"
+    path = :sys.get_state(c.server).catalogue["routes"]["Busan|Los Angeles"]["coordinates"]
+    # Catalogue routes keep longitude continuous, so this crossing runs past 180.
+    assert Enum.any?(path, fn [x, _] -> x > 180 end)
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "pacific-sail",
+               %{
+                 "action" => "sail",
+                 "ship" => id,
+                 "destination" => "Los Angeles",
+                 "fuel_limit" => 100_000_000
+               },
+               c.server
+             )
+
+    assert GameServer.readiness(c.server) == :ready
+    state = :sys.get_state(c.server)
+    assert state.game.entities["ships"][id]["voyage_path"] == path
+    {:ok, loaded} = GameStore.reload(Repo, c.world_id, state.game)
+    assert loaded.entities["ships"][id]["voyage_path"] == path
+  end
+
   test "Unicode preset names reject before commit and preserve readiness and replay", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
     schedule = %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}
