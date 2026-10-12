@@ -161,6 +161,37 @@ class PrepareMusicTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing"):
             self.run_prepare()
 
+    def test_trims_trailing_silence_ending_exactly_at_the_decoded_length(self):
+        class ExplicitEndTools(FakeTools):
+            def silence_log(self, path, noise_db):
+                return ("[silencedetect] silence_start: 9.5\n"
+                        "[silencedetect] silence_end: 10.0 | silence_duration: 0.5\n")
+
+        manifest, _ = self.run_prepare(ExplicitEndTools())
+        self.assertEqual(manifest["tracks"]["a"]["trim_end_s"], 0.5)
+
+    def test_duration_is_the_decoded_length_not_the_container_estimate(self):
+        progress = "out_time_us=100\nprogress=continue\nout_time_us=5407347\nprogress=end\n"
+        self.assertEqual(prepare_music.decoded_seconds(progress), 5.407347)
+        with self.assertRaisesRegex(ValueError, "decoded length missing"):
+            prepare_music.decoded_seconds("progress=end\n")
+        calls = []
+
+        class Result:
+            stdout = progress
+
+        class Recorded(prepare_music.Tools):
+            def run(self, *args):
+                calls.append([str(arg) for arg in args])
+                return Result()
+
+        self.assertEqual(Recorded().duration(Path("x.mp3")), 5.407347)
+        self.assertEqual(calls[0][0], "ffmpeg")
+        self.assertIn("-progress", calls[0])
+        self.assertNotIn("ffprobe", calls[0])
+        lead, tail = prepare_music.silence_bounds("silence_start: 4.0\nsilence_end: 5.407347 | x\n", 5.407347)
+        self.assertEqual((lead, tail), (0.0, 4.0))
+
     def test_silence_bounds_and_loudness_parsing(self):
         lead, tail = prepare_music.silence_bounds("silence_start: 0\nsilence_end: 1.25 | x\n", 60.0)
         self.assertEqual((lead, tail), (1.25, 60.0))

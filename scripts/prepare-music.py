@@ -46,6 +46,14 @@ def silence_bounds(log, duration):
     return round(lead, 3), round(tail, 3)
 
 
+def decoded_seconds(progress):
+    """Decoded length from ffmpeg -progress output: its last out_time_us."""
+    values = re.findall(r"^out_time_us=(\d+)$", progress, re.MULTILINE)
+    if not values:
+        raise ValueError("decoded length missing from ffmpeg progress output")
+    return int(values[-1]) / 1_000_000
+
+
 def loudness(log):
     integrated = re.findall(r"I:\s+(-?[\d.]+) LUFS", log)
     peak = re.findall(r"Peak:\s+(-?[\d.]+|-inf) dBFS", log)
@@ -80,9 +88,14 @@ class Tools:
         return subprocess.run([str(arg) for arg in args], check=True, capture_output=True, text=True)
 
     def duration(self, path):
-        out = self.run("ffprobe", "-v", "error", "-show_entries", "format=duration",
-                       "-of", "default=nw=1:nk=1", path).stdout
-        return float(out.strip())
+        """Length of the decoded first audio stream.
+
+        Container estimates (ffprobe format=duration) disagree with the decoded
+        length for header-less VBR MP3 and include Opus pre-skip, which would
+        hide trailing silence from silence_bounds.
+        """
+        return decoded_seconds(self.run("ffmpeg", "-hide_banner", "-nostats", "-progress", "pipe:1",
+                                        "-i", path, "-map", "0:a:0", "-f", "null", "-").stdout)
 
     def silence_log(self, path, noise_db):
         return self.run("ffmpeg", "-hide_banner", "-nostats", "-i", path, "-map", "0:a:0",
