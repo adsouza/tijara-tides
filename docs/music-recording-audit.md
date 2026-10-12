@@ -2588,6 +2588,28 @@ Screening model SHA-256:
    selection behavior, rapid reselection and the top-of-screen track display
    in the actual client when music is implemented.
 
+## Release listening gate
+
+On 12 October 2026 the player auditioned the prepared soundtrack locally with
+`TIJARA_MUSIC_AUDITION=true` and approved release. `priv/music/approvals.json`
+records a blanket approval: all 28 recordings, all 28 encoded selection entries
+and whole-recording repeats, the sixteen within-palette port-to-voyage pairings,
+and three representative cross-region voyage handoffs, each with its reverse:
+Conquer The Great Sands and Epic Indian Orchestral Fusion, Atlas • Greece and
+Folk Arabian, and Imperial China Cinematic and Ametsuchi. These are samples of
+the 89 possible cross-region pairs among the 14 voyage pieces; handoffs between
+other regions still play. Each record notes that not every complete recording,
+repeat or pairing was necessarily heard in full, so these records do not
+certify a complete listen of every asset. The approval report contains only
+approved entries; removing a reverse handoff makes it pending again.
+
+## Client playback probes
+
+On 12 October 2026, on macOS 27.0.1, the Tauri 2.11.5 desktop client (WKWebView)
+connected to a local audition server and played the soundtrack after the first
+click, so the Opus assets need no AAC fallback. The rapid-reselection listening
+check in Chromium was not run.
+
 [ametsuchi]: https://peritune.com/blog/2018/10/01/ametsuchi/
 [atlas-greece]: https://pixabay.com/music/orchestral-atlas-greece-555434/
 [atlas-panama]: https://pixabay.com/music/instrumental-atlas-panama-576797/

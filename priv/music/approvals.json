@@ -1,5 +1,1313 @@
 {
   "version": 1,
-  "tracks": {},
-  "handoffs": []
+  "tracks": {
+    "ametsuchi": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "c17eb0bf7dc6b23417d05628b26221ec51f66d1b35b25cb41d88363cfded3c3e"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "d64f9442ae5fc09fbf16aa6d3b07a82b3dd844282f53326047a8da82a8dc30ae",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "arabic-music": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "d6f50a99dcae46e2d9b6df15052effdca4bc8eb123b9da965223dbae40a856f1"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "801fe8b703414e6163126245173146afc1d2fac947fe919c445e1b22403f1c20",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "atlas-greece": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "3ea6cf484d3a50da687356147ae17c3dc6baee038ec26e808df86595052987fb"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "5cebca348aaf2b63c910e81aac4da2b65c05f587e8e8cf05318c2d6b47271f8b",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "beachfront-celebration": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "73ffcea8277780253b4e42dcbc3c5b3c50ba8ad343023372726a8678f43cc68e"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "de7a6349f8f94df5f4de0b2ca084fab122a3467d5f4cc24fcba4ac7f80a204b0",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "beautiful-korea": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "9cf1764e974607463713c024151e6372759bbf6f05a928d737cdb9321474e215"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "eeb1f6cbeb5276dde69fce42454415cf03f3bb8bf0156a49b69cbe06f056997f",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "cinematic-latin-music": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "f247da8604b430656d6a5b6195601b90146ed40dac4f03a8ea97556139c580e7"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "6b2a2fe7ee7be854c9f1425342e9b279d714f70dbc67810d005f13d5244c51ef",
+        "entry_s": 1.82,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "conquer-the-great-sands": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "f3ac8a49aa79aeb5e7f801194a023b498c3dcbe950c52947d48638942fe2c59b"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "5a2fe8ddd2ca2668deb0d8d1d081c531785efd9e3fcae850d312cdbc9f96bb14",
+        "entry_s": 29.665,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "dellasera": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "ad7fd4e2801e4639e036c6c8e853590a343c843ab4999c2cb84157f2b4a32bd3"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "577d1b55f5e17d031f249ad5337624ca584e6c61824359cb47fbf0bf37894a37",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "desert2": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "591d1e5bc6de1f4c2b9b48299f6048d2d3baba87cf6ff5d42530f707e563465f"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "9ff638a42d6d161512795e542fdd7ac487ccf84973633b1b5c0fa42dde7d1dab",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "dhaka": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "2196a22f4a96de9c03e3d6c1589ac5b3234641caa7f1afd2299b0e418ab53ab0"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "59fef1da911a86dae6c494bf44c1b3840a529afe9f0c457ce6260c0663502746",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "epic-indian-orchestral-fusion": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "1d5f8d754964439415180f39cbcbee52963168063e922bd6af23bd78c6bffc18"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "37d6b5a6afeadbc6b85024243cc626692f7dea70506526cc5b4385c0f2439153",
+        "entry_s": 8.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "epic-nusantara": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "84b32f1ecc6cdfafe9bed28e67260d93fd67f65a5c4c293caf35c84940130943"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "9535f5dccbdc6c36f3cd69cfb6b80794415045aeeabdcfc9586a8ee1debd714a",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "folk-arabian": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "958c97661057ac0bed77df638f94d1c2e6fdd95be84695b028eba860c61e0d83"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "d499e33334da3488fb91ea089c79302cca6f3ac3a83e617055827810685731c9",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "hoi-an-ancient-charm": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "4ccc84353258f828ba25fdabb1c94f37e9279754d02f0470c128f56a7e5632c8"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "53dc5cba59b105abf6a15ed5050f99c32d009f735ac2f73f61a83289a0a50f00",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "imperial-china-cinematic": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "4a8bf29f72af49ad3e031f2c4f6c4bc05af2b2fadc2013dccb4dbaa4e800bc54"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "1c779cd75f4cbde2fbb4efbf1355e6d013672c4fe4d92456a08bdb115b5114a4",
+        "entry_s": 16.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "korean-gayageum": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "07eabbeefd563b41613a2ef7f8a932f2c8e8ced7553a34c660112178e92e7de0"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "6476b9188b71962afdf9fec24c247121668990e24c2be8284982d767e13381b7",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "listening-to-our-sounds": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "b911952759ef2e1257e622d165a2efe2993c64a5e17a33e506469f2d5ade07ff"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "02aa9e1b82812e0c5c7e2842e92f4b453551c40b027998d25709b01fd559131c",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "lord-of-the-land": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "47ce185fdc1f2e5514566307d652d6cb62a06bed47ea730e28214d3cedc2f948"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "587a898fd2c4755628ad170e516eb0c3865c3862bf3faf671048ebd84ff9d1ea",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "market-on-the-sea": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "8c7b6db9dd571cb1ec6eea6c7b035f2c0541c37d95d10f868bc38fe87eff6d8d"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "0aaae7586129bd7efa105ba9dbd3ea9fef391d5b2254664c197342d8497770cb",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "middle-east-ballad": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "d59dd1ae0e41bb069683e644bbe34b09d9c8a4e74a35536f336a46496645e5c1"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "b81fa67bbc45e89db236df5ac70fc635b1b6ff6b5a0b78a898b43696d08db0f2",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "pathfinder": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "f20e3e9aaac2d947510ec971d7ea477320370091c3ea7b1541792c3fe5683e78"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "e2740b22af9b146adbc3b935d1202b69fdb2cb189c1a51ad3eadbf55bf8b7986",
+        "entry_s": 0.792,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "sakuya3": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "21ff78d194af9557d299fee64730b8726d3a440e583a70b979bc7f6a6df254cf"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "802de8b9abf0cf34bee7229223f44ea23605903ec66af7c647eaad17770579b5",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "setting-sail": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "e496000eaa81a0a8eaeb8ae7fe5c441cf6b3a8610678600069f8e50bf9231e9c"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "f4e797dd17406a733c94f33d6396407c154bcf7b93b0a638578406518c083c99",
+        "entry_s": 7.706,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "shenyang": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "1cf2e0f57f820d82e9066ba4dca076735aedd512bc1909fdaa2e0065bd866786"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "d37aaf6c7db176c2a88aa681d4d5566c9d88f804f995a9af6e4f5665bf23c2b6",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "sideways-samba": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "2ee432954197d30320b95a915d3c029e446130f5eb0490347c87bb535dc7e159"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "2751bf6d2549d41ae4d3928782f0fdcfe03b412fa74e873515b407411fc01b9f",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "swing-train": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "b66669c82cd86ca93f0ceb2556c7c4fa5713dd592b81a6ac2f97870e2877048b"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "5f3367a871a17fc6b8ee3613fbf9d5859d30f282ef13959f9092abc523f06f91",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "the-world-at-your-door": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "e9de1adfaf385d003ae3e281bd1d7158e0d8c127964177daf8eea75a072eaa64"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "d1090b5bc14a80df380f5e60b7221ee4e40914fb2b8d6e279dc87f2f91ac6707",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    },
+    "up-in-the-air": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "source_sha256": "ba9ad15d406ddba4f9aa7df0ef8e51631a82605a1992e947c7698611fddc951e"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+        "output_sha256": "ea222419e3afd12c3152554c7daa59e828478ccf7fe76d0de29ed109cefd8cb9",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 64
+        }
+      }
+    }
+  },
+  "handoffs": [
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "shenyang",
+      "to": "imperial-china-cinematic",
+      "from_output_sha256": "d37aaf6c7db176c2a88aa681d4d5566c9d88f804f995a9af6e4f5665bf23c2b6",
+      "to_output_sha256": "1c779cd75f4cbde2fbb4efbf1355e6d013672c4fe4d92456a08bdb115b5114a4",
+      "to_entry_s": 16.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "sakuya3",
+      "to": "ametsuchi",
+      "from_output_sha256": "802de8b9abf0cf34bee7229223f44ea23605903ec66af7c647eaad17770579b5",
+      "to_output_sha256": "d64f9442ae5fc09fbf16aa6d3b07a82b3dd844282f53326047a8da82a8dc30ae",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "listening-to-our-sounds",
+      "to": "beautiful-korea",
+      "from_output_sha256": "02aa9e1b82812e0c5c7e2842e92f4b453551c40b027998d25709b01fd559131c",
+      "to_output_sha256": "eeb1f6cbeb5276dde69fce42454415cf03f3bb8bf0156a49b69cbe06f056997f",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "listening-to-our-sounds",
+      "to": "korean-gayageum",
+      "from_output_sha256": "02aa9e1b82812e0c5c7e2842e92f4b453551c40b027998d25709b01fd559131c",
+      "to_output_sha256": "6476b9188b71962afdf9fec24c247121668990e24c2be8284982d767e13381b7",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "hoi-an-ancient-charm",
+      "to": "epic-nusantara",
+      "from_output_sha256": "53dc5cba59b105abf6a15ed5050f99c32d009f735ac2f73f61a83289a0a50f00",
+      "to_output_sha256": "9535f5dccbdc6c36f3cd69cfb6b80794415045aeeabdcfc9586a8ee1debd714a",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "dhaka",
+      "to": "epic-indian-orchestral-fusion",
+      "from_output_sha256": "59fef1da911a86dae6c494bf44c1b3840a529afe9f0c457ce6260c0663502746",
+      "to_output_sha256": "37d6b5a6afeadbc6b85024243cc626692f7dea70506526cc5b4385c0f2439153",
+      "to_entry_s": 8.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "middle-east-ballad",
+      "to": "conquer-the-great-sands",
+      "from_output_sha256": "b81fa67bbc45e89db236df5ac70fc635b1b6ff6b5a0b78a898b43696d08db0f2",
+      "to_output_sha256": "5a2fe8ddd2ca2668deb0d8d1d081c531785efd9e3fcae850d312cdbc9f96bb14",
+      "to_entry_s": 29.665,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "arabic-music",
+      "to": "folk-arabian",
+      "from_output_sha256": "801fe8b703414e6163126245173146afc1d2fac947fe919c445e1b22403f1c20",
+      "to_output_sha256": "d499e33334da3488fb91ea089c79302cca6f3ac3a83e617055827810685731c9",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "desert2",
+      "to": "folk-arabian",
+      "from_output_sha256": "9ff638a42d6d161512795e542fdd7ac487ccf84973633b1b5c0fa42dde7d1dab",
+      "to_output_sha256": "d499e33334da3488fb91ea089c79302cca6f3ac3a83e617055827810685731c9",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "dellasera",
+      "to": "atlas-greece",
+      "from_output_sha256": "577d1b55f5e17d031f249ad5337624ca584e6c61824359cb47fbf0bf37894a37",
+      "to_output_sha256": "5cebca348aaf2b63c910e81aac4da2b65c05f587e8e8cf05318c2d6b47271f8b",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "dellasera",
+      "to": "cinematic-latin-music",
+      "from_output_sha256": "577d1b55f5e17d031f249ad5337624ca584e6c61824359cb47fbf0bf37894a37",
+      "to_output_sha256": "6b2a2fe7ee7be854c9f1425342e9b279d714f70dbc67810d005f13d5244c51ef",
+      "to_entry_s": 1.82,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "lord-of-the-land",
+      "to": "pathfinder",
+      "from_output_sha256": "587a898fd2c4755628ad170e516eb0c3865c3862bf3faf671048ebd84ff9d1ea",
+      "to_output_sha256": "e2740b22af9b146adbc3b935d1202b69fdb2cb189c1a51ad3eadbf55bf8b7986",
+      "to_entry_s": 0.792,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "swing-train",
+      "to": "the-world-at-your-door",
+      "from_output_sha256": "5f3367a871a17fc6b8ee3613fbf9d5859d30f282ef13959f9092abc523f06f91",
+      "to_output_sha256": "d1090b5bc14a80df380f5e60b7221ee4e40914fb2b8d6e279dc87f2f91ac6707",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "market-on-the-sea",
+      "to": "the-world-at-your-door",
+      "from_output_sha256": "0aaae7586129bd7efa105ba9dbd3ea9fef391d5b2254664c197342d8497770cb",
+      "to_output_sha256": "d1090b5bc14a80df380f5e60b7221ee4e40914fb2b8d6e279dc87f2f91ac6707",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "beachfront-celebration",
+      "to": "setting-sail",
+      "from_output_sha256": "de7a6349f8f94df5f4de0b2ca084fab122a3467d5f4cc24fcba4ac7f80a204b0",
+      "to_output_sha256": "f4e797dd17406a733c94f33d6396407c154bcf7b93b0a638578406518c083c99",
+      "to_entry_s": 7.706,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "port-to-voyage",
+      "from": "sideways-samba",
+      "to": "up-in-the-air",
+      "from_output_sha256": "2751bf6d2549d41ae4d3928782f0fdcfe03b412fa74e873515b407411fc01b9f",
+      "to_output_sha256": "ea222419e3afd12c3152554c7daa59e828478ccf7fe76d0de29ed109cefd8cb9",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "voyage-handoff",
+      "from": "conquer-the-great-sands",
+      "to": "epic-indian-orchestral-fusion",
+      "from_output_sha256": "5a2fe8ddd2ca2668deb0d8d1d081c531785efd9e3fcae850d312cdbc9f96bb14",
+      "to_output_sha256": "37d6b5a6afeadbc6b85024243cc626692f7dea70506526cc5b4385c0f2439153",
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "voyage-handoff",
+      "from": "epic-indian-orchestral-fusion",
+      "to": "conquer-the-great-sands",
+      "from_output_sha256": "37d6b5a6afeadbc6b85024243cc626692f7dea70506526cc5b4385c0f2439153",
+      "to_output_sha256": "5a2fe8ddd2ca2668deb0d8d1d081c531785efd9e3fcae850d312cdbc9f96bb14",
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "voyage-handoff",
+      "from": "atlas-greece",
+      "to": "folk-arabian",
+      "from_output_sha256": "5cebca348aaf2b63c910e81aac4da2b65c05f587e8e8cf05318c2d6b47271f8b",
+      "to_output_sha256": "d499e33334da3488fb91ea089c79302cca6f3ac3a83e617055827810685731c9",
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "voyage-handoff",
+      "from": "folk-arabian",
+      "to": "atlas-greece",
+      "from_output_sha256": "d499e33334da3488fb91ea089c79302cca6f3ac3a83e617055827810685731c9",
+      "to_output_sha256": "5cebca348aaf2b63c910e81aac4da2b65c05f587e8e8cf05318c2d6b47271f8b",
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "voyage-handoff",
+      "from": "imperial-china-cinematic",
+      "to": "ametsuchi",
+      "from_output_sha256": "1c779cd75f4cbde2fbb4efbf1355e6d013672c4fe4d92456a08bdb115b5114a4",
+      "to_output_sha256": "d64f9442ae5fc09fbf16aa6d3b07a82b3dd844282f53326047a8da82a8dc30ae",
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Approved by the project owner after a local audition (TIJARA_MUSIC_AUDITION) on 2026-10-12. Blanket approval of the roster: not every complete recording, whole-recording repeat or pairing was necessarily heard in full.",
+      "kind": "voyage-handoff",
+      "from": "ametsuchi",
+      "to": "imperial-china-cinematic",
+      "from_output_sha256": "d64f9442ae5fc09fbf16aa6d3b07a82b3dd844282f53326047a8da82a8dc30ae",
+      "to_output_sha256": "1c779cd75f4cbde2fbb4efbf1355e6d013672c4fe4d92456a08bdb115b5114a4",
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 64
+      }
+    }
+  ]
 }

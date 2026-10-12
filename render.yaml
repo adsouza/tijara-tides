@@ -16,3 +16,5 @@ services:
         sync: false
       - key: SECRET_KEY_BASE
         sync: false
+      - key: TIJARA_MUSIC_ENABLED
+        value: "true"

@@ -1368,11 +1368,12 @@ selection. GameLive keeps that focus and renders the musical context; the
 browser chooses pieces from twelve palettes, owns every fade, crossfade and
 silent wait, and persists the toggle and volume on the device. Twenty-eight
 gain-matched Opus recordings are stored in Git LFS and credited in game and in
-`docs/music-credits.md`. Production playback is off until the release listening
-gate records approvals for every recording, selection entry, repeat and handoff.
-Auditioning unapproved music is possible only in development and needs both
-`TIJARA_MUSIC_ENABLED=true` and `TIJARA_MUSIC_AUDITION=true`: audition skips the
-approvals, not the flag or the check for real audio files.
+`docs/music-credits.md`. Production plays music: `render.yaml` sets the flag,
+and the release listening gate has recorded approvals for every recording,
+selection entry, repeat and required handoff. Auditioning unapproved music is
+possible only in development and needs both `TIJARA_MUSIC_ENABLED=true` and
+`TIJARA_MUSIC_AUDITION=true`: audition skips the approvals, not the flag or the
+check for real audio files.
 
 Streaming errors and stalls longer than the load timeout recover through the
 same bounded failure policy as loading and playback failures. Replacements use
