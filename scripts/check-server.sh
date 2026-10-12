@@ -17,6 +17,7 @@ python3 scripts/test-validation-scope.py
 python3 scripts/test-server-validation.py
 python3 scripts/test-mutation-audit.py
 python3 scripts/test-format-staged.py
+python3 scripts/test-prepare-music.py
 python3 -m venv tmp/check-catalogue-venv
 tmp/check-catalogue-venv/bin/python -m pip install -q -r scripts/game-data-requirements.txt
 tmp/check-catalogue-venv/bin/python scripts/test-catalogue-routes.py
