@@ -1,0 +1,213 @@
+{
+  "version": 1,
+  "tracks": {
+    "east-port": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Synthetic test tone; not a listening decision.",
+        "source_sha256": "4911fd3e2774691c438419c5317ecb45eff9421f3c6d2f8098c2b40b76778e06"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Synthetic test tone; not a listening decision.",
+        "output_sha256": "8475fa16b61995812cda14b7ca828a095f6036be51637be51087fb84081e7aec",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 6
+        }
+      }
+    },
+    "east-voyage": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Synthetic test tone; not a listening decision.",
+        "source_sha256": "ab60fb556af5902ef1fa2917f16a270a3e8eef091e9ebf2e3b0d5654751f66e7"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Synthetic test tone; not a listening decision.",
+        "output_sha256": "7fae3f19ab728d0fc7397a86c6100750a216bb06ba02135b688b51dd982cdf20",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 6
+        }
+      }
+    },
+    "west-port": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Synthetic test tone; not a listening decision.",
+        "source_sha256": "e944296fd89436852ae8c50b8b9a1ae80ad201a1487f2286dd847ab1624c5188"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Synthetic test tone; not a listening decision.",
+        "output_sha256": "0bf91c44522318507b1e26e4b91d799eab451d4d568bf596df485bea67a3dcc3",
+        "entry_s": 0.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 6
+        }
+      }
+    },
+    "west-voyage": {
+      "recording": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Synthetic test tone; not a listening decision.",
+        "source_sha256": "9af2e7daddd091dd09e2e3c87ee902077a4d2e5ad9046f991d8026688617b9ee"
+      },
+      "playback": {
+        "decision": "approved",
+        "date": "2026-10-12",
+        "notes": "Synthetic test tone; not a listening decision.",
+        "output_sha256": "edc33673e9400d03e820f3088c88c24494452e5e081e6b756a849e6b5f9a3079",
+        "entry_s": 2.0,
+        "recipe": {
+          "strategy": "whole-recording",
+          "settle_s": 3,
+          "fade_out_s": 5,
+          "fade_in_s": 2,
+          "silence_s": 1,
+          "crossfade_s": 2,
+          "silence_floor_db": -60,
+          "loudness_lufs": -20,
+          "true_peak_dbtp": -1,
+          "codec": "opus",
+          "bitrate_kbps": 6
+        }
+      }
+    }
+  },
+  "handoffs": [
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Synthetic test tone; not a listening decision.",
+      "kind": "port-to-voyage",
+      "from": "east-port",
+      "to": "east-voyage",
+      "from_output_sha256": "8475fa16b61995812cda14b7ca828a095f6036be51637be51087fb84081e7aec",
+      "to_output_sha256": "7fae3f19ab728d0fc7397a86c6100750a216bb06ba02135b688b51dd982cdf20",
+      "to_entry_s": 0.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 6
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Synthetic test tone; not a listening decision.",
+      "kind": "port-to-voyage",
+      "from": "west-port",
+      "to": "west-voyage",
+      "from_output_sha256": "0bf91c44522318507b1e26e4b91d799eab451d4d568bf596df485bea67a3dcc3",
+      "to_output_sha256": "edc33673e9400d03e820f3088c88c24494452e5e081e6b756a849e6b5f9a3079",
+      "to_entry_s": 2.0,
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 6
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Synthetic test tone; not a listening decision.",
+      "kind": "voyage-handoff",
+      "from": "east-voyage",
+      "to": "west-voyage",
+      "from_output_sha256": "7fae3f19ab728d0fc7397a86c6100750a216bb06ba02135b688b51dd982cdf20",
+      "to_output_sha256": "edc33673e9400d03e820f3088c88c24494452e5e081e6b756a849e6b5f9a3079",
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 6
+      }
+    },
+    {
+      "decision": "approved",
+      "date": "2026-10-12",
+      "notes": "Synthetic test tone; not a listening decision.",
+      "kind": "voyage-handoff",
+      "from": "west-voyage",
+      "to": "east-voyage",
+      "from_output_sha256": "edc33673e9400d03e820f3088c88c24494452e5e081e6b756a849e6b5f9a3079",
+      "to_output_sha256": "7fae3f19ab728d0fc7397a86c6100750a216bb06ba02135b688b51dd982cdf20",
+      "recipe": {
+        "strategy": "whole-recording",
+        "settle_s": 3,
+        "fade_out_s": 5,
+        "fade_in_s": 2,
+        "silence_s": 1,
+        "crossfade_s": 2,
+        "silence_floor_db": -60,
+        "loudness_lufs": -20,
+        "true_peak_dbtp": -1,
+        "codec": "opus",
+        "bitrate_kbps": 6
+      }
+    }
+  ]
+}
