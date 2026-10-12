@@ -1,15 +1,16 @@
 defmodule TijaraTidesWeb.MusicCreditsController do
   use TijaraTidesWeb, :controller
+  alias TijaraTidesWeb.Music
 
   def show(conn, _params) do
-    case TijaraTidesWeb.Music.manifest() do
-      {:ok, manifest} ->
-        render(conn, :show,
-          page_title: gettext("Music credits"),
-          tracks: TijaraTidesWeb.Music.credits(manifest)
-        )
-
-      {:error, _reason} ->
+    with {:ok, manifest} <- Music.manifest(),
+         true <- Music.well_formed_manifest?(manifest) do
+      render(conn, :show,
+        page_title: gettext("Music credits"),
+        tracks: Music.credits(manifest)
+      )
+    else
+      _unavailable ->
         conn |> put_status(:not_found) |> text(gettext("Music credits are unavailable."))
     end
   end

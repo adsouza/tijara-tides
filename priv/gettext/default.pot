@@ -5532,13 +5532,13 @@ msgid "License"
 msgstr ""
 
 #: lib/tijara_tides_web/components/game/music_panel.ex:53
-#: lib/tijara_tides_web/controllers/music_credits_controller.ex:8
+#: lib/tijara_tides_web/controllers/music_credits_controller.ex:9
 #: lib/tijara_tides_web/controllers/music_credits_html.ex:7
 #, elixir-autogen, elixir-format
 msgid "Music credits"
 msgstr ""
 
-#: lib/tijara_tides_web/controllers/music_credits_controller.ex:13
+#: lib/tijara_tides_web/controllers/music_credits_controller.ex:14
 #, elixir-autogen, elixir-format
 msgid "Music credits are unavailable."
 msgstr ""

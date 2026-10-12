@@ -64,9 +64,20 @@ export function createEngine({context, createAudio, baseUrl, timeoutMs = 10_000,
       },
       onProgress: fn => element.addEventListener('timeupdate', () => fn()),
       onEnded: fn => element.addEventListener('ended', () => fn()),
-      onError: fn => element.addEventListener('error', () => {
-        if (!disposed) fn(element.error ?? new Error('audio failed during playback'))
-      }),
+      onError(fn) {
+        const report = error => { if (!disposed) fn(error) }
+        element.addEventListener('error', () => report(element.error ?? new Error('audio failed during playback')))
+        // A network stall may never raise `error`; one that outlasts the load
+        // timeout while playing counts as a streaming failure.
+        let stall = null
+        const settle = () => { if (stall !== null) { clearTimer(stall); stall = null } }
+        const arm = () => {
+          if (element.paused || stall !== null) return
+          stall = setTimer(() => { stall = null; report(new Error('playback stalled')) }, timeoutMs)
+        }
+        for (const type of ['waiting', 'stalled']) element.addEventListener(type, arm)
+        for (const type of ['timeupdate', 'playing', 'pause', 'emptied']) element.addEventListener(type, settle)
+      },
       dispose() {
         if (disposed) return
         disposed = true

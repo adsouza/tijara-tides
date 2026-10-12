@@ -1374,9 +1374,10 @@ Auditioning unapproved music is possible only in development and needs both
 `TIJARA_MUSIC_ENABLED=true` and `TIJARA_MUSIC_AUDITION=true`: audition skips the
 approvals, not the flag or the check for real audio files.
 
-Streaming errors recover through the same bounded failure policy as loading
-and playback failures. Replacements use the latest selected ship's progress
-without resetting selection deadlines, and a healthy preloaded successor is
-retained. Availability validates the fields consumed by the client and checks
-every recorded handoff for each required pair, so duplicate records cannot hide
-rejections or stale approvals.
+Streaming errors and stalls longer than the load timeout recover through the
+same bounded failure policy as loading and playback failures. Replacements use
+the latest selected ship's progress without resetting selection deadlines, and a
+healthy preloaded successor is retained. Availability validates the fields
+consumed by the client and checks every recorded handoff for each required pair,
+so duplicate records cannot hide rejections or stale approvals; a replaced
+record is kept as history by marking it `superseded`.

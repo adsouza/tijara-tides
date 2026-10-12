@@ -45,7 +45,8 @@ defmodule TijaraTidesWeb.Music do
     tracks = manifest["tracks"]
     recipe = manifest["recipe"]
     recorded = approvals["tracks"] || %{}
-    handoffs = approvals["handoffs"] || []
+    # A replaced handoff record stays in the file as history once marked superseded.
+    handoffs = Enum.reject(approvals["handoffs"] || [], &(&1["decision"] == "superseded"))
 
     pairs =
       for palette <- manifest["palettes"],
@@ -149,12 +150,15 @@ defmodule TijaraTidesWeb.Music do
     invalid_items ++ checks ++ missing ++ empty
   end
 
-  defp find_handoff(handoffs, kind, from, to),
-    do: Enum.find(handoffs, &(&1["kind"] == kind and &1["from"] == from and &1["to"] == to))
+  defp handoff_matches?(handoff, kind, from, to),
+    do: handoff["kind"] == kind and handoff["from"] == from and handoff["to"] == to
 
-  # Missing pairs are pending; every recorded match is checked, including history.
+  defp find_handoff(handoffs, kind, from, to),
+    do: Enum.find(handoffs, &handoff_matches?(&1, kind, from, to))
+
+  # Missing pairs are pending; every current (not superseded) match is checked.
   defp matching_handoffs(handoffs, kind, from, to) do
-    case Enum.filter(handoffs, &(&1["kind"] == kind and &1["from"] == from and &1["to"] == to)) do
+    case Enum.filter(handoffs, &handoff_matches?(&1, kind, from, to)) do
       [] -> [nil]
       entries -> entries
     end
@@ -240,7 +244,17 @@ defmodule TijaraTidesWeb.Music do
   # Validate fields consumed by the client here, even in audition mode: a valid
   # audio header or approval binding cannot prove that identity/credits can render.
   defp well_formed?(manifest, approvals) do
-    is_map(manifest) and is_map(approvals) and well_formed_approvals?(approvals) and
+    is_map(approvals) and well_formed_approvals?(approvals) and well_formed_manifest?(manifest)
+  end
+
+  @doc """
+  Whether a manifest has every field the client, the gate and the credits page
+  read. The docs tests apply it to the committed manifest, so a preparation run
+  that writes a shape the server would reject fails CI instead of silently
+  disabling music at boot.
+  """
+  def well_formed_manifest?(manifest) do
+    is_map(manifest) and
       is_map(manifest["recipe"]) and
       is_map(manifest["tracks"]) and map_size(manifest["tracks"]) > 0 and
       Enum.all?(Map.values(manifest["tracks"]), &well_formed_track?/1) and
@@ -257,10 +271,15 @@ defmodule TijaraTidesWeb.Music do
 
   defp well_formed_track?(track) do
     is_map(track) and
-      Enum.all?(~w(file title source_url source_sha256 output_sha256), fn key ->
-        nonempty_string?(track[key])
-      end) and
+      Enum.all?(
+        ~w(file title credit source_url licence licence_url edits source_sha256 output_sha256),
+        &nonempty_string?(track[&1])
+      ) and
       nonempty_strings?(track["artists"]) and
+      is_list(track["notices"]) and
+      Enum.all?(track["notices"], fn notice ->
+        is_map(notice) and nonempty_string?(notice["name"]) and nonempty_string?(notice["file"])
+      end) and
       is_number(track["duration_s"]) and track["duration_s"] > 0 and
       is_number(track["entry_s"]) and track["entry_s"] >= 0 and
       track["entry_s"] < track["duration_s"]

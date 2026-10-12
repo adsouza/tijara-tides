@@ -13,11 +13,13 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
   let enabled = true, foreground = true, unlocked = false, destroyed = false
   let generation = 0
   let mode = 'idle'            // idle: may start at once; playing; stopped after failures
-  let current = null           // {voice, id, slug}
+  // The started piece record from choose(): voice, id, context, slug, track,
+  // automatic, offset and notBefore. mediaFailed() relies on those fields.
+  let current = null
   const voices = new Set()     // voices whose gain may be above zero
   let transition = null        // {outgoingEndsAt, deadline}
   let pending = null           // the one incoming piece
-  let paused = null            // {voice, id, slug} kept while away
+  let paused = null            // the current piece record, kept while away
   let failures = 0
   let failureLocked = false    // cleared only by a musical identity change
   let wake = null

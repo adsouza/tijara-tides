@@ -13,7 +13,12 @@ defmodule TijaraTidesWeb.MusicTest do
       "duration_s" => 120.0,
       "title" => slug,
       "artists" => ["Composer"],
-      "source_url" => "https://example.test/" <> slug
+      "credit" => "Composer",
+      "source_url" => "https://example.test/" <> slug,
+      "licence" => "CC BY 4.0",
+      "licence_url" => "https://creativecommons.org/licenses/by/4.0/",
+      "edits" => "Encoded as Opus 64 kbps.",
+      "notices" => [%{"name" => "Release", "file" => "notices/" <> slug <> ".pdf"}]
     }
   end
 
@@ -188,6 +193,37 @@ defmodule TijaraTidesWeb.MusicTest do
     end
   end
 
+  test "a superseded handoff record is kept as history without blocking the gate", %{
+    directory: dir
+  } do
+    records = approvals()
+    [original | rest] = records["handoffs"]
+    history = %{original | "decision" => "superseded", "to_output_sha256" => "old-output"}
+
+    for entries <- [[history, original | rest], [original, history | rest]] do
+      kept = Map.put(records, "handoffs", entries)
+      assert Music.evaluate(manifest(), kept, dir, enabled: true) == :available
+      refute Map.has_key?(Music.approval_report(manifest(), kept), :stale)
+    end
+
+    only_history = Map.put(records, "handoffs", [history | rest])
+    assert "p → v handoff" in Music.approval_report(manifest(), only_history).pending
+
+    voyage = Enum.find(rest, &(&1["kind"] == "voyage-handoff"))
+    old_voyage = %{voyage | "decision" => "superseded", "from_output_sha256" => "old"}
+    kept = Map.put(records, "handoffs", records["handoffs"] ++ [old_voyage])
+    assert Music.evaluate(manifest(), kept, dir, enabled: true) == :available
+  end
+
+  test "well_formed_manifest?/1 accepts the credited shape the credits page reads" do
+    assert Music.well_formed_manifest?(manifest())
+    refute Music.well_formed_manifest?(put_in(manifest()["tracks"]["p"]["notices"], ["x.pdf"]))
+
+    refute Music.well_formed_manifest?(
+             update_in(manifest()["tracks"]["p"], &Map.delete(&1, "licence_url"))
+           )
+  end
+
   test "audition skips approvals but not the flag or the audio check", %{directory: dir} do
     assert Music.evaluate(manifest(), %{}, dir, enabled: true, audition: true) == :available
 
@@ -313,6 +349,15 @@ defmodule TijaraTidesWeb.MusicTest do
             {"artists", [""]},
             {"source_url", nil},
             {"source_url", ""},
+            {"credit", nil},
+            {"licence", ""},
+            {"licence_url", nil},
+            {"edits", 7},
+            {"notices", nil},
+            {"notices", "x.pdf"},
+            {"notices", ["x.pdf"]},
+            {"notices", [%{"name" => "Release"}]},
+            {"notices", [%{"name" => "", "file" => "notices/x.pdf"}]},
             {"duration_s", "120"},
             {"duration_s", 0},
             {"duration_s", -1},

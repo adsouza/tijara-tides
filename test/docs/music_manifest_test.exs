@@ -67,6 +67,12 @@ defmodule Docs.MusicManifestTest do
     assert map_size(manifest()["tracks"]) == 28
   end
 
+  test "the committed manifest has the shape the server gate requires" do
+    # The same check the server runs at boot; failing here keeps a preparation
+    # run from publishing a manifest that would silently disable music.
+    assert TijaraTidesWeb.Music.well_formed_manifest?(manifest())
+  end
+
   test "every track is credited and its files match their recorded hashes" do
     for {slug, track} <- manifest()["tracks"] do
       for key <- ~w(title credit source_url licence licence_url edits),

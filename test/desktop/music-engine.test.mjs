@@ -137,6 +137,34 @@ test('a ready voice reports streaming errors until it is disposed', async () => 
   assert.equal(errors.length, 2, 'disposing suppresses later media errors')
 })
 
+test('a playing voice that stalls past the load timeout reports a streaming failure', async () => {
+  const context = fakeContext(), audio = fakeAudio(), clock = timers()
+  const engine = createEngine({context, createAudio: () => audio, baseUrl: 'https://h.test/', ...clock})
+  const ready = engine.prepare(track, 0)
+  audio.dispatch('loadedmetadata'); audio.dispatch('canplay')
+  const voice = await ready
+  const errors = []
+  voice.onError(error => errors.push(error))
+  audio.dispatch('stalled')
+  assert.equal(clock.pending.length, 0, 'a paused, preloading voice is not timed')
+  await voice.play()
+  audio.dispatch('waiting')
+  assert.equal(clock.pending.length, 1)
+  assert.equal(clock.pending[0].ms, 10_000)
+  audio.dispatch('stalled')
+  assert.equal(clock.pending.length, 1, 'one stall arms one timer')
+  audio.dispatch('timeupdate')
+  assert.equal(clock.pending.length, 0, 'progress cancels the stall')
+  audio.dispatch('waiting')
+  clock.fire()
+  assert.equal(errors.length, 1)
+  assert.match(errors[0].message, /stalled/)
+  audio.dispatch('waiting')
+  voice.dispose()
+  clock.fire()
+  assert.equal(errors.length, 1, 'a disposed voice never reports a stall')
+})
+
 test('the real engine and director recover when streaming fails after playback starts', async () => {
   const load = name => import(`data:text/javascript;base64,${Buffer.from(
     readFileSync(new URL(`../../assets/js/${name}.js`, import.meta.url), 'utf8')).toString('base64')}`)

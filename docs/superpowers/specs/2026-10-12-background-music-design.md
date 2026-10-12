@@ -267,19 +267,19 @@ edits. `docs/music-credits.md` carries the same content for the repository.
 
 ### Failures
 
-- If the browser cannot play Ogg Opus or lacks Web Audio, the speaker control
-  is hidden and music stays off.
+- If the browser cannot play Ogg Opus or lacks Web Audio, the speaker control is
+  hidden and music stays off.
 - A piece that fails to load is skipped for the next choice. After three
-  consecutive failures, music stops until the next identity change. Seeking
-  and playback failures or timeouts count too, including media errors after
-  readiness or during streaming. Only an actual playback start resets the
-  count. Replacements use the latest desired context and voyage progress,
-  preserving any selection deadline. If a playing piece fails, a healthy
-  pending successor may start as soon as it is ready; otherwise prepare a
-  replacement from the recording's beginning. Errors from outgoing or paused
-  pieces dispose those sources without replacing the current context, and a
-  failed paused piece cannot resume. Superseded requests and intentional
-  pauses do not count.
+  consecutive failures, music stops until the next identity change. Seeking and
+  playback failures or timeouts count too, including media errors after
+  readiness or during streaming, and a playing piece that stalls without
+  progress for the ten-second load timeout. Only an actual playback start resets
+  the count. Replacements use the latest desired context and voyage progress,
+  preserving any selection deadline. If a playing piece fails, a healthy pending
+  successor may start as soon as it is ready; otherwise prepare a replacement
+  from the recording's beginning. Errors from outgoing or paused pieces dispose
+  those sources without replacing the current context, and a failed paused piece
+  cannot resume. Superseded requests and intentional pauses do not count.
 
 ## Controls
 
@@ -390,16 +390,18 @@ playback recipe invalidates the affected entry, repeat and handoff approvals.
 The music audit summarizes these decisions in prose, but the file is the
 record the server and tests read.
 
-The availability check requires all 28 tracks, all within-palette
-port-to-voyage pairs and the recorded cross-region handoff checks to be
-approved; no unreviewed piece enters a random pool. CI checks the records
-without requiring the production enable flag. An approval whose binding no
-longer matches the current manifest fails CI, so a stale sign-off is caught in
-the change that made it stale. A pending approval, one not yet recorded, passes
-CI and is listed in the test output; it keeps music unavailable in production.
-Every recorded handoff for a required pair is checked, including multiple
-records for the same pair. An earlier approval cannot hide a later rejection,
-pending decision or stale binding.
+The availability check requires all 28 tracks, all within-palette port-to-voyage
+pairs and the recorded cross-region handoff checks to be approved; no unreviewed
+piece enters a random pool. CI checks the records without requiring the
+production enable flag. An approval whose binding no longer matches the current
+manifest fails CI, so a stale sign-off is caught in the change that made it
+stale. A pending approval, one not yet recorded, passes CI and is listed in the
+test output; it keeps music unavailable in production. Every current handoff
+record for a required pair is checked, including multiple records for the same
+pair. An earlier approval cannot hide a later rejection, pending decision or
+stale binding. To keep a replaced record as history, set its decision to
+`superseded`; superseded records are ignored, so a pair with only superseded
+records is pending.
 
 ### Quota
 
