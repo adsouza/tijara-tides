@@ -53,13 +53,15 @@ documents agree.
   Cinematic 16, Epic Indian Orchestral Fusion 8, Conquer The Great Sands 30,
   Cinematic Latin Music 2, Pathfinder 1; all others 0.
 - Preparation: trim boundary audio below -60 dBFS, one linear gain toward -20
-  LUFS capped so true peak ≤ -1 dBTP, stereo Ogg Opus 64 kbps at 48 kHz,
-  bit-exact muxing.
+  LUFS capped so the decoded Opus output's measured true peak ≤ -1 dBTP,
+  stereo Ogg Opus 64 kbps at 48 kHz, bit-exact muxing. Verify after encoding;
+  reduce the constant source gain and re-encode if the codec raises the peak.
 - Audio and notices live in `priv/audio/` and are tracked by Git LFS
   (`priv/audio/*.ogg`, `priv/audio/notices/*.pdf`); fixtures in
   `priv/audio/fixtures/` are ordinary files.
 - Approvals live only in `priv/music/approvals.json`; preparation never writes
-  it.
+  it. The release gate requires a reviewed cross-region voyage pair in both
+  directions. Repeats, port tracks and unknown tracks cannot satisfy that check.
 - Production playback flag `TIJARA_MUSIC_ENABLED` defaults to false.
 - Controls carry no `name` attribute (FormFields rejects named controls
   outside submit forms).
@@ -94,6 +96,19 @@ documents agree.
 5. **Voyage progress changes on every refresh.** The same palette pair must
    not restart or fade anything. Test: Task 11, "progress updates within a
    voyage change nothing".
+6. **The three-failure limit is reached during automatic preparation.** Stop
+   audible music and further attempts; toggle, foreground and same-identity
+   updates cannot release the lock. Task 11 covers initial and automatic
+   failures and recovery after an identity change while disabled or away.
+7. **Switching away during an overlap.** Retain the current port voice and
+   its position, while disposing the older outgoing voice. Task 11 covers
+   both automatic and selection overlaps.
+8. **Opus encoding raises a recording's true peak.** Task 2 checks the
+   decoded encode and adjusts the source gain; Task 3 independently measures
+   the final outputs. Source-only peak measurements are insufficient.
+9. **A repeat is submitted as a cross-region audition.** Task 5 rejects
+   same-palette, port and unknown-track handoffs and requires a reverse for
+   every recorded cross-region voyage pair.
 
 ---
 
@@ -297,7 +312,8 @@ pre-push select full validation; that is expected.
              "source_url": "https://…", "licence": "CC BY 4.0",
              "licence_url": "https://…", "source_sha256": "…",
              "output_sha256": "…", "duration_s": 151.2, "trim_start_s": 0.0,
-             "trim_end_s": 0.3, "gain_db": -6.78, "entry_source_s": 0,
+             "trim_end_s": 0.3, "gain_db": -6.78, "true_peak_dbtp": -7.1,
+             "entry_source_s": 0,
              "entry_s": 0.0, "notices": [], "edits": "…"}}
 }
 ```
@@ -341,6 +357,9 @@ class FakeTools:
                 "[silencedetect] silence_start: 9.5\n")
 
     def loudness_log(self, path, lead, tail):
+        if path.suffix == ".ogg":
+            gain = float(path.read_text().rsplit(" ", 1)[1])
+            return f"I: {-14 + gain} LUFS\nPeak: {-0.5 + gain} dBFS\n"
         return "Summary:\n  Integrated loudness:\n    I:         -14.0 LUFS\n  True peak:\n    Peak:       -0.5 dBFS\n"
 
     def encode(self, path, lead, tail, gain, bitrate, out):
@@ -392,6 +411,7 @@ class PrepareMusicTest(unittest.TestCase):
         b = manifest["tracks"]["b"]
         # -20 - (-14) = -6 dB; -1 - (-0.5) = -0.5 dB; the lower wins.
         self.assertEqual(b["gain_db"], -6.0)
+        self.assertEqual(b["true_peak_dbtp"], -6.5)
         self.assertEqual((b["trim_start_s"], b["trim_end_s"]), (0.5, 0.5))
         self.assertEqual((b["entry_source_s"], b["entry_s"]), (8, 7.5))
         self.assertEqual(manifest["tracks"]["a"]["entry_s"], 0.0)
@@ -402,6 +422,37 @@ class PrepareMusicTest(unittest.TestCase):
         written = json.loads((self.out / "music.json").read_text())
         self.assertEqual(written, manifest)
         self.assertEqual(manifest["palettes"], self.roster["palettes"])
+
+    def test_checks_codec_overshoot_and_reencodes_from_the_source(self):
+        class OvershootTools(FakeTools):
+            def loudness_log(self, path, lead, tail):
+                if path.suffix == ".ogg":
+                    gain = float(path.read_text().rsplit(" ", 1)[1])
+                    return f"I: {-14 + gain} LUFS\nPeak: {-0.6 + gain + 6} dBFS\n"
+                return super().loudness_log(path, lead, tail)
+
+        tools = OvershootTools()
+        manifest, _ = self.run_prepare(tools)
+        for track in manifest["tracks"].values():
+            self.assertEqual(track["gain_db"], -6.5)
+            self.assertLessEqual(track["true_peak_dbtp"], RECIPE["true_peak_dbtp"])
+            self.assertIn("gain -6.50 dB", track["edits"])
+            self.assertEqual(track["output_sha256"], digest((self.out / track["file"]).read_bytes()))
+        self.assertEqual(len(tools.encoded), 4)
+        self.assertEqual([row[0] for row in tools.encoded], ["a.mp3", "a.mp3", "b.mp3", "b.mp3"])
+
+    def test_rejects_an_encode_that_cannot_meet_the_peak_ceiling(self):
+        class UnboundedTools(FakeTools):
+            def loudness_log(self, path, lead, tail):
+                if path.suffix == ".ogg":
+                    return "I: -20 LUFS\nPeak: -0.6 dBFS\n"
+                return super().loudness_log(path, lead, tail)
+
+        tools = UnboundedTools()
+        with self.assertRaisesRegex(ValueError, "encoded true peak"):
+            self.run_prepare(tools)
+        self.assertEqual(len(tools.encoded), 5)
+        self.assertFalse((self.out / "music.json").exists())
 
     def test_never_writes_approvals_and_reports_stale_ones(self):
         manifest, _ = self.run_prepare()
@@ -471,6 +522,7 @@ stale, so re-encoding one track cannot erase another track's sign-off.
 import argparse
 import hashlib
 import json
+import math
 import re
 import shutil
 import subprocess
@@ -561,6 +613,22 @@ class Tools:
                  "-vbr", "on", out)
 
 
+def encode_verified(tools, source, lead, tail, gain, recipe, output):
+    """Verify the decoded encode, lowering one source gain without compression."""
+    ceiling = recipe["true_peak_dbtp"]
+    for _ in range(5):
+        tools.encode(source, lead, tail, gain, recipe["bitrate_kbps"], output)
+        duration = tools.duration(output)
+        _, peak = loudness(tools.loudness_log(output, 0, duration))
+        if not math.isfinite(peak):
+            raise ValueError(f"{source.name}: encoded true peak is not finite")
+        if peak <= ceiling:
+            return gain, duration, peak
+        # ebur128 reports tenths of a dB; leave another tenth of headroom.
+        gain = round(gain + ceiling - peak - 0.1, 2)
+    raise ValueError(f"{source.name}: encoded true peak exceeds {ceiling} dBTP after five attempts")
+
+
 def stale_approvals(manifest, approvals):
     """Approved decisions whose bound files or recipe no longer match."""
     tracks, recipe, stale = manifest["tracks"], manifest["recipe"], []
@@ -621,8 +689,8 @@ def prepare(roster, sources, out_dir, approvals_path, tools=None, log=print):
         integrated, peak = loudness(tools.loudness_log(source, lead, tail))
         gain = gain_db(integrated, peak, recipe["loudness_lufs"], recipe["true_peak_dbtp"])
         output = out_dir / f"{slug}.ogg"
-        tools.encode(source, lead, tail, gain, recipe["bitrate_kbps"], output)
-        encoded = round(tools.duration(output), 3)
+        gain, encoded, encoded_peak = encode_verified(tools, source, lead, tail, gain, recipe, output)
+        encoded = round(encoded, 3)
         notices = []
         for notice in entry.get("notices", []):
             notice_source = sources / notice["source"]
@@ -647,6 +715,7 @@ def prepare(roster, sources, out_dir, approvals_path, tools=None, log=print):
             "trim_start_s": lead,
             "trim_end_s": round(duration - tail, 3),
             "gain_db": gain,
+            "true_peak_dbtp": encoded_peak,
             "entry_source_s": entry_source,
             "entry_s": encoded_entry(entry_source, lead, encoded),
             "notices": notices,
@@ -680,13 +749,20 @@ if __name__ == "__main__":
     main()
 ```
 
+`encode_verified` measures the decoded output after each encode, not just the
+source before encoding. On overshoot it lowers the one constant gain and
+encodes again from the original source, overwriting the same output file; it
+never transcodes a prior lossy encode or keeps duplicate audio. Five failed
+attempts abort before publishing a new manifest. The manifest and edit notes
+record the final gain, verified peak and final output hash.
+
 Note `validate_pools` runs after encoding, so the pool test raises
 `ValueError` naming `missing`; the test only checks the message.
 
 - [ ] **Step 4: Run the tests**
 
 Run: `python3 scripts/test-prepare-music.py`
-Expected: `OK` (6 tests).
+Expected: `OK` (8 tests).
 
 - [ ] **Step 5: Break it once**
 
@@ -694,6 +770,8 @@ Change `min(` to `max(` in `gain_db`; rerun; expect
 `test_trims_gain_matches_and_translates_entries` to fail. Restore. Then make
 `prepare` write `approvals_path.write_text("{}")` before returning; expect
 `test_never_writes_approvals_and_reports_stale_ones` to fail. Restore.
+Then return the first encode without checking its peak in `encode_verified`;
+both encoded-peak tests must fail. Restore.
 
 - [ ] **Step 6: Run it in CI**
 
@@ -823,6 +901,14 @@ du -sh priv/audio
 
 Expected: `deterministic` and about 37 MB. If any hash differs, stop: the Ogg
 muxer is not bit-exact on this ffmpeg build, and approvals could never bind.
+
+Confirm every manifest track's `true_peak_dbtp` is at or below the recipe's
+ceiling, then independently decode and measure each final Ogg with ffmpeg
+`ebur128=peak=true`. Include Lord of the Land: the initial +1.2 dB source gain
+produced -0.6 dBTP after Opus encoding in the review probe, so source-only
+measurement is insufficient. The adjusted final encode must measure at or
+below -1 dBTP. Do not record listening approvals until these output checks
+pass.
 
 - [ ] **Step 3: Create the empty approvals record**
 
@@ -1121,10 +1207,15 @@ defmodule TijaraTidesWeb.MusicTest do
   defp manifest do
     %{
       "recipe" => @recipe,
-      "palettes" => [%{"id" => "east", "ports" => ["Busan"], "port" => ["p"], "voyage" => ["v"]}],
+      "palettes" => [
+        %{"id" => "east", "ports" => ["Busan"], "port" => ["p"], "voyage" => ["v"]},
+        %{"id" => "west", "ports" => ["Tangier"], "port" => ["q"], "voyage" => ["w"]}
+      ],
       "tracks" => %{
         "p" => %{"file" => "p.ogg", "source_sha256" => "sp", "output_sha256" => "op", "entry_s" => 0.0},
-        "v" => %{"file" => "v.ogg", "source_sha256" => "sv", "output_sha256" => "ov", "entry_s" => 7.5}
+        "v" => %{"file" => "v.ogg", "source_sha256" => "sv", "output_sha256" => "ov", "entry_s" => 7.5},
+        "q" => %{"file" => "q.ogg", "source_sha256" => "sq", "output_sha256" => "oq", "entry_s" => 0.0},
+        "w" => %{"file" => "w.ogg", "source_sha256" => "sw", "output_sha256" => "ow", "entry_s" => 0.0}
       }
     }
   end
@@ -1141,14 +1232,27 @@ defmodule TijaraTidesWeb.MusicTest do
         "v" => %{
           "recording" => approved(%{"source_sha256" => "sv"}),
           "playback" => approved(%{"output_sha256" => "ov", "entry_s" => 7.5, "recipe" => @recipe})
+        },
+        "q" => %{
+          "recording" => approved(%{"source_sha256" => "sq"}),
+          "playback" => approved(%{"output_sha256" => "oq", "entry_s" => 0.0, "recipe" => @recipe})
+        },
+        "w" => %{
+          "recording" => approved(%{"source_sha256" => "sw"}),
+          "playback" => approved(%{"output_sha256" => "ow", "entry_s" => 0.0, "recipe" => @recipe})
         }
       },
       "handoffs" => [
         approved(%{"kind" => "port-to-voyage", "from" => "p", "to" => "v",
           "from_output_sha256" => "op", "to_output_sha256" => "ov", "to_entry_s" => 7.5,
           "recipe" => @recipe}),
-        approved(%{"kind" => "voyage-handoff", "from" => "v", "to" => "v",
-          "from_output_sha256" => "ov", "to_output_sha256" => "ov", "recipe" => @recipe})
+        approved(%{"kind" => "port-to-voyage", "from" => "q", "to" => "w",
+          "from_output_sha256" => "oq", "to_output_sha256" => "ow", "to_entry_s" => 0.0,
+          "recipe" => @recipe}),
+        approved(%{"kind" => "voyage-handoff", "from" => "v", "to" => "w",
+          "from_output_sha256" => "ov", "to_output_sha256" => "ow", "recipe" => @recipe}),
+        approved(%{"kind" => "voyage-handoff", "from" => "w", "to" => "v",
+          "from_output_sha256" => "ow", "to_output_sha256" => "ov", "recipe" => @recipe})
       ]
     }
   end
@@ -1156,8 +1260,8 @@ defmodule TijaraTidesWeb.MusicTest do
   setup do
     directory = Path.join(System.tmp_dir!(), "music-#{System.unique_integer([:positive])}")
     File.mkdir_p!(directory)
-    File.write!(Path.join(directory, "p.ogg"), "OggS" <> :binary.copy(<<0>>, 32))
-    File.write!(Path.join(directory, "v.ogg"), "OggS" <> :binary.copy(<<0>>, 32))
+    for slug <- ~w(p v q w),
+        do: File.write!(Path.join(directory, slug <> ".ogg"), "OggS" <> :binary.copy(<<0>>, 32))
     on_exit(fn -> File.rm_rf!(directory) end)
     %{directory: directory}
   end
@@ -1165,7 +1269,7 @@ defmodule TijaraTidesWeb.MusicTest do
   test "current approvals, real audio and the flag make music available", %{directory: dir} do
     assert Music.evaluate(manifest(), approvals(), dir, enabled: true) == :available
     assert %{approved: approved} = Music.approval_report(manifest(), approvals())
-    assert length(approved) == 6
+    assert length(approved) == 12
   end
 
   test "the flag, a pointer file and a missing approval each keep music off", %{directory: dir} do
@@ -1187,7 +1291,8 @@ defmodule TijaraTidesWeb.MusicTest do
     report = Music.approval_report(changed, approvals())
     assert "v playback" in report.stale
     assert "p → v handoff" in report.stale
-    assert "v → v voyage handoff" in report.stale
+    assert "v → w voyage handoff" in report.stale
+    assert "w → v voyage handoff" in report.stale
     refute "v recording" in report.stale
 
     resourced = put_in(manifest()["tracks"]["p"]["source_sha256"], "new")
@@ -1198,7 +1303,7 @@ defmodule TijaraTidesWeb.MusicTest do
              ["p → v handoff", "v playback"]
 
     recipe = put_in(manifest()["recipe"]["fade_in_s"], 3)
-    assert length(Music.approval_report(recipe, approvals()).stale) == 4
+    assert length(Music.approval_report(recipe, approvals()).stale) == 8
   end
 
   test "rejections, unknown tracks and a missing cross-region check are reported" do
@@ -1216,6 +1321,40 @@ defmodule TijaraTidesWeb.MusicTest do
     assert Music.evaluate(manifest(), %{}, dir, enabled: true, audition: true) == :available
     assert {:unavailable, ["music is disabled"]} =
              Music.evaluate(manifest(), %{}, dir, enabled: false, audition: true)
+  end
+
+  test "a reviewed cross-region voyage handoff also requires its reverse", %{directory: dir} do
+    one_way = update_in(approvals()["handoffs"], &Enum.reject(&1, fn h ->
+      h["kind"] == "voyage-handoff" and h["from"] == "w" and h["to"] == "v"
+    end))
+    assert Music.approval_report(manifest(), one_way).pending == ["w → v voyage handoff"]
+    assert {:unavailable, reasons} = Music.evaluate(manifest(), one_way, dir, enabled: true)
+    assert "w → v voyage handoff pending" in reasons
+  end
+
+  test "self, port and unknown-track handoffs cannot stand in for cross-region review" do
+    for {from, to} <- [{"v", "v"}, {"p", "w"}, {"v", "ghost"}] do
+      tracks = manifest()["tracks"]
+      invalid = approved(%{"kind" => "voyage-handoff", "from" => from, "to" => to,
+        "from_output_sha256" => get_in(tracks, [from, "output_sha256"]),
+        "to_output_sha256" => get_in(tracks, [to, "output_sha256"]), "recipe" => @recipe})
+      records = update_in(approvals()["handoffs"], fn handoffs ->
+        Enum.filter(handoffs, &(&1["kind"] == "port-to-voyage")) ++ [invalid]
+      end)
+      report = Music.approval_report(manifest(), records)
+      assert "#{from} → #{to} voyage handoff outside cross-region voyage pools" in report.stale
+      assert report.pending == ["cross-region voyage handoff"]
+    end
+  end
+
+  test "two voyage tracks in the same palette do not satisfy cross-region review" do
+    same_palette = put_in(manifest()["palettes"], [
+      %{"id" => "east", "ports" => ["Busan"], "port" => ["p", "q"], "voyage" => ["v", "w"]}
+    ])
+    report = Music.approval_report(same_palette, approvals())
+    assert "v → w voyage handoff outside cross-region voyage pools" in report.stale
+    assert "w → v voyage handoff outside cross-region voyage pools" in report.stale
+    assert "cross-region voyage handoff" in report.pending
   end
 
   test "the test build plays the approved fixture" do
@@ -1311,7 +1450,8 @@ defmodule TijaraTidesWeb.Music do
       for h <- handoffs, h["kind"] not in ["port-to-voyage", "voyage-handoff"],
           do: {"handoff of unknown kind #{inspect(h["kind"])}", :stale}
 
-    (track_items ++ unknown ++ pair_items ++ outside ++ voyage_items(handoffs, tracks, recipe) ++ odd)
+    voyages = voyage_items(handoffs, manifest["palettes"], tracks, recipe)
+    (track_items ++ unknown ++ pair_items ++ outside ++ voyages ++ odd)
     |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))
   end
 
@@ -1336,17 +1476,37 @@ defmodule TijaraTidesWeb.Music do
     end
   end
 
-  defp voyage_items(handoffs, tracks, recipe) do
-    case Enum.filter(handoffs, &(&1["kind"] == "voyage-handoff")) do
-      [] ->
-        [{"cross-region voyage handoff", :pending}]
+  defp voyage_items(handoffs, palettes, tracks, recipe) do
+    voyage_palettes = Map.new(for p <- palettes, slug <- p["voyage"], do: {slug, p["id"]})
+    recorded = Enum.filter(handoffs, &(&1["kind"] == "voyage-handoff"))
+    {valid, invalid} = Enum.split_with(recorded, fn h ->
+      origin = voyage_palettes[h["from"]]
+      destination = voyage_palettes[h["to"]]
+      Map.has_key?(tracks, h["from"]) and Map.has_key?(tracks, h["to"]) and
+        origin != nil and destination != nil and origin != destination
+    end)
 
-      recorded ->
-        for h <- recorded do
-          {"#{h["from"]} → #{h["to"]} voyage handoff",
-           classify(h, handoff_binding(h["from"], h["to"], tracks, recipe, false))}
-        end
+    invalid_items = for h <- invalid do
+      {"#{h["from"]} → #{h["to"]} voyage handoff outside cross-region voyage pools", :stale}
     end
+
+    required = valid
+      |> Enum.flat_map(fn h -> [{h["from"], h["to"]}, {h["to"], h["from"]}] end)
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    checks = for h <- valid do
+      {"#{h["from"]} → #{h["to"]} voyage handoff",
+       classify(h, handoff_binding(h["from"], h["to"], tracks, recipe, false))}
+    end
+
+    missing = for {from, to} <- required,
+                  find_handoff(valid, "voyage-handoff", from, to) == nil do
+      {"#{from} → #{to} voyage handoff", :pending}
+    end
+
+    empty = if valid == [], do: [{"cross-region voyage handoff", :pending}], else: []
+    invalid_items ++ checks ++ missing ++ empty
   end
 
   defp find_handoff(handoffs, kind, from, to),
@@ -1543,6 +1703,8 @@ defmodule Docs.MusicManifestTest do
       assert [_ | _] = track["artists"]
       assert identity(Path.join("priv/audio", track["file"])) == track["output_sha256"], slug
       assert track["entry_s"] >= 0 and track["entry_s"] < track["duration_s"]
+      assert is_number(track["true_peak_dbtp"])
+      assert track["true_peak_dbtp"] <= manifest()["recipe"]["true_peak_dbtp"]
 
       for notice <- track["notices"], do: assert(File.exists?(Path.join("priv/audio", notice["file"])))
     end
@@ -1597,6 +1759,9 @@ Expected: pass. Then:
   `priv/music/approvals.json` → the approvals test fails; restore;
 - change one hex digit of a track's `output_sha256` → the files test fails;
   restore.
+- Remove the missing-reverse check from `voyage_items` → the one-way
+  handoff test fails; restore. Accept every recorded voyage handoff as valid
+  without checking its pool or palette → the invalid-pair tests fail; restore.
 
 - [ ] **Step 9: Document**
 
@@ -2750,15 +2915,20 @@ function harness() {
     clearTimer: h => { const i = timers.indexOf(h); if (i >= 0) timers.splice(i, 1) },
   }
   const voiceFor = (trackValue, offset) => {
-    const voice = {track: trackValue, offset, fades: [], plays: [], position: offset, duration: 120,
+    // Media time advances with the elapsed clock only while playback runs.
+    let position = offset, playingAt = null
+    const voice = {track: trackValue, offset, fades: [], plays: [], duration: 120,
       disposed: false, paused: false, progressFns: [], endedFns: [],
-      play() { return new Promise((resolve, reject) => voice.plays.push({at: t, resolve, reject})) },
-      pause() { voice.paused = true },
+      play() { return new Promise((resolve, reject) => voice.plays.push({at: t,
+        resolve() { position = voice.position; playingAt = t; voice.paused = false; resolve() }, reject})) },
+      get position() { return position + (playingAt === null ? 0 : t - playingAt) },
+      set position(value) { position = value; if (playingAt !== null) playingAt = t },
+      pause() { position = voice.position; playingAt = null; voice.paused = true },
       fade(kind, duration) { voice.fades.push([kind, t, duration]) },
       onProgress(fn) { voice.progressFns.push(fn) }, onEnded(fn) { voice.endedFns.push(fn) },
       progress(position) { voice.position = position; voice.progressFns.forEach(fn => fn()) },
-      end() { voice.endedFns.forEach(fn => fn()) },
-      dispose() { voice.disposed = true }}
+      end() { voice.pause(); voice.endedFns.forEach(fn => fn()) },
+      dispose() { voice.pause(); voice.disposed = true }}
     return voice
   }
   const engine = {
@@ -3063,6 +3233,52 @@ test('switching away pauses port music for resume and repicks voyages', async ()
   assert.equal(v.last().offset, 16)
 })
 
+test('switching away during a port crossfade resumes the incoming port piece', async () => {
+  const h = harness()
+  const a = await playing(h, port('Tangier'))
+  a.progress(118)
+  await h.last().resolve()
+  const b = h.last().voice
+  b.plays[0].resolve(); await flush()
+  await h.advance(1)
+  b.position = 42
+  h.director.setForeground(false)
+  await h.advance(2)
+  assert.ok(a.disposed && b.paused && !b.disposed)
+  const position = b.position
+  assert.equal(position, 43)
+  await h.advance(4)
+  h.director.setForeground(true)
+  assert.equal(h.prepared.length, 2)
+  assert.equal(b.plays.length, 2)
+  b.plays[1].resolve(); await flush()
+  assert.equal(b.position, position)
+  assert.deepEqual(b.fades.at(-1), ['in', 4, 2])
+  assert.deepEqual(h.starts.at(-1), ['west-b', 4])
+})
+
+test('switching away during a selection overlap resumes the current port piece', async () => {
+  const h = harness()
+  const a = await playing(h)
+  await h.advance(10)
+  h.director.setContext(port('Tangier'))
+  await h.last().resolve()
+  await h.advance(13)
+  const b = h.last().voice
+  b.plays[0].resolve(); await flush()
+  await h.advance(14)
+  h.director.setForeground(false)
+  await h.advance(15)
+  assert.ok(a.disposed && b.paused && !b.disposed)
+  const position = b.position
+  await h.advance(20)
+  h.director.setForeground(true)
+  assert.equal(h.prepared.length, 2)
+  assert.equal(b.plays.length, 2)
+  b.plays[1].resolve(); await flush()
+  assert.equal(b.position, position)
+})
+
 test('waits for foreground before starting', async () => {
   const h = harness()
   h.director.setForeground(false)
@@ -3103,8 +3319,57 @@ test('three consecutive failures stop music until the identity changes', async (
   assert.equal(h.prepared.length, 3)
   await h.advance(30)
   assert.equal(h.prepared.length, 3)
+  h.director.setForeground(false)
+  h.director.setEnabled(false)
+  h.director.setContext(port('Valencia')) // unchanged palette cannot clear the lock
+  h.director.setEnabled(true)
+  h.director.setForeground(true)
+  h.director.unlock()
+  assert.equal(h.prepared.length, 3)
+  assert.equal(h.starts.length, 0)
   h.director.setContext(port('Shanghai'))
   assert.equal(h.prepared.length, 4)
+})
+
+test('automatic failures stop audible music and cannot retry on progress or focus', async () => {
+  const h = harness()
+  const a = await playing(h)
+  a.progress(111)
+  await h.last().reject()
+  await h.last().reject()
+  await h.last().reject()
+  assert.equal(h.prepared.length, 4) // current piece and three failed candidates
+  assert.deepEqual(a.fades.at(-1), ['out', 0, 1])
+  a.progress(112)
+  await h.advance(1)
+  assert.ok(a.paused && a.disposed)
+  h.director.setForeground(false)
+  h.director.setForeground(true)
+  h.director.setEnabled(false)
+  h.director.setEnabled(true)
+  assert.equal(h.prepared.length, 4)
+  assert.equal(h.starts.length, 1)
+  h.director.setContext(port('Tangier'))
+  assert.equal(h.prepared.length, 5)
+})
+
+test('an identity change while disabled or away releases the failure lock', async () => {
+  for (const setting of ['setEnabled', 'setForeground']) {
+    const h = harness()
+    h.director.setContext(port('Tangier'))
+    h.director.unlock()
+    await h.last().reject()
+    await h.last().reject()
+    await h.last().reject()
+    h.director[setting](false)
+    h.director.setContext(port('Shanghai'))
+    assert.equal(h.prepared.length, 3)
+    h.director[setting](true)
+    assert.equal(h.prepared.length, 4)
+    await h.last().resolve()
+    h.last().voice.plays[0].resolve(); await flush()
+    assert.deepEqual(h.starts, [['east-port', 0]])
+  }
 })
 
 test('a rejected play counts as a failure and is replaced', async () => {
@@ -3157,6 +3422,7 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
   let pending = null           // the one incoming piece
   let paused = null            // {voice, id, slug} kept while away
   let failures = 0
+  let failureLocked = false    // cleared only by a musical identity change
   let wake = null
 
   const remaining = voice => {
@@ -3190,6 +3456,7 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
   }
 
   function prepare(next) {
+    if (destroyed || failureLocked) { next?.voice?.dispose(); return }
     pending = next
     if (!next) return
     if (next.ready) { pump(); return }
@@ -3205,7 +3472,12 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
     failed.voice?.dispose()
     pending = null
     failures += 1
-    if (failures >= MAX_FAILURES) { mode = 'stopped'; return }
+    if (failures >= MAX_FAILURES) {
+      failureLocked = true
+      silence(TIMING.quickFade, false)
+      mode = 'stopped'
+      return
+    }
     const next = choose(failed.context, failed.slug, failed.automatic)
     if (next) next.notBefore = failed.notBefore
     prepare(next)
@@ -3213,7 +3485,7 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
 
   function pump() {
     if (wake) { clearTimer(wake); wake = null }
-    if (destroyed || !enabled || !foreground || !unlocked || mode === 'stopped') return
+    if (destroyed || failureLocked || !enabled || !foreground || !unlocked) return
     if (!pending?.ready || pending.starting) return
     const t = now()
     const due = transition ? transition.deadline
@@ -3248,7 +3520,7 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
     if (voice.watched) return
     voice.watched = true
     voice.onProgress(() => {
-      if (current?.voice !== voice || transition || !enabled || !foreground) return
+      if (current?.voice !== voice || transition || failureLocked || !enabled || !foreground) return
       if (!pending && remaining(voice) <= TIMING.prepareAhead) prepare(choose(desired.context, current.slug, true))
       pump()
     })
@@ -3278,13 +3550,13 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
     prepare(desired.id ? choose(desired.context, null, false) : null)
   }
 
-  // Fades out everything audible; optionally keeps a lone port piece paused.
+  // Keep the current port piece even if an outgoing voice still overlaps it.
   function silence(seconds, keepPort) {
     generation += 1
     if (wake) { clearTimer(wake); wake = null }
     discardPending()
     transition = null
-    const kept = keepPort && current?.id?.startsWith('port:') && voices.size === 1 ? current : null
+    const kept = keepPort && !failureLocked && current?.id?.startsWith('port:') ? current : null
     for (const voice of [...voices]) retire(voice, seconds, voice === kept?.voice)
     current = null
     mode = 'idle'
@@ -3293,7 +3565,7 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
   }
 
   function begin() {
-    if (destroyed || !enabled || !foreground || !unlocked || !desired.id || pending) return
+    if (destroyed || failureLocked || !enabled || !foreground || !unlocked || !desired.id || pending) return
     generation += 1
     if (paused && paused.id === desired.id) {
       const {voice, id, slug} = paused
@@ -3312,6 +3584,7 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
       const id = policy.identity(manifest, context)
       const changed = id !== desired.id
       desired = {context, id}
+      if (changed) { failureLocked = false; failures = 0 }
       if (!changed || destroyed || !enabled || !foreground || !unlocked) return
       if (mode === 'idle' && voices.size === 0 && !transition) { discardPending(); begin(); return }
       select()
@@ -3354,6 +3627,14 @@ Notes for the implementer:
   than imposing a settle; transitions apply once music has played.
 - `discardPending` leaves a voice whose `play()` is in flight to the
   fulfillment handler, which disposes it.
+- Failure lockout survives toggle and foreground changes. Only an identity
+  change releases it, including an identity change received while disabled or
+  away. At the third failure, cancel pending work and fade audible music out
+  over one second; progress events cannot start further preparations.
+- While away, retain the current port voice even during an overlap; retire
+  the older outgoing voice. On return, resume the retained playback position.
+- The fake voice advances media time with the test clock while playing and
+  freezes it on pause. Advancing a timer must also advance playback position.
 
 - [ ] **Step 3: Run until green**
 
@@ -3369,6 +3650,10 @@ timestamp in these tests comes from DESIGN.md or the spec.
   and superseded tests fail; restore.
 - In the `onProgress` handler, drop `|| transition` → the
   selection-before-end test fails; restore.
+- Remove `failureLocked = true` from `fail()` → the failure-lock tests fail
+  after toggle or foreground changes; restore.
+- Add `&& voices.size === 1` to the retained-port condition in `silence()` →
+  both overlap-resume tests fail; restore.
 
 - [ ] **Step 5: Commit**
 
@@ -3482,7 +3767,7 @@ function mountHook({music = 'available', fetchResult} = {}) {
     },
     fetch: async () => fetchResult ?? {ok: true, json: async () => ({palettes: [], tracks: {}})},
   })
-  const hook = {el}
+  const hook = {...Music, el}
   return {hook, nodes, local, timeouts}
 }
 
@@ -3950,10 +4235,13 @@ Opus does not play, stop**: an AAC fallback changes the asset design.
 
 - [ ] **Step 2: Rapid reselection listening check**
 
-In Chromium against the same server, select Tangier, then Valencia within
-three seconds (same palette: nothing changes), then Busan within three seconds
-(silence at five seconds, Korean music fading in from six to eight). Record
-what was heard.
+In Chromium against the same server, start with Chinese coast port music
+playing. At zero seconds, select Valencia; select Athens at one second (same
+Mediterranean palette, so the pending choice and its deadline continue). At
+two seconds, select Busan. The original outgoing fade ends at five seconds;
+Korean port music fades in from six to eight seconds, provided it is ready.
+Record what was heard. Also select Athens while Valencia's music is fully
+playing: the same piece must continue at its current position without fading.
 
 - [ ] **Step 3: Record**
 
@@ -3992,6 +4280,10 @@ decay and the two-second blend. For each palette, audition every port-to-voyage
 pairing (16), and at least one cross-region automatic voyage handoff and its
 reverse.
 
+These must be two voyage recordings from different palettes. Record both
+directions for each reviewed cross-region pair; a track repeating itself or
+two tracks from one palette cannot stand in for these auditions.
+
 - [ ] **Step 2: Record approvals**
 
 For each decision the user gives, add an entry to `priv/music/approvals.json`
@@ -4001,6 +4293,11 @@ user's date, notes and reviewed passages. Run
 `mix test test/docs/music_approvals_test.exs`: no stale entries, and the
 pending list shrinks to nothing. Summarize decisions in
 `docs/music-recording-audit.md`.
+
+The server rejects cross-region records outside the voyage pools and reports
+a missing reverse as pending. Require the approval report to contain only
+approved entries before enabling production; deleting the reverse or replacing
+the pair with a self-repeat must keep playback unavailable.
 
 - [ ] **Step 3: Enable (ask first)**
 
