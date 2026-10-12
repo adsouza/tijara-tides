@@ -3321,3 +3321,30 @@ msgstr "حاول مرة أخرى"
 
 msgid "Updating trade estimates..."
 msgstr "جارٍ تحديث تقديرات التجارة..."
+
+msgid "Music credits"
+msgstr "اعتمادات الموسيقى"
+
+msgid "Music credits are unavailable."
+msgstr "اعتمادات الموسيقى غير متاحة."
+
+msgid "The soundtrack uses these recordings."
+msgstr "تستخدم الموسيقى التصويرية هذه التسجيلات."
+
+msgid "Credited creators"
+msgstr "المبدعون المذكورون"
+
+msgid "Source"
+msgstr "المصدر"
+
+msgid "License"
+msgstr "الترخيص"
+
+msgid "Edits"
+msgstr "التعديلات"
+
+msgid "Supplied notice"
+msgstr "الإشعار المرفق"
+
+msgid "Back to the game"
+msgstr "العودة إلى اللعبة"

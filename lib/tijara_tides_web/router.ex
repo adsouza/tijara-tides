@@ -30,6 +30,7 @@ defmodule TijaraTidesWeb.Router do
 
     live "/", LobbyLive
     live "/play", GameLive
+    get "/music/credits", MusicCreditsController, :show
     post "/locale", LocaleController, :update
     post "/email/request", EmailSessionController, :request
     post "/email/open", EmailSessionController, :open_link

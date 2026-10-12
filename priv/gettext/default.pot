@@ -5510,3 +5510,49 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Updating trade estimates..."
 msgstr ""
+
+#: lib/tijara_tides_web/controllers/music_credits_html.ex:36
+#, elixir-autogen, elixir-format
+msgid "Back to the game"
+msgstr ""
+
+#: lib/tijara_tides_web/controllers/music_credits_html.ex:16
+#, elixir-autogen, elixir-format
+msgid "Credited creators"
+msgstr ""
+
+#: lib/tijara_tides_web/controllers/music_credits_html.ex:26
+#, elixir-autogen, elixir-format
+msgid "Edits"
+msgstr ""
+
+#: lib/tijara_tides_web/controllers/music_credits_html.ex:22
+#, elixir-autogen, elixir-format
+msgid "License"
+msgstr ""
+
+#: lib/tijara_tides_web/controllers/music_credits_controller.ex:8
+#: lib/tijara_tides_web/controllers/music_credits_html.ex:7
+#, elixir-autogen, elixir-format
+msgid "Music credits"
+msgstr ""
+
+#: lib/tijara_tides_web/controllers/music_credits_controller.ex:13
+#, elixir-autogen, elixir-format
+msgid "Music credits are unavailable."
+msgstr ""
+
+#: lib/tijara_tides_web/controllers/music_credits_html.ex:18
+#, elixir-autogen, elixir-format
+msgid "Source"
+msgstr ""
+
+#: lib/tijara_tides_web/controllers/music_credits_html.ex:29
+#, elixir-autogen, elixir-format
+msgid "Supplied notice"
+msgstr ""
+
+#: lib/tijara_tides_web/controllers/music_credits_html.ex:8
+#, elixir-autogen, elixir-format
+msgid "The soundtrack uses these recordings."
+msgstr ""
