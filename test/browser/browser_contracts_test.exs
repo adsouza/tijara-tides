@@ -163,6 +163,27 @@ defmodule TijaraTides.BrowserContractsTest do
     end)
   end
 
+  @tag timeout: 120_000
+  test "Chromium background music follows selections and tolerates late audio" do
+    Sql.with_world(fn c ->
+      TijaraTides.WebFormFixture.session(c)
+      path = Path.join(System.tmp_dir!(), "tj-music-#{c.world}.json")
+
+      try do
+        File.write!(path, Jason.encode!(%{url: url()}))
+        File.chmod!(path, 0o600)
+
+        {output, status} =
+          System.cmd("node", ["test/browser/music.mjs", path], stderr_to_stdout: true)
+
+        assert status == 0, output
+        assert output =~ "Music browser contracts passed"
+      after
+        File.rm(path)
+      end
+    end)
+  end
+
   @tag timeout: 90_000
   test "Chromium berth follows committed handling and survives lifecycle changes" do
     Sql.with_world(fn c ->
