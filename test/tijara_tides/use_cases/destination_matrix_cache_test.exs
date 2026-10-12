@@ -134,6 +134,8 @@ defmodule TijaraTides.UseCases.DestinationMatrixCacheTest do
         handling_focus_ship: nil,
         system_notices: [],
         first_ship_port_selected: false,
+        selected_port: "Guangzhou",
+        music_focus: nil,
         trade_context: nil,
         trade_quantities: %{},
         trade_edited: MapSet.new(),

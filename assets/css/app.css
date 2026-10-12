@@ -281,3 +281,12 @@ body { background-image: radial-gradient(ellipse at top right, #123a46 0%, trans
 .piracy-zone-elevated { fill: #f59e0b; stroke: #f59e0b; fill-opacity: 0.16; }
 .piracy-zone-campaign { fill: #dc2626; stroke: #dc2626; fill-opacity: 0.28; }
 .piracy-campaigns { color: #fca5a5; }
+
+/* Background music controls in the game header. */
+.music-control { position: relative; display: flex; align-items: center; }
+.music-controls { display: flex; align-items: center; gap: 4px; }
+.music-controls[hidden], .music-credit[hidden] { display: none; }
+.music-settings > summary { list-style: none; }
+.music-settings > summary::-webkit-details-marker { display: none; }
+.music-popover { position: absolute; inset-inline-end: 0; top: calc(100% + 4px); z-index: 50; display: grid; gap: 8px; min-width: 14rem; padding: 12px; border: 1px solid #475569; border-radius: 6px; background: #0f172a; font-size: 14px; }
+.music-credit { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: min(90vw, 36rem); padding: 4px 12px; border: 1px solid #475569; border-radius: 6px; background: #0f172a; color: #99f6e4; font-size: 14px; text-align: center; }

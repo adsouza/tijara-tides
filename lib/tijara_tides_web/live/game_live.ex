@@ -33,6 +33,7 @@ defmodule TijaraTidesWeb.GameLive do
         page_title: gettext("Your shipping company"),
         definitions: Game.definitions(),
         selected_port: "Guangzhou",
+        music_focus: nil,
         first_ship_port_selected: false,
         warehouse_draft: %{},
         exchange_good: nil,
@@ -440,13 +441,21 @@ defmodule TijaraTidesWeb.GameLive do
     if socket.assigns.definitions.catalogue["ports"][id],
       do:
         {:noreply,
-         socket |> assign(:selected_port, id) |> push_event("workspace-panel", %{panel: 2})},
+         socket
+         |> assign(selected_port: id, music_focus: {:port, id})
+         |> push_event("workspace-panel", %{panel: 2})},
       else: {:noreply, socket}
   end
 
   def handle_event("port", %{"id" => id}, socket) do
     if socket.assigns.definitions.catalogue["ports"][id],
-      do: {:noreply, assign(socket, selected_port: id, first_ship_port_selected: true)},
+      do:
+        {:noreply,
+         assign(socket,
+           selected_port: id,
+           first_ship_port_selected: true,
+           music_focus: {:port, id}
+         )},
       else: {:noreply, socket}
   end
 
@@ -455,7 +464,8 @@ defmodule TijaraTidesWeb.GameLive do
 
     if private && private["company"] && map_size(private["ships"]) == 0 &&
          map_size(GameQueries.shipyard(socket.assigns.definitions, id).classes) > 0 do
-      {:noreply, assign(socket, selected_port: id, first_ship_port_selected: true)}
+      {:noreply,
+       assign(socket, selected_port: id, first_ship_port_selected: true, music_focus: {:port, id})}
     else
       {:noreply, socket}
     end
@@ -573,7 +583,10 @@ defmodule TijaraTidesWeb.GameLive do
         handle_event("ship", %{"id" => id}, socket)
 
       ship = socket.assigns.view.public["ships"][id] ->
-        {:noreply, socket |> assign(:inspected_ship, id) |> reveal_public_ship(ship)}
+        {:noreply,
+         socket
+         |> assign(inspected_ship: id, music_focus: {:ship, id})
+         |> reveal_public_ship(ship)}
 
       true ->
         {:noreply, socket}
@@ -591,6 +604,7 @@ defmodule TijaraTidesWeb.GameLive do
        |> assign(
          selected_ship: id,
          selected_port: port,
+         music_focus: {:ship, id},
          inspected_ship: id,
          protection: "none",
          preview: nil,
@@ -1427,7 +1441,13 @@ defmodule TijaraTidesWeb.GameLive do
       trade_limits: limits,
       trade_edited: edited,
       trade_quantities: quantities,
-      trade_context: context
+      trade_context: context,
+      music_focus:
+        TijaraTidesWeb.GameUI.MusicPanel.focus(
+          socket.assigns.music_focus,
+          view,
+          socket.assigns.selected_port
+        )
     )
     |> refresh_destination_matrix()
   end
@@ -1568,6 +1588,7 @@ defmodule TijaraTidesWeb.GameLive do
             </h1>
           </div>
           <div :if={@view.status == :ready} class="game-header-actions">
+            <TijaraTidesWeb.GameUI.MusicPanel.panel view={@view} focus={@music_focus} />
             <TijaraTidesWeb.FinancialReports.panel
               data={@report_data}
               open={@report_open}

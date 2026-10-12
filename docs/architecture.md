@@ -931,6 +931,14 @@ unavailable. `scripts/prepare-music.py` writes the manifest and audio but never
 the approvals file. The soundtrack is served from `priv/audio` by its own
 `Plug.Static` at `/audio`, outside `phx.digest`.
 
+`music_focus` holds `{:port, id}` or `{:ship, id}` and changes only on
+successful explicit events: `port`, `auction-port`, `first-ship-port`, `ship`
+and `inspect-ship`. Automatic `selected_port` changes never touch it, refreshes
+retain it, and a focused ship that leaves the accessible view falls back once to
+the selected port. The `#music` element's data attributes carry a port context,
+or a voyage's ship, origin, destination and weather-aware progress from
+`GameQueries.voyage_progress/2`.
+
 ## Localization boundary
 
 [Localization](localization.md) keeps catalogs, formatting and per-process locale
