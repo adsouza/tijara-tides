@@ -23,9 +23,13 @@ function fakeContext() {
 function fakeAudio() {
   const listeners = new Map()
   const audio = {currentTime: 0, duration: 120, paused: true, attributes: {}, playResult: Promise.resolve(),
-    addEventListener(type, fn) { listeners.set(type, [...(listeners.get(type) ?? []), fn]) },
+    addEventListener(type, fn, options) { listeners.set(type, [...(listeners.get(type) ?? []), {fn, once: options?.once}]) },
     removeEventListener() {},
-    dispatch(type) { const fns = listeners.get(type) ?? []; listeners.set(type, []); fns.forEach(fn => fn()) },
+    dispatch(type) {
+      const handlers = listeners.get(type) ?? []
+      listeners.set(type, handlers.filter(h => !h.once))
+      handlers.forEach(h => h.fn())
+    },
     set src(value) { audio.attributes.src = value }, get src() { return audio.attributes.src },
     removeAttribute(name) { delete audio.attributes[name] }, load() { audio.loads = (audio.loads ?? 0) + 1 },
     play() { audio.paused = false; return audio.playResult }, pause() { audio.paused = true }}
@@ -108,6 +112,54 @@ test('load errors and timeouts reject and dispose the element', async () => {
   const timedOut = engine2.prepare(track, 0)
   clock.fire()
   await assert.rejects(timedOut, /loading timed out/)
+})
+
+test('a ready voice reports streaming errors until it is disposed', async () => {
+  const context = fakeContext(), audio = fakeAudio(), clock = timers()
+  const engine = createEngine({context, createAudio: () => audio, baseUrl: 'https://h.test/', ...clock})
+  const ready = engine.prepare(track, 0)
+  audio.dispatch('loadedmetadata'); audio.dispatch('canplay')
+  const voice = await ready
+  await voice.play()
+  const errors = []
+  voice.onError(error => errors.push(error))
+  audio.error = new Error('network failed during playback')
+  audio.dispatch('error')
+  assert.equal(voice.error, audio.error)
+  assert.deepEqual(errors, [audio.error])
+  const nextError = audio.error = new Error('a later decoding error')
+  audio.dispatch('error')
+  assert.equal(errors.length, 2)
+  assert.equal(errors[1], nextError)
+  voice.dispose()
+  voice.onError(error => errors.push(error))
+  audio.dispatch('error')
+  assert.equal(errors.length, 2, 'disposing suppresses later media errors')
+})
+
+test('the real engine and director recover when streaming fails after playback starts', async () => {
+  const load = name => import(`data:text/javascript;base64,${Buffer.from(
+    readFileSync(new URL(`../../assets/js/${name}.js`, import.meta.url), 'utf8')).toString('base64')}`)
+  const [{createDirector}, policy] = await Promise.all(['music_transitions', 'music_policy'].map(load))
+  const manifest = JSON.parse(readFileSync(new URL('../../priv/audio/fixtures/music.json', import.meta.url), 'utf8'))
+  const context = fakeContext(), clock = timers(), audios = [], starts = []
+  const engine = createEngine({context, baseUrl: 'https://h.test/audio/', ...clock,
+    createAudio: () => { const audio = fakeAudio(); audios.push(audio); return audio }})
+  const director = createDirector({manifest, engine, policy, ...clock, now: () => 0,
+    random: () => 0, onStart: (_, slug) => starts.push(slug)})
+  director.setContext({kind: 'port', port: 'Guangzhou'})
+  director.unlock()
+  audios[0].dispatch('loadedmetadata'); audios[0].dispatch('canplay')
+  await flush()
+  assert.deepEqual(starts, ['east-port'])
+  audios[0].error = new Error('network failed after playback started')
+  audios[0].dispatch('error')
+  assert.equal(audios[0].src, undefined)
+  assert.equal(audios.length, 2)
+  audios[1].dispatch('loadedmetadata'); audios[1].dispatch('canplay')
+  await flush()
+  assert.deepEqual(starts, ['east-port', 'east-port'])
+  director.destroy()
 })
 
 test('play times out separately from loading', async () => {

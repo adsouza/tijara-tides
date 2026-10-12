@@ -65,9 +65,8 @@ defmodule TijaraTidesWeb.Music do
           do: {"#{slug} approvals for an unknown track", :stale}
 
     pair_items =
-      for {from, to} <- pairs do
-        entry = find_handoff(handoffs, "port-to-voyage", from, to)
-
+      for {from, to} <- pairs,
+          entry <- matching_handoffs(handoffs, "port-to-voyage", from, to) do
         {"#{from} → #{to} handoff",
          classify(entry, handoff_binding(from, to, tracks, recipe, true))}
       end
@@ -153,6 +152,14 @@ defmodule TijaraTidesWeb.Music do
   defp find_handoff(handoffs, kind, from, to),
     do: Enum.find(handoffs, &(&1["kind"] == kind and &1["from"] == from and &1["to"] == to))
 
+  # Missing pairs are pending; every recorded match is checked, including history.
+  defp matching_handoffs(handoffs, kind, from, to) do
+    case Enum.filter(handoffs, &(&1["kind"] == kind and &1["from"] == from and &1["to"] == to)) do
+      [] -> [nil]
+      entries -> entries
+    end
+  end
+
   defp binding("recording", track, _recipe), do: %{"source_sha256" => track["source_sha256"]}
 
   defp binding("playback", track, recipe),
@@ -230,20 +237,39 @@ defmodule TijaraTidesWeb.Music do
     end
   end
 
-  # The structure evaluation and the client rely on; deeper type errors raise
-  # inside evaluation and are rescued by load_status/3.
+  # Validate fields consumed by the client here, even in audition mode: a valid
+  # audio header or approval binding cannot prove that identity/credits can render.
   defp well_formed?(manifest, approvals) do
     is_map(manifest) and is_map(approvals) and well_formed_approvals?(approvals) and
       is_map(manifest["recipe"]) and
-      is_map(manifest["tracks"]) and Enum.all?(Map.values(manifest["tracks"]), &is_map/1) and
-      is_list(manifest["palettes"]) and
+      is_map(manifest["tracks"]) and map_size(manifest["tracks"]) > 0 and
+      Enum.all?(Map.values(manifest["tracks"]), &well_formed_track?/1) and
+      is_list(manifest["palettes"]) and manifest["palettes"] != [] and
       Enum.all?(manifest["palettes"], fn palette ->
-        is_map(palette) and
+        is_map(palette) and nonempty_string?(palette["id"]) and
+          nonempty_strings?(palette["ports"]) and
           Enum.all?(["port", "voyage"], fn role ->
-            is_list(palette[role]) and Enum.all?(palette[role], &is_map(manifest["tracks"][&1]))
+            nonempty_strings?(palette[role]) and
+              Enum.all?(palette[role], &Map.has_key?(manifest["tracks"], &1))
           end)
       end)
   end
+
+  defp well_formed_track?(track) do
+    is_map(track) and
+      Enum.all?(~w(file title source_url source_sha256 output_sha256), fn key ->
+        nonempty_string?(track[key])
+      end) and
+      nonempty_strings?(track["artists"]) and
+      is_number(track["duration_s"]) and track["duration_s"] > 0 and
+      is_number(track["entry_s"]) and track["entry_s"] >= 0 and
+      track["entry_s"] < track["duration_s"]
+  end
+
+  defp nonempty_string?(value), do: is_binary(value) and value != ""
+
+  defp nonempty_strings?(values),
+    do: is_list(values) and values != [] and Enum.all?(values, &nonempty_string?/1)
 
   defp well_formed_approvals?(approvals) do
     tracks = Map.get(approvals, "tracks", %{})

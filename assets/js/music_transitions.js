@@ -60,6 +60,9 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
     engine.prepare(next.track, next.offset).then(voice => {
       if (pending !== next || destroyed) { voice.dispose(); return }
       next.voice = voice
+      voice.onError(() => mediaFailed(voice))
+      // An error can arrive after readiness, before this promise callback runs.
+      if (voice.error) { mediaFailed(voice); return }
       next.ready = true
       pump()
     }, () => { if (pending === next) fail(next) })
@@ -67,7 +70,9 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
 
   function fail(failed) {
     failed.voice?.dispose()
-    pending = null
+    voices.delete(failed.voice)
+    if (current?.voice === failed.voice) current = null
+    if (pending === failed) pending = null
     failures += 1
     if (failures >= MAX_FAILURES) {
       failureLocked = true
@@ -75,9 +80,24 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
       mode = 'stopped'
       return
     }
-    const next = choose(failed.context, failed.slug, failed.automatic)
+    // A failed playing piece may already have a healthy successor loading.
+    if (pending) { pump(); return }
+    const next = choose(desired.context, failed.slug, failed.automatic)
     if (next) next.notBefore = failed.notBefore
     prepare(next)
+  }
+
+  function mediaFailed(voice) {
+    if (destroyed) return
+    if (pending?.voice === voice) { fail(pending); return }
+    if (current?.voice === voice) {
+      fail({...current, automatic: true, notBefore: now()})
+      return
+    }
+    // An outgoing or paused voice cannot replace a newer selection or resume.
+    if (paused?.voice === voice) paused = null
+    voices.delete(voice)
+    voice.dispose()
   }
 
   function pump() {
@@ -107,7 +127,7 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
       voice.role = 'current'
       voices.add(voice)
       voice.fade('in', TIMING.fadeIn)
-      current = {voice, id: next.id, slug: next.slug}
+      current = next
       watch(voice)
       onStart(next.track, next.slug)
     }, () => {

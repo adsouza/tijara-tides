@@ -33,7 +33,7 @@ function harness() {
     // Media time advances with the elapsed clock only while playback runs.
     let position = offset, playingAt = null
     const voice = {track: trackValue, offset, fades: [], plays: [], duration: 120,
-      disposed: false, paused: false, progressFns: [], endedFns: [],
+      disposed: false, paused: false, progressFns: [], endedFns: [], errorFns: [], error: null,
       play() { return new Promise((resolve, reject) => voice.plays.push({at: t,
         resolve() { position = voice.position; playingAt = t; voice.paused = false; resolve() }, reject})) },
       get position() { return position + (playingAt === null ? 0 : t - playingAt) },
@@ -41,6 +41,8 @@ function harness() {
       pause() { position = voice.position; playingAt = null; voice.paused = true },
       fade(kind, duration) { voice.fades.push([kind, t, duration]) },
       onProgress(fn) { voice.progressFns.push(fn) }, onEnded(fn) { voice.endedFns.push(fn) },
+      onError(fn) { voice.errorFns.push(fn) },
+      fail() { voice.error = new Error('stream failed'); voice.errorFns.forEach(fn => fn(voice.error)) },
       progress(position) { voice.position = position; voice.progressFns.forEach(fn => fn()) },
       end() { voice.pause(); voice.endedFns.forEach(fn => fn()) },
       dispose() { voice.pause(); voice.disposed = true }}
@@ -551,6 +553,112 @@ test('a rejected play counts as a failure and is replaced', async () => {
   h.last().voice.plays[0].reject(new Error('blocked')); await flush()
   assert.equal(h.prepared.length, 2)
   assert.equal(h.last().track, manifest.tracks['west-b'])
+})
+
+test('a retry uses the latest ship progress without restarting the selection deadline', async () => {
+  const h = harness()
+  await playing(h)
+  await h.advance(10)
+  h.director.setContext(voyage('Busan', 'Tangier', 0))
+  assert.equal(h.last().track, manifest.tracks['east-voyage'])
+  await h.advance(11)
+  h.director.setContext({...voyage('Busan', 'Tangier', 1), ship: 'new-ship'})
+  await h.last().reject()
+  assert.equal(h.last().track, manifest.tracks['west-voyage'])
+  assert.equal(h.last().offset, 8)
+  await h.last().resolve()
+  await h.advance(12.99)
+  assert.equal(h.last().voice.plays.length, 0)
+  await h.advance(13)
+  assert.equal(h.last().voice.plays[0].at, 13)
+})
+
+test('a streaming failure replaces the current piece and keeps the failure limit', async () => {
+  const h = harness()
+  const first = await playing(h, port('Tangier'))
+  first.fail()
+  assert.ok(first.disposed)
+  assert.equal(h.last().track, manifest.tracks['west-b'])
+  assert.equal(h.last().offset, 0, 'a replacement within one context starts at the recording beginning')
+  await h.last().reject()
+  await h.last().reject()
+  assert.equal(h.prepared.length, 3)
+  h.director.setForeground(false)
+  h.director.setForeground(true)
+  h.director.setEnabled(false)
+  h.director.setEnabled(true)
+  assert.equal(h.prepared.length, 3, 'three failures remain locked across toggles and focus')
+  h.director.setContext(port('Shanghai'))
+  assert.equal(h.prepared.length, 4)
+})
+
+test('a streaming failure keeps an already prepared automatic successor', async () => {
+  const h = harness()
+  const first = await playing(h, port('Tangier'))
+  first.progress(111)
+  await h.last().resolve()
+  const next = h.last().voice
+  assert.equal(next.plays.length, 0)
+  first.fail()
+  assert.ok(first.disposed)
+  assert.equal(h.prepared.length, 2)
+  assert.equal(next.plays.length, 1, 'the healthy successor starts without waiting for the failed track end')
+  next.plays[0].resolve(); await flush()
+  assert.deepEqual(h.starts.at(-1), ['west-b', 0])
+})
+
+test('errors after readiness and during pending play recover only once', async () => {
+  for (const phase of ['ready', 'playing']) {
+    const h = harness()
+    await playing(h)
+    h.director.setContext(port('Tangier'))
+    await h.last().resolve()
+    const failed = h.last().voice
+    if (phase === 'playing') await h.advance(3)
+    failed.fail()
+    assert.ok(failed.disposed)
+    assert.equal(h.last().track, manifest.tracks['west-b'])
+    failed.fail()
+    if (phase === 'playing') { failed.plays[0].reject(new Error('aborted')); await flush() }
+    assert.equal(h.prepared.length, 3)
+    assert.equal(h.starts.length, 1)
+    await h.last().resolve()
+    await h.advance(3)
+    h.last().voice.plays[0].resolve(); await flush()
+    assert.deepEqual(h.starts.at(-1), ['west-b', 3])
+  }
+})
+
+test('an error between media readiness and its callback cannot start the failed voice', async () => {
+  const h = harness()
+  h.director.setContext(port('Tangier'))
+  h.director.unlock()
+  const failed = h.last().voice
+  failed.fail()
+  await h.last().resolve()
+  assert.ok(failed.disposed)
+  assert.equal(failed.plays.length, 0)
+  assert.equal(h.last().track, manifest.tracks['west-b'])
+})
+
+test('errors from outgoing, hidden or destroyed voices never replace the latest context', async () => {
+  for (const phase of ['outgoing', 'hidden', 'destroyed']) {
+    const h = harness()
+    const first = await playing(h)
+    if (phase === 'outgoing') h.director.setContext(port('Tangier'))
+    if (phase === 'hidden') h.director.setForeground(false)
+    if (phase === 'destroyed') h.director.destroy()
+    const count = h.prepared.length
+    first.fail()
+    assert.ok(first.disposed)
+    assert.equal(h.prepared.length, count)
+    if (phase === 'hidden') {
+      await h.advance(2)
+      h.director.setForeground(true)
+      assert.equal(first.plays.length, 1, 'a failed paused port piece cannot resume')
+      assert.equal(h.prepared.length, count + 1)
+    }
+  }
 })
 
 test('destroy disposes everything and ignores late callbacks', async () => {

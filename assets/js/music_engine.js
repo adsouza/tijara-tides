@@ -50,6 +50,7 @@ export function createEngine({context, createAudio, baseUrl, timeoutMs = 10_000,
       envelope: {kind: 'hold', value: 0},
       get position() { return element.currentTime },
       get duration() { return element.duration },
+      get error() { return element.error },
       play: () => timed(Promise.resolve().then(() => element.play()), 'playback'),
       pause() { if (!disposed) element.pause() },
       gain: () => envelopeAt(voice.envelope, context.currentTime),
@@ -63,6 +64,9 @@ export function createEngine({context, createAudio, baseUrl, timeoutMs = 10_000,
       },
       onProgress: fn => element.addEventListener('timeupdate', () => fn()),
       onEnded: fn => element.addEventListener('ended', () => fn()),
+      onError: fn => element.addEventListener('error', () => {
+        if (!disposed) fn(element.error ?? new Error('audio failed during playback'))
+      }),
       dispose() {
         if (disposed) return
         disposed = true

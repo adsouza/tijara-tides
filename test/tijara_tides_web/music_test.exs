@@ -4,6 +4,19 @@ defmodule TijaraTidesWeb.MusicTest do
 
   @recipe %{"strategy" => "whole-recording", "fade_in_s" => 2}
 
+  defp track(slug, entry \\ 0.0) do
+    %{
+      "file" => slug <> ".ogg",
+      "source_sha256" => "s" <> slug,
+      "output_sha256" => "o" <> slug,
+      "entry_s" => entry,
+      "duration_s" => 120.0,
+      "title" => slug,
+      "artists" => ["Composer"],
+      "source_url" => "https://example.test/" <> slug
+    }
+  end
+
   defp manifest do
     %{
       "recipe" => @recipe,
@@ -12,30 +25,10 @@ defmodule TijaraTidesWeb.MusicTest do
         %{"id" => "west", "ports" => ["Tangier"], "port" => ["q"], "voyage" => ["w"]}
       ],
       "tracks" => %{
-        "p" => %{
-          "file" => "p.ogg",
-          "source_sha256" => "sp",
-          "output_sha256" => "op",
-          "entry_s" => 0.0
-        },
-        "v" => %{
-          "file" => "v.ogg",
-          "source_sha256" => "sv",
-          "output_sha256" => "ov",
-          "entry_s" => 7.5
-        },
-        "q" => %{
-          "file" => "q.ogg",
-          "source_sha256" => "sq",
-          "output_sha256" => "oq",
-          "entry_s" => 0.0
-        },
-        "w" => %{
-          "file" => "w.ogg",
-          "source_sha256" => "sw",
-          "output_sha256" => "ow",
-          "entry_s" => 0.0
-        }
+        "p" => track("p"),
+        "v" => track("v", 7.5),
+        "q" => track("q"),
+        "w" => track("w")
       }
     }
   end
@@ -178,6 +171,23 @@ defmodule TijaraTidesWeb.MusicTest do
     assert Music.approval_report(manifest(), no_voyage).pending == ["cross-region voyage handoff"]
   end
 
+  test "every matching port handoff is checked, regardless of record order", %{directory: dir} do
+    records = approvals()
+    [original | _] = records["handoffs"]
+
+    for {entry, status} <- [
+          {Map.put(original, "decision", "rejected"), :rejected},
+          {Map.put(original, "decision", "pending"), :pending},
+          {Map.put(original, "to_output_sha256", "old-output"), :stale}
+        ],
+        entries <- [records["handoffs"] ++ [entry], [entry | records["handoffs"]]] do
+      duplicate = Map.put(records, "handoffs", entries)
+      assert "p → v handoff" in Map.get(Music.approval_report(manifest(), duplicate), status, [])
+      assert {:unavailable, reasons} = Music.evaluate(manifest(), duplicate, dir, enabled: true)
+      assert "p → v handoff #{status}" in reasons
+    end
+  end
+
   test "audition skips approvals but not the flag or the audio check", %{directory: dir} do
     assert Music.evaluate(manifest(), %{}, dir, enabled: true, audition: true) == :available
 
@@ -277,8 +287,41 @@ defmodule TijaraTidesWeb.MusicTest do
       %{m | "palettes" => [east, %{west | "port" => ["ghost"]}]},
       %{m | "palettes" => ["east"]},
       put_in(m["tracks"]["p"], "p.ogg"),
-      put_in(m["tracks"]["p"]["file"], 7)
+      put_in(m["tracks"]["p"]["file"], 7),
+      %{m | "palettes" => [Map.delete(east, "ports"), west]},
+      %{m | "palettes" => [%{east | "ports" => "Busan"}, west]},
+      %{m | "palettes" => [%{east | "ports" => []}, west]},
+      %{m | "palettes" => [%{east | "ports" => [7]}, west]},
+      %{m | "palettes" => [%{east | "ports" => [""]}, west]},
+      %{m | "palettes" => [Map.delete(east, "id"), west]},
+      %{m | "palettes" => [%{east | "id" => []}, west]},
+      %{m | "palettes" => [%{east | "port" => []}, west]},
+      %{m | "palettes" => [%{east | "voyage" => []}, west]}
     ]
+
+    tracks =
+      for {key, value} <- [
+            {"file", ""},
+            {"source_sha256", nil},
+            {"output_sha256", []},
+            {"output_sha256", ""},
+            {"title", nil},
+            {"title", ""},
+            {"artists", "Composer"},
+            {"artists", []},
+            {"artists", [7]},
+            {"artists", [""]},
+            {"source_url", nil},
+            {"source_url", ""},
+            {"duration_s", "120"},
+            {"duration_s", 0},
+            {"duration_s", -1},
+            {"entry_s", nil},
+            {"entry_s", "7.5"},
+            {"entry_s", -1},
+            {"entry_s", 120}
+          ],
+          do: put_in(m["tracks"]["p"][key], value)
 
     approval_sets = [
       [],
@@ -289,7 +332,8 @@ defmodule TijaraTidesWeb.MusicTest do
     ]
 
     cases =
-      Enum.map(manifests, &{&1, approvals()}) ++ Enum.map(approval_sets, &{manifest(), &1})
+      Enum.map(manifests ++ tracks, &{&1, approvals()}) ++
+        Enum.map(approval_sets, &{manifest(), &1})
 
     for {manifest, approvals} <- cases, audition <- [false, true] do
       body = {Jason.encode!(manifest), Jason.encode!(approvals)}

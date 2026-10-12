@@ -271,8 +271,15 @@ edits. `docs/music-credits.md` carries the same content for the repository.
   is hidden and music stays off.
 - A piece that fails to load is skipped for the next choice. After three
   consecutive failures, music stops until the next identity change. Seeking
-  and playback failures or timeouts count too; only an actual playback start
-  resets the count. Superseded requests and intentional pauses do not count.
+  and playback failures or timeouts count too, including media errors after
+  readiness or during streaming. Only an actual playback start resets the
+  count. Replacements use the latest desired context and voyage progress,
+  preserving any selection deadline. If a playing piece fails, a healthy
+  pending successor may start as soon as it is ready; otherwise prepare a
+  replacement from the recording's beginning. Errors from outgoing or paused
+  pieces dispose those sources without replacing the current context, and a
+  failed paused piece cannot resume. Superseded requests and intentional
+  pauses do not count.
 
 ## Controls
 
@@ -351,6 +358,12 @@ than an LFS pointer. If any does not, it logs a warning naming the files and
 renders `data-music="unavailable"`, which hides the control. A deploy that
 received pointers has no music rather than broken music.
 
+The manifest must also provide the fields used by the client: nonempty palette
+identifiers, port lists and track pools, valid track references, titles,
+artists, source links and hashes, and numeric entry positions within positive
+recording durations. Malformed fields keep music unavailable, including in
+development audition mode.
+
 ### Release listening gate
 
 Before enabling production playback, record explicit approval for every roster
@@ -384,6 +397,9 @@ without requiring the production enable flag. An approval whose binding no
 longer matches the current manifest fails CI, so a stale sign-off is caught in
 the change that made it stale. A pending approval, one not yet recorded, passes
 CI and is listed in the test output; it keeps music unavailable in production.
+Every recorded handoff for a required pair is checked, including multiple
+records for the same pair. An earlier approval cannot hide a later rejection,
+pending decision or stale binding.
 
 ### Quota
 
