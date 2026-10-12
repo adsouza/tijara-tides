@@ -131,7 +131,11 @@ defmodule TijaraTides.SqlReplay do
     end)
 
     send(server, :tick)
-    :sys.get_state(server)
+    # Wait for that tick as long as the world's own callers do (GameServer's
+    # 30 s call timeout). A tick normally takes tens of milliseconds, but a commit
+    # stalled behind disk flushes on a busy machine has exceeded the default 5 s;
+    # a stuck owner still fails here, and readiness is still asserted.
+    :sys.get_state(server, 30_000)
     assert GameServer.readiness(server) == :ready
   end
 
