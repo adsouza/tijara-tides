@@ -3,6 +3,7 @@
 import hashlib
 import importlib.util
 import json
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -44,6 +45,25 @@ class FakeTools:
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
+
+
+class Argv(prepare_music.Tools):
+    """Real Tools whose ffmpeg runs are recorded instead of executed."""
+
+    def __init__(self):
+        self.calls = []
+
+    def run(self, *args):
+        self.calls.append([str(arg) for arg in args])
+
+        class Result:
+            stdout = stderr = ""
+
+        return Result()
+
+    def filter(self):
+        argv = self.calls[-1]
+        return argv[argv.index("-af") + 1]
 
 
 class PrepareMusicTest(unittest.TestCase):
@@ -161,11 +181,76 @@ class PrepareMusicTest(unittest.TestCase):
                 self.assertEqual(len(tools.encoded), 5)
                 self.assertFalse((self.out / "music.json").exists())
 
+    def assertPositiveZero(self, value):
+        self.assertEqual(value, 0.0)
+        self.assertEqual(math.copysign(1.0, value), 1.0, f"{value!r} is a negative zero")
+
     def test_rounded_values_never_print_a_negative_zero(self):
         self.assertEqual(str(prepare_music.rounded(-0.0004, 3)), "0.0")
-        self.assertEqual(prepare_music.silence_bounds("silence_start: 0\nsilence_end: 1.0 | x\n", 60.0), (1.0, 60.0))
-        self.assertEqual(str(prepare_music.gain_db(-20.0004, -9.0, -20.0, -1.0)), "0.0")
-        self.assertEqual(str(prepare_music.encoded_entry(0, 0, 5.0)), "0.0")
+        self.assertPositiveZero(prepare_music.rounded(-0.0004, 3))
+        lead, tail = prepare_music.silence_bounds("silence_start: -0.0009\nsilence_end: -0.0004 | x\n", 60.0)
+        self.assertPositiveZero(lead)
+        self.assertIsNone(tail)
+        self.assertPositiveZero(prepare_music.gain_db(-20.0004, -9.0, -20.0, -1.0))
+        self.assertPositiveZero(prepare_music.encoded_entry(0, 0, 5.0))
+
+    def test_a_recording_without_boundary_silence_keeps_every_sample(self):
+        # A decoded length finer than the manifest's milliseconds, with no
+        # silence at either end: neither side may be cut or reported.
+        class Untrimmed(FakeTools):
+            def duration(self, path):
+                return 10.000286 if path.suffix != ".ogg" else 9.0
+
+            def silence_log(self, path, noise_db):
+                return "[silencedetect] silence_start: 4.0\n[silencedetect] silence_end: 4.5 | x\n"
+
+        tools = Untrimmed()
+        manifest, _ = self.run_prepare(tools)
+        for track in manifest["tracks"].values():
+            self.assertPositiveZero(track["trim_start_s"])
+            self.assertPositiveZero(track["trim_end_s"])
+            self.assertNotIn("silence", track["edits"])
+            self.assertNotIn("0.00 s", track["edits"])
+        self.assertEqual(tools.encoded[0], ("a.mp3", 0.0, None, -6.0, 64))
+        argv = Argv()
+        argv.encode(Path("a.mp3"), 0.0, None, -6.0, 64, Path("a.ogg"))
+        self.assertEqual(argv.filter(), "asetpts=PTS-STARTPTS,volume=-6.0dB")
+        argv.loudness_log(Path("a.mp3"), 0.0, None)
+        self.assertEqual(argv.filter(), "ebur128=peak=true")
+
+    def test_edits_report_only_the_trims_the_manifest_records(self):
+        class TrailingOnly(FakeTools):
+            def duration(self, path):
+                return 10.000286 if path.suffix != ".ogg" else 9.0
+
+            def silence_log(self, path, noise_db):
+                return "[silencedetect] silence_start: 9.5\n"
+
+        tools = TrailingOnly()
+        manifest, _ = self.run_prepare(tools)
+        a = manifest["tracks"]["a"]
+        self.assertPositiveZero(a["trim_start_s"])
+        self.assertEqual(a["trim_end_s"], 0.5)
+        self.assertEqual(a["edits"], "Trimmed 0.50 s of trailing silence; gain -6.00 dB; encoded as Opus 64 kbps.")
+        self.assertEqual(tools.encoded[0], ("a.mp3", 0.0, 9.5, -6.0, 64))
+        argv = Argv()
+        argv.encode(Path("a.mp3"), 0.0, 9.5, -6.0, 64, Path("a.ogg"))
+        self.assertEqual(argv.filter(), "atrim=end=9.5,asetpts=PTS-STARTPTS,volume=-6.0dB")
+        argv.encode(Path("a.mp3"), 0.5, None, -6.0, 64, Path("a.ogg"))
+        self.assertEqual(argv.filter(), "atrim=start=0.5,asetpts=PTS-STARTPTS,volume=-6.0dB")
+        argv.loudness_log(Path("a.mp3"), 0.5, 9.5)
+        self.assertEqual(argv.filter(), "atrim=start=0.5:end=9.5,ebur128=peak=true")
+
+    def test_encodes_constrained_vbr_opus_at_the_recipe_bitrate(self):
+        argv = Argv()
+        argv.encode(Path("a.mp3"), 0.5, 9.5, -6.0, 64, Path("a.ogg"))
+        call = argv.calls[0]
+        pairs = list(zip(call, call[1:]))
+        self.assertIn(("-c:a", "libopus"), pairs)
+        self.assertIn(("-b:a", "64k"), pairs)
+        self.assertIn(("-vbr", "constrained"), pairs)
+        self.assertIn(("-ar", "48000"), pairs)
+        self.assertEqual(call[-1], "a.ogg")
 
     def test_never_writes_approvals_and_reports_stale_ones(self):
         manifest, _ = self.run_prepare()
@@ -232,7 +317,7 @@ class PrepareMusicTest(unittest.TestCase):
 
     def test_silence_bounds_and_loudness_parsing(self):
         lead, tail = prepare_music.silence_bounds("silence_start: 0\nsilence_end: 1.25 | x\n", 60.0)
-        self.assertEqual((lead, tail), (1.25, 60.0))
+        self.assertEqual((lead, tail), (1.25, None))
         lead, tail = prepare_music.silence_bounds("silence_start: 58\nsilence_end: 60 | x\n", 60.0)
         self.assertEqual((lead, tail), (0.0, 58.0))
         with self.assertRaisesRegex(ValueError, "silent throughout"):

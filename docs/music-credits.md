@@ -198,7 +198,7 @@ not edit by hand. The game's music credits page shows the same entries.
 - Credit: JuliusH (Pixabay)
 - Source: <https://pixabay.com/music/big-band-swing-train-big-band-miller-style-2667/>
 - License: [Pixabay Content License](https://pixabay.com/service/license-summary/)
-- Edits: Trimmed 0.52 s of leading silence and 0.00 s of trailing silence; gain -3.20 dB; encoded as Opus 64 kbps.
+- Edits: Trimmed 0.52 s of leading silence; gain -3.20 dB; encoded as Opus 64 kbps.
 
 ### Market on the Sea
 
@@ -244,7 +244,7 @@ not edit by hand. The game's music credits page shows the same entries.
 - Credit: Jason Shaw / audionautix.com
 - Source: <https://audionautix.com/free-music/jazz>
 - License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-- Edits: Trimmed 0.49 s of leading silence and 0.00 s of trailing silence; gain -7.10 dB; encoded as Opus 64 kbps.
+- Edits: Trimmed 0.49 s of leading silence; gain -7.10 dB; encoded as Opus 64 kbps.
 
 ### Up In The Air
 
@@ -252,4 +252,4 @@ not edit by hand. The game's music credits page shows the same entries.
 - Credit: DonnySombrero (Pixabay)
 - Source: <https://pixabay.com/music/samba-latin-up-in-the-air-499093/>
 - License: [Pixabay Content License](https://pixabay.com/service/license-summary/)
-- Edits: Trimmed 0.00 s of trailing silence; gain -8.10 dB; encoded as Opus 64 kbps.
+- Edits: gain -8.10 dB; encoded as Opus 64 kbps.

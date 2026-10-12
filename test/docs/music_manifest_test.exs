@@ -82,4 +82,24 @@ defmodule Docs.MusicManifestTest do
           do: assert(File.exists?(Path.join("priv/audio", notice["file"])))
     end
   end
+
+  test "edits describe exactly the trims the manifest records" do
+    for {slug, track} <- manifest()["tracks"] do
+      for {key, side} <- [{"trim_start_s", "leading"}, {"trim_end_s", "trailing"}] do
+        trim = track[key]
+        assert is_float(trim) and trim >= 0.0, "#{slug} #{key}"
+
+        case Regex.run(~r/([\d.]+) s of #{side} silence/, track["edits"]) do
+          nil ->
+            assert trim == 0.0, "#{slug}: #{track["edits"]}"
+
+          [_, printed] ->
+            assert trim > 0.0, "#{slug}: #{track["edits"]}"
+            assert_in_delta String.to_float(printed), trim, 0.0051, slug
+        end
+      end
+
+      refute track["edits"] =~ "0.00 s", slug
+    end
+  end
 end

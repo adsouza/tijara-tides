@@ -34,7 +34,13 @@ def sha256(path):
 
 
 def silence_bounds(log, duration):
-    """Leading and trailing boundary silence from ffmpeg silencedetect output."""
+    """Leading and trailing boundary silence from ffmpeg silencedetect output.
+
+    Returns the trim start and end in seconds, rounded to milliseconds. Without
+    leading silence the start is 0.0; without trailing silence the end is None,
+    so the encode keeps every sample up to the decoded end instead of cutting
+    at a rounded duration.
+    """
     intervals, start = [], None
     for kind, value in SILENCE.findall(log):
         if kind == "start":
@@ -44,11 +50,17 @@ def silence_bounds(log, duration):
             start = None
     if start is not None:
         intervals.append((start, duration))
-    lead = intervals[0][1] if intervals and intervals[0][0] <= 0.001 else 0.0
-    tail = intervals[-1][0] if intervals and intervals[-1][1] >= duration - 0.01 else duration
-    if tail <= lead:
+    lead = rounded(intervals[0][1], 3) if intervals and intervals[0][0] <= 0.001 else 0.0
+    tail = rounded(intervals[-1][0], 3) if intervals and intervals[-1][1] >= duration - 0.01 else None
+    if (duration if tail is None else tail) <= lead:
         raise ValueError("recording is silent throughout")
-    return rounded(lead, 3), rounded(tail, 3)
+    return lead, tail
+
+
+def trim_filter(lead, tail):
+    """The atrim filter for these bounds, naming only a side that has silence to cut."""
+    bounds = ([f"start={lead}"] if lead > 0 else []) + ([f"end={tail}"] if tail is not None else [])
+    return f"atrim={':'.join(bounds)}," if bounds else ""
 
 
 def decoded_seconds(progress):
@@ -79,6 +91,7 @@ def encoded_entry(entry_source, lead, duration):
 
 
 def edits_text(lead, trailing, gain, recipe):
+    """Credits text from the rounded trims the manifest records, so the two agree."""
     trims = []
     if lead > 0:
         trims.append(f"{lead:.2f} s of leading silence")
@@ -108,12 +121,12 @@ class Tools:
 
     def loudness_log(self, path, lead, tail):
         return self.run("ffmpeg", "-hide_banner", "-nostats", "-i", path, "-map", "0:a:0",
-                        "-af", f"atrim=start={lead}:end={tail},ebur128=peak=true",
+                        "-af", f"{trim_filter(lead, tail)}ebur128=peak=true",
                         "-f", "null", "-").stderr
 
     def encode(self, path, lead, tail, gain, bitrate, out):
         self.run("ffmpeg", "-hide_banner", "-nostats", "-y", "-i", path, "-map", "0:a:0",
-                 "-af", f"atrim=start={lead}:end={tail},asetpts=PTS-STARTPTS,volume={gain}dB",
+                 "-af", f"{trim_filter(lead, tail)}asetpts=PTS-STARTPTS,volume={gain}dB",
                  "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact",
                  "-ac", "2", "-ar", "48000", "-c:a", "libopus", "-b:a", f"{bitrate}k",
                  "-vbr", "constrained", out)
@@ -133,7 +146,7 @@ def encode_verified(tools, source, lead, tail, gain, recipe, output):
     for _ in range(5):
         tools.encode(source, lead, tail, gain, recipe["bitrate_kbps"], output)
         duration = tools.duration(output)
-        _, peak = loudness(tools.loudness_log(output, 0, duration))
+        _, peak = loudness(tools.loudness_log(output, 0.0, None))
         if not math.isfinite(peak):
             raise ValueError(f"{source.name}: encoded true peak is not finite")
         if peak <= limit + 1e-9:
@@ -207,6 +220,7 @@ def prepare(roster, sources, out_dir, approvals_path, tools=None, log=print):
         output = out_dir / f"{slug}.ogg"
         gain, encoded, encoded_peak = encode_verified(tools, source, lead, tail, gain, recipe, output)
         encoded = rounded(encoded, 3)
+        trim_end = 0.0 if tail is None else rounded(duration - tail, 3)
         notices = []
         for notice in entry.get("notices", []):
             notice_source = sources / notice["source"]
@@ -229,13 +243,13 @@ def prepare(roster, sources, out_dir, approvals_path, tools=None, log=print):
             "output_sha256": sha256(output),
             "duration_s": encoded,
             "trim_start_s": lead,
-            "trim_end_s": rounded(duration - tail, 3),
+            "trim_end_s": trim_end,
             "gain_db": gain,
             "true_peak_dbtp": encoded_peak,
             "entry_source_s": entry_source,
             "entry_s": encoded_entry(entry_source, lead, encoded),
             "notices": notices,
-            "edits": edits_text(lead, duration - tail, gain, recipe),
+            "edits": edits_text(lead, trim_end, gain, recipe),
         }
         log(f"prepared {slug}: gain {gain:+.2f} dB, {encoded:.3f} s")
     manifest = {"version": 1, "recipe": recipe, "palettes": roster["palettes"], "tracks": tracks}

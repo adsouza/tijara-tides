@@ -667,7 +667,7 @@
       "licence": "Pixabay Content License",
       "licence_url": "https://pixabay.com/service/license-summary/",
       "source_sha256": "b66669c82cd86ca93f0ceb2556c7c4fa5713dd592b81a6ac2f97870e2877048b",
-      "output_sha256": "c8225bacc67e237514bc26ae318f749ffb68ce84313595dc97905a02ca36d893",
+      "output_sha256": "5f3367a871a17fc6b8ee3613fbf9d5859d30f282ef13959f9092abc523f06f91",
       "duration_s": 116.687,
       "trim_start_s": 0.524,
       "trim_end_s": 0.0,
@@ -676,7 +676,7 @@
       "entry_source_s": 0,
       "entry_s": 0.0,
       "notices": [],
-      "edits": "Trimmed 0.52 s of leading silence and 0.00 s of trailing silence; gain -3.20 dB; encoded as Opus 64 kbps."
+      "edits": "Trimmed 0.52 s of leading silence; gain -3.20 dB; encoded as Opus 64 kbps."
     },
     "market-on-the-sea": {
       "file": "market-on-the-sea.ogg",
@@ -787,7 +787,7 @@
       "licence": "CC BY 4.0",
       "licence_url": "https://creativecommons.org/licenses/by/4.0/",
       "source_sha256": "2ee432954197d30320b95a915d3c029e446130f5eb0490347c87bb535dc7e159",
-      "output_sha256": "f0b1f36d514a6f406e7b5eee0dff214a021d8a928a854114e527e02da7e69aea",
+      "output_sha256": "2751bf6d2549d41ae4d3928782f0fdcfe03b412fa74e873515b407411fc01b9f",
       "duration_s": 190.463,
       "trim_start_s": 0.492,
       "trim_end_s": 0.0,
@@ -796,7 +796,7 @@
       "entry_source_s": 0,
       "entry_s": 0.0,
       "notices": [],
-      "edits": "Trimmed 0.49 s of leading silence and 0.00 s of trailing silence; gain -7.10 dB; encoded as Opus 64 kbps."
+      "edits": "Trimmed 0.49 s of leading silence; gain -7.10 dB; encoded as Opus 64 kbps."
     },
     "up-in-the-air": {
       "file": "up-in-the-air.ogg",
@@ -809,7 +809,7 @@
       "licence": "Pixabay Content License",
       "licence_url": "https://pixabay.com/service/license-summary/",
       "source_sha256": "ba9ad15d406ddba4f9aa7df0ef8e51631a82605a1992e947c7698611fddc951e",
-      "output_sha256": "b6674d59736428bdceb3ed27bb7a0be65d2cb2fc44f7636814751f351c12c69d",
+      "output_sha256": "ea222419e3afd12c3152554c7daa59e828478ccf7fe76d0de29ed109cefd8cb9",
       "duration_s": 192.914,
       "trim_start_s": 0.0,
       "trim_end_s": 0.0,
@@ -818,7 +818,7 @@
       "entry_source_s": 0,
       "entry_s": 0.0,
       "notices": [],
-      "edits": "Trimmed 0.00 s of trailing silence; gain -8.10 dB; encoded as Opus 64 kbps."
+      "edits": "gain -8.10 dB; encoded as Opus 64 kbps."
     }
   }
 }
