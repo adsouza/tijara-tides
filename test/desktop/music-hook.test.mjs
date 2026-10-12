@@ -60,7 +60,7 @@ function eventTarget(extra = {}) {
 function mountHook({music = 'available', fetchResult, deferFetch = false} = {}) {
   const nodes = Object.fromEntries(['music-controls', 'music-toggle', 'music-volume', 'music-credit'].map(id => [id, element(id)]))
   const el = {dataset: {music, manifest: '/audio/fixtures/music.json', context: 'port', port: 'Tangier',
-    nowPlaying: 'Now playing: %{title} by %{artists}', labelOn: 'Turn music on', labelOff: 'Turn music off'},
+    nowPlaying: 'Now playing: %{title} by %{artists}'},
     querySelector: selector => nodes[selector.slice(1)]}
   const local = storage()
   const timeouts = []
@@ -101,7 +101,8 @@ test('toggle and volume persist and update the control', async () => {
   nodes['music-toggle'].fire('click')
   assert.equal(local.values['tijara.music.enabled'], 'false')
   assert.equal(nodes['music-toggle'].attributes['aria-pressed'], 'false')
-  assert.equal(nodes['music-toggle'].attributes['aria-label'], 'Turn music on')
+  // The server-rendered label names the control; aria-pressed alone carries its state.
+  assert.equal(nodes['music-toggle'].attributes['aria-label'], undefined)
   nodes['music-volume'].value = '55'
   nodes['music-volume'].fire('input')
   assert.equal(local.values['tijara.music.volume'], '55')
@@ -120,6 +121,14 @@ test('the credit names the piece, links its source and hides after eight seconds
   const hide = timeouts.find(t => t.ms === 8000)
   hide.fn()
   assert.equal(credit.hidden, true)
+  Music.destroyed.call(hook)
+})
+
+test('the started log keeps only the ten most recent pieces', async () => {
+  const {hook, nodes} = mountHook()
+  await Music.mounted.call(hook)
+  for (let i = 0; i < 12; i++) hook.showCredit({title: `T${i}`, artists: ['A'], source_url: 'https://s.test'}, `s${i}`)
+  assert.equal(nodes['music-credit'].dataset.started, 's2 s3 s4 s5 s6 s7 s8 s9 s10 s11')
   Music.destroyed.call(hook)
 })
 

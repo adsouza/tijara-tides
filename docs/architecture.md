@@ -926,10 +926,13 @@ and renders the resulting musical context as data attributes, and
 requires the `TIJARA_MUSIC_ENABLED` flag, real Ogg files rather than Git LFS
 pointers, and listening approvals in `priv/music/approvals.json` that still
 match the manifest's source and output hashes, entry offsets and playback
-recipe. The result is computed once per boot and logged when music is
-unavailable. `scripts/prepare-music.py` writes the manifest and audio but never
-the approvals file. The soundtrack is served from `priv/audio` by its own
-`Plug.Static` at `/audio`, outside `phx.digest`.
+recipe. The result is computed once per boot. A disabled soundtrack logs one
+info line; an enabled one that cannot play logs a warning naming every reason.
+`scripts/prepare-music.py` writes the manifest and audio but never the approvals
+file. The soundtrack is served from `priv/audio` by its own `Plug.Static` at
+`/audio`, outside `phx.digest`; only a served recording is labelled `audio/ogg`,
+so a missing one is an ordinary 404 page. The release image leaves out the test
+soundtrack in `priv/audio/fixtures` and `priv/music/fixtures`.
 
 `music_focus` holds `{:port, id}` or `{:ship, id}` and changes only on
 successful explicit events: `port`, `auction-port`, `first-ship-port`, `ship`

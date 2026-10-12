@@ -99,6 +99,8 @@ try {
     await sleep(DECODE_GRACE_MS)
     assert.ok(!(await started(page)).includes('west-port'), 'disabled music must not start the delayed piece')
     assert.equal(await page.locator('#music-toggle').getAttribute('aria-pressed'), 'false')
+    assert.equal(await page.locator('#music-toggle').getAttribute('aria-label'), 'Music',
+      'the label names the control; aria-pressed alone carries its state')
     await page.locator('#music-settings summary').click()
     await page.locator('#music-volume').fill('70')
     await page.reload()

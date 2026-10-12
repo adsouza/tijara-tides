@@ -5,6 +5,7 @@ import {createDirector} from "./music_transitions"
 const ENABLED_KEY = 'tijara.music.enabled'
 const VOLUME_KEY = 'tijara.music.volume'
 const CREDIT_MS = 8000
+const STARTED_LOG = 10
 export const DEFAULTS = Object.freeze({enabled: true, volume: 30})
 
 const storage = () => { try { return globalThis.localStorage } catch { return null } }
@@ -120,7 +121,6 @@ export const Music = {
   render() {
     const {enabled, volume} = this.settings
     this.toggle.setAttribute('aria-pressed', enabled)
-    this.toggle.setAttribute('aria-label', enabled ? this.el.dataset.labelOff : this.el.dataset.labelOn)
     this.toggle.textContent = enabled ? '🔊' : '🔇'
     this.volume.value = String(volume)
   },
@@ -128,7 +128,9 @@ export const Music = {
     this.credit.textContent = creditText(this.el.dataset.nowPlaying, track)
     this.credit.href = track.source_url
     this.credit.hidden = false
-    this.started.push(slug)
+    // Browser tests read which pieces started; keep only the latest so a long
+    // session does not grow the attribute without bound.
+    this.started = [...this.started, slug].slice(-STARTED_LOG)
     this.credit.dataset.started = this.started.join(' ')
     clearTimeout(this.creditTimer)
     this.creditTimer = setTimeout(() => { this.credit.hidden = true }, CREDIT_MS)

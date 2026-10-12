@@ -67,4 +67,12 @@ for path in assets:
     assert status == 200 and headers.get("content-encoding") == "gzip", (path, status, headers)
     assert "accept-encoding" in headers.get("vary", "").lower(), (path, headers)
     assert gzip.decompress(compressed) == body, (path, "gzip body differs")
-print("Production smoke check passed: health, HTTPS redirect, lobby, cookie, assets, gzip, favicon")
+# The soundtrack manifest ships; the test soundtrack is left out of the image, and
+# a missing recording is an ordinary 404 rather than a response labelled audio.
+status, _, body = request("/audio/music.json", https=True)
+assert status == 200 and json.loads(body)["tracks"], ("music manifest", status)
+for path in ("/audio/fixtures/music.json", "/audio/fixtures/east-port.ogg"):
+    status, headers, _ = request(path, https=True)
+    assert status == 404, (path, status)
+    assert not headers.get("content-type", "").startswith("audio/"), (path, headers)
+print("Production smoke check passed: health, HTTPS redirect, lobby, cookie, assets, gzip, favicon, audio")

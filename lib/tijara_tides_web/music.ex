@@ -24,9 +24,22 @@ defmodule TijaraTidesWeb.Music do
     end
   end
 
-  def log_status do
-    with {:unavailable, reasons} <- status() do
-      Logger.warning("Background music is unavailable: " <> Enum.join(reasons, "; "))
+  @disabled "music is disabled"
+
+  @doc """
+  Reports availability once at boot. Switched off on purpose, music is not a
+  fault, so only an enabled soundtrack that cannot play warns, with every reason.
+  """
+  def log_status(status \\ status()) do
+    case status do
+      {:unavailable, [@disabled | _]} ->
+        Logger.info("Background music is disabled")
+
+      {:unavailable, reasons} ->
+        Logger.warning("Background music is unavailable: " <> Enum.join(reasons, "; "))
+
+      :available ->
+        :ok
     end
 
     :ok
@@ -34,7 +47,7 @@ defmodule TijaraTidesWeb.Music do
 
   def evaluate(manifest, approvals, directory, opts) do
     reasons =
-      if(Keyword.fetch!(opts, :enabled), do: [], else: ["music is disabled"]) ++
+      if(Keyword.fetch!(opts, :enabled), do: [], else: [@disabled]) ++
         missing_audio(manifest, directory) ++
         if(Keyword.get(opts, :audition, false), do: [], else: unapproved(manifest, approvals))
 

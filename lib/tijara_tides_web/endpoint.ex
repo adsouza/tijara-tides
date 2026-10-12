@@ -58,15 +58,17 @@ defmodule TijaraTidesWeb.Endpoint do
   plug TijaraTidesWeb.Router
 
   # MIME 2.0 maps only .oga to audio/ogg, so label .ogg here, not in global config.
+  # Only a served file is audio; a missing one keeps the 404 page's own type.
   defp audio_content_type(%Plug.Conn{path_info: ["audio" | _] = path} = conn, _opts) do
     if String.ends_with?(List.last(path), ".ogg"),
-      do:
-        Plug.Conn.register_before_send(
-          conn,
-          &Plug.Conn.put_resp_header(&1, "content-type", "audio/ogg")
-        ),
+      do: Plug.Conn.register_before_send(conn, &label_audio/1),
       else: conn
   end
 
   defp audio_content_type(conn, _opts), do: conn
+
+  defp label_audio(%Plug.Conn{status: status} = conn) when status in [200, 206],
+    do: Plug.Conn.put_resp_header(conn, "content-type", "audio/ogg")
+
+  defp label_audio(conn), do: conn
 end

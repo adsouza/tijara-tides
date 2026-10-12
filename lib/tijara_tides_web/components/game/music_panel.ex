@@ -33,8 +33,6 @@ defmodule TijaraTidesWeb.GameUI.MusicPanel do
       data-now-playing={
         gettext("Now playing: %{title} by %{artists}", title: "%{title}", artists: "%{artists}")
       }
-      data-label-on={gettext("Turn music on")}
-      data-label-off={gettext("Turn music off")}
     >
       <div id="music-controls" class="music-controls" phx-update="ignore" hidden={!@available}>
         <button
@@ -42,7 +40,7 @@ defmodule TijaraTidesWeb.GameUI.MusicPanel do
           id="music-toggle"
           class="popup-menu-trigger"
           aria-pressed="true"
-          aria-label={gettext("Turn music off")}
+          aria-label={gettext("Music")}
         >🔊</button>
         <details id="music-settings" class="music-settings">
           <summary class="popup-menu-trigger" aria-label={gettext("Music settings")}>♪</summary>

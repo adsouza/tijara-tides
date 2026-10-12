@@ -3352,11 +3352,8 @@ msgstr "العودة إلى اللعبة"
 msgid "Now playing: %{title} by %{artists}"
 msgstr "يُعزف الآن: %{title} من إبداع %{artists}"
 
-msgid "Turn music on"
-msgstr "تشغيل الموسيقى"
-
-msgid "Turn music off"
-msgstr "إيقاف الموسيقى"
+msgid "Music"
+msgstr "الموسيقى"
 
 msgid "Music settings"
 msgstr "إعدادات الموسيقى"

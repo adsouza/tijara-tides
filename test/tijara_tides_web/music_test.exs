@@ -1,5 +1,6 @@
 defmodule TijaraTidesWeb.MusicTest do
   use ExUnit.Case, async: true
+  import ExUnit.CaptureLog
   alias TijaraTidesWeb.Music
 
   @recipe %{"strategy" => "whole-recording", "fade_in_s" => 2}
@@ -224,6 +225,22 @@ defmodule TijaraTidesWeb.MusicTest do
            )
   end
 
+  test "boot logs no warning while disabled, and names every reason once enabled", %{
+    directory: dir
+  } do
+    File.write!(Path.join(dir, "v.ogg"), "version https://git-lfs.github.com/spec/v1\n")
+    pending = update_in(approvals()["tracks"], &Map.delete(&1, "p"))
+    disabled = Music.evaluate(manifest(), pending, dir, enabled: false)
+    assert {:unavailable, [_, _ | _]} = disabled
+    assert capture_log(fn -> Music.log_status(disabled) end) == ""
+
+    enabled = Music.evaluate(manifest(), pending, dir, enabled: true)
+    log = capture_log(fn -> Music.log_status(enabled) end)
+    {:unavailable, reasons} = enabled
+    assert log =~ "Background music is unavailable: " <> Enum.join(reasons, "; ")
+    assert capture_log(fn -> Music.log_status(:available) end) == ""
+  end
+
   test "audition skips approvals but not the flag or the audio check", %{directory: dir} do
     assert Music.evaluate(manifest(), %{}, dir, enabled: true, audition: true) == :available
 
@@ -416,5 +433,11 @@ defmodule TijaraTidesWeb.MusicServingTest do
     assert full.status == 200 and full.resp_body == bytes
     assert ["audio/ogg" <> _] = get_resp_header(full, "content-type")
     assert build_conn() |> get("/audio/fixtures/music.json") |> json_response(200)
+  end
+
+  test "a missing recording is a 404 that is not labelled as audio" do
+    missing = build_conn() |> get("/audio/fixtures/missing.ogg")
+    assert missing.status == 404
+    refute Enum.any?(get_resp_header(missing, "content-type"), &String.starts_with?(&1, "audio/"))
   end
 end
