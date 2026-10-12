@@ -69,6 +69,14 @@ defmodule TijaraTides.Infrastructure.MusicFocusTest do
       # The first view auto-selects the docked ship; focus starts at its port.
       assert %{"context" => "port", "port" => "Jakarta"} = music(view)
 
+      # Only a company without ships picks a first-ship port.
+      render_change(view, "first-ship-port", %{"port" => "Tokyo"})
+      assert %{"context" => "port", "port" => "Jakarta"} = music(view)
+
+      # A visitor cannot select a ship it does not own, even a public one.
+      render_click(visitor, "ship", %{"id" => ship})
+      assert %{"context" => "port", "port" => "Guangzhou", "ship" => nil} = music(visitor)
+
       render_click(view, "port", %{"id" => "Tangier"})
       assert %{"context" => "port", "port" => "Tangier"} = music(view)
 
@@ -120,6 +128,39 @@ defmodule TijaraTides.Infrastructure.MusicFocusTest do
 
       advance_until(c, 3_600_000, fn -> status(token, c, ship) != "sailing" end)
       assert %{"context" => "port", "port" => "Ho Chi Minh City", "ship" => nil} = refreshed(view)
+    end)
+  end
+
+  test "explicit port selections focus music and refused selections leave it unchanged" do
+    Sql.with_world(fn c ->
+      {conn, token} = TijaraTides.WebFormFixture.session(c)
+
+      {:ok, _} =
+        GameServer.command(
+          token,
+          "company",
+          %{"action" => "company", "name" => "Shipless"},
+          c.server
+        )
+
+      {:ok, view, _} = conn |> recycle() |> live("/play")
+      assert %{"context" => "port", "port" => "Guangzhou"} = music(view)
+
+      # A company without ships picks where to buy its first one.
+      render_change(view, "first-ship-port", %{"port" => "Tokyo"})
+      assert %{"context" => "port", "port" => "Tokyo"} = music(view)
+
+      render_click(view, "auction-port", %{"id" => "Tangier"})
+      assert %{"context" => "port", "port" => "Tangier"} = music(view)
+
+      render_click(view, "auction-port", %{"id" => "Atlantis"})
+      assert %{"context" => "port", "port" => "Tangier"} = music(view)
+      render_click(view, "port", %{"id" => "Atlantis"})
+      assert %{"context" => "port", "port" => "Tangier"} = music(view)
+      render_click(view, "ship", %{"id" => "nobody:1"})
+      assert %{"context" => "port", "port" => "Tangier", "ship" => nil} = music(view)
+      render_click(view, "inspect-ship", %{"id" => "nobody:1"})
+      assert %{"context" => "port", "port" => "Tangier", "ship" => nil} = refreshed(view)
     end)
   end
 end

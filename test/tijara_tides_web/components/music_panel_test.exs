@@ -30,4 +30,42 @@ defmodule TijaraTidesWeb.GameUI.MusicPanelTest do
              "port" => "Athens"
            }
   end
+
+  test "an unloading ship is a port context at its port" do
+    view = put_in(@view.private["ships"]["c:1"]["status"], "unloading")
+    assert MusicPanel.context(view, {:ship, "c:1"}) == %{"context" => "port", "port" => "Busan"}
+  end
+
+  test "a sailing ship is a voyage context with progress to four decimals" do
+    sailing = %{
+      "id" => "c:1",
+      "status" => "sailing",
+      "port" => "Busan",
+      "destination" => "Dubai",
+      "depart_ms" => 0,
+      "arrive_ms" => 3_000
+    }
+
+    view = %{
+      put_in(@view.private["ships"]["c:1"], sailing)
+      | public: %{@view.public | "clock_ms" => 1_000}
+    }
+
+    assert %{
+             "context" => "voyage",
+             "ship" => "c:1",
+             "origin" => "Busan",
+             "destination" => "Dubai",
+             "progress" => progress
+           } = context = MusicPanel.context(view, {:ship, "c:1"})
+
+    assert map_size(context) == 5
+    assert progress == "0.3333"
+    assert [_, decimals] = String.split(progress, ".")
+    assert String.length(decimals) == 4
+
+    late = put_in(view.public["clock_ms"], 9_000)
+    assert MusicPanel.context(late, {:ship, "c:1"})["progress"] == "1.0000"
+    assert MusicPanel.context(view, {:ship, "gone:9"}) == %{}
+  end
 end
