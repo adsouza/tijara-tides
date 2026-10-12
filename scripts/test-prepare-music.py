@@ -269,6 +269,57 @@ class PrepareMusicTest(unittest.TestCase):
         self.assertEqual(stale, ["a playback"])
         self.assertEqual(self.approvals.read_text(), text)
 
+    def current_approvals(self, manifest):
+        """Approvals bound to every file, entry and recipe in this manifest."""
+        tracks, recipe = manifest["tracks"], manifest["recipe"]
+        a, b = tracks["a"], tracks["b"]
+        return {"version": 1, "tracks": {slug: {
+            "recording": {"decision": "approved", "source_sha256": track["source_sha256"]},
+            "playback": {"decision": "approved", "output_sha256": track["output_sha256"],
+                         "entry_s": track["entry_s"], "recipe": recipe}} for slug, track in tracks.items()},
+            "handoffs": [
+                {"kind": "port-to-voyage", "from": "a", "to": "b", "decision": "approved",
+                 "from_output_sha256": a["output_sha256"], "to_output_sha256": b["output_sha256"],
+                 "to_entry_s": b["entry_s"], "recipe": recipe},
+                {"kind": "voyage-handoff", "from": "b", "to": "a", "decision": "approved",
+                 "from_output_sha256": b["output_sha256"], "to_output_sha256": a["output_sha256"],
+                 "recipe": recipe}]}
+
+    def test_current_approvals_are_not_stale(self):
+        manifest, _ = self.run_prepare()
+        self.assertEqual(prepare_music.stale_approvals(manifest, self.current_approvals(manifest)), [])
+
+    def test_a_port_to_voyage_handoff_is_bound_to_the_voyage_entry(self):
+        manifest, _ = self.run_prepare()
+        approvals = self.current_approvals(manifest)
+        approvals["handoffs"][0]["to_entry_s"] = 8.0
+        self.assertEqual(prepare_music.stale_approvals(manifest, approvals), ["a → b port-to-voyage"])
+
+    def test_a_voyage_handoff_is_bound_to_both_outputs_but_no_entry(self):
+        manifest, _ = self.run_prepare()
+        approvals = self.current_approvals(manifest)
+        # An automatic handoff starts at zero, so the voyage entry is not part of it.
+        manifest["tracks"]["a"]["entry_s"] = 3.0
+        self.assertEqual(prepare_music.stale_approvals(manifest, approvals), ["a playback"])
+        manifest["tracks"]["a"]["entry_s"] = 0.0
+        manifest["tracks"]["a"]["output_sha256"] = "f" * 64
+        self.assertEqual(prepare_music.stale_approvals(manifest, approvals),
+                         ["a playback", "a → b port-to-voyage", "b → a voyage-handoff"])
+
+    def test_approvals_for_a_removed_track_are_stale(self):
+        manifest, _ = self.run_prepare()
+        approvals = self.current_approvals(manifest)
+        del manifest["tracks"]["a"]
+        self.assertEqual(prepare_music.stale_approvals(manifest, approvals),
+                         ["a recording", "a playback", "a → b port-to-voyage", "b → a voyage-handoff"])
+
+    def test_a_recipe_change_makes_playback_and_handoffs_stale(self):
+        manifest, _ = self.run_prepare()
+        self.approvals.write_text(json.dumps(self.current_approvals(manifest)))
+        self.roster["recipe"] = {**RECIPE, "crossfade_s": 3}
+        _, stale = self.run_prepare()
+        self.assertEqual(stale, ["a playback", "b playback", "a → b port-to-voyage", "b → a voyage-handoff"])
+
     def test_rejects_a_changed_source(self):
         (self.sources / "a.mp3").write_bytes(b"changed")
         with self.assertRaisesRegex(SystemExit, "a: source hash"):
