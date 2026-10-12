@@ -189,6 +189,13 @@ class ValidationScopeTest(unittest.TestCase):
 
     def prepare_hook(self):
         self.log = Path(self.temp.name) / "checks.log"
+        self.lfs_log = Path(self.temp.name) / "lfs.log"
+        # Stand-in for git-lfs outside the repository, so the worktree stays clean.
+        self.stub_bin = Path(self.temp.name) / "bin"
+        self.stub_bin.mkdir()
+        stub = self.stub_bin / "git-lfs"
+        stub.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$LFS_LOG"\ncat >> "$LFS_LOG"\n')
+        stub.chmod(0o755)
         self.write("scripts/check-local.sh", '#!/bin/sh\nprintf "%s\\n" "$@" > "$CHECK_LOG"\n').chmod(0o755)
         self.commit()
         self.base = self.git("rev-parse", "HEAD").decode().strip()
@@ -196,21 +203,32 @@ class ValidationScopeTest(unittest.TestCase):
         self.commit()
         return self.git("rev-parse", "HEAD").decode().strip()
 
-    def push_hook(self, payload):
+    def push_hook(self, payload, path=None):
         return subprocess.run(
-            ["bash", str(ROOT / ".githooks/pre-push")], cwd=self.root,
-            input=payload, text=True, capture_output=True,
-            env={**os.environ, "CHECK_LOG": str(self.log)},
+            ["bash", str(ROOT / ".githooks/pre-push"), "origin", "https://example.invalid/repo.git"],
+            cwd=self.root, input=payload, text=True, capture_output=True,
+            env={
+                **os.environ, "CHECK_LOG": str(self.log), "LFS_LOG": str(self.lfs_log),
+                "PATH": path or f"{self.stub_bin}{os.pathsep}{os.environ['PATH']}",
+            },
+        )
+
+    def assert_lfs_received(self, payload):
+        self.assertEqual(
+            self.lfs_log.read_text(),
+            "pre-push\norigin\nhttps://example.invalid/repo.git\n" + payload,
         )
 
     def test_push_hook_passes_every_remote_base(self):
         head = self.prepare_hook()
-        result = self.push_hook(
+        payload = (
             f"refs/heads/main {head} refs/heads/main {self.base}\n"
             f"refs/heads/main {head} refs/heads/other {head}\n"
         )
+        result = self.push_hook(payload)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.log.read_text().splitlines(), ["--base", self.base, "--base", head])
+        self.assert_lfs_received(payload)
 
     def test_push_hook_rejects_dirty_or_other_checked_out_commit(self):
         head = self.prepare_hook()
@@ -218,18 +236,45 @@ class ValidationScopeTest(unittest.TestCase):
         self.write("docs/note.md", "Dirty\n")
         self.assertNotEqual(self.push_hook(payload).returncode, 0)
         self.assertFalse(self.log.exists())
+        self.assertFalse(self.lfs_log.exists())
         self.git("restore", "docs/note.md")
         self.assertNotEqual(self.push_hook(payload.replace(head, self.base)).returncode, 0)
         self.assertFalse(self.log.exists())
+        self.assertFalse(self.lfs_log.exists())
+
+    def test_failed_validation_does_not_upload_lfs_objects(self):
+        self.prepare_hook()
+        self.write("scripts/check-local.sh", "#!/bin/sh\nexit 7\n").chmod(0o755)
+        self.commit()
+        head = self.git("rev-parse", "HEAD").decode().strip()
+        result = self.push_hook(f"refs/heads/main {head} refs/heads/main {self.base}\n")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.lfs_log.exists())
+
+    def test_push_requires_git_lfs(self):
+        head = self.prepare_hook()
+        tools = Path(self.temp.name) / "tools"
+        tools.mkdir()
+        for name in ("env", "bash", "git", "cat"):
+            (tools / name).symlink_to(shutil.which(name))
+        payload = f"refs/heads/main {head} refs/heads/main {self.base}\n"
+        result = self.push_hook(payload, path=str(tools))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Git LFS", result.stderr)
+        self.assertFalse(self.lfs_log.exists())
 
     def test_tag_pushes_are_full_and_deletions_do_not_run_checks(self):
         head = self.prepare_hook()
-        result = self.push_hook(f"refs/tags/v1 {head} refs/tags/v1 {self.base}\n")
+        tag = f"refs/tags/v1 {head} refs/tags/v1 {self.base}\n"
+        result = self.push_hook(tag)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.log.read_text().splitlines(), ["--full"])
+        self.assert_lfs_received(tag)
         self.log.unlink()
-        self.assertEqual(self.push_hook(f"(delete) {'0' * 40} refs/heads/other {head}\n").returncode, 0)
+        deletion = f"(delete) {'0' * 40} refs/heads/other {head}\n"
+        self.assertEqual(self.push_hook(deletion).returncode, 0)
         self.assertFalse(self.log.exists())
+        self.assert_lfs_received(deletion)
 
     def test_documentation_pipeline_runs_only_documentation_gates(self):
         self.log = Path(self.temp.name) / "checks.log"

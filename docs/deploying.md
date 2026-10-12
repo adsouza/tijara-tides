@@ -81,6 +81,17 @@ need a database. Plain HTTP lobby browsing requires a local HTTPS reverse proxy
 for the production secure cookie behavior. Never pass database credentials or
 the production signing secret as build args.
 
+## Background music files
+
+The soundtrack's recordings and supplied licence notices are stored with Git
+LFS (`priv/audio/*.ogg` and `priv/audio/notices/*.pdf`). Install Git LFS once
+per machine (`brew install git-lfs`) and run `git lfs install --local
+--skip-repo` in each clone; the tracked hooks in `.githooks/` already call LFS.
+CI test jobs, the container smoke build and the desktop workflow check out
+without LFS and see pointer files, which keep music unavailable but pass every
+test. Production playback also requires `TIJARA_MUSIC_ENABLED=true` and
+current listening approvals; see the background music design.
+
 ## Current limitations
 
 The container automatically runs pending migrations before starting the server;

@@ -21,7 +21,7 @@ Decisions taken during design:
 | Question | Decision |
 |---|---|
 | Slots with two accepted candidates | Ship both in the pool: 28 tracks |
-| Asset storage | Git LFS under `priv/static/audio/` |
+| Asset storage | Git LFS under `priv/audio/` |
 | Controls | Compact speaker control in the header for every visitor |
 | Playback engine | Streamed `<audio>` elements routed through Web Audio gain |
 | Repeats | Whole-recording repeats, with fresh listening approval; no loop edits |
@@ -302,10 +302,10 @@ track it:
 3. Measures integrated loudness with ffmpeg `ebur128` and applies one linear
    gain toward -20 LUFS, reduced where needed to keep true peak at or below
    -1 dBTP. Dynamics are not compressed.
-4. Encodes stereo Ogg Opus at 64 kbps to `priv/static/audio/<slug>.ogg`.
+4. Encodes stereo Ogg Opus at 64 kbps to `priv/audio/<slug>.ogg`.
 
-It writes `priv/static/audio/music.json`: palettes with their ports, port pool
-and voyage pool, and for each track its file, output SHA-256, duration, applied
+It writes `priv/audio/music.json`: palettes with their ports, port pool and
+voyage pool, and for each track its file, output SHA-256, duration, applied
 gain, boundary trims, encoded selection entry, credits, source URL, licence and
 edit notes. It never writes listening approvals: those live in
 `priv/music/approvals.json` (see the [release listening
@@ -319,21 +319,23 @@ manifest, and `scripts/check-generated.py` verifies it.
 
 ### Serving
 
-`audio` joins `TijaraTidesWeb.static_paths/0`. `phx.digest` is configured not
-to compress `.ogg` files. The installed Plug.Static supports byte-range
-requests and partial responses, so the `<audio>` element can request data for
-an entry offset or paused position. Verify HTTP 206 and `Content-Range` through
-the deployed serving path, as well as ordinary full-file playback. A seek is
-asynchronous even with range support; it remains subject to the readiness gate.
+A dedicated `Plug.Static` mounted at `/audio` serves `priv/audio/`.
+Keeping the soundtrack out of `priv/static` stops `phx.digest` from shipping a
+fingerprinted second copy of every recording, and `.ogg` is not compressed.
+Plug.Static supports byte-range requests and partial responses, so the
+`<audio>` element can request data for an entry offset or paused position.
+Verify HTTP 206 and `Content-Range` through the deployed serving path, as well
+as ordinary full-file playback. A seek is asynchronous even with range support;
+it remains subject to the readiness gate.
 
 ### Git LFS
 
-`.gitattributes` tracks `priv/static/audio/*.ogg` with LFS. The repository uses
-the tracked `.githooks/` directory as `core.hooksPath`, so the tracked
-`pre-push` hook chains to `git lfs pre-push`, and tracked `post-checkout`,
-`post-commit` and `post-merge` hooks call their LFS counterparts. Test jobs,
-the Docker smoke build and the desktop workflow check out without LFS; only
-developer clones and Render deploys fetch audio.
+`.gitattributes` tracks `priv/audio/*.ogg` with LFS. The repository uses the
+tracked `.githooks/` directory as `core.hooksPath`, so the tracked `pre-push`
+hook chains to `git lfs pre-push`, and tracked `post-checkout`, `post-commit`
+and `post-merge` hooks call their LFS counterparts. Test jobs, the Docker smoke
+build and the desktop workflow check out without LFS; only developer clones and
+Render deploys fetch audio.
 
 ### Availability
 

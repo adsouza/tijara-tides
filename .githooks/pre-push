@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+input=$(cat)
 head=$(git rev-parse HEAD)
 check=false
 bases=()
 full=false
 while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -z "${local_ref:-}" ]] && continue
   [[ "$local_sha" =~ ^0+$ ]] && continue
   if [[ "$(git rev-parse "$local_sha^{commit}")" != "$head" ]]; then
     echo "Pre-push: check out the commit being pushed ($local_ref) so its checks can run." >&2
@@ -14,13 +16,18 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   check=true
   bases+=(--base "$remote_sha")
   [[ "$remote_ref" == refs/heads/* ]] || full=true
-done
-if ! "$check"; then exit 0; fi
-if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
-  echo "Pre-push: commit or stash changes first so validation tests exactly the commit being pushed." >&2
-  exit 1
+done <<< "$input"
+if "$check"; then
+  if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
+    echo "Pre-push: commit or stash changes first so validation tests exactly the commit being pushed." >&2
+    exit 1
+  fi
+  if "$full"; then
+    scripts/check-local.sh --full
+  else
+    scripts/check-local.sh "${bases[@]}"
+  fi
 fi
-if "$full"; then
-  exec scripts/check-local.sh --full
-fi
-exec scripts/check-local.sh "${bases[@]}"
+# Upload LFS objects only after validation passes.
+command -v git-lfs >/dev/null 2>&1 || { echo "Pre-push: install Git LFS (brew install git-lfs) before pushing music." >&2; exit 2; }
+printf '%s\n' "$input" | git lfs pre-push "$@"
