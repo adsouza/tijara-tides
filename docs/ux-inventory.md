@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 180
+Heuristic requirement sentences in DESIGN.md at generation: 182
 
 ## Screens
 
@@ -276,6 +276,15 @@ soundtrack and its response to the player's selections.
 | 216 | Protection is optional and defaults to none for manual dispatch. | 10 | input | Fleet and ship detail |
 | 217 | Repeating route plans offer none, guards, insurance, or both, defaulting to none. | 8 | input | Route planner |
 | 218 | The destination popup opens immediately with its port rows and cargo columns. Estimate cells stay blank until the first calculation completes, with the non-blocking Thinking overlay shown during that initial wait. World updates keep the last completed grid visible while replacements are calculated, then update estimates and row ranking together without an empty-grid flicker. Dismissal and port selection remain available throughout. Completed work for an older selection cannot replace the current selection's estimates. | 7 | display | Fleet and ship detail |
+| 219 | Each piece is a whole recording that plays to its natural ending. | 1 | audio | Background music |
+| 220 | Two seconds before it ends, the next piece starts with a two-second crossfade using the same gain curves. | 1 | audio | Background music |
+| 221 | A piece started by a selection may begin at an approved entry point that skips a very quiet opening; later repeats start from the beginning. | 1 | audio | Background music |
+| 222 | Selecting another sailing ship whose origin and destination share palettes with the current voyage continues the current piece, and a diversion that changes the destination's palette changes the musical context. | 1 | audio | Background music |
+| 223 | The volume slider runs from 0 to 100 and starts at 30; gain is the square of the slider's fraction. | 1 | input | Background music |
+| 224 | Turning music off fades it out over one second. | 1 | audio | Background music |
+| 225 | Music starts only after the player's first click or key press on the page. | 1 | audio | Background music |
+| 226 | On return, port music resumes where it paused, while voyage music chooses a fresh piece. | 1 | audio | Background music |
+| 227 | A music credits page, linked from the music controls, lists every track's title, credited creators, source, license and edits. | 1 | display | Background music |
 
 ## Defaults that keep the depth optional
 

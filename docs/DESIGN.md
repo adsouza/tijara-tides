@@ -132,6 +132,14 @@ progresses. That shift changes track choices: favor the origin early, alternate
 between the two regions around mid-voyage, then favor the destination near
 arrival. Each piece plays separately, with short crossfades between tracks.
 
+Each piece is a whole recording that plays to its natural ending. Two seconds
+before it ends, the next piece starts with a two-second crossfade using the same
+gain curves. A piece started by a selection may begin at an approved entry point
+that skips a very quiet opening; later repeats start from the beginning.
+Selecting another sailing ship whose origin and destination share palettes with
+the current voyage continues the current piece, and a diversion that changes the
+destination's palette changes the musical context.
+
 Nearby ports with related musical influences share a regional pool of tracks.
 Each region has its own musical palette rather than a separate soundtrack for
 every country or port. The soundtrack has twelve regional palettes.
@@ -158,22 +166,33 @@ Music is enabled at a quiet volume on first launch. A music toggle and volume
 slider control playback, and both settings persist on the device across visits.
 The exact initial volume remains a tuning decision.
 
+The volume slider runs from 0 to 100 and starts at 30; gain is the square of the
+slider's fraction. Turning music off fades it out over one second. Music starts
+only after the player's first click or key press on the page.
+
 When the player switches away from the game, music fades out and pauses. On
 returning, music fades back in only if music is enabled, using the current
 musical context and the ship's current voyage progress when applicable.
 Switching away does not change the saved music toggle or volume setting.
 
+Switching away fades music out over one second. On return, port music resumes
+where it paused, while voyage music chooses a fresh piece.
+
 Existing freely licensed instrumental recordings are the preferred soundtrack
-source, with composer attribution acceptable. Recordings must be available at
-no licensing cost under terms that permit distribution in the game and editing
-for loops and fades. AI-generated recordings are eligible under the same
-musical and licensing requirements. Music credits identify each track, its
-composer or credited creator, source, license and any edits. Each time a piece
-starts fading in, show its title and credited artist or artists at the top of
-the screen, with a link to that recording's source page. Tracks are curated
-into regional pools before being added to the game. The shared musical
-direction is cinematic, with regional instruments woven into strings and
-orchestral arrangements.
+source, with composer attribution acceptable. Recordings must be available at no
+licensing cost under terms that permit distribution in the game and editing for
+loops and fades. AI-generated recordings are eligible under the same musical and
+licensing requirements. Music credits identify each track, its composer or
+credited creator, source, license and any edits. Each time a piece starts fading
+in, show its title and credited artist or artists at the top of the screen, with
+a link to that recording's source page.
+
+A music credits page, linked from the music controls, lists every track's title,
+credited creators, source, license and edits.
+
+Tracks are curated into regional pools before being added to the game. The
+shared musical direction is cinematic, with regional instruments woven into
+strings and orchestral arrangements.
 
 Port arrangements emphasize measured adventure: warm strings, regional
 melodies, gentle percussion and restrained swells that leave room to

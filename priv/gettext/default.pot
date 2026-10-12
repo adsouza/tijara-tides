@@ -5531,7 +5531,7 @@ msgstr ""
 msgid "License"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/music_panel.ex:52
+#: lib/tijara_tides_web/components/game/music_panel.ex:53
 #: lib/tijara_tides_web/controllers/music_credits_controller.ex:8
 #: lib/tijara_tides_web/controllers/music_credits_html.ex:7
 #, elixir-autogen, elixir-format
@@ -5558,28 +5558,28 @@ msgstr ""
 msgid "The soundtrack uses these recordings."
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/music_panel.ex:47
+#: lib/tijara_tides_web/components/game/music_panel.ex:48
 #, elixir-autogen, elixir-format
 msgid "Music settings"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/music_panel.ex:49
+#: lib/tijara_tides_web/components/game/music_panel.ex:50
 #, elixir-autogen, elixir-format
 msgid "Music volume"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/music_panel.ex:33
+#: lib/tijara_tides_web/components/game/music_panel.ex:34
 #, elixir-autogen, elixir-format
 msgid "Now playing: %{title} by %{artists}"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/music_panel.ex:36
-#: lib/tijara_tides_web/components/game/music_panel.ex:44
+#: lib/tijara_tides_web/components/game/music_panel.ex:37
+#: lib/tijara_tides_web/components/game/music_panel.ex:45
 #, elixir-autogen, elixir-format
 msgid "Turn music off"
 msgstr ""
 
-#: lib/tijara_tides_web/components/game/music_panel.ex:35
+#: lib/tijara_tides_web/components/game/music_panel.ex:36
 #, elixir-autogen, elixir-format
 msgid "Turn music on"
 msgstr ""

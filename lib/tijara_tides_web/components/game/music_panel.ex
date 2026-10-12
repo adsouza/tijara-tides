@@ -20,6 +20,7 @@ defmodule TijaraTidesWeb.GameUI.MusicPanel do
     ~H"""
     <div
       id="music"
+      phx-hook="Music"
       class="music-control"
       data-music={if @available, do: "available", else: "unavailable"}
       data-manifest={TijaraTidesWeb.Music.manifest_url()}
