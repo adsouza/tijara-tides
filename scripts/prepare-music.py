@@ -20,6 +20,11 @@ ROOT = Path(__file__).resolve().parent.parent
 SILENCE = re.compile(r"silence_(start|end): (-?[\d.]+)")
 
 
+def rounded(value, digits):
+    """round() without a negative zero, which would print as -0.0 in the manifest."""
+    return round(value, digits) + 0.0
+
+
 def sha256(path):
     digest = hashlib.sha256()
     with open(path, "rb") as file:
@@ -43,7 +48,7 @@ def silence_bounds(log, duration):
     tail = intervals[-1][0] if intervals and intervals[-1][1] >= duration - 0.01 else duration
     if tail <= lead:
         raise ValueError("recording is silent throughout")
-    return round(lead, 3), round(tail, 3)
+    return rounded(lead, 3), rounded(tail, 3)
 
 
 def decoded_seconds(progress):
@@ -63,11 +68,11 @@ def loudness(log):
 
 
 def gain_db(integrated, true_peak, target, ceiling):
-    return round(min(target - integrated, ceiling - true_peak), 2)
+    return rounded(min(target - integrated, ceiling - true_peak), 2)
 
 
 def encoded_entry(entry_source, lead, duration):
-    entry = round(max(0.0, entry_source - lead), 3)
+    entry = rounded(max(0.0, entry_source - lead), 3)
     if entry >= duration:
         raise ValueError(f"entry {entry_source} s lies beyond the trimmed recording")
     return entry
@@ -111,23 +116,33 @@ class Tools:
                  "-af", f"atrim=start={lead}:end={tail},asetpts=PTS-STARTPTS,volume={gain}dB",
                  "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact",
                  "-ac", "2", "-ar", "48000", "-c:a", "libopus", "-b:a", f"{bitrate}k",
-                 "-vbr", "on", out)
+                 "-vbr", "constrained", out)
+
+
+# ebur128 prints true peak to a tenth of a dB. A printed -1.0 can be a true
+# peak of -0.96, so an encode counts as within the ceiling only when the
+# printed value leaves this much margin: printed <= ceiling - 0.1 guarantees
+# an actual peak of at most ceiling - 0.05.
+PEAK_MARGIN_DB = 0.1
 
 
 def encode_verified(tools, source, lead, tail, gain, recipe, output):
     """Verify the decoded encode, lowering one source gain without compression."""
     ceiling = recipe["true_peak_dbtp"]
+    limit = rounded(ceiling - PEAK_MARGIN_DB, 1)
     for _ in range(5):
         tools.encode(source, lead, tail, gain, recipe["bitrate_kbps"], output)
         duration = tools.duration(output)
         _, peak = loudness(tools.loudness_log(output, 0, duration))
         if not math.isfinite(peak):
             raise ValueError(f"{source.name}: encoded true peak is not finite")
-        if peak <= ceiling:
+        if peak <= limit + 1e-9:
             return gain, duration, peak
-        # ebur128 reports tenths of a dB; leave another tenth of headroom.
-        gain = round(gain + ceiling - peak - 0.1, 2)
-    raise ValueError(f"{source.name}: encoded true peak exceeds {ceiling} dBTP after five attempts")
+        # Aim at the margin, then leave another tenth of headroom; the next
+        # encode starts again from the original source, never from this one.
+        gain = rounded(gain + limit - peak - 0.1, 2)
+    raise ValueError(f"{source.name}: encoded true peak exceeds {limit} dBTP "
+                     f"({ceiling} dBTP less a {PEAK_MARGIN_DB} dB rounding margin) after five attempts")
 
 
 def stale_approvals(manifest, approvals):
@@ -191,7 +206,7 @@ def prepare(roster, sources, out_dir, approvals_path, tools=None, log=print):
         gain = gain_db(integrated, peak, recipe["loudness_lufs"], recipe["true_peak_dbtp"])
         output = out_dir / f"{slug}.ogg"
         gain, encoded, encoded_peak = encode_verified(tools, source, lead, tail, gain, recipe, output)
-        encoded = round(encoded, 3)
+        encoded = rounded(encoded, 3)
         notices = []
         for notice in entry.get("notices", []):
             notice_source = sources / notice["source"]
@@ -214,7 +229,7 @@ def prepare(roster, sources, out_dir, approvals_path, tools=None, log=print):
             "output_sha256": sha256(output),
             "duration_s": encoded,
             "trim_start_s": lead,
-            "trim_end_s": round(duration - tail, 3),
+            "trim_end_s": rounded(duration - tail, 3),
             "gain_db": gain,
             "true_peak_dbtp": encoded_peak,
             "entry_source_s": entry_source,

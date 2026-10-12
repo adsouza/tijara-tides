@@ -109,25 +109,63 @@ class PrepareMusicTest(unittest.TestCase):
         tools = OvershootTools()
         manifest, _ = self.run_prepare(tools)
         for track in manifest["tracks"].values():
-            self.assertEqual(track["gain_db"], -6.5)
-            self.assertLessEqual(track["true_peak_dbtp"], RECIPE["true_peak_dbtp"])
-            self.assertIn("gain -6.50 dB", track["edits"])
+            # -6.0 measures -0.6; aim at -1.1, then one more tenth: -6.6, which measures -1.2.
+            self.assertEqual(track["gain_db"], -6.6)
+            self.assertLessEqual(track["true_peak_dbtp"], -1.1)
+            self.assertIn("gain -6.60 dB", track["edits"])
             self.assertEqual(track["output_sha256"], digest((self.out / track["file"]).read_bytes()))
         self.assertEqual(len(tools.encoded), 4)
         self.assertEqual([row[0] for row in tools.encoded], ["a.mp3", "a.mp3", "b.mp3", "b.mp3"])
 
-    def test_rejects_an_encode_that_cannot_meet_the_peak_ceiling(self):
-        class UnboundedTools(FakeTools):
+    def test_a_printed_minus_one_is_not_within_the_ceiling(self):
+        # ebur128 prints tenths: -1.0 may be an actual -0.96, which is over -1.
+        class RoundingTools(FakeTools):
             def loudness_log(self, path, lead, tail):
                 if path.suffix == ".ogg":
-                    return "I: -20 LUFS\nPeak: -0.6 dBFS\n"
+                    gain = float(path.read_text().rsplit(" ", 1)[1])
+                    return f"I: {-14 + gain} LUFS\nPeak: {-1.0 + gain + 6} dBFS\n"
                 return super().loudness_log(path, lead, tail)
 
-        tools = UnboundedTools()
-        with self.assertRaisesRegex(ValueError, "encoded true peak"):
-            self.run_prepare(tools)
-        self.assertEqual(len(tools.encoded), 5)
-        self.assertFalse((self.out / "music.json").exists())
+        tools = RoundingTools()
+        manifest, _ = self.run_prepare(tools)
+        self.assertEqual(len(tools.encoded), 4)
+        for track in manifest["tracks"].values():
+            # -6.0 measures -1.0, which is refused; aim at -1.1 plus a tenth: -6.2.
+            self.assertEqual(track["gain_db"], -6.2)
+            self.assertAlmostEqual(track["true_peak_dbtp"], -1.2)
+
+    def test_accepts_a_printed_margin_of_a_tenth(self):
+        class MarginTools(FakeTools):
+            def loudness_log(self, path, lead, tail):
+                if path.suffix == ".ogg":
+                    return "I: -20 LUFS\nPeak: -1.1 dBFS\n"
+                return super().loudness_log(path, lead, tail)
+
+        tools = MarginTools()
+        manifest, _ = self.run_prepare(tools)
+        self.assertEqual(len(tools.encoded), 2)
+        self.assertEqual(manifest["tracks"]["a"]["true_peak_dbtp"], -1.1)
+
+    def test_rejects_an_encode_that_cannot_meet_the_peak_ceiling(self):
+        for printed in ("-0.6", "-1.0"):
+            class UnboundedTools(FakeTools):
+                def loudness_log(self, path, lead, tail, printed=printed):
+                    if path.suffix == ".ogg":
+                        return f"I: -20 LUFS\nPeak: {printed} dBFS\n"
+                    return super().loudness_log(path, lead, tail)
+
+            tools = UnboundedTools()
+            with self.subTest(printed=printed):
+                with self.assertRaisesRegex(ValueError, "encoded true peak"):
+                    self.run_prepare(tools)
+                self.assertEqual(len(tools.encoded), 5)
+                self.assertFalse((self.out / "music.json").exists())
+
+    def test_rounded_values_never_print_a_negative_zero(self):
+        self.assertEqual(str(prepare_music.rounded(-0.0004, 3)), "0.0")
+        self.assertEqual(prepare_music.silence_bounds("silence_start: 0\nsilence_end: 1.0 | x\n", 60.0), (1.0, 60.0))
+        self.assertEqual(str(prepare_music.gain_db(-20.0004, -9.0, -20.0, -1.0)), "0.0")
+        self.assertEqual(str(prepare_music.encoded_entry(0, 0, 5.0)), "0.0")
 
     def test_never_writes_approvals_and_reports_stale_ones(self):
         manifest, _ = self.run_prepare()
