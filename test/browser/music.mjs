@@ -18,10 +18,14 @@ async function open(label) {
   await trace.attach(context, label)
   const page = await context.newPage()
   page.setDefaultTimeout(15_000)
+  // Network evidence, independent of what the audio stack does with a request.
+  const oggs = []
+  page.on('request', request => { if (request.url().includes('.ogg')) oggs.push(request.url()) })
+  const manifest = page.waitForResponse(response => response.url().includes('/audio/fixtures/music.json'))
   await page.goto(config.url + '/play')
   await page.locator('[data-phx-main].phx-connected').waitFor()
   await page.locator('#music[data-music="available"]').waitFor({state: 'attached'})
-  return {context, page}
+  return {context, page, oggs, manifest}
 }
 
 async function gestureAndEast(page) {
@@ -29,16 +33,29 @@ async function gestureAndEast(page) {
   await page.waitForFunction(() => document.querySelector('#music-credit').dataset.started?.includes('east-port'))
 }
 
-function delayWest(page, ms) {
-  return page.route('**/audio/fixtures/west-port.ogg*', async route => { await sleep(ms); await route.continue() })
+// Delays west-port.ogg and reports when the delayed response has reached the
+// page, so a test can tell "never played" from "had not arrived yet".
+async function delayWest(page, ms) {
+  const arrived = page.waitForResponse(response => response.url().includes('/audio/fixtures/west-port.ogg'), {timeout: 20_000})
+  arrived.catch(() => {})
+  await page.route('**/audio/fixtures/west-port.ogg*', async route => { await sleep(ms); await route.continue() })
+  return {arrived}
 }
+
+// Time for the arrived element to be decoded and, if it were going to, start.
+const DECODE_GRACE_MS = 2_000
 
 try {
   {
-    const {context, page} = await open('music-timing')
+    const {context, page, oggs, manifest} = await open('music-timing')
+    await manifest
     await sleep(1_500)
+    // The manifest is in; if the gesture gate were missing the first piece would
+    // already be requested. Network, not silence, proves the gate.
+    assert.deepEqual(oggs, [], 'no audio file is requested before the first gesture')
     assert.deepEqual(await started(page), [], 'nothing plays before the first gesture')
     await gestureAndEast(page)
+    assert.ok(oggs.length > 0, 'the gesture releases the first audio request')
     const credit = page.locator('#music-credit')
     await credit.waitFor({state: 'visible'})
     assert.equal(await credit.textContent(), 'Now playing: East Harbour Tone by Fixture Composer')
@@ -50,30 +67,36 @@ try {
     await page.waitForFunction(() => document.querySelector('#music-credit').dataset.started?.includes('west-port'), null, {timeout: 20_000})
     const elapsed = (Date.now() - t0) / 1000
     assert.ok(elapsed >= 5.5, `late audio must not start before it arrives (${elapsed}s)`)
+    // Arrival at 6 s, long past the 3 s settle: a restarted settle would add 3 s.
+    assert.ok(elapsed < 9, `late audio starts when it arrives, not after a new settle (${elapsed}s)`)
     assert.equal(await credit.textContent(), 'Now playing: West Harbour Tone by Fixture Composer')
     await trace.close(context)
   }
   {
     const {context, page} = await open('music-superseded')
     await gestureAndEast(page)
-    await delayWest(page, 6_000)
+    const west = await delayWest(page, 6_000)
     await page.selectOption('#port-selector select', 'Tangier')
     await sleep(1_000)
     await page.selectOption('#port-selector select', 'Guangzhou')
-    await sleep(12_000)
+    // East must restart, and the superseded west response must have arrived
+    // and had time to start, before its absence means anything.
+    await page.waitForFunction(() => document.querySelector('#music-credit').dataset.started === 'east-port east-port', null, {timeout: 20_000})
+    await west.arrived
+    await sleep(DECODE_GRACE_MS)
     const log = await started(page)
-    assert.ok(!log.includes('west-port'), `superseded piece played: ${log}`)
-    assert.equal(log.at(-1), 'east-port')
+    assert.deepEqual(log, ['east-port', 'east-port'], `superseded piece played: ${log}`)
     await trace.close(context)
   }
   {
     const {context, page} = await open('music-disabled')
     await gestureAndEast(page)
-    await delayWest(page, 6_000)
+    const west = await delayWest(page, 6_000)
     await page.selectOption('#port-selector select', 'Tangier')
     await sleep(1_000)
     await page.locator('#music-toggle').click()
-    await sleep(9_000)
+    await west.arrived
+    await sleep(DECODE_GRACE_MS)
     assert.ok(!(await started(page)).includes('west-port'), 'disabled music must not start the delayed piece')
     assert.equal(await page.locator('#music-toggle').getAttribute('aria-pressed'), 'false')
     await page.locator('#music-settings summary').click()
