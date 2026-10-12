@@ -92,6 +92,17 @@ without LFS and see pointer files, which keep music unavailable but pass every
 test. Production playback also requires `TIJARA_MUSIC_ENABLED=true` and
 current listening approvals; see the background music design.
 
+On 12 October 2026 the first deploy with the soundtrack served real Ogg files:
+`/audio/shenyang.ogg` returned `206 audio/ogg` with
+`content-range: bytes 0-99/1223641` and an `OggS` body, so Render's build
+fetched the LFS objects. GitHub's LFS usage for that day cost less than a cent,
+which is consistent with one full fetch of about 38 MB but cannot tell a full
+fetch from a cached one. Assume the worst case: each deploy downloads the full
+soundtrack, so about 230 deploys a month would use roughly 8.5 GiB of the 10 GiB
+free monthly allowance. With a $0 budget, exceeding it blocks LFS, and with it
+Render builds, for the rest of the month. Check usage mid-month; set a small LFS
+budget if busy months approach the allowance.
+
 ## Current limitations
 
 The container automatically runs pending migrations before starting the server;
