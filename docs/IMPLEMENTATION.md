@@ -1361,14 +1361,15 @@ and the three piracy expense accounts. Production derives a private salt from
 generated catalogue, durable snapshot or player projections; pending rolls are
 persisted so secret rotation cannot change a voyage already underway.
 
-
 ## Background music
 
-Regional port and voyage music follows the player's latest explicit ship or
-port selection. GameLive keeps that focus and renders the musical context; the
+Regional port and voyage music follows the player's latest explicit ship or port
+selection. GameLive keeps that focus and renders the musical context; the
 browser chooses pieces from twelve palettes, owns every fade, crossfade and
 silent wait, and persists the toggle and volume on the device. Twenty-eight
 gain-matched Opus recordings are stored in Git LFS and credited in game and in
 `docs/music-credits.md`. Production playback is off until the release listening
-gate records approvals for every recording, selection entry, repeat and
-handoff; developers can audition with `TIJARA_MUSIC_AUDITION=true`.
+gate records approvals for every recording, selection entry, repeat and handoff.
+Auditioning unapproved music is possible only in development and needs both
+`TIJARA_MUSIC_ENABLED=true` and `TIJARA_MUSIC_AUDITION=true`: audition skips the
+approvals, not the flag or the check for real audio files.

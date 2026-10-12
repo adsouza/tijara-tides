@@ -70,5 +70,6 @@ config :tijara_tides,
 
 config :tijara_tides, :dev_routes, true
 
-# Developers may audition unapproved music with TIJARA_MUSIC_AUDITION=true.
+# Developers may audition unapproved music by setting both
+# TIJARA_MUSIC_ENABLED=true and TIJARA_MUSIC_AUDITION=true.
 config :tijara_tides, :music_audition_allowed, true

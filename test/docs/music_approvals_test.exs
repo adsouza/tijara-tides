@@ -22,6 +22,18 @@ defmodule Docs.MusicApprovalsTest do
         do: IO.puts("music approval #{status}: #{item}")
   end
 
+  test "IMPLEMENTATION.md names every switch that auditioning needs" do
+    switches = Regex.scan(~r/"(TIJARA_MUSIC_[A-Z_]+)"/, File.read!("config/runtime.exs"))
+
+    [_, section] = String.split(File.read!("docs/IMPLEMENTATION.md"), "## Background music\n")
+    [section | _] = String.split(section, "\n## ")
+
+    assert Enum.sort(for [_, name] <- switches, do: name) ==
+             ["TIJARA_MUSIC_AUDITION", "TIJARA_MUSIC_ENABLED"]
+
+    for [_, name] <- switches, do: assert(section =~ "`#{name}=true`", name)
+  end
+
   test "the fixture soundtrack is fully approved" do
     report =
       TijaraTidesWeb.Music.approval_report(
