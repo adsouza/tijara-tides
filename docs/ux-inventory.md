@@ -26,7 +26,7 @@ match many further sentences in DESIGN.md, almost all of them about open orders,
 berth groups and retained cargo rather than anything a player sees. Widen the
 list only after checking what a candidate word newly matches.
 
-Heuristic requirement sentences in DESIGN.md at generation: 179
+Heuristic requirement sentences in DESIGN.md at generation: 180
 
 ## Screens
 
@@ -275,7 +275,7 @@ soundtrack and its response to the player's selections.
 | 215 | Zone threat, campaigns and protection prices are public before dispatch. | 10 | disclosure | Fleet and ship detail |
 | 216 | Protection is optional and defaults to none for manual dispatch. | 10 | input | Fleet and ship detail |
 | 217 | Repeating route plans offer none, guards, insurance, or both, defaulting to none. | 8 | input | Route planner |
-| 218 | The destination popup opens immediately with its port rows and cargo columns. Estimate cells stay blank until the first calculation completes. World updates keep the last completed grid visible while replacements are calculated, then update estimates and row ranking together without an empty-grid flicker. Dismissal and port selection remain available throughout. Completed work for an older selection cannot replace the current selection's estimates. | 7 | display | Fleet and ship detail |
+| 218 | The destination popup opens immediately with its port rows and cargo columns. Estimate cells stay blank until the first calculation completes, with the non-blocking Thinking overlay shown during that initial wait. World updates keep the last completed grid visible while replacements are calculated, then update estimates and row ranking together without an empty-grid flicker. Dismissal and port selection remain available throughout. Completed work for an older selection cannot replace the current selection's estimates. | 7 | display | Fleet and ship detail |
 
 ## Defaults that keep the depth optional
 

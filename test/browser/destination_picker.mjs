@@ -17,7 +17,7 @@ try {
   await page.locator('[data-phx-main].phx-connected').waitFor()
   await page.locator(`[phx-click=ship][phx-value-id="${config.ship}"]`).first().click()
   await page.evaluate(() => {
-    window.pickerObservations = {emptyGrids: 0, clearedMarkers: 0, busy: 0, ready: false}
+    window.pickerObservations = {emptyGrids: 0, clearedMarkers: 0, busy: 0, busyOverlays: 0, ready: false}
     new MutationObserver(records => {
       const state = window.pickerObservations
       const picker = document.getElementById('destination-picker')
@@ -25,12 +25,16 @@ try {
       const table = document.getElementById('destination-matrix')
       if (!table?.querySelector('tbody tr') || !table.querySelector('thead th[id]')) state.emptyGrids++
       if (state.ready && !table?.querySelector('.opportunity-disc')) state.clearedMarkers++
+      if (state.ready && !document.getElementById('interaction-busy').hidden) state.busyOverlays++
       state.busy += records.filter(r => r.target.id === 'destination-matrix' &&
         r.attributeName === 'aria-busy' && r.oldValue === 'false').length
     }).observe(document.body, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
   })
   await page.locator('#destination-picker-trigger').click()
+  await page.locator('#interaction-busy:not([hidden])').waitFor()
+  assert.ok(await page.locator('#destination-matrix tbody tr').count() > 0)
   await page.locator('#destination-matrix[aria-busy=false]').waitFor()
+  await page.locator('#interaction-busy').waitFor({state: 'hidden'})
   assert.ok(await page.locator('#destination-matrix .opportunity-disc').count() > 0)
   await page.evaluate(() => {
     window.pickerObservations.ready = true
@@ -58,6 +62,7 @@ try {
     }))
     assert.equal(state.emptyGrids, 0, JSON.stringify(state))
     assert.equal(state.clearedMarkers, 0, JSON.stringify(state))
+    assert.equal(state.busyOverlays, 0, JSON.stringify(state))
     assert.ok(state.sameTable && state.sameRows && state.sameFocus, JSON.stringify(state))
     assert.deepEqual(state.position, state.expectedPosition)
   }

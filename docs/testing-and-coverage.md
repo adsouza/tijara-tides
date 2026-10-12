@@ -379,8 +379,12 @@ columns before any planning runs. Delayed, superseded and failed refreshes must
 retain the previous complete matrix. Replacements publish their estimates and
 changed ranking together; another owner, hull or departure port must never
 inherit that display. Stable row identities keep controls attached to their
-ports through reordering. Mutation checks break grid rendering and retained
-refresh behavior and require the corresponding regressions to fail.
+ports through reordering. The Thinking overlay spans the first asynchronous
+calculation after the event reply; completion and failure clear its marker, and
+completed-grid refreshes do not set it. JavaScript tests cover the event-to-task
+handoff and cleanup. Chromium checks initial feedback and unobstructed refreshes.
+Mutation checks break grid rendering, retained refresh behavior and initial busy
+feedback and require the corresponding regressions to fail.
 
 The voyage-affordability regression counts funding checks and full profit
 evaluations across a complete destination matrix. Quantity searches must make

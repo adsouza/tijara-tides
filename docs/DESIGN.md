@@ -1136,7 +1136,8 @@ Rank ports by the sum of the best ROI in each direction, then distance. Clicking
 selects it and dismisses the popup.
 
 The destination popup opens immediately with its port rows and cargo columns.
-Estimate cells stay blank until the first calculation completes. World updates
+Estimate cells stay blank until the first calculation completes, with the
+non-blocking Thinking overlay shown during that initial wait. World updates
 keep the last completed grid visible while replacements are calculated, then
 update estimates and row ranking together without an empty-grid flicker.
 Dismissal and port selection remain available throughout. Completed work for an

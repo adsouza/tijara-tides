@@ -1,5 +1,6 @@
 // LiveView sets loading refs before sending an event and removes them after its
-// reply. Watching them also works while the server cannot send a busy message.
+// reply. Explicit markers keep that feedback active for asynchronous initial
+// content, after the event reply has already arrived.
 export function installInteractionBusy(doc = document, options = {}) {
   const overlay = doc.getElementById('interaction-busy')
   if (!overlay) return () => {}
@@ -13,7 +14,7 @@ export function installInteractionBusy(doc = document, options = {}) {
   const pendingRoot = () => {
     const root = doc.querySelector('[data-phx-main]')
     return root?.classList.contains('phx-connected') &&
-      root.querySelector('[data-phx-ref-loading]') ? root : null
+      root.querySelector('[data-phx-ref-loading], [data-interaction-busy="true"]') ? root : null
   }
   const hide = () => {
     if (timer !== null) cancel(timer)
@@ -38,7 +39,7 @@ export function installInteractionBusy(doc = document, options = {}) {
   const observer = new Observer(refresh)
   observer.observe(doc.body, {
     subtree: true, childList: true, attributes: true,
-    attributeFilter: ['data-phx-ref-loading', 'class'],
+    attributeFilter: ['data-phx-ref-loading', 'data-interaction-busy', 'class'],
   })
   refresh()
   return () => { disposed = true; observer.disconnect(); hide() }

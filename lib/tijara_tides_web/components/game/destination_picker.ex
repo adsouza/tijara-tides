@@ -49,6 +49,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
           aria-labelledby="destination-picker-title"
           aria-describedby="destination-picker-help"
           class="destination-picker"
+          data-interaction-busy={if @loading && !@error, do: "true"}
           phx-window-keydown="destination-picker-close"
           phx-key="Escape"
           phx-click-away="destination-picker-close"

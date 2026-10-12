@@ -100,6 +100,9 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
 
       assert LazyHTML.query(tree, "#destination-matrix[aria-busy=true]") |> Enum.count() == 1
 
+      assert LazyHTML.query(tree, "#destination-picker[data-interaction-busy=true]")
+             |> Enum.count() == 1
+
       assert LazyHTML.query(tree, "thead th[id]") |> LazyHTML.attribute("id") ==
                Enum.map(ready.goods, fn {id, _} -> "destination-cargo-" <> id end)
 
@@ -113,6 +116,23 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
       refute LazyHTML.to_html(tree) =~ "Insufficient voyage funds"
       assert LazyHTML.query(tree, ".opportunity-disc") |> Enum.empty?()
       assert LazyHTML.query(tree, "[aria-label='No trade opportunity']") |> Enum.empty?()
+    end
+  end
+
+  test "completed grids and calculation failures do not request Thinking" do
+    {definitions, view, ship} = fixture()
+    matrix = GameQueries.destination_matrix(definitions, view, ship)
+
+    for options <- [[matrix: matrix], [matrix: matrix, updating: true], [error: true]] do
+      tree =
+        render_component(
+          &DestinationPicker.panel/1,
+          [definitions: definitions, view: view, ship: ship] ++ options
+        )
+        |> LazyHTML.from_fragment()
+
+      assert LazyHTML.query(tree, "[data-interaction-busy]") |> Enum.empty?()
+      assert LazyHTML.query(tree, "#destination-matrix") |> Enum.count() == 1
     end
   end
 

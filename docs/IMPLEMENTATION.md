@@ -275,8 +275,12 @@ geometry cache. Opening the picker immediately shows reachable port rows,
 distances and the same cargo columns as the completed matrix, with estimate
 cells blank and port buttons usable. This lightweight grid query shares market
 comparison and cargo selection with the full planner but performs no geometry
-or voyage estimates. An asynchronous task fills estimates and ranks rows when
-complete. Stable row identities preserve controls when ranking changes.
+or voyage estimates. The existing non-blocking Thinking overlay remains active
+through the initial asynchronous calculation, using the same 300 ms delay as
+pending interactions. It clears on completion, failure, dismissal or disconnect,
+and does not appear for background refreshes of a completed grid. An
+asynchronous task fills estimates and ranks rows when complete. Stable row
+identities preserve controls when ranking changes.
 
 Closing and reopening with identical planning inputs reuses the completed
 matrix. Snapshot refreshes schedule new estimates on changes to the catalogue,
