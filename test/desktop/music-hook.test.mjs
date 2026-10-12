@@ -39,7 +39,7 @@ afterEach(() => { while (restores.length) restores.pop()() })
 
 function element(id) {
   const listeners = {}
-  return {id, hidden: false, textContent: '', dataset: {}, attributes: {}, value: '30', href: '',
+  return {id, hidden: false, textContent: '', dataset: {}, attributes: {}, value: '30', href: '', listeners,
     setAttribute(name, value) { this.attributes[name] = String(value) },
     addEventListener(type, fn) { listeners[type] = fn }, removeEventListener(type) { delete listeners[type] },
     fire(type) { listeners[type]?.({}) }}
@@ -65,6 +65,7 @@ function mountHook({music = 'available', fetchResult, deferFetch = false} = {}) 
   const local = storage()
   const timeouts = []
   const contexts = []
+  const fetches = []
   let resolveFetch
   const deferred = deferFetch ? new Promise(resolve => { resolveFetch = resolve }) : null
   const saved = {setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout}
@@ -85,11 +86,11 @@ function mountHook({music = 'available', fetchResult, deferFetch = false} = {}) 
       resume() { this.resumes += 1; return Promise.resolve() }
       close() { return Promise.resolve() }
     },
-    fetch: async () => deferred ? deferred : fetchResult ?? {ok: true, json: async () => ({palettes: [], tracks: {}})},
+    fetch: async url => { fetches.push(url); return deferred ? deferred : fetchResult ?? {ok: true, json: async () => ({palettes: [], tracks: {}})} },
   })
   const hook = {...Music, el}
   const ok = {ok: true, json: async () => ({palettes: [], tracks: {}})}
-  return {hook, nodes, local, timeouts, contexts, resolveManifest: () => resolveFetch(ok)}
+  return {hook, nodes, local, timeouts, contexts, fetches, resolveManifest: () => resolveFetch(ok)}
 }
 
 test('toggle and volume persist and update the control', async () => {
@@ -125,7 +126,17 @@ test('the credit names the piece, links its source and hides after eight seconds
 test('hides controls when music is unavailable or the browser cannot play Opus', async () => {
   const off = mountHook({music: 'unavailable'})
   await Music.mounted.call(off.hook)
+  await flush()
   assert.equal(off.nodes['music-controls'].hidden, true)
+  // The disabled path does nothing else: no manifest request, no audio graph
+  // and no listener on the document, window or controls.
+  assert.deepEqual(off.fetches, [])
+  assert.equal(off.contexts.length, 0)
+  assert.deepEqual(document.listeners, [])
+  assert.deepEqual(window.listeners, [])
+  assert.deepEqual(Object.keys(off.nodes['music-toggle'].listeners), [])
+  assert.deepEqual(Object.keys(off.nodes['music-volume'].listeners), [])
+  assert.equal(off.local.values['tijara.music.enabled'], undefined)
   const noOpus = mountHook()
   globalThis.Audio = class { canPlayType() { return '' } }
   await Music.mounted.call(noOpus.hook)
