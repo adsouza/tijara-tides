@@ -253,6 +253,7 @@ defmodule TijaraTidesWeb.MusicServingTest do
       conn |> put_req_header("range", "bytes=4-19") |> get("/audio/fixtures/east-port.ogg")
 
     assert partial.status == 206
+    assert ["audio/ogg" <> _] = get_resp_header(partial, "content-type")
     assert get_resp_header(partial, "content-range") == ["bytes 4-19/#{byte_size(bytes)}"]
     assert partial.resp_body == binary_part(bytes, 4, 16)
 

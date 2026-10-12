@@ -307,11 +307,14 @@ class GeneratedDocumentationTest(unittest.TestCase):
             ("gen-ports-roster.py", "ports.md"),
             ("gen-ship-instructions.py", "ship-instructions.md"),
             ("gen-ux-inventory.py", "ux-inventory.md"),
+            ("gen-music-credits.py", "music-credits.md"),
         ):
             (self.root / "docs" / artifact).write_text("Generated\n")
             (self.root / "scripts" / generator).write_text(
                 f'from pathlib import Path\n(Path(__file__).resolve().parent.parent / "docs/{artifact}").write_text("Generated\\n")\n'
             )
+        (self.root / "priv/audio").mkdir(parents=True)
+        (self.root / "priv/audio/music.json").write_text("{}\n")
         (self.root / "scripts/gen-game-data.py").write_text('raise SystemExit("Runtime catalogue invoked")\n')
 
     def run_check(self, *args):

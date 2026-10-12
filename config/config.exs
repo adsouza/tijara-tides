@@ -52,9 +52,6 @@ config :tijara_tides, :music,
   manifest: "audio/music.json",
   approvals: "music/approvals.json"
 
-# MIME 2.0 maps only .oga to audio/ogg; the soundtrack is served as .ogg.
-config :mime, :types, %{"audio/ogg" => ["ogg"]}
-
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.3.0",

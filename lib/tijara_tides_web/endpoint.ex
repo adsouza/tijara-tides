@@ -20,6 +20,7 @@ defmodule TijaraTidesWeb.Endpoint do
 
   # Background music lives outside priv/static so phx.digest does not ship a
   # fingerprinted second copy of every recording. Range requests are served.
+  plug :audio_content_type
   plug Plug.Static, at: "/audio", from: {:tijara_tides, "priv/audio"}, gzip: false
 
   # Serve at "/" the static files from "priv/static" directory.
@@ -55,4 +56,17 @@ defmodule TijaraTidesWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug TijaraTidesWeb.Router
+
+  # MIME 2.0 maps only .oga to audio/ogg, so label .ogg here, not in global config.
+  defp audio_content_type(%Plug.Conn{path_info: ["audio" | _] = path} = conn, _opts) do
+    if String.ends_with?(List.last(path), ".ogg"),
+      do:
+        Plug.Conn.register_before_send(
+          conn,
+          &Plug.Conn.put_resp_header(&1, "content-type", "audio/ogg")
+        ),
+      else: conn
+  end
+
+  defp audio_content_type(conn, _opts), do: conn
 end
