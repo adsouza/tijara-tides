@@ -3,6 +3,13 @@ import Config
 config :tijara_tides, :audit_mutations, true
 config :tijara_tides, :settled_check, TijaraTides.SettledCheck
 
+# Tests play the approved synthetic fixture soundtrack.
+config :tijara_tides, :music,
+  enabled: true,
+  url: "/audio/fixtures/music.json",
+  manifest: "audio/fixtures/music.json",
+  approvals: "music/fixtures/approvals.json"
+
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :tijara_tides, TijaraTidesWeb.Endpoint,

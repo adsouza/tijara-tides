@@ -69,3 +69,6 @@ config :tijara_tides,
   email_from: "game@localhost"
 
 config :tijara_tides, :dev_routes, true
+
+# Developers may audition unapproved music with TIJARA_MUSIC_AUDITION=true.
+config :tijara_tides, :music_audition_allowed, true

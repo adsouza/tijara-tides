@@ -43,6 +43,18 @@ config :esbuild,
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
   ]
 
+# Background music. Production playback stays off until the release listening
+# gate passes; see docs/superpowers/specs/2026-10-12-background-music-design.md.
+config :tijara_tides, :music,
+  enabled: false,
+  audition: false,
+  url: "/audio/music.json",
+  manifest: "audio/music.json",
+  approvals: "music/approvals.json"
+
+# MIME 2.0 maps only .oga to audio/ogg; the soundtrack is served as .ogg.
+config :mime, :types, %{"audio/ogg" => ["ogg"]}
+
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.3.0",

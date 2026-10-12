@@ -1,7 +1,11 @@
 # Music recording audit
 
 Local-file index updated on 11 October 2026 after the authorized generated-audio
-cleanup; see [local evidence and previews](#local-evidence-and-previews).
+cleanup; see [local evidence and previews](#local-evidence-and-previews). The
+shipped soundtrack is prepared by `scripts/prepare-music.py` from
+`scripts/music-roster.json`, and release listening approvals are recorded in
+`priv/music/approvals.json`, which binds each decision to the exact files it
+was made against.
 
 Checked on 10 October 2026. The initial audit covers 32 recordings from the
 accepted port and voyage leads and retained alternatives in the

@@ -917,6 +917,20 @@ marker to borrower-owned loan links. That legacy marker remains for migration
 compatibility but no longer drives live settlement or receives draw updates.
 An unused pledge has no linked loans and cannot be released as an empty loan set.
 
+## Background music
+
+Background music is client-side presentation. The server stores no music state
+in the world: GameLive records the player's latest explicit ship or port focus
+and renders the resulting musical context as data attributes, and
+`TijaraTidesWeb.Music` decides whether the client may play at all. Playback
+requires the `TIJARA_MUSIC_ENABLED` flag, real Ogg files rather than Git LFS
+pointers, and listening approvals in `priv/music/approvals.json` that still
+match the manifest's source and output hashes, entry offsets and playback
+recipe. The result is computed once per boot and logged when music is
+unavailable. `scripts/prepare-music.py` writes the manifest and audio but never
+the approvals file. The soundtrack is served from `priv/audio` by its own
+`Plug.Static` at `/audio`, outside `phx.digest`.
+
 ## Localization boundary
 
 [Localization](localization.md) keeps catalogs, formatting and per-process locale

@@ -1,5 +1,11 @@
 import Config
 
+if config_env() != :test do
+  config :tijara_tides, :music,
+    enabled: System.get_env("TIJARA_MUSIC_ENABLED") == "true",
+    audition: System.get_env("TIJARA_MUSIC_AUDITION") == "true"
+end
+
 if config_env() != :prod do
   config :tijara_tides, :piracy, %{"salt" => "local-only-piracy-salt-do-not-use-in-production"}
 end

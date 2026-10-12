@@ -21,6 +21,7 @@ defmodule TijaraTides.Application do
           TijaraTides.Infrastructure.GameReadiness,
           TijaraTides.Infrastructure.GameServer,
           TijaraTidesWeb.Endpoint,
+          {Task, &TijaraTidesWeb.Music.log_status/0},
           TijaraTides.Infrastructure.EmailDelivery
         ]
 
