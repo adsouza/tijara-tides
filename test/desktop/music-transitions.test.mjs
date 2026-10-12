@@ -223,6 +223,40 @@ test('a superseded play() is paused and disposed without fade or credit', async 
   assert.equal(h.starts.length, 1)
 })
 
+test('a superseded play() that rejects is disposed without credit or failure', async () => {
+  const h = harness()
+  await playing(h)
+  await h.advance(10)
+  h.director.setContext(port('Tangier'))
+  await h.last().resolve()
+  await h.advance(13)
+  const west = h.last().voice
+  await h.advance(13.5)
+  h.director.setContext(voyage('Busan', 'Tangier', 0))
+  const count = h.prepared.length
+  west.plays[0].reject(new Error('timeout')); await flush()
+  assert.ok(west.paused && west.disposed)
+  assert.deepEqual(west.fades, [])
+  assert.equal(h.prepared.length, count)
+  assert.equal(h.starts.length, 1)
+})
+
+test('a play() that rejects after destroy is disposed without credit or failure', async () => {
+  const h = harness()
+  await playing(h)
+  await h.advance(10)
+  h.director.setContext(port('Tangier'))
+  await h.last().resolve()
+  await h.advance(13)
+  const west = h.last().voice
+  h.director.destroy()
+  const count = h.prepared.length
+  west.plays[0].reject(new Error('timeout')); await flush()
+  assert.ok(west.disposed)
+  assert.equal(h.prepared.length, count)
+  assert.equal(h.starts.length, 1)
+})
+
 test('selection just before track end preserves its deadline and suppresses automatic starts', async () => {
   const h = harness()
   const east = await playing(h)
@@ -392,6 +426,28 @@ test('switching away during a selection overlap resumes the current port piece',
   assert.equal(b.plays.length, 2)
   b.plays[1].resolve(); await flush()
   assert.equal(b.position, position)
+})
+
+test('a port piece that ends during the hide fade is not replayed on return', async () => {
+  const h = harness()
+  const a = await playing(h, port('Tangier'))
+  await h.advance(20)
+  h.director.setForeground(false)
+  await h.advance(20.5)
+  a.end()
+  await h.advance(25)
+  h.director.setForeground(true)
+  assert.equal(a.plays.length, 1)
+  assert.equal(h.prepared.length, 2)
+  assert.equal(h.last().track, manifest.tracks['west-a'])
+  assert.equal(h.last().offset, 2)
+  // No failure was counted: two more failures still leave a third attempt.
+  await h.last().reject()
+  await h.last().reject()
+  assert.equal(h.prepared.length, 4)
+  await h.last().resolve()
+  h.last().voice.plays[0].resolve(); await flush()
+  assert.deepEqual(h.starts.at(-1), ['west-a', 25])
 })
 
 test('waits for foreground before starting', async () => {

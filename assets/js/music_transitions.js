@@ -110,7 +110,11 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
       current = {voice, id: next.id, slug: next.slug}
       watch(voice)
       onStart(next.track, next.slug)
-    }, () => { if (gen === generation && pending === next) fail(next) })
+    }, () => {
+      // A superseded rejection is not a failure, but its element must still go.
+      if (gen === generation && pending === next) fail(next)
+      else { voice.pause(); voice.dispose() }
+    })
   }
 
   function watch(voice) {
@@ -124,6 +128,8 @@ export function createDirector({manifest, engine, policy, now, setTimer, clearTi
     voice.onEnded(() => {
       voices.delete(voice)
       voice.dispose()
+      // A port piece that ends during the hide fade has nothing left to resume.
+      if (paused?.voice === voice) paused = null
       if (current?.voice === voice) { current = null; pump() }
     })
   }
