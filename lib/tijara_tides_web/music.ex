@@ -200,15 +200,61 @@ defmodule TijaraTidesWeb.Music do
     do: match?({:ok, "OggS"}, File.open(path, [:read, :binary], &IO.binread(&1, 4)))
 
   defp compute_status do
-    with {:ok, manifest} <- manifest(),
-         {:ok, approvals} <- read_json(priv(:approvals)) do
-      evaluate(manifest, approvals, Path.dirname(priv(:manifest)),
-        enabled: Keyword.get(config(), :enabled, false),
-        audition: @audition_allowed and Keyword.get(config(), :audition, false)
-      )
+    load_status(priv(:manifest), priv(:approvals),
+      enabled: Keyword.get(config(), :enabled, false),
+      audition: @audition_allowed and Keyword.get(config(), :audition, false)
+    )
+  end
+
+  @doc """
+  Availability from the manifest and approvals files, with the audio beside the
+  manifest. An unreadable file, invalid JSON or JSON of the wrong shape keeps
+  music unavailable with a reason instead of raising during a page render.
+  """
+  def load_status(manifest_path, approvals_path, opts) do
+    with {:ok, manifest} <- read_json(manifest_path),
+         {:ok, approvals} <- read_json(approvals_path) do
+      files = "#{Path.basename(manifest_path)} or #{Path.basename(approvals_path)}"
+
+      try do
+        if well_formed?(manifest, approvals),
+          do: evaluate(manifest, approvals, Path.dirname(manifest_path), opts),
+          else: {:unavailable, ["#{files} has an unexpected shape"]}
+      rescue
+        error ->
+          message = String.slice(Exception.message(error), 0, 200)
+          {:unavailable, ["#{files} has an unexpected shape: #{message}"]}
+      end
     else
       {:error, reason} -> {:unavailable, [reason]}
     end
+  end
+
+  # The structure evaluation and the client rely on; deeper type errors raise
+  # inside evaluation and are rescued by load_status/3.
+  defp well_formed?(manifest, approvals) do
+    is_map(manifest) and is_map(approvals) and well_formed_approvals?(approvals) and
+      is_map(manifest["recipe"]) and
+      is_map(manifest["tracks"]) and Enum.all?(Map.values(manifest["tracks"]), &is_map/1) and
+      is_list(manifest["palettes"]) and
+      Enum.all?(manifest["palettes"], fn palette ->
+        is_map(palette) and
+          Enum.all?(["port", "voyage"], fn role ->
+            is_list(palette[role]) and Enum.all?(palette[role], &is_map(manifest["tracks"][&1]))
+          end)
+      end)
+  end
+
+  defp well_formed_approvals?(approvals) do
+    tracks = Map.get(approvals, "tracks", %{})
+    handoffs = Map.get(approvals, "handoffs", [])
+
+    is_map(tracks) and
+      Enum.all?(
+        Map.values(tracks),
+        &(is_map(&1) and Enum.all?(Map.values(&1), fn e -> is_map(e) end))
+      ) and
+      is_list(handoffs) and Enum.all?(handoffs, &is_map/1)
   end
 
   defp read_json(path) do

@@ -236,6 +236,72 @@ defmodule TijaraTidesWeb.MusicTest do
     assert "cross-region voyage handoff" in report.pending
   end
 
+  defp load(dir, manifest, approvals, opts \\ [enabled: true]) do
+    for {name, body} <- [{"music.json", manifest}, {"approvals.json", approvals}] do
+      path = Path.join(dir, name)
+      if is_binary(body), do: File.write!(path, body), else: File.rm(path)
+    end
+
+    Music.load_status(Path.join(dir, "music.json"), Path.join(dir, "approvals.json"), opts)
+  end
+
+  test "status files load, and unreadable or invalid JSON keeps music off", %{directory: dir} do
+    manifest = Jason.encode!(manifest())
+    approvals = Jason.encode!(approvals())
+    assert load(dir, manifest, approvals) == :available
+
+    assert {:unavailable, [reason]} = load(dir, nil, approvals)
+    assert reason =~ "music.json cannot be read: no such file or directory"
+    assert {:unavailable, [reason]} = load(dir, manifest, nil)
+    assert reason =~ "approvals.json cannot be read"
+    assert {:unavailable, [reason]} = load(dir, "{\"tracks\": ", approvals)
+    assert reason =~ "music.json is not valid JSON"
+    assert {:unavailable, [reason]} = load(dir, manifest, "not json")
+    assert reason =~ "approvals.json is not valid JSON"
+  end
+
+  test "valid JSON of the wrong shape keeps music off instead of raising", %{directory: dir} do
+    m = manifest()
+    [east, west] = m["palettes"]
+
+    manifests = [
+      [],
+      nil,
+      "music",
+      Map.delete(m, "tracks"),
+      Map.delete(m, "palettes"),
+      Map.delete(m, "recipe"),
+      %{m | "tracks" => [], "palettes" => []},
+      %{m | "palettes" => %{"east" => east}},
+      %{m | "palettes" => [east, %{west | "voyage" => "w"}]},
+      %{m | "palettes" => [east, %{west | "port" => ["ghost"]}]},
+      %{m | "palettes" => ["east"]},
+      put_in(m["tracks"]["p"], "p.ogg"),
+      put_in(m["tracks"]["p"]["file"], 7)
+    ]
+
+    approval_sets = [
+      [],
+      "approved",
+      %{"tracks" => []},
+      %{"tracks" => %{"p" => []}},
+      %{"handoffs" => %{"kind" => "port-to-voyage"}}
+    ]
+
+    cases =
+      Enum.map(manifests, &{&1, approvals()}) ++ Enum.map(approval_sets, &{manifest(), &1})
+
+    for {manifest, approvals} <- cases, audition <- [false, true] do
+      body = {Jason.encode!(manifest), Jason.encode!(approvals)}
+
+      assert {:unavailable, [reason]} =
+               load(dir, elem(body, 0), elem(body, 1), enabled: true, audition: audition),
+             "#{inspect(body)} audition: #{audition}"
+
+      assert reason =~ "music.json or approvals.json has an unexpected shape"
+    end
+  end
+
   test "the test build plays the approved fixture" do
     assert Music.status() == :available
     assert Music.manifest_url() == "/audio/fixtures/music.json"
