@@ -216,4 +216,50 @@ defmodule TijaraTides.Domain.TransitionReleasesTest do
     assert released?(s, "held")
     assert State.owned(s, "warehouse_reservations", "company_id", "aco") == []
   end
+
+  test "the oracle reports each storage rule a commit would otherwise break", %{s: s, cat: cat} do
+    assert SettledCheck.violations(s, cat) == []
+    w = Game.get(s, "warehouses", "aw")
+    [batch | _] = w["cargo"]
+    ship = Game.get(s, "ships", "aco:1")
+
+    planted = [
+      {:duplicate_location, State.put(s, "ships", "aco:1", %{ship | "cargo" => [batch]})},
+      {:split_twice,
+       Map.put(s, :new_lots, for(n <- 1..3, do: %{"id" => "c#{n}", "parent_lot_id" => "p"}))},
+      {:split_parent_held,
+       Map.put(
+         s,
+         :new_lots,
+         for(n <- 1..2, do: %{"id" => "c#{n}", "parent_lot_id" => batch["lot_id"]})
+       )},
+      {:unstorable,
+       State.put(s, "notices", "nul", %{
+         "account_id" => "a",
+         "code" => "x",
+         "arguments" => %{"name" => "a" <> <<0>>},
+         "clock_ms" => 0
+       })},
+      {:without_warehouse,
+       State.put(s, "warehouse_reservations", "orphan", %{
+         "id" => "orphan",
+         "warehouse_id" => "gone",
+         "quantity" => 1
+       })},
+      {:closed_with_balance,
+       State.put(s, "loans", "l", %{
+         "id" => "l",
+         "status" => "repaid",
+         "remaining" => 0,
+         "principal_due" => 0,
+         "interest_due" => 0,
+         "interest_accrued" => 1
+       })}
+    ]
+
+    for {reason, state} <- planted do
+      assert reason in Enum.map(SettledCheck.violations(state, cat), &elem(&1, 1)),
+             inspect(reason)
+    end
+  end
 end

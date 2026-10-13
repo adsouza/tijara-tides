@@ -37,8 +37,50 @@ defmodule TijaraTides.SettledCheck do
         links(state) ++
         budgets(state, catalogue) ++
         handling(state) ++
-        operator_dormancy(state) ++ piracy_indices(state) ++ closed_loans(state)
+        operator_dormancy(state) ++
+        piracy_indices(state) ++
+        closed_loans(state) ++ lot_locations(state) ++ lot_splits(state) ++ notices(state)
     )
+  end
+
+  # game_cargo_holdings gives each lot one location (a duplicate in one upsert
+  # batch also fails the statement), and validate_lot_split accepts one split per
+  # parent, after which the parent is no longer held.
+  defp lot_locations(state) do
+    held = held_lots(state)
+
+    for {lot, count} <- Enum.frequencies(held), count > 1, do: {:lot, :duplicate_location, lot}
+  end
+
+  defp lot_splits(state) do
+    held = MapSet.new(held_lots(state))
+    children = Enum.group_by(Map.get(state, :new_lots, []), & &1["parent_lot_id"])
+
+    for {parent, lots} <- children,
+        parent != nil,
+        reason = split_violation(lots, parent, held),
+        do: {:lot, reason, parent}
+  end
+
+  defp split_violation(lots, _parent, _held) when length(lots) > 2, do: :split_twice
+  defp split_violation(_lots, parent, held), do: if(parent in held, do: :split_parent_held)
+
+  defp held_lots(state) do
+    for {kind, field} <- [{"ships", "cargo"}, {"warehouses", "cargo"}, {"markets", "batches"}],
+        row <- rows(state, kind),
+        batch <- row[field] || [],
+        batch["lot_id"] != nil,
+        do: batch["lot_id"]
+  end
+
+  # game_notices.arguments is jsonb, which refuses U+0000 and anything Jason
+  # cannot encode.
+  defp notices(state) do
+    for {id, row} <- ReadState.entities(state, "notices"),
+        payload = Map.take(row, ["arguments", "text"]),
+        not match?({:ok, json} when is_binary(json), Jason.encode(payload)) or
+          Jason.encode!(payload) =~ "\\u0000",
+        do: {:notice, :unstorable, id}
   end
 
   # Mirrors game_loans_check2 and check5: a loan leaves "open" only after its
@@ -217,8 +259,7 @@ defmodule TijaraTides.SettledCheck do
 
   defp claims(state) do
     for r <- rows(state, "warehouse_reservations"),
-        w = get(state, "warehouses", r["warehouse_id"]),
-        reason = claim_violation(state, r, w),
+        reason = claim_violation(state, r, get(state, "warehouses", r["warehouse_id"])),
         do: {:claim, reason, r["id"]}
   end
 
