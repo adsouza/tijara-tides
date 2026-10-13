@@ -69,6 +69,7 @@ defmodule TijaraTidesWeb.GameUI.QueuedTrade do
         {gettext(
           "This order retries automatically. Price, cargo, demand and funds must still allow the full quantity. Cancel it before placing another trade or departing."
         )}
+        {gettext("A margin, if allowed, is already included in this limit.")}
       </p>
       <button
         type="button"

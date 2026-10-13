@@ -39,6 +39,7 @@ defmodule TijaraTidesWeb.GameLive do
         exchange_good: nil,
         route_drafts: %{},
         destination_picker_open: false,
+        queue_margin_prompt: nil,
         destination_matrix_cache: nil,
         destination_matrix: nil,
         destination_geometry_cache: nil,
@@ -949,6 +950,58 @@ defmodule TijaraTidesWeb.GameLive do
     )
   end
 
+  def handle_event("queue-margin-change", params, socket) do
+    prompt = socket.assigns.queue_margin_prompt
+    bps = integer(params["margin_bps"])
+
+    {:noreply,
+     if(prompt,
+       do:
+         assign(socket,
+           queue_margin_prompt: %{
+             prompt
+             | margin_bps: if(bps in 0..1_000, do: bps, else: prompt.margin_bps),
+               save: params["save_margin"] == "true"
+           }
+         ),
+       else: socket
+     )}
+  end
+
+  # Resends the retained command, adding only the margin. A confirm arriving after the
+  # dialog closed, or from a stale form for another side, has nothing to resend.
+  def handle_event("queue-margin-confirm", params, socket) do
+    prompt = socket.assigns.queue_margin_prompt
+
+    if prompt && prompt.command["action"] == params["action"] do
+      command =
+        prompt.command
+        |> Map.put("margin_bps", integer(params["margin_bps"]))
+        |> then(
+          &if(params["save_margin"] == "true", do: Map.put(&1, "save_margin", true), else: &1)
+        )
+
+      run(assign(socket, queue_margin_prompt: nil), command)
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("queue-margin-save", params, socket),
+    do:
+      run(socket, %{
+        "action" => "queue_margin",
+        "side" => params["side"],
+        "margin_bps" => integer(params["margin_bps"])
+      })
+
+  # Returning to "ask me" sends an explicit nil rather than parsing a form value.
+  def handle_event("queue-margin-reset", %{"side" => side}, socket),
+    do: run(socket, %{"action" => "queue_margin", "side" => side, "margin_bps" => nil})
+
+  def handle_event("queue-margin-cancel", _params, socket),
+    do: {:noreply, assign(socket, queue_margin_prompt: nil)}
+
   def handle_event("cancel-berth-trade", %{"id" => id}, socket),
     do: run(socket, %{"action" => "cancel_berth_trade", "ship" => id})
 
@@ -1169,6 +1222,12 @@ defmodule TijaraTidesWeb.GameLive do
            )
          )
          |> refresh()}
+
+      # The trade must wait: keep exactly what was sent, request id included, and ask
+      # for a margin. Confirming resends it without rereading the current selection.
+      {:error, :queue_margin_required} ->
+        prompt = %{command: Map.put(command, "request_id", request), margin_bps: 200, save: false}
+        {:noreply, socket |> assign(queue_margin_prompt: prompt) |> refresh()}
 
       {:error, reason} ->
         {:noreply, socket |> put_flash(:error, error_message(reason, command)) |> refresh()}
@@ -1865,6 +1924,10 @@ defmodule TijaraTidesWeb.GameLive do
             </div>
           </div>
         </div>
+        <TijaraTidesWeb.GameUI.QueueMargin.dialog
+          :if={@queue_margin_prompt}
+          prompt={@queue_margin_prompt}
+        />
       </main>
     </Layouts.app>
     """

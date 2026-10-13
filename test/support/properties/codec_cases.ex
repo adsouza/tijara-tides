@@ -175,7 +175,9 @@ defmodule TijaraTides.Domain.CodecCases do
              "operator" => optional?,
              "created_ms" => now,
              "locale" => "ar",
-             "funding_policy" => "reduced"
+             "funding_policy" => "reduced",
+             "queue_margin_buy_bps" => if(optional?, do: 250),
+             "queue_margin_sell_bps" => if(optional?, do: 0)
            }, %{"funding_policy" => "wait"}}
       end
 

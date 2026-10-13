@@ -171,7 +171,9 @@ defmodule TijaraTides.Infrastructure.SqlTransitionContractsTest do
           "good" => "lumber",
           "quantity" => 1,
           "limit" => 1_000_000,
-          "destination" => "Singapore"
+          "destination" => "Singapore",
+          # Queue at the exact limit; immediate purchases ignore the margin.
+          "margin_bps" => 0
         }
       end
 

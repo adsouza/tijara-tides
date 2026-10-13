@@ -35,7 +35,9 @@ defmodule TijaraTides.Domain.PortBerthsTest do
       good: "lumber",
       quantity: 1,
       limit: 1_000_000,
-      destination: "Singapore"
+      destination: "Singapore",
+      # Queue at the exact limit, as these berth tests predate queued-trade margins.
+      margin_bps: 0
     }
 
   test "a ready manual trade uses a free berth despite its own ticket or old cooldown", c do

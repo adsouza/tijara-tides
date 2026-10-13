@@ -204,6 +204,8 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
       {"operator", "operator"},
       {"funding_policy", "funding_policy"},
       {"locale", "locale"},
+      {"queue_margin_buy_bps", "queue_margin_buy_bps"},
+      {"queue_margin_sell_bps", "queue_margin_sell_bps"},
       {"id", "id"},
       {"company_id", "company_id"},
       {"inviter", "inviter_account_id"},
@@ -337,7 +339,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRows do
     "warehouses" =>
       ~w(aging_bps award_grace space_volumes grace_ms surcharge_bps window_ms clearance_bps),
     "merchant_warehouses" => ~w(aging_bps),
-    "accounts" => ~w(funding_policy locale operator),
+    "accounts" => ~w(funding_policy locale operator queue_margin_buy_bps queue_margin_sell_bps),
     "ship_routes" => ~w(visit_finished protection),
     "notices" => ~w(arguments)
   }

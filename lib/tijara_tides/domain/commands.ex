@@ -153,6 +153,12 @@ defmodule TijaraTides.Domain.Commands do
       %{"action" => "cancel_berth_trade", "ship" => id} ->
         TijaraTides.Domain.Services.BerthAllocation.cancel(state, account, id)
 
+      %{"action" => "queue_margin", "side" => side, "margin_bps" => bps} ->
+        TijaraTides.Domain.AccountWorld.set_queue_margin(state, account, side, bps)
+
+      %{"action" => "queue_margin"} ->
+        {:error, :invalid_queue_margin}
+
       %{"action" => "funding_policy", "policy" => policy} ->
         TijaraTides.Domain.Services.DepartureFunding.set_policy(state, account, policy, catalogue)
 
@@ -240,19 +246,26 @@ defmodule TijaraTides.Domain.Commands do
         "limit" => limit
       }
       when action in ["buy", "sell"] ->
-        TijaraTides.Domain.Services.BerthAllocation.submit(
-          state,
-          account,
-          %Trade{
-            side: action,
-            ship_id: ship_id,
-            good: good,
-            quantity: quantity,
-            limit: limit,
-            destination: command["destination"]
-          },
-          catalogue
-        )
+        with {:ok, margin, save} <- margin_options(command),
+             true <- is_integer(limit) and limit in 0..TijaraTides.Domain.Prices.max_cents() do
+          TijaraTides.Domain.Services.BerthAllocation.submit(
+            state,
+            account,
+            %Trade{
+              side: action,
+              ship_id: ship_id,
+              good: good,
+              quantity: quantity,
+              limit: limit,
+              destination: trade_destination(action, command["destination"], catalogue),
+              margin_bps: margin,
+              save_margin: save
+            },
+            catalogue
+          )
+        else
+          _ -> {:error, :invalid_trade}
+        end
 
       %{"action" => "sail", "ship" => id, "destination" => destination, "fuel_limit" => limit} ->
         TijaraTides.Domain.Services.DepartureFunding.manual_sail(
@@ -270,4 +283,30 @@ defmodule TijaraTides.Domain.Commands do
         {:error, :unsupported_command}
     end
   end
+
+  # An absent option takes its default; a present one must be well formed.
+  defp margin_options(command) do
+    with {:ok, bps} <-
+           option(command, "margin_bps", nil, &(is_integer(&1) and &1 in 0..1_000)),
+         {:ok, save} <- option(command, "save_margin", false, &is_boolean/1),
+         true <- not save or not is_nil(bps),
+         do: {:ok, bps, save},
+         else: (_ -> :error)
+  end
+
+  defp option(command, key, default, valid?) do
+    case Map.fetch(command, key) do
+      :error -> {:ok, default}
+      {:ok, value} -> if valid?.(value), do: {:ok, value}, else: :error
+    end
+  end
+
+  # Only a purchase sails anywhere. A sell's destination is never stored, and a buy
+  # keeps only a catalogue port, so no client string reaches pending_destination.
+  defp trade_destination("buy", destination, catalogue)
+       when is_binary(destination) do
+    if Map.has_key?(catalogue["ports"], destination), do: destination
+  end
+
+  defp trade_destination(_side, _destination, _catalogue), do: nil
 end

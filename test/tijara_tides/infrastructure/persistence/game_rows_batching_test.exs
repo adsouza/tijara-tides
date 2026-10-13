@@ -131,11 +131,29 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
         GameRows.write(CountingRepo, "world", before, State.put(before, "accounts", "a", account))
       end
 
-    assert error.message =~ ~s(Missing fields for accounts: ["funding_policy", "locale"])
+    assert error.message =~
+             ~s(Missing fields for accounts: ["funding_policy", "locale", "queue_margin_buy_bps", "queue_margin_sell_bps"])
+
     assert statements() == []
 
     # The account codec writes these itself, and rejects rows without them.
-    encoded = Map.merge(account, %{"funding_policy" => "wait", "locale" => "en"})
+    encoded =
+      Map.merge(account, %{
+        "funding_policy" => "wait",
+        "locale" => "en",
+        "queue_margin_buy_bps" => 200,
+        "queue_margin_sell_bps" => nil
+      })
+
+    # An omitted margin would otherwise bind NULL and silently clear a saved default.
+    assert_raise ArgumentError, ~s(Missing fields for accounts: ["queue_margin_sell_bps"]), fn ->
+      GameRows.write(
+        CountingRepo,
+        "world",
+        before,
+        State.put(before, "accounts", "a", Map.delete(encoded, "queue_margin_sell_bps"))
+      )
+    end
 
     assert_raise ArgumentError, ~s(Missing fields for accounts: ["operator"]), fn ->
       GameRows.write(
@@ -152,6 +170,7 @@ defmodule TijaraTides.Infrastructure.Persistence.GameRowsBatchingTest do
     assert statement =~ "game_accounts"
     assert "wait" in params
     assert "en" in params
+    assert 200 in params
 
     preset = %{
       "id" => "p",

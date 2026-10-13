@@ -210,6 +210,14 @@ defmodule TijaraTides.Domain.AccountWorld do
 
   def set_locale(_state, _account, _locale), do: {:error, :invalid_locale}
 
+  def set_queue_margin(state, account, side, bps) do
+    with {:ok, current} <- Account.set_queue_margin(fetch(state, account["id"]), side, bps),
+         do: {:ok, store(state, current), %{}}
+  end
+
+  def queue_margin(state, account_id, side),
+    do: Account.queue_margin(fetch(state, account_id), side)
+
   def sign_out(state, session_hash), do: delete(state, "sessions", session_hash)
 
   def authenticate(state, session_hash, wall_ms) do

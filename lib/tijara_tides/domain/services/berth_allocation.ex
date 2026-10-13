@@ -2,7 +2,7 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
   alias TijaraTides.Domain.PortBerthsWorld
   alias TijaraTides.Domain.ShipWorld
   @moduledoc "Coordinate persisted ship queue tickets, admission, and delayed manual trades."
-  alias TijaraTides.Domain.{PortBerths, State, Trade}
+  alias TijaraTides.Domain.{AccountWorld, PortBerths, State, Trade}
   alias TijaraTides.Domain.Services.TradeSettlement
 
   defdelegate enqueue(state, id), to: ShipWorld, as: :request_berth
@@ -24,19 +24,46 @@ defmodule TijaraTides.Domain.Services.BerthAllocation do
                ShipWorld.validate_after_handling(state, trade.ship_id, fn projected ->
                  TradeSettlement.validate(projected, account, trade, catalogue)
                end) do
-          {:ok, ShipWorld.queue_trade(state, trade), %{"queued" => true}}
+          queue(state, account, trade)
         end
 
       true ->
         case TradeSettlement.execute(state, account, trade, catalogue, :manual) do
           {:error, :berth_busy} ->
-            {:ok, ShipWorld.queue_trade(state, trade), %{"queued" => true}}
+            queue(state, account, trade)
+
+          {:ok, state, reply} ->
+            with {:ok, state} <- save_margin(state, account, trade), do: {:ok, state, reply}
 
           result ->
             result
         end
     end
   end
+
+  # A queued trade waits at a limit widened by the player's margin: the one on the
+  # command, else their saved default for this side. With neither, nothing changes
+  # and the player is asked. Validation above used the exact quoted limit.
+  defp queue(state, account, trade) do
+    case trade.margin_bps || AccountWorld.queue_margin(state, account["id"], trade.side) do
+      nil ->
+        {:error, :queue_margin_required}
+
+      bps ->
+        trade = %{trade | limit: Trade.queued_limit(trade.side, trade.limit, bps)}
+
+        with {:ok, state} <- save_margin(ShipWorld.queue_trade(state, trade), account, trade),
+             do: {:ok, state, %{"queued" => true}}
+    end
+  end
+
+  defp save_margin(state, account, %Trade{save_margin: true} = trade) do
+    with {:ok, state, _} <-
+           AccountWorld.set_queue_margin(state, account, trade.side, trade.margin_bps),
+         do: {:ok, state}
+  end
+
+  defp save_margin(state, _account, _trade), do: {:ok, state}
 
   def cancel(state, account, id) do
     company = account["company_id"]

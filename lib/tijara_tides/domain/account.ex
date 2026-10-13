@@ -7,6 +7,8 @@ defmodule TijaraTides.Domain.Account do
               [
                 operator: false,
                 funding_policy: "wait",
+                queue_margin_buy_bps: nil,
+                queue_margin_sell_bps: nil,
                 sessions: [],
                 invitations: [],
                 email_requests: [],
@@ -165,4 +167,18 @@ defmodule TijaraTides.Domain.Account do
     do: {:ok, %{account | locale: locale}}
 
   def set_locale(%__MODULE__{}, _), do: {:error, :invalid_locale}
+
+  @doc "Sets or clears (nil) the margin a queued trade on `side` takes without asking."
+  def set_queue_margin(%__MODULE__{} = account, side, bps)
+      when side in ["buy", "sell"] and
+             (is_nil(bps) or (is_integer(bps) and bps in 0..1_000)),
+      do: {:ok, Map.put(account, queue_margin_field(side), bps)}
+
+  def set_queue_margin(%__MODULE__{}, _side, _bps), do: {:error, :invalid_queue_margin}
+
+  def queue_margin(%__MODULE__{} = account, side) when side in ["buy", "sell"],
+    do: Map.fetch!(account, queue_margin_field(side))
+
+  defp queue_margin_field("buy"), do: :queue_margin_buy_bps
+  defp queue_margin_field("sell"), do: :queue_margin_sell_bps
 end

@@ -277,6 +277,11 @@ defmodule TijaraTidesWeb.GameUI.PortsPanel do
             >
               <.market_side {assigns} port_market_side={side} />
             </div>
+            <%!-- Once for both market sides; each side's panel renders its own table. --%>
+            <TijaraTidesWeb.GameUI.QueueMargin.defaults
+              :if={owns_ship_at_port?(@view.private, @selected_port)}
+              account={@view.private["account"]}
+            />
           </div>
           <TijaraTidesWeb.GameUI.ExchangePanel.panel
             definitions={@definitions}

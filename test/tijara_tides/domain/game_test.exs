@@ -535,8 +535,14 @@ defmodule TijaraTides.Domain.GameTest do
     assert Game.get(after_buy, "ships", "company:1")["status"] == "loading"
     assert Game.get(after_buy, "markets", "Jakarta|lumber")["stock"] == 490
 
-    assert {:ok, queued, %{"queued" => true}} =
+    # A trade that must wait is refused until the player allows a price margin.
+    assert {:error, :queue_margin_required} =
              Game.execute(after_buy, account, buy, %{}, catalogue)
+
+    assert {:ok, queued, %{"queued" => true}} =
+             Game.execute(after_buy, account, Map.put(buy, "margin_bps", 200), %{}, catalogue)
+
+    assert Game.get(queued, "ships", "company:1")["pending_limit"] == 30_600
 
     assert Game.get(queued, "markets", "Jakarta|lumber")["stock"] == 490
 

@@ -630,7 +630,9 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
 
     assert {:ok, _} = GameServer.command(token, "load", buy, c.server)
     initial = GameServer.snapshot(token, c.server).private["ships"][ship_id]
-    assert {:ok, %{"queued" => true}} = GameServer.command(token, "queue", buy, c.server)
+
+    assert {:ok, %{"queued" => true}} =
+             GameServer.command(token, "queue", Map.put(buy, "margin_bps", 0), c.server)
 
     plan = %{
       "action" => "instruction_onward",
@@ -1924,6 +1926,156 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     {:ok, reloaded} = GameStore.claim(Repo, c.world_id)
     assert reloaded.entities["notices"]["localized"] == changed.entities["notices"]["localized"]
     assert [%{"locale" => "ar"}] = Map.values(reloaded.entities["accounts"])
+  end
+
+  test "queued trade margin defaults survive reload, including a cleared side", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    margin = fn request, side, bps ->
+      GameServer.command(
+        token,
+        request,
+        %{"action" => "queue_margin", "side" => side, "margin_bps" => bps},
+        c.server
+      )
+    end
+
+    assert {:ok, _} = margin.("buy-margin", "buy", 250)
+    assert {:ok, _} = margin.("sell-margin", "sell", 0)
+    assert {:ok, _} = margin.("sell-clear", "sell", nil)
+    assert {:error, :invalid_queue_margin} = margin.("bad-margin", "buy", 1_001)
+
+    assert {:error, :command_value_invalid} =
+             margin.("huge-margin", "buy", 1_000_000_000_000_000_000_000)
+
+    assert GameServer.snapshot(token, c.server).private["account"]["queue_margin_buy_bps"] ==
+             250
+
+    {:ok, reloaded} = GameStore.claim(Repo, c.world_id)
+
+    assert [%{"queue_margin_buy_bps" => 250, "queue_margin_sell_bps" => nil}] =
+             Map.values(reloaded.entities["accounts"])
+  end
+
+  test "a queued sell and its saved margin commit together, without the client destination",
+       c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "company",
+        %{
+          "action" => "company",
+          "name" => "Margins",
+          "port" => "Jakarta",
+          "package" => "general"
+        },
+        c.server
+      )
+
+    snapshot = GameServer.snapshot(token, c.server)
+    ship_id = snapshot.private["ships"] |> Map.keys() |> Enum.sort() |> hd()
+    account_id = snapshot.private["account"]["id"]
+
+    buy = %{
+      "action" => "buy",
+      "ship" => ship_id,
+      "good" => "lumber",
+      "quantity" => 1,
+      "limit" => 1_000_000,
+      "destination" => "Singapore"
+    }
+
+    assert {:ok, _} = GameServer.command(token, "load", buy, c.server)
+    catalogue = TijaraTides.Infrastructure.GameCatalogue.all()
+    {:ok, before} = GameStore.claim(Repo, c.world_id)
+
+    # Put cargo Jakarta buys aboard the loading ship, so a sale must queue behind it.
+    good =
+      before.entities["markets"]
+      |> Enum.filter(fn {key, m} ->
+        g = String.replace_prefix(key, "Jakarta|", "")
+
+        String.starts_with?(key, "Jakarta|") and m["buyer"] and m["demand"] > 20 and
+          catalogue["goods"][g]["manual"] and catalogue["goods"][g]["hold"] == "dry"
+      end)
+      |> Enum.map(fn {key, _} -> String.replace_prefix(key, "Jakarta|", "") end)
+      |> Enum.sort()
+      |> hd()
+
+    {stocked, lot} = TijaraTides.Domain.CargoLots.create(before, good, 20, nil)
+    shelf = catalogue["goods"][good]["shelf_ms"]
+
+    batch =
+      Map.merge(lot, %{
+        "good" => good,
+        # Zero cost keeps the company's inventory balance matching its journal.
+        "unit_cost" => 0,
+        "expires_ms" => if(shelf > 0, do: stocked.clock_ms + shelf)
+      })
+      |> TijaraTides.Domain.Ship.CargoRows.decode()
+      |> TijaraTides.Domain.Ship.CargoRows.encode()
+
+    ship = stocked.entities["ships"][ship_id]
+
+    stocked =
+      TijaraTides.Domain.State.put(stocked, "ships", ship_id, %{
+        ship
+        | "cargo" => ship["cargo"] ++ [batch]
+      })
+
+    stocked = TijaraTides.UseCases.CommitPreparation.prepare(before, stocked)
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, before.epoch, before, stocked)
+    # Reclaim, so later commits start from persisted rows with no pending lot inserts.
+    {:ok, stocked} = GameStore.claim(Repo, c.world_id)
+
+    account = Game.get(stocked, "accounts", account_id)
+
+    bid =
+      TijaraTides.Domain.PortCargoMarketWorld.quote(stocked, catalogue, "Jakarta", good)["bid"]
+
+    sell = %{
+      "action" => "sell",
+      "ship" => ship_id,
+      "good" => good,
+      "quantity" => 5,
+      "limit" => bid,
+      "destination" => "Sing\u0000apore",
+      "margin_bps" => 200,
+      "save_margin" => true
+    }
+
+    assert {:ok, queued, %{"queued" => true}} =
+             Game.execute(stocked, account, sell, %{}, catalogue)
+
+    queued = TijaraTides.UseCases.CommitPreparation.prepare(stocked, queued)
+
+    # One failing row rolls back the whole command: neither the queued sale nor the
+    # saved default survives.
+    broken =
+      TijaraTides.Domain.State.put(
+        queued,
+        "accounts",
+        account_id,
+        Map.put(queued.entities["accounts"][account_id], "queue_margin_buy_bps", 1_001)
+      )
+
+    assert_raise Postgrex.Error, fn ->
+      GameStore.commit(Repo, c.world_id, stocked.epoch, stocked, broken)
+    end
+
+    {:ok, restored} = GameStore.claim(Repo, c.world_id)
+    assert restored.entities["ships"][ship_id]["pending_side"] == nil
+    assert restored.entities["accounts"][account_id]["queue_margin_sell_bps"] == nil
+
+    assert {:ok, :ok} = GameStore.commit(Repo, c.world_id, restored.epoch, restored, queued)
+    {:ok, reloaded} = GameStore.claim(Repo, c.world_id)
+    queued_ship = reloaded.entities["ships"][ship_id]
+    assert queued_ship["pending_side"] == "sell"
+    assert queued_ship["pending_destination"] == nil
+    assert queued_ship["pending_limit"] == TijaraTides.Domain.Trade.queued_limit("sell", bid, 200)
+    assert reloaded.entities["accounts"][account_id]["queue_margin_sell_bps"] == 200
   end
 
   test "real repository queries feed the database timing metrics" do

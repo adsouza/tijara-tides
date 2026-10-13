@@ -744,6 +744,21 @@ rechecked before settlement; a changed market can leave it waiting. The Ships
 panel shows the queued trade and its cancellation button. Port traffic shows
 capacity, occupancy and queue positions without exposing anyone else's cargo.
 
+A queued manual trade, whether waiting for a berth or for current handling to
+finish, waits with a price margin the player allows: 0–10% in basis points,
+widening a buy's ceiling (rounded up) or lowering a sell's floor (rounded down),
+capped at the $10 billion player price ceiling. Settlement still uses the
+market price at execution. The server decides that a trade must queue: without
+a margin on the command or a saved default for that side, it refuses with
+`queue_margin_required` and changes nothing. The game then shows a dialog with a
+2% default slider, the worst-case price and total, and an option to keep the
+margin for future queued buys or sells. Confirming resends the refused trade
+with its request id; a later selection change cannot alter it. Per-side
+defaults live on the account (`queue_margin_buy_bps`, `queue_margin_sell_bps`,
+null meaning ask) and are edited or cleared beneath the port trade controls.
+Manual limits are admitted up to the price ceiling, and a sell no longer stores
+its client-supplied destination.
+
 Automatic cargo instructions share the same admission policy. Unviable queued
 operations release their ticket at assignment, letting later eligible ships
 proceed. Failed admission retries have a configurable five-minute active-world

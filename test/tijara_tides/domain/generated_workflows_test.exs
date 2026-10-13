@@ -34,7 +34,7 @@ defmodule TijaraTides.Domain.GeneratedWorkflowsTest do
       account = Game.get(state, "accounts", "account")
       rng = :rand.seed_s(:exsss, {seed, seed + 101, seed + 203})
 
-      seen = %{applied: 0, berthed: false}
+      seen = %{applied: 0, berthed: false, queued: false}
 
       {final, _rng, seen} =
         Enum.reduce(1..90, {state, rng, seen}, fn step, {before, rng, seen} ->
@@ -47,6 +47,7 @@ defmodule TijaraTides.Domain.GeneratedWorkflowsTest do
       # queue may have sailed again before the last step.
       assert seen.applied >= 20, "only #{seen.applied} of 90 generated actions were accepted"
       assert seen.berthed, "no generated action ever reached the berth queue"
+      assert seen.queued, "no generated trade was ever queued as a pending order"
 
       assert Map.get(final, :journal, []) != [],
              "no generated action ever posted to the journal"
@@ -73,7 +74,9 @@ defmodule TijaraTides.Domain.GeneratedWorkflowsTest do
               side: if(ship["port"] == "Jakarta", do: "buy", else: "sell"),
               quantity: quantity,
               limit: if(ship["port"] == "Jakarta", do: 1_000_000, else: 0),
-              destination: destination
+              destination: destination,
+              # Queue at the exact limit, so queued trades stay in the generated mix.
+              margin_bps: 0
             },
             catalogue
           )
@@ -99,7 +102,8 @@ defmodule TijaraTides.Domain.GeneratedWorkflowsTest do
     seen = %{
       seen
       | berthed:
-          seen.berthed or Enum.any?(fleet, &(&1["berth_granted_ms"] || &1["berth_queued_ms"]))
+          seen.berthed or Enum.any?(fleet, &(&1["berth_granted_ms"] || &1["berth_queued_ms"])),
+        queued: seen.queued or Enum.any?(fleet, & &1["pending_side"])
     }
 
     assert_invariants(after_state, catalogue, {seed, step, choice})

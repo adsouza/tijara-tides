@@ -33,7 +33,7 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
   @scenarios ~w(base destination port_destination preview protected_preview instruction instruction_buy queued sailing loading arrived exchange loan insolvent
                 route route_edit route_running route_waiting route_paused reservation renewal
                 luxury_open luxury_bid luxury_won luxury_award luxury_consigned no_company email
-                queued_trade guarantee_candidate)a
+                queued_trade guarantee_candidate margin_prompt margin_sell_prompt margin_defaults)a
 
   # {unit, scenario, instance} triples where the domain rightly refuses a rendered,
   # enabled control, as {reason, why the interface cannot avoid offering it}.
@@ -218,6 +218,7 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
       before = :sys.get_state(c.server).game.revision
 
       {_, outcomes} = ControlSweep.outcomes(fn -> press(ctx, control) end)
+      outcomes = confirm_margin(ctx, outcomes)
       game = :sys.get_state(c.server).game
       stop(ctx)
 
@@ -241,6 +242,19 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
       end
     end)
   end
+
+  # A trade that has to queue asks for a price margin instead of committing. The player
+  # then confirms the dialog as rendered, so the pair is that control's path to a commit.
+  defp confirm_margin(ctx, [{:error, :queue_margin_required}]) do
+    assert has_element?(ctx.view, "#queue-margin-form"), "Margin refusal without its dialog"
+
+    {_, outcomes} =
+      ControlSweep.outcomes(fn -> ctx.view |> form("#queue-margin-form") |> render_submit() end)
+
+    outcomes
+  end
+
+  defp confirm_margin(_ctx, outcomes), do: outcomes
 
   defp press(ctx, %{kind: :click, id: id}),
     do: ctx.view |> element("[id='#{id}']") |> render_click()
@@ -424,6 +438,42 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
     status = GameServer.snapshot(ctx.token, c.server).private["ships"][ctx.ship]["status"]
     assert status == "loading", "Purchase handling already finished: #{status}"
     Map.put(ctx, :clicks, [preview("Singapore")])
+  end
+
+  # A purchase submitted while the ship loads: the margin dialog is open for a buy.
+  defp scenario(:margin_prompt, c) do
+    ctx = scenario(:loading, c)
+    open_margin_prompt(ctx, "buy", "Jakarta")
+  end
+
+  # A sale submitted while the ship unloads at its destination: the dialog is for a sell.
+  defp scenario(:margin_sell_prompt, c) do
+    ctx = scenario(:arrived, c)
+
+    command(ctx, "unload", %{
+      "action" => "sell",
+      "ship" => ctx.ship,
+      "good" => "lumber",
+      "quantity" => 1,
+      "limit" => 0
+    })
+
+    open_margin_prompt(ctx, "sell", "Singapore")
+  end
+
+  # Saved defaults on both sides, so each side offers its reset button.
+  defp scenario(:margin_defaults, c) do
+    ctx = base(c)
+
+    for side <- ~w(buy sell),
+        do:
+          command(ctx, "margin-" <> side, %{
+            "action" => "queue_margin",
+            "side" => side,
+            "margin_bps" => 200
+          })
+
+    ctx
   end
 
   # Docked at the cargo's destination with the market showing what the port buys.
@@ -701,7 +751,7 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
     }
 
     command(ctx, "load", buy)
-    assert %{"queued" => true} = command(ctx, "queue", buy)
+    assert %{"queued" => true} = command(ctx, "queue", Map.put(buy, "margin_bps", 0))
     Map.put(ctx, :port, "Jakarta")
   end
 
@@ -783,6 +833,16 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
     do: Sql.command(ctx.c, ctx.token, "sweep-" <> request, payload)
 
   defp preview(destination), do: {"preview", %{"destination" => destination}}
+
+  # Submits the rendered lumber trade form, which the server must refuse for a margin.
+  defp open_margin_prompt(ctx, side, port) do
+    render_click(ctx.view, "ship", %{"id" => ctx.ship})
+    render_click(ctx.view, "port", %{"id" => port})
+    for {event, values} <- ctx[:clicks] || [], do: render_click(ctx.view, event, values)
+    ctx.view |> form("#trade-#{side}-lumber", %{"quantity" => "1"}) |> render_submit()
+    assert has_element?(ctx.view, "#queue-margin-form"), "No margin dialog for the #{side}"
+    Map.put(ctx, :port, port)
+  end
 
   defp ships(ctx), do: Map.keys(GameServer.snapshot(ctx.token, ctx.c.server).private["ships"])
 

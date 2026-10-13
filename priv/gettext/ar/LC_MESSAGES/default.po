@@ -3360,3 +3360,69 @@ msgstr "إعدادات الموسيقى"
 
 msgid "Music volume"
 msgstr "مستوى صوت الموسيقى"
+
+msgid "%{value}%"
+msgstr "%{value}٪"
+
+msgid "A margin, if allowed, is already included in this limit."
+msgstr "الهامش، إن سُمح به، مُدرج بالفعل في هذا الحد."
+
+msgid "A trade that has to wait for handling or a berth can fill at a price this much worse than the quote. Without a saved margin you are asked each time."
+msgstr "يمكن تنفيذ الصفقة التي تنتظر المناولة أو مرسى بسعر أسوأ من العرض بهذا القدر. إن لم يكن هناك هامش محفوظ، فسيُطلب منك ذلك في كل مرة."
+
+msgid "Allow a price margin?"
+msgstr "هل تسمح بهامش سعري؟"
+
+msgid "Ask me"
+msgstr "اسألني"
+
+msgid "Ask me each time"
+msgstr "اسألني في كل مرة"
+
+msgid "At least %{price} per lot of %{cargo}, %{total} in total before handling"
+msgstr "%{price} على الأقل لكل دفعة من %{cargo}، و%{total} إجمالًا قبل المناولة"
+
+msgid "Buys"
+msgstr "المشتريات"
+
+msgid "Cancel"
+msgstr "إلغاء"
+
+msgid "Choose a queued-trade margin from 0% to 10%."
+msgstr "اختر هامشًا للصفقات المنتظرة بين 0٪ و10٪."
+
+msgid "Default margin for queued buys"
+msgstr "الهامش الافتراضي للمشتريات المنتظرة"
+
+msgid "Default margin for queued sells"
+msgstr "الهامش الافتراضي للمبيعات المنتظرة"
+
+msgid "Margin"
+msgstr "الهامش"
+
+msgid "Queue trade"
+msgstr "إضافة الصفقة إلى الطابور"
+
+msgid "Queued trade margin"
+msgstr "هامش الصفقة المنتظرة"
+
+msgid "Queued-trade margin: buys %{buy} · sells %{sell}"
+msgstr "هامش الصفقات المنتظرة: المشتريات %{buy} · المبيعات %{sell}"
+
+msgid "Save"
+msgstr "حفظ"
+
+msgid "Sells"
+msgstr "المبيعات"
+
+msgid "This ship can't trade right now, so the order will wait in the queue. Prices often move a little meanwhile, and an order at exactly today's price would then sit unfilled. A margin lets it go through; you still pay (or receive) the market price when it executes."
+msgstr "لا تستطيع هذه السفينة التداول الآن، لذا سينتظر الأمر في الطابور. كثيرًا ما تتحرك الأسعار قليلًا في أثناء ذلك، فيبقى الأمر المحدد بسعر اليوم تمامًا دون تنفيذ. يتيح الهامش تنفيذه؛ وتظل تدفع (أو تتقاضى) سعر السوق عند التنفيذ."
+
+msgid "Up to %{price} per lot of %{cargo}, %{total} in total before handling"
+msgstr "حتى %{price} لكل دفعة من %{cargo}، و%{total} إجمالًا قبل المناولة"
+
+msgid "Use this margin for all future queued buys"
+msgstr "استخدم هذا الهامش لكل المشتريات المنتظرة لاحقًا"
+
+msgid "Use this margin for all future queued sells"
+msgstr "استخدم هذا الهامش لكل المبيعات المنتظرة لاحقًا"

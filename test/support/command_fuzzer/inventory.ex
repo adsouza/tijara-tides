@@ -155,7 +155,7 @@ defmodule TijaraTides.CommandFuzzer.Inventory do
     boundary = ~w(instruction cancel_instruction exchange_place exchange_amend exchange_cancel)
 
     excluded =
-      ~w(auction_consign auction_revise auction_withdraw auction_bid auction_withdraw_bid plan_destination warehouse_reserve warehouse_cancel_reservation warehouse_replace warehouse_extend warehouse_renew warehouse_auto_renew sell_ship instruction_onward invite)
+      ~w(auction_consign auction_revise auction_withdraw auction_bid auction_withdraw_bid plan_destination warehouse_reserve warehouse_cancel_reservation warehouse_replace warehouse_extend warehouse_renew warehouse_auto_renew sell_ship instruction_onward invite queue_margin)
 
     Map.new(
       Enum.map(sequence, &{&1, %{mode: :sequence, backends: [:pure, :sql]}}) ++
@@ -233,7 +233,7 @@ defmodule TijaraTides.CommandFuzzer.Inventory do
     covered = ~w(add-instruction exchange route borrow recast)
 
     excluded =
-      ~w(auction email-request guarantee repay bankruptcy warehouse company instruction-onward trade purchase-ship funding-policy rename-ship sell-ship visit-budget)
+      ~w(auction email-request guarantee repay bankruptcy warehouse company instruction-onward trade purchase-ship funding-policy rename-ship sell-ship visit-budget queue-margin-confirm queue-margin-save)
 
     Map.new(
       Enum.map(covered, &{&1, :valid_variants}) ++

@@ -80,6 +80,7 @@ defmodule TijaraTides.UseCases.GameQueries do
   @moduledoc "Authenticated snapshots and compatibility entry point for focused read-side queries."
   alias TijaraTides.Domain.{Fleet, CargoRules, Visibility}
   defdelegate compatible_cargo?(ship, item), to: CargoRules
+  defdelegate queued_limit(side, limit, margin_bps), to: TijaraTides.Domain.Trade
 
   defdelegate auction_discovery(view, grouping \\ "status", show_all_settled \\ false),
     to: TijaraTides.UseCases.AuctionQueries

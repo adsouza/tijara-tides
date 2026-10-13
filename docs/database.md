@@ -618,3 +618,13 @@ default to `none` and accept only `none`, `guards`, `insurance` or `both`.
 Existing routes and requests retain their identities, waiting age and reserved
 funds. Editing the route changes the next request's choice; a waiting request
 retains its saved choice while prices and funding are recalculated.
+
+### Queued trade margins
+
+Migration `20261013000000_add_queue_trade_margins.exs` adds nullable integer
+`queue_margin_buy_bps` and `queue_margin_sell_bps` columns to `game_accounts`,
+each checked to lie between 0 and 1,000. Null means the player is asked for a
+margin when a manual trade must queue; existing accounts start that way. The
+account codec writes both fields on every row and the row binder requires both
+keys, so an incomplete row is refused before SQL rather than clearing a saved
+default. A queued trade and a default saved with it commit in one transaction.

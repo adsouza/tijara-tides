@@ -28,6 +28,7 @@ defmodule TijaraTides.UseCases.CommandPayload do
     "warehouse_transfer" => ~w(warehouse ship good quantity side min_remaining_ms),
     "cancel_berth_trade" => ~w(ship),
     "funding_policy" => ~w(policy),
+    "queue_margin" => ~w(side margin_bps),
     "visit_budget" => ~w(ship amount stop port),
     "guarantee" => ~w(account amount),
     "sell_ship" => ~w(ship minimum),
@@ -43,8 +44,8 @@ defmodule TijaraTides.UseCases.CommandPayload do
     "purchase_ship" => ~w(class port price_limit name),
     "rename_ship" => ~w(ship name),
     "invite" => [],
-    "buy" => ~w(ship good quantity limit destination),
-    "sell" => ~w(ship good quantity limit destination),
+    "buy" => ~w(ship good quantity limit destination margin_bps save_margin),
+    "sell" => ~w(ship good quantity limit destination margin_bps save_margin),
     "sail" => ~w(ship destination fuel_limit protection protection_limit)
   }
   @route_fields %{

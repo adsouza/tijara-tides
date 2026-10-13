@@ -15,7 +15,9 @@ defmodule TijaraTides.Domain.AccountAggregateTest do
       "invite_quota" => 3,
       "operator" => false,
       "created_ms" => 0,
-      "locale" => "en"
+      "locale" => "en",
+      "queue_margin_buy_bps" => nil,
+      "queue_margin_sell_bps" => nil
     }
   end
 
@@ -138,5 +140,44 @@ defmodule TijaraTides.Domain.AccountAggregateTest do
     state = EmailIdentity.delivered(state, old)
     assert state.entities["email_requests"]["r"]["used_session"] == "device"
     assert state.entities["email_requests"]["r"]["delivery"] == "sent"
+  end
+
+  test "queued trade margin defaults are set, changed and cleared per side" do
+    a = %{"id" => "a"}
+    assert AccountWorld.queue_margin(world(), "a", "buy") == nil
+
+    {:ok, s, %{}} = AccountWorld.set_queue_margin(world(), a, "buy", 200)
+    {:ok, s, %{}} = AccountWorld.set_queue_margin(s, a, "sell", 0)
+    assert AccountWorld.queue_margin(s, "a", "buy") == 200
+    assert AccountWorld.queue_margin(s, "a", "sell") == 0
+    assert s.entities["accounts"]["a"]["queue_margin_buy_bps"] == 200
+    assert AccountWorld.queue_margin(s, "b", "buy") == nil
+
+    {:ok, s, %{}} = AccountWorld.set_queue_margin(s, a, "buy", 1_000)
+    assert AccountWorld.queue_margin(s, "a", "buy") == 1_000
+
+    {:ok, s, %{}} = AccountWorld.set_queue_margin(s, a, "buy", nil)
+    assert AccountWorld.queue_margin(s, "a", "buy") == nil
+    assert AccountWorld.queue_margin(s, "a", "sell") == 0
+  end
+
+  test "malformed queued trade margins are refused without changes" do
+    a = %{"id" => "a"}
+
+    for {side, bps} <- [
+          {"hold", 200},
+          {nil, 200},
+          {"buy", -1},
+          {"buy", 1_001},
+          {"sell", 2.0},
+          {"sell", "200"},
+          {"buy", true}
+        ] do
+      assert AccountWorld.set_queue_margin(world(), a, side, bps) ==
+               {:error, :invalid_queue_margin}
+    end
+
+    assert Account.set_queue_margin(%Account{id: "a"}, "buy", 1_001) ==
+             {:error, :invalid_queue_margin}
   end
 end

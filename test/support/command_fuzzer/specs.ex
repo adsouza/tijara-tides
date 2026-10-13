@@ -36,7 +36,9 @@ defmodule TijaraTides.CommandFuzzer.Specs do
             "good" => "lumber",
             "quantity" => 1,
             "limit" => if(op == :sell, do: 0, else: 1_000_000),
-            "destination" => "Singapore"
+            "destination" => "Singapore",
+            # A zero margin keeps the queued limit exact, as the model predicts.
+            "margin_bps" => 0
           }
 
         :cancel_berth_trade ->

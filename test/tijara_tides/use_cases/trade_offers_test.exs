@@ -59,7 +59,8 @@ defmodule TijaraTides.UseCases.TradeOffersTest do
       good: good,
       quantity: n,
       limit: limit,
-      destination: destination
+      destination: destination,
+      margin_bps: 0
     }
 
   defp validate(s, good, n),

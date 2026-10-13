@@ -27,6 +27,7 @@ defmodule TijaraTidesWeb.QueuedTradeTest do
     assert html =~ "Berths in use: 4 / 4."
     assert html =~ "Queue position: 2"
     refute html =~ "Next admission attempt in"
+    assert html =~ "A margin, if allowed, is already included in this limit."
     assert html =~ "phx-click=\"cancel-berth-trade\""
     assert html =~ "phx-value-id=\"ship\""
 

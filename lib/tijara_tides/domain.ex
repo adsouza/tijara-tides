@@ -34,6 +34,7 @@ defmodule TijaraTides.Domain do
       PortCargoMarketWorld,
       Fleet,
       Trading,
+      Trade,
       CargoRules,
       Markets,
       Visibility,

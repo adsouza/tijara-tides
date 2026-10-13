@@ -661,6 +661,7 @@ defmodule TijaraTidesWeb.GameUI.Presentation do
         ),
       route_missing: gettext("This ship has no saved repeating route."),
       funding_policy_invalid: gettext("Choose a valid departure funding policy."),
+      invalid_queue_margin: gettext("Choose a queued-trade margin from 0% to 10%."),
       visit_budget_committed:
         gettext("The budget cannot be lower than spending already committed."),
       linked_order_invalid:
