@@ -308,6 +308,25 @@ defmodule TijaraTides.Domain.WarehouseLiquidationTest do
     assert a.closes_ms - a.opens_ms == 10_000
   end
 
+  test "a larger catalogue volume never grows a liquidation beyond the lease's blocks", c do
+    # 62 lots of 1,600 L fill one 100,000 L block; at twice the volume they would need two.
+    s = lease(c, c.state, "store", "a", 1) |> stock("store", [{"lumber", 62, nil, 100}])
+    bigger = put_in(c.catalogue, ["goods", "lumber", "volume_l"], 3_200)
+
+    started_after =
+      TijaraTides.Domain.Services.WarehouseLeases.advance(%{s | clock_ms: @day}, bigger)
+
+    assert WarehouseLiquidation.pool(started_after, "store")["occupied_blocks"] == 1
+
+    started_before = advance(c, s, @day)
+    assert WarehouseLiquidation.pool(started_before, "store")["occupied_blocks"] == 1
+
+    refreshed =
+      TijaraTides.Domain.Services.LiquidationSettlement.refresh(started_before, "store", bigger)
+
+    assert WarehouseLiquidation.pool(refreshed, "store")["occupied_blocks"] == 1
+  end
+
   test "collecting all cargo during grace retains accrued rent but the proceeds cap absorbs it",
        c do
     s = lease(c, c.state, "collected", "a", 1) |> stock("collected", [{"lumber", 1, nil, 100}])

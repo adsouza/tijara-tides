@@ -27,10 +27,7 @@ defmodule TijaraTides.Domain.WarehouseLiquidationWorld do
               state,
               LiquidationPool.new(
                 w,
-                div(
-                  Warehouse.volume(w, catalogue) + Warehouse.block_litres() - 1,
-                  Warehouse.block_litres()
-                ),
+                Warehouse.occupied_blocks(w, catalogue),
                 TijaraTides.Domain.PortCargoMarket.handling_rate(catalogue["ports"][w.port])
               )
             )

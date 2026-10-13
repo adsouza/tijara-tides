@@ -8,14 +8,7 @@ defmodule TijaraTides.Domain.Services.LiquidationSettlement do
 
   def refresh(state, id, catalogue) do
     if active?(state, id) do
-      w = WarehouseWorld.fetch(state, id)
-
-      blocks =
-        div(
-          Warehouse.volume(w, catalogue) + Warehouse.block_litres() - 1,
-          Warehouse.block_litres()
-        )
-
+      blocks = Warehouse.occupied_blocks(WarehouseWorld.fetch(state, id), catalogue)
       state |> Pools.occupancy(id, blocks) |> WarehouseWorld.resize_expired(id, blocks)
     else
       state

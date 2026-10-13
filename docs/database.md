@@ -529,11 +529,13 @@ version before warehouse capacity can be safely allocated by multiple writers.
 
 `game_warehouses` snapshots the grace duration, surcharge, expedited auction
 window and clearance basis points. Expired allocations shrink with occupied
-blocks and may reach zero while committed handling finishes. Each lease ID has
-one `game_warehouse_liquidations` row, retaining original rent/blocks/duration,
-exact rent remainder, per-good clearance remainders, occupancy, unpaid charges,
-held proceeds and terminal payout or estate sink. Completed rows remain durable
-history after the warehouse is deleted.
+blocks and may reach zero while committed handling finishes. Occupancy never
+exceeds the lease's blocks, even if a good's catalogue volume later grows,
+because capacity was checked under the volumes in force when the cargo arrived.
+Each lease ID has one `game_warehouse_liquidations` row, retaining original
+rent/blocks/duration, exact rent remainder, per-good clearance remainders,
+occupancy, unpaid charges, held proceeds and terminal payout or estate sink.
+Completed rows remain durable history after the warehouse is deleted.
 
 `game_auctions.liquidation_id` links receiver listings to that pool;
 `expires_ms` supports projected freshness. Seller backing for these listings

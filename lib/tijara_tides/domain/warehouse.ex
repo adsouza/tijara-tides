@@ -58,6 +58,14 @@ defmodule TijaraTides.Domain.Warehouse do
   def volume(w, catalogue),
     do: Enum.sum(for b <- w.cargo, do: b.quantity * catalogue["goods"][b.good]["volume_l"])
 
+  @doc """
+  Whole blocks the cargo fills, never more than the warehouse holds. Capacity was
+  checked under the volumes in force when the cargo arrived, so a later, larger
+  catalogue volume cannot enlarge an expiring lease or its liquidation.
+  """
+  def occupied_blocks(w, catalogue),
+    do: min(w.blocks, div(volume(w, catalogue) + block_litres() - 1, block_litres()))
+
   def compatible?(w, item),
     do:
       (item["hold"] == w.storage or
