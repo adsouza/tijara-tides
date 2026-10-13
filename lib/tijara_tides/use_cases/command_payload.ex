@@ -89,11 +89,22 @@ defmodule TijaraTides.UseCases.CommandPayload do
       byte_size(:erlang.term_to_binary(payload)) > 4096 -> {:error, :command_payload_too_large}
       is_nil(fields) -> {:error, :unsupported_command}
       Enum.any?(Map.keys(payload), &(&1 not in fields)) -> {:error, :unknown_command_fields}
+      not bigint?(payload) -> {:error, :command_value_invalid}
       true -> :ok
     end
   end
 
   def validate(_), do: {:error, :invalid_command_payload}
+
+  # Command integers reach PostgreSQL bigint columns, and an integer beyond 64 bits
+  # raises inside the commit. No field accepts one, so refuse it at admission.
+  # Strings keep their own validators (names, emails, request ids), whose
+  # rejections name the field.
+  @bigint -9_223_372_036_854_775_808..9_223_372_036_854_775_807
+  defp bigint?(value) when is_integer(value), do: value in @bigint
+  defp bigint?(value) when is_list(value), do: Enum.all?(value, &bigint?/1)
+  defp bigint?(value) when is_map(value), do: Enum.all?(Map.values(value), &bigint?/1)
+  defp bigint?(_value), do: true
 
   defp fields(%{"action" => "route"} = payload) do
     case @route_fields[payload["operation"]] do

@@ -785,7 +785,8 @@ defmodule TijaraTides.Domain.WarehouseWorld do
          true <- owner == account["company_id"],
          true <-
            cmd["days"] == 0 or
-             (cmd["days"] in @terms and is_integer(cmd["price"]) and cmd["price"] >= 0) do
+             (cmd["days"] in @terms and is_integer(cmd["price"]) and
+                cmd["price"] in 0..1_000_000_000_000) do
       w = load(state, row)
 
       w = Warehouse.renewal_settings(w, cmd["days"], cmd["price"])

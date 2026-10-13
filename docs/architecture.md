@@ -441,6 +441,11 @@ this section and the guard in the same commit, with the reason.
   world. Validate player input in the domain with the same measure the
   constraint uses (for example code points, not graphemes), and keep invariant
   assertions that would halt a world in test-only seams.
+- Column types are constraints too. PostgreSQL `text` and `jsonb` refuse U+0000
+  and invalid UTF-8 even as a query parameter, so every client string that
+  reaches SQL passes `ClientText.storable?/1` or a validator that implies it
+  (player names, emails, command request ids). Command admission refuses any
+  integer beyond 64 bits, and each player amount also has its own domain bound.
 
 ### Persistence
 

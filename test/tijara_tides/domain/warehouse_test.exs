@@ -767,6 +767,25 @@ defmodule TijaraTides.Domain.WarehouseTest do
     assert row["renewal_rate"] == nil
   end
 
+  test "an auto-renew cap is bounded like every other player price", c do
+    state = lease(c, c.state)
+    settings = %{"warehouse" => "lease", "days" => 1}
+
+    assert {:ok, _, _} =
+             WarehouseWorld.renewal_settings(
+               state,
+               c.account,
+               Map.put(settings, "price", 1_000_000_000_000)
+             )
+
+    assert {:error, :warehouse_invalid} =
+             WarehouseWorld.renewal_settings(
+               state,
+               c.account,
+               Map.put(settings, "price", 1_000_000_000_001)
+             )
+  end
+
   test "auto-renew respects its cap and retries after insufficient cash without double payment",
        c do
     state = lease(c, c.state)

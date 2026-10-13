@@ -6491,6 +6491,86 @@ defmodule TijaraTides.Infrastructure.GamePersistenceTest do
     assert loaded.entities["ships"][id]["voyage_path"] == path
   end
 
+  test "client strings PostgreSQL cannot store are refused without pausing the world", c do
+    previous_email_enabled = Application.get_env(:tijara_tides, :email_enabled)
+    Application.put_env(:tijara_tides, :email_enabled, true)
+    on_exit(fn -> Application.put_env(:tijara_tides, :email_enabled, previous_email_enabled) end)
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    # text refuses U+0000 and invalid UTF-8 whatever the column's own checks say.
+    for email <- ["a" <> <<0>> <> "b@example.com", "a" <> <<0xFF>> <> "b@example.com"] do
+      assert {:error, :email_invalid} =
+               GameServer.email_request(nil, "login", email, "bad-email", "client", c.server)
+
+      assert GameServer.readiness(c.server) == :ready
+    end
+
+    for request <- ["nul" <> <<0>>, "bad" <> <<0xFF>>, "bidi" <> "\u202E"] do
+      assert {:error, :invalid_request} =
+               GameServer.command(token, request, %{"action" => "invite"}, c.server)
+
+      assert GameServer.readiness(c.server) == :ready
+    end
+
+    assert {:ok, _} =
+             GameServer.email_request(nil, "login", "fine@example.com", "ok", "client", c.server)
+
+    assert {:ok, _} = GameServer.command(token, "ordinary", %{"action" => "invite"}, c.server)
+  end
+
+  test "a command integer beyond bigint is refused without pausing the world", c do
+    {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
+
+    {:ok, _} =
+      TijaraTides.CompanyFixture.command(
+        token,
+        "bigint-company",
+        %{"action" => "company", "name" => "Bigint", "port" => "Jakarta", "package" => "general"},
+        c.server
+      )
+
+    game = :sys.get_state(c.server).game
+
+    price =
+      TijaraTides.Domain.Warehouse.quote(
+        TijaraTides.Domain.WarehouseWorld.used(game, "Jakarta", "dry"),
+        "dry",
+        100,
+        1
+      )
+
+    lease = %{
+      "action" => "warehouse_lease",
+      "port" => "Jakarta",
+      "storage" => "dry",
+      "blocks" => 100,
+      "days" => 1,
+      "price" => price
+    }
+
+    assert {:ok, _} = GameServer.command(token, "bigint-lease", lease, c.server)
+
+    [warehouse] =
+      Map.keys(TijaraTides.Domain.State.entities(:sys.get_state(c.server).game, "warehouses"))
+
+    renew = %{"action" => "warehouse_auto_renew", "warehouse" => warehouse, "days" => 1}
+
+    for {request, price} <- [{"huge", 10 ** 20}, {"over-cap", 1_000_000_000_001}] do
+      assert {:error, _} =
+               GameServer.command(token, request, Map.put(renew, "price", price), c.server)
+
+      assert GameServer.readiness(c.server) == :ready
+    end
+
+    assert {:ok, _} =
+             GameServer.command(
+               token,
+               "at-cap",
+               Map.put(renew, "price", 1_000_000_000_000),
+               c.server
+             )
+  end
+
   test "Unicode preset names reject before commit and preserve readiness and replay", c do
     {:ok, %{"session" => token}} = GameServer.redeem(c.code, c.server)
     schedule = %{"fresh" => 100, "good" => 80, "fair" => 50, "clearance" => 20}

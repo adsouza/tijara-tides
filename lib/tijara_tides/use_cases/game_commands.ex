@@ -56,8 +56,14 @@ defmodule TijaraTides.UseCases.GameCommands do
     end)
   end
 
+  # Client-chosen request ids key the receipt query; PostgreSQL text refuses some
+  # strings outright, and that refusal would pause the world.
+  defp request_id(id),
+    do: if(TijaraTides.Domain.ClientText.storable?(id), do: :ok, else: {:error, :invalid_request})
+
   defp run_once(game, session_hash, request, context, {store, storage}, invitation) do
     with {:ok, account} <- Authentication.required(game, session_hash, context.wall_ms),
+         :ok <- request_id(request.id),
          :ok <- CommandPayload.validate(request.payload) do
       %{hash: invite_hash, decorate: decorate} = invitation.(account["id"], request.id)
 

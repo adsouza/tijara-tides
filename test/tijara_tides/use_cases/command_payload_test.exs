@@ -29,6 +29,26 @@ defmodule TijaraTides.UseCases.CommandPayloadTest do
     end
   end
 
+  test "integers beyond bigint reject at admission, at any depth" do
+    renew = %{"action" => "warehouse_auto_renew", "warehouse" => "lease", "days" => 1}
+    assert :ok = CommandPayload.validate(Map.put(renew, "price", 9_223_372_036_854_775_807))
+
+    for bad <- [9_223_372_036_854_775_808, -9_223_372_036_854_775_809, [1, 10 ** 20]] do
+      assert {:error, :command_value_invalid} =
+               CommandPayload.validate(Map.put(renew, "price", bad))
+    end
+
+    preset = %{"action" => "markdown_preset_save", "name" => "Deep", "price_floor" => 0}
+
+    assert {:error, :command_value_invalid} =
+             CommandPayload.validate(Map.put(preset, "markdowns", %{"fresh" => 2 ** 64}))
+
+    rule = %{"action" => "route", "ship" => "company:1", "operation" => "add_rule"}
+
+    assert {:error, :command_value_invalid} =
+             CommandPayload.validate(Map.put(rule, "budget", 2 ** 64))
+  end
+
   test "fields valid for another action or route operation are still unknown" do
     for payload <- [
           %{"action" => "company", "name" => "Safe", "port" => "Jakarta"},
