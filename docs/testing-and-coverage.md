@@ -129,6 +129,13 @@ empty choice. Disabled controls are skipped because they offer no submission.
 Command telemetry must report exactly one commit, and SQL rows must match. A
 pair the domain rightly refuses must be declared with its reason; none is.
 
+The sweep suspends the background email worker while its scenarios enable email
+and replace the default game server with disposable worlds. Cleanup restores
+both application settings before resuming the worker, including when a scenario
+fails. A regression queues a poll against a terminated fixture server and proves
+it remains pending during the sweep. Email delivery tests separately exercise
+the worker's production failure logging and retries.
+
 Pressing each control in every rendering state found forms that could never
 succeed there: the add-stop port list defaulting to the loop's own first port,
 add-stop offered while next-port instructions block a route, consignment and

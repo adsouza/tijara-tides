@@ -21,7 +21,7 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
   @endpoint TijaraTidesWeb.Endpoint
   alias TijaraTides.{ControlSweep, FormFields, WebFormFixture}
   alias TijaraTides.SqlReplay, as: Sql
-  alias TijaraTides.Infrastructure.GameServer
+  alias TijaraTides.Infrastructure.{EmailDelivery, GameServer}
   alias TijaraTides.Domain.Warehouse
   alias TijaraTides.CommandFuzzer.Contracts
 
@@ -41,6 +41,62 @@ defmodule TijaraTides.Infrastructure.ControlSweepTest do
 
   setup_all do
     Sql.repo()
+  end
+
+  setup do
+    saved =
+      Map.new([:email_enabled, :game_server], &{&1, Application.fetch_env(:tijara_tides, &1)})
+
+    poller = Process.whereis(EmailDelivery)
+    :ok = :sys.suspend(poller)
+
+    # Scenario callbacks restore their overrides first. Only resume delivery once
+    # neither the email flag nor the server points at a disposed sweep world.
+    on_exit(fn ->
+      for {key, value} <- saved do
+        case value do
+          {:ok, value} -> Application.put_env(:tijara_tides, key, value)
+          :error -> Application.delete_env(:tijara_tides, key)
+        end
+      end
+
+      :ok = :sys.resume(poller)
+    end)
+
+    %{poller: poller}
+  end
+
+  test "background email polls wait until disposable-world overrides are restored", %{
+    poller: poller
+  } do
+    {server, monitor} = spawn_monitor(fn -> :ok end)
+    assert_receive {:DOWN, ^monitor, :process, ^server, :normal}
+    Application.put_env(:tijara_tides, :game_server, server)
+    Application.put_env(:tijara_tides, :email_enabled, true)
+
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        send(poller, :poll)
+
+        try do
+          # A system call still completes while suspended. If delivery is running,
+          # it processes the preceding poll against the dead server before replying.
+          :sys.get_state(poller)
+          assert {:messages, messages} = Process.info(poller, :messages)
+          assert :poll in messages
+        after
+          # Remove one injected poll so resuming does not add a recurring timer.
+          :sys.replace_state(poller, fn state ->
+            receive do
+              :poll -> state
+            after
+              0 -> state
+            end
+          end)
+        end
+      end)
+
+    refute log =~ "Email poll failed"
   end
 
   test "every rendered command control commits when submitted as rendered" do
