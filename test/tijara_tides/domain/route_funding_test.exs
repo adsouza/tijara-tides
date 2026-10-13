@@ -281,6 +281,41 @@ defmodule TijaraTides.Domain.RouteFundingTest do
              )
   end
 
+  test "claimed stock that ages below the rule's freshness is not bought again", c do
+    m = State.get(c.s, "markets", "Jakarta|lumber")
+    s = State.put(c.s, "markets", "Jakarta|lumber", %{m | "stock" => 20})
+    s = route(c, s)
+
+    s =
+      edit(c, s, "rule", "co:1", %{
+        "operation" => "add_rule",
+        "stop" => "co:1:a",
+        "side" => "buy",
+        "good" => "lumber",
+        "quantity" => 5,
+        "limit" => 1_000_000,
+        "min_remaining_ms" => 3 * 3_600_000,
+        "linked_warehouse_id" => "w"
+      })
+
+    assert State.get(s, "remote_links", "rule")["filled"] == 5
+
+    # The claimed lot now expires within the rule's minimum but has not expired,
+    # as perishable stock does while it waits in the warehouse.
+    w = State.get(s, "warehouses", "w")
+    aged = for b <- w["cargo"], do: Map.put(b, "expires_ms", s.clock_ms + 3_600_000)
+    s = State.put(s, "warehouses", "w", %{w | "cargo" => aged})
+    s = LinkedOrders.advance(s, c.cat)
+
+    held =
+      for {_, r} <- State.entities(s, "warehouse_reservations"),
+          String.starts_with?(r["id"], "linked:"),
+          do: r["quantity"]
+
+    open = for {_, o} <- State.entities(s, "exchange_orders"), do: o["quantity"]
+    assert Enum.sum(held) + Enum.sum(open) <= 5
+  end
+
   test "berth handover releases unfilled reservations exactly once without buying cargo", c do
     s = link(c, c.s)
     before = cash(s)

@@ -558,7 +558,10 @@ and visit identity. `game_departure_requests` retains original waiting age,
 policy and requirement, accumulated cash, fixed deadline and retry cooldown.
 A partial unique index permits only one active accumulation window per company.
 These rows are private projections and commit with their orders, claims, ledger
-postings and voyage. Receipt replay cannot reserve the same cash twice.
+postings and voyage. Receipt replay cannot reserve the same cash twice. Claimed
+stock keeps covering a linked target after it ages below the rule's freshness
+minimum, so claims plus the open order never exceed the target, and a claim
+stays within the reservation table's 10,000-lot limit.
 
 The financial verifier requires cash backing for remaining sailing fuel,
 standing orders, bids, liquidation proceeds, visit budgets and departure

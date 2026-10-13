@@ -178,8 +178,10 @@ defmodule TijaraTides.Domain.Services.LinkedOrders do
         |> Enum.sum()
 
       # Completed demand is never replenished merely because its cargo aged or disappeared.
+      # Claimed stock still covers the target after it ages below the rule's freshness,
+      # so held stock and the open order never exceed the target (or a claim's limit).
       lost = max(0, if(link, do: link["filled"], else: 0) - held)
-      demand = max(0, target - owned - lost)
+      demand = max(0, target - max(owned, min(held, target)) - lost)
       order = link && OrderBookWorld.fetch(state, link["order_id"])
 
       cond do
