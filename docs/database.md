@@ -393,6 +393,10 @@ single-use credential. Lost-response retries on the same device are idempotent.
 Requests are limited per requester and email. Credentials are stored as hashes;
 a durable outbox retries delivery with exponential backoff, stopping after eight
 failures. Delivery is at least once, so a rare retry may resend the same link.
+Addresses are trimmed and lowercased in Elixir and stored under a check that
+they equal PostgreSQL `lower()`. Assigned letters agree under both libc and ICU,
+but macOS libc lowers the unassigned U+038D, so normalization refuses unassigned
+code points along with control and format characters.
 
 The account menu hides Sponsor guarantees unless there is an active guarantee,
 an outstanding sponsor pledge, or an invitee awaiting sponsorship. Loan-rate

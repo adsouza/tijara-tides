@@ -13,6 +13,16 @@ defmodule TijaraTides.Domain.EmailIdentityTest do
   defp context(id, wall \\ 100),
     do: %{id: id, hash: id <> "-hash", requester: "requester", wall_ms: wall}
 
+  test "normalized addresses stay fixed under PostgreSQL lower()" do
+    alias TijaraTides.Domain.Account.EmailIdentity, as: Address
+    # game_accounts checks email = lower(email). Assigned letters lowercase the
+    # same way in Elixir and PostgreSQL, but a C library may map an unassigned
+    # code point (macOS libc lowers U+038D to U+03CD), so those are refused.
+    assert {:ok, "ελένη@example.com"} = Address.normalize("ΕΛΈΝΗ@Example.com")
+    assert {:error, :email_invalid} = Address.normalize("a\u038Db@example.com")
+    assert {:error, :email_invalid} = Address.normalize("a\u0378b@example.com")
+  end
+
   test "link requires possession, normalizes email, and permits same-device retry only", c do
     {:ok, state, result} =
       EmailIdentity.request(c.state, c.account, "link", " Player@Example.com ", context("link"))
