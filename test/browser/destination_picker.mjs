@@ -1,5 +1,5 @@
 import {chromium} from '@playwright/test'
-import {readFile} from 'node:fs/promises'
+import {readFile, mkdir} from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import {traceRecorder} from './support/trace.mjs'
 
@@ -36,6 +36,26 @@ try {
   await page.locator('#destination-matrix[aria-busy=false]').waitFor()
   await page.locator('#interaction-busy').waitFor({state: 'hidden'})
   assert.ok(await page.locator('#destination-matrix .opportunity-disc').count() > 0)
+  const labels = page.locator('#destination-cargo-labels')
+  assert.ok(await labels.isChecked())
+  const labelledWidth = await page.locator('#destination-matrix').evaluate(el => el.offsetWidth)
+  await mkdir('cover/browser-contracts', {recursive: true})
+  await page.screenshot({path: 'cover/browser-contracts/destination-picker-labels.png'})
+  await labels.uncheck()
+  await page.locator('#destination-matrix.destination-matrix-icons').waitFor()
+  assert.equal(await page.locator('.destination-cargo-label').count(), 0)
+  const compactWidth = await page.locator('#destination-matrix').evaluate(el => el.offsetWidth)
+  assert.ok(compactWidth < labelledWidth, JSON.stringify({labelledWidth, compactWidth}))
+  const heading = page.locator('.destination-cargo-heading').first()
+  const cargoName = await heading.getAttribute('aria-label')
+  assert.ok(cargoName)
+  assert.equal(await heading.getAttribute('title'), cargoName)
+  await heading.hover()
+  assert.ok(await heading.locator('.opportunity-tooltip').isVisible())
+  await page.screenshot({path: 'cover/browser-contracts/destination-picker-icons.png'})
+  await page.locator('#destination-picker-title').hover()
+  await heading.focus()
+  assert.ok(await heading.locator('.opportunity-tooltip').isVisible())
   await page.evaluate(() => {
     window.pickerObservations.ready = true
     window.pickerTable = document.getElementById('destination-matrix')
@@ -65,7 +85,20 @@ try {
     assert.equal(state.busyOverlays, 0, JSON.stringify(state))
     assert.ok(state.sameTable && state.sameRows && state.sameFocus, JSON.stringify(state))
     assert.deepEqual(state.position, state.expectedPosition)
+    assert.equal(await labels.isChecked(), false)
+    assert.equal(await page.locator('.destination-cargo-label').count(), 0)
   }
+  await labels.check()
+  await page.locator('#destination-matrix:not(.destination-matrix-icons)').waitFor()
+  assert.ok(await page.locator('.destination-cargo-label').count() > 0)
+  assert.equal(await page.locator('#destination-matrix').evaluate(el => el.offsetWidth), labelledWidth)
+  await labels.uncheck()
+  await page.locator('#destination-matrix.destination-matrix-icons').waitFor()
+  await page.locator('#destination-picker button[phx-click=destination-picker-close]').click()
+  await page.locator('#destination-picker').waitFor({state: 'detached'})
+  await page.locator('#destination-picker-trigger').click()
+  await page.locator('#destination-matrix.destination-matrix-icons').waitFor()
+  assert.equal(await labels.isChecked(), false)
   await page.locator('#destination-matrix button[phx-click=preview]').first().click()
   await page.locator('#destination-picker').waitFor({state: 'detached'})
   await trace.close(context)

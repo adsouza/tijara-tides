@@ -262,6 +262,12 @@ best ROI in each direction (missing directions contribute zero), then sea
 distance. The popup supports Escape, explicit dismissal, keyboard focus
 containment, Arabic labels and RTL layout.
 
+The popup's Show cargo column labels checkbox starts checked. Unchecking it
+shows only cargo icons, removes the cargo headers' minimum widths and reduces
+cell padding so the grid uses less horizontal space. Localized cargo names
+remain available to screen readers and in hover/focus tooltips. The choice
+survives live estimate updates and reopening the popup in the same LiveView.
+
 The planner's quantity search checks the shared domain voyage-funding requirement
 without calculating sales, unloading or profit for each trial quantity. Complete
 profit evaluation still selects purchases and ranks the final plans. Identical

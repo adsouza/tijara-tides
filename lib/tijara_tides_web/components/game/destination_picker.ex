@@ -11,6 +11,7 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
   attr :matrix, :any, default: nil
   attr :error, :boolean, default: false
   attr :updating, :boolean, default: false
+  attr :cargo_labels, :boolean, default: true
 
   def panel(assigns) do
     assigns =
@@ -68,6 +69,24 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
               class="rounded border px-3 py-1"
             >{gettext("Close")}</button>
           </div>
+          <form
+            id="destination-cargo-labels-form"
+            phx-change="destination-cargo-labels"
+            class="mt-3 text-sm"
+          >
+            <label class="flex items-center gap-2">
+              <input type="hidden" name="labels" value="false" />
+              <input
+                id="destination-cargo-labels"
+                type="checkbox"
+                name="labels"
+                value="true"
+                checked={@cargo_labels}
+                aria-controls="destination-matrix"
+              />
+              {gettext("Show cargo column labels")}
+            </label>
+          </form>
           <details
             id="destination-picker-about"
             phx-mounted={JS.ignore_attributes(["open"])}
@@ -107,7 +126,10 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
           <div class="destination-matrix-scroll">
             <table
               id="destination-matrix"
-              class="destination-matrix text-sm"
+              class={[
+                "destination-matrix text-sm",
+                !@cargo_labels && "destination-matrix-icons"
+              ]}
               aria-busy={to_string(@loading || @updating)}
             >
               <thead>
@@ -117,8 +139,27 @@ defmodule TijaraTidesWeb.GameUI.DestinationPicker do
                   </th>
                   <th scope="col"><.emoji symbol="💰" />{gettext("Estimated net profit")}</th>
                   <th scope="col"><.emoji symbol="📏" />{gettext("Distance (nm)")}</th>
-                  <th :for={{id, good} <- @matrix.goods} id={"destination-cargo-" <> id} scope="col">
-                    <.cargo_label good={id} name={l10n(good["name"])} />
+                  <th
+                    :for={{id, good} <- @matrix.goods}
+                    id={"destination-cargo-" <> id}
+                    scope="col"
+                    class="destination-cargo"
+                    aria-label={l10n(good["name"])}
+                  >
+                    <span
+                      class="destination-cargo-heading"
+                      tabindex={if !@cargo_labels, do: "0"}
+                      aria-label={if !@cargo_labels, do: l10n(good["name"])}
+                      title={if !@cargo_labels, do: l10n(good["name"])}
+                    >
+                      <span :if={@cargo_labels} class="destination-cargo-label">
+                        <.cargo_label good={id} name={l10n(good["name"])} />
+                      </span>
+                      <.emoji :if={!@cargo_labels} symbol={cargo_emoji(id)} />
+                      <span :if={!@cargo_labels} class="opportunity-tooltip" aria-hidden="true">
+                        {l10n(good["name"])}
+                      </span>
+                    </span>
                   </th>
                 </tr>
               </thead>

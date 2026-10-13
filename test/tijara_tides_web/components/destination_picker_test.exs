@@ -676,6 +676,7 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
       assert html =~ ~s(phx-click="preview")
       assert html =~ ~s(phx-value-destination="Colombo")
       assert html =~ ~s(phx-key="Escape")
+      assert LazyHTML.query(tree, "#destination-cargo-labels[checked]") |> Enum.count() == 1
 
       assert LazyHTML.query(tree, ".outbound circle") |> LazyHTML.to_html() =~
                ~s(fill="currentColor")
@@ -685,7 +686,39 @@ defmodule TijaraTidesWeb.DestinationPickerTest do
       if locale == "ar" do
         assert html =~ "كولومبو"
         assert html =~ "فرص التجارة"
+        assert html =~ "إظهار أسماء أعمدة البضائع"
         refute LazyHTML.text(tree) =~ "Outbound"
+      end
+    end
+  end
+
+  test "icon-only headers expose localized cargo names for hover and keyboard focus" do
+    {definitions, view, ship} = fixture()
+
+    for locale <- ["en", "ar"] do
+      tree =
+        Localization.with_locale(locale, fn ->
+          render_picker(
+            definitions: definitions,
+            view: view,
+            ship: ship,
+            cargo_labels: false
+          )
+        end)
+        |> LazyHTML.from_fragment()
+
+      assert LazyHTML.query(tree, "#destination-cargo-labels[checked]") |> Enum.empty?()
+      assert LazyHTML.query(tree, ".destination-cargo-label") |> Enum.empty?()
+      assert LazyHTML.query(tree, ".destination-matrix-icons") |> Enum.count() == 1
+
+      for {id, name} <- [{"a", "Lumber"}, {"b", "Grain"}] do
+        label = Localization.with_locale(locale, fn -> Localization.text(name) end)
+        header = LazyHTML.query(tree, "#destination-cargo-#{id}")
+        heading = LazyHTML.query(header, ".destination-cargo-heading[tabindex='0']")
+        assert LazyHTML.attribute(header, "aria-label") == [label]
+        assert LazyHTML.attribute(heading, "aria-label") == [label]
+        assert LazyHTML.attribute(heading, "title") == [label]
+        assert LazyHTML.query(heading, ".opportunity-tooltip") |> LazyHTML.text() =~ label
       end
     end
   end

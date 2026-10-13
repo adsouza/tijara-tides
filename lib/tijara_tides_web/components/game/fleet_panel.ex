@@ -31,6 +31,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
   attr :definitions, :any, required: true
   attr :first_ship_port_selected, :boolean, default: false
   attr :destination_picker_open, :boolean, default: false
+  attr :destination_cargo_labels, :boolean, default: true
   attr :destination_matrix, :any, default: nil
   attr :destination_matrix_running, :boolean, default: false
   attr :destination_matrix_error, :boolean, default: false
@@ -697,6 +698,7 @@ defmodule TijaraTidesWeb.GameUI.FleetPanel do
               view={@view}
               ship={@ship}
               destination={@destination}
+              cargo_labels={@destination_cargo_labels}
               matrix={@destination_matrix}
               error={@destination_matrix_error}
               updating={@destination_matrix_running}

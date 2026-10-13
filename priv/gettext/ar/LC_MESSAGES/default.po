@@ -3426,3 +3426,6 @@ msgstr "استخدم هذا الهامش لكل المشتريات المنتظ�
 
 msgid "Use this margin for all future queued sells"
 msgstr "استخدم هذا الهامش لكل المبيعات المنتظرة لاحقًا"
+
+msgid "Show cargo column labels"
+msgstr "إظهار أسماء أعمدة البضائع"

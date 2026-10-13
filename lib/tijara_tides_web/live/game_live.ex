@@ -39,6 +39,7 @@ defmodule TijaraTidesWeb.GameLive do
         exchange_good: nil,
         route_drafts: %{},
         destination_picker_open: false,
+        destination_cargo_labels: true,
         queue_margin_prompt: nil,
         destination_matrix_cache: nil,
         destination_matrix: nil,
@@ -1036,6 +1037,9 @@ defmodule TijaraTidesWeb.GameLive do
     do:
       {:noreply, socket |> assign(destination_picker_open: false) |> cancel_destination_matrix()}
 
+  def handle_event("destination-cargo-labels", %{"labels" => labels}, socket),
+    do: {:noreply, assign(socket, destination_cargo_labels: labels == "true")}
+
   def handle_event("preview", %{"destination" => dest}, socket) do
     preview = Game.preview(socket.assigns.token, socket.assigns.selected_ship, dest)
 
@@ -1864,6 +1868,7 @@ defmodule TijaraTidesWeb.GameLive do
               <TijaraTidesWeb.GameUI.FleetPanel.panel
                 first_ship_port_selected={@first_ship_port_selected}
                 destination_picker_open={@destination_picker_open}
+                destination_cargo_labels={@destination_cargo_labels}
                 destination_matrix={@destination_matrix}
                 destination_matrix_error={@destination_matrix_error}
                 destination_matrix_running={@destination_matrix_running}
