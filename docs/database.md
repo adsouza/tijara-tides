@@ -38,6 +38,11 @@ query projections, consistency and module responsibilities.
   catch-up. An authenticated connection starts progression; it continues while
   the server stays awake, including after disconnect. Static catalogue and map
   definitions are versioned source assets, not repeated database writes.
+- The `game_ports`, `game_cargo_types` and `game_ship_classes` reference rows
+  come from migrations, while game rules validate ids against the catalogue. A
+  new catalogue port, good or hull class therefore needs a migration that seeds
+  its row; otherwise its first use fails a foreign key at commit and pauses the
+  world. `reference_tables_test.exs` checks every catalogue id has its row.
 - Public views contain company names, ships, positions, and routes. Each port
   shows its present ships grouped by status, company or class, with expandable
   ship lists; ships at sea do not count toward either endpoint. Only an
