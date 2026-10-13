@@ -500,9 +500,18 @@ defmodule TijaraTides.Domain.CompanyFinance do
         remaining: loan.remaining - principal
     }
 
+    # A recast can leave so little principal that it is billed before the last
+    # scheduled period. Its schedule ends with the principal, so interest accrued
+    # since that bill is billed at once, and the loan is repaid only when nothing
+    # is due or accruing.
     loan = %{
       loan
-      | status: if(loan.remaining == 0 and loan.interest_due == 0, do: "repaid", else: "open"),
+      | periods_left: if(loan.remaining == 0, do: 0, else: loan.periods_left),
+        status:
+          if(loan.remaining + loan.interest_due + loan.interest_accrued == 0,
+            do: "repaid",
+            else: "open"
+          ),
         overdue_ms: if(loan.principal_due + loan.interest_due > 0, do: loan.overdue_ms)
     }
 

@@ -2647,8 +2647,11 @@ early repayment pays principal plus all interest accrued through that moment.
 The full repayment action appears only when unreserved cash covers that amount.
 A partial recast payment covers accrued interest first, then reduces principal.
 The remaining principal is redistributed over the remaining original payment dates;
-the interest rate and final payoff date stay unchanged. Future interest accrues
-on the smaller balance, with no recast fee. Recasting requires cleared overdue
+the interest rate and final payoff date stay unchanged. When only a few cents
+remain, rounded-up installments can clear the principal before the last date;
+the schedule then ends with that payment, interest accrued since it is billed at
+once, and the loan closes when that is paid. Future interest accrues on the
+smaller balance, with no recast fee. Recasting requires cleared overdue
 bills and at least one scheduled payment remaining. Each recast reduces principal
 by at least $1. Its linked slider and numeric field are capped at the lesser of
 outstanding principal plus accrued interest and unreserved cash. The slider uses

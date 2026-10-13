@@ -149,6 +149,51 @@ defmodule TijaraTides.Domain.FinanceTest do
     assert final.entities["loans"]["loan"]["remaining"] == 0
   end
 
+  test "a recast whose principal runs out early still bills interest before repayment", c do
+    period = CompanyFinance.terms().period_ms
+    {:ok, state, _} = loan(c)
+    state = tick(state, div(period, 2))
+    loan = state.entities["loans"]["loan"]
+    # Leave 9 cents over 4 periods: installments of 3 exhaust principal after 3 bills.
+    amount = loan["remaining"] + loan["interest_accrued"] - 9
+    {:ok, state, %{"installment" => 3}} = Credit.recast(state, c.account, "loan", amount)
+    state = tick(state, period) |> tick(2 * period)
+    assert state.entities["loans"]["loan"]["remaining"] == 3
+
+    # The third bill falls due while no cash is free, and is paid hours later. The
+    # carried rounding credit can be anywhere in (-period * 10_000, 0]; at zero, any
+    # interest accrued while the bill waits rounds up to a cent.
+    company = state.entities["companies"]["company"]
+    broke = TijaraTides.Domain.State.put(state, "companies", "company", %{company | "cash" => 0})
+    state = tick(broke, 3 * period)
+    assert state.entities["loans"]["loan"]["principal_due"] == 3
+    loan = %{state.entities["loans"]["loan"] | "interest_remainder" => 0}
+
+    state =
+      TijaraTides.Domain.State.put(state, "loans", "loan", loan)
+      |> tick(3 * period + 6 * 3_600_000)
+
+    state =
+      TijaraTides.Domain.State.put(state, "companies", "company", %{
+        state.entities["companies"]["company"]
+        | "cash" => company["cash"]
+      })
+
+    state = tick(state, 3 * period + 6 * 3_600_000 + 1)
+    paid = state.entities["loans"]["loan"]
+    assert paid["remaining"] == 0
+    refute paid["status"] == "repaid" and paid["interest_accrued"] > 0
+
+    final = tick(state, 5 * period)
+    loan = final.entities["loans"]["loan"]
+    assert {loan["status"], loan["interest_accrued"], loan["interest_due"]} == {"repaid", 0, 0}
+
+    refute Enum.any?(
+             Map.values(final.entities["installments"] || %{}),
+             &(&1["loan_id"] == "loan")
+           )
+  end
+
   test "recasts reject invalid amounts, protected cash, other owners and overdue loans", c do
     {:ok, state, _} = loan(c)
 

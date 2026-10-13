@@ -37,8 +37,18 @@ defmodule TijaraTides.SettledCheck do
         links(state) ++
         budgets(state, catalogue) ++
         handling(state) ++
-        operator_dormancy(state) ++ piracy_indices(state)
+        operator_dormancy(state) ++ piracy_indices(state) ++ closed_loans(state)
     )
+  end
+
+  # Mirrors game_loans_check2 and check5: a loan leaves "open" only after its
+  # principal and every cent of due or accruing interest has been settled.
+  defp closed_loans(state) do
+    for loan <- rows(state, "loans"),
+        loan["status"] != "open",
+        loan["remaining"] + loan["principal_due"] + loan["interest_due"] +
+          loan["interest_accrued"] > 0,
+        do: {:loan, :closed_with_balance, loan["id"]}
   end
 
   defp protection_requests(before, state) do
