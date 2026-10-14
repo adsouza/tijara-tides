@@ -73,14 +73,20 @@ defmodule TijaraTides.SettledCheck do
         do: batch["lot_id"]
   end
 
-  # game_notices.arguments is jsonb, which refuses U+0000 and anything Jason
-  # cannot encode.
+  # game_notices.arguments is jsonb, which refuses the \u0000 escape and anything
+  # Jason cannot encode. The escape counts only after an even run of backslashes;
+  # otherwise its backslash is itself escaped text.
   defp notices(state) do
     for {id, row} <- ReadState.entities(state, "notices"),
-        payload = Map.take(row, ["arguments", "text"]),
-        not match?({:ok, json} when is_binary(json), Jason.encode(payload)) or
-          Jason.encode!(payload) =~ "\\u0000",
+        not storable_json?(Map.take(row, ["arguments", "text"])),
         do: {:notice, :unstorable, id}
+  end
+
+  defp storable_json?(payload) do
+    case Jason.encode(payload) do
+      {:ok, json} -> not Regex.match?(~r/(?<!\\)(?:\\\\)*\\u0000/, json)
+      {:error, _} -> false
+    end
   end
 
   # Mirrors game_loans_check2 and check5: a loan leaves "open" only after its

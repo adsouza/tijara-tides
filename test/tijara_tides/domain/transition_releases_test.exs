@@ -262,4 +262,26 @@ defmodule TijaraTides.Domain.TransitionReleasesTest do
              inspect(reason)
     end
   end
+
+  # jsonb refuses the \u0000 escape, not the text "\u0000": an escaped backslash
+  # before u0000 is storable, while a NUL after a backslash is not.
+  test "the oracle tells a NUL escape from escaped backslash text", %{s: s, cat: cat} do
+    notice = fn name ->
+      State.put(s, "notices", "n", %{
+        "account_id" => "a",
+        "code" => "x",
+        "arguments" => %{"name" => name},
+        "clock_ms" => 0
+      })
+    end
+
+    for name <- ["a\\u0000", "\\\\u0000", "\\\\\\u0000"] do
+      assert SettledCheck.violations(notice.(name), cat) == [], inspect(name)
+    end
+
+    for name <- ["\\" <> <<0>>, "\\\\" <> <<0>>, <<0>> <> "\\u0000"] do
+      assert {:notice, :unstorable, "n"} in SettledCheck.violations(notice.(name), cat),
+             inspect(name)
+    end
+  end
 end
