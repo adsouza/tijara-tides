@@ -364,7 +364,9 @@ rejection of invalid freshness terms.
 `TijaraTides.OwnLog` captures plain-text log entries from the calling process,
 including multi-line failures, while excluding concurrent processes. Its
 regression test forces the default formatter's colours on so terminal ANSI
-settings cannot change assertions or break the pre-push checks.
+settings cannot change assertions or break the pre-push checks. Music boot-log
+assertions use this helper and inject a warning from another process, proving
+that unrelated async log traffic cannot change silence or exact-count checks.
 
 The trading UI delivery fixture advances to each revised arrival time until all
 ships dock, with a ten-tick bound and readiness checks. It does not assume that

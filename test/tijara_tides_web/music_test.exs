@@ -1,6 +1,7 @@
 defmodule TijaraTidesWeb.MusicTest do
   use ExUnit.Case, async: true
-  import ExUnit.CaptureLog
+  require Logger
+  alias TijaraTides.OwnLog
   alias TijaraTidesWeb.Music
 
   @recipe %{"strategy" => "whole-recording", "fade_in_s" => 2}
@@ -232,13 +233,25 @@ defmodule TijaraTidesWeb.MusicTest do
     pending = update_in(approvals()["tracks"], &Map.delete(&1, "p"))
     disabled = Music.evaluate(manifest(), pending, dir, enabled: false)
     assert {:unavailable, [_, _ | _]} = disabled
-    assert capture_log(fn -> Music.log_status(disabled) end) == ""
+
+    capture = fn status ->
+      OwnLog.capture(fn ->
+        # Reproduce the log noise that concurrent async tests can emit.
+        Task.async(fn -> Logger.warning("unrelated concurrent warning") end) |> Task.await()
+        Music.log_status(status)
+      end)
+    end
+
+    assert capture.(disabled) == []
 
     enabled = Music.evaluate(manifest(), pending, dir, enabled: true)
-    log = capture_log(fn -> Music.log_status(enabled) end)
     {:unavailable, reasons} = enabled
-    assert log =~ "Background music is unavailable: " <> Enum.join(reasons, "; ")
-    assert capture_log(fn -> Music.log_status(:available) end) == ""
+
+    assert capture.(enabled) == [
+             "Background music is unavailable: " <> Enum.join(reasons, "; ") <> "\n"
+           ]
+
+    assert capture.(:available) == []
   end
 
   test "audition skips approvals but not the flag or the audio check", %{directory: dir} do
