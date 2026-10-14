@@ -54,77 +54,79 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
       >
         <% viewport = WorldMap.viewport(@definitions.catalogue, @map_region) %>
         <% piracy = GameQueries.piracy_zones(@view.public, @definitions.catalogue) %>
-        <div class="map-toolbar px-3 py-2">
-          <button
-            id="map-expand"
-            type="button"
-            data-map-expand
-            aria-expanded="false"
-            aria-controls="map-panel"
-            class="map-expand rounded border border-slate-600 px-3 py-1 text-xs"
-          >
-            <span class="map-expand-label">{gettext("Expand map ⛶")}</span>
-            <span class="map-restore-label">{gettext("Restore main screen ↙")}</span>
-          </button>
-          <button
-            id="map-filter-toggle"
-            phx-click="toggle-map-filters"
-            aria-expanded={to_string(@map_filters_open)}
-            aria-controls="map-filters"
-            class="rounded border border-slate-600 px-3 py-1 text-xs"
-          >
-            {gettext("Ship filters %{arrow}", arrow: if(@map_filters_open, do: "▴", else: "▾"))}
-          </button>
-          <form
-            :if={@map_filters_open}
-            id="map-filters"
-            phx-change="map-filters"
-            class="mt-2 rounded border border-slate-600 bg-slate-900 p-3 text-xs"
-          >
-            <fieldset>
-              <legend class="mb-2 text-slate-400">{gettext("Ship types")}</legend>
-              <input type="hidden" name="classes[]" value="" />
-              <div class="grid grid-cols-2 gap-2">
-                <label
-                  :for={
-                    {id, ship_class} <-
-                      Enum.sort_by(@definitions.classes, fn {_, c} -> c["name"] end)
-                  }
-                  class="flex items-center gap-2"
-                >
-                  <input
-                    type="checkbox"
-                    name="classes[]"
-                    value={id}
-                    checked={MapSet.member?(@map_ship_classes, id)}
-                  />
-                  {l10n(ship_class["name"])}
-                </label>
-              </div>
-            </fieldset>
-            <label
-              :if={@view.private}
-              class="mt-3 flex items-center gap-2 border-t border-slate-700 pt-2"
+        <div class="map-controls">
+          <div class="map-toolbar px-3 py-2">
+            <button
+              id="map-expand"
+              type="button"
+              data-map-expand
+              aria-expanded="false"
+              aria-controls="map-panel"
+              class="map-expand rounded border border-slate-600 px-3 py-1 text-xs"
             >
-              <input type="hidden" name="show_others" value="false" />
-              <input
-                type="checkbox"
-                name="show_others"
-                value="true"
-                checked={@map_show_others}
-              />
-              {gettext("Show other companies’ ships")}
-            </label>
-          </form>
-        </div>
-        <div
-          :if={@map_region}
-          class="map-region-heading flex items-center justify-between px-4 py-3"
-        >
-          <h2 class="text-lg">{l10n(@map_region)}</h2>
-          <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2"><.emoji symbol="🌐" />{gettext(
-            "World view"
-          )}</button>
+              <span class="map-expand-label">{gettext("Expand map ⛶")}</span>
+              <span class="map-restore-label">{gettext("Restore main screen ↙")}</span>
+            </button>
+            <button
+              id="map-filter-toggle"
+              phx-click="toggle-map-filters"
+              aria-expanded={to_string(@map_filters_open)}
+              aria-controls="map-filters"
+              class="rounded border border-slate-600 px-3 py-1 text-xs"
+            >
+              {gettext("Ship filters %{arrow}", arrow: if(@map_filters_open, do: "▴", else: "▾"))}
+            </button>
+            <form
+              :if={@map_filters_open}
+              id="map-filters"
+              phx-change="map-filters"
+              class="mt-2 rounded border border-slate-600 bg-slate-900 p-3 text-xs"
+            >
+              <fieldset>
+                <legend class="mb-2 text-slate-400">{gettext("Ship types")}</legend>
+                <input type="hidden" name="classes[]" value="" />
+                <div class="grid grid-cols-2 gap-2">
+                  <label
+                    :for={
+                      {id, ship_class} <-
+                        Enum.sort_by(@definitions.classes, fn {_, c} -> c["name"] end)
+                    }
+                    class="flex items-center gap-2"
+                  >
+                    <input
+                      type="checkbox"
+                      name="classes[]"
+                      value={id}
+                      checked={MapSet.member?(@map_ship_classes, id)}
+                    />
+                    {l10n(ship_class["name"])}
+                  </label>
+                </div>
+              </fieldset>
+              <label
+                :if={@view.private}
+                class="mt-3 flex items-center gap-2 border-t border-slate-700 pt-2"
+              >
+                <input type="hidden" name="show_others" value="false" />
+                <input
+                  type="checkbox"
+                  name="show_others"
+                  value="true"
+                  checked={@map_show_others}
+                />
+                {gettext("Show other companies’ ships")}
+              </label>
+            </form>
+          </div>
+          <div
+            :if={@map_region}
+            class="map-region-heading flex items-center justify-between px-4 py-3"
+          >
+            <h2 class="text-lg">{l10n(@map_region)}</h2>
+            <button phx-click="map-world" class="rounded border border-teal-700 px-3 py-2"><.emoji symbol="🌐" />{gettext(
+              "World view"
+            )}</button>
+          </div>
         </div>
         <div class="map-stage" style={"--cargo-rows: #{max(div(length(@strip_options) + 1, 2), 1)}"}>
           <.cargo_strip
@@ -162,6 +164,7 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
                 </title>
               </polygon>
               <% [x, y] = WorldMap.project(zone.label) %>
+              <% label_position = WorldMap.zone_label_position(zone.id) %>
               <text
                 data-zone-mark
                 x={x}
@@ -176,8 +179,8 @@ defmodule TijaraTidesWeb.GameUI.MapPanel do
               </text>
               <text
                 data-zone-label
-                x={x}
-                y={y + 13 * viewport.scale}
+                x={x + label_position.dx * viewport.scale}
+                y={y + label_position.dy * viewport.scale}
                 text-anchor="middle"
                 dominant-baseline="central"
                 font-size={9 * viewport.scale}

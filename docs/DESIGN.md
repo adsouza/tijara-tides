@@ -650,7 +650,10 @@ port markers, and survive live updates and regional navigation.
 
 In landscape mode, Expand map fills the UI with the map; Restore main screen
 or Escape restores the original three-panel layout and selections. Switching
-to portrait restores the compact layout.
+to portrait restores the compact layout. In an expanded regional view, World
+view sits beside Restore main screen, and the region name sits beside Ship
+filters in the same row above the cargo strips. The strips scroll within the
+available map height when the screen is too short to fit every icon.
 
 In a compact regional view, the map is square with controls and all regional
 port buttons beside it, visible without scrolling. Compact port buttons show

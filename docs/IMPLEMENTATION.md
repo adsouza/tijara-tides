@@ -1321,10 +1321,14 @@ seed: 25% (Red Sea 40%) for a 3-hour campaign announced 30 minutes ahead,
 quadrupling the zone's published chance per crossing while it runs.
 `PiracyWorld` keeps a durable public projection of announced and running
 campaigns in migration `20261008000000_add_piracy_campaigns.exs`, refreshed
-each tick after weather and at initialization. The map shades zones normal,
-elevated (announced) or campaign, marks each with its kind's emoji, gives the
-current chance on hover, and lists announced and running campaigns with
-countdowns in English and Arabic.
+each tick after weather and at initialization. The expanded map shows every
+zone's outline, shading, kind emoji and name, with normal, elevated (announced)
+and active campaign styling. The compact map hides zone names and shows outlines,
+shading and kind emoji only for active campaigns. Visible zones give the current
+chance on hover; announced and running campaigns remain listed with countdowns
+in English and Arabic. Malacca Strait’s name sits left of its zone icon, and
+South China Sea’s name sits lower, keeping both clear of nearby port markers.
+These presentation offsets leave zone geometry and icon anchors intact.
 
 Phase 2 adds deterministic attacks on each zone crossing, with voyage-snapshotted
 parameters and private rolls. Small-boat attacks are suppressed by storms between

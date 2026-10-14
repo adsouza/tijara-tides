@@ -68,6 +68,11 @@ defmodule TijaraTidesWeb.WorldMap do
   def label_position("Abu Dhabi"), do: %{dx: -11, dy: 18, anchor: "end"}
   def label_position(_name), do: %{dx: 11, dy: 4, anchor: "start"}
 
+  # Keep zone names clear of the nearby Singapore and Ho Chi Minh City markers.
+  def zone_label_position("malacca"), do: %{dx: -30, dy: 13}
+  def zone_label_position("south_china_sea"), do: %{dx: 0, dy: 25}
+  def zone_label_position(_id), do: %{dx: 0, dy: 13}
+
   def normalize([lon, lat]), do: [lon - 360 * :math.floor((lon + 180) / 360), lat]
 
   def segments(coords) do
